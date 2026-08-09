@@ -65,6 +65,19 @@ test('إنشاء الطلب: يحسب السعر والمسافة ويبدأ pen
   assert.ok(order.distanceKm > 0, 'المسافة تُحسب في الخادم');
 });
 
+test('منع التكرار: نفس Idempotency-Key يعيد الطلب ذاته', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const user = await makeUser();
+  const key = 'dup-key-123';
+
+  const first = await orderService.createOrder(user._id, orderPayload(), key);
+  const second = await orderService.createOrder(user._id, orderPayload(), key);
+
+  assert.equal(String(first._id), String(second._id), 'لم يُنشأ طلب ثانٍ');
+  const count = await require('../../src/models/Order').countDocuments({ user: user._id });
+  assert.equal(count, 1);
+});
+
 test('الإسناد اليدوي: يربط الكابتن ويجعله busy', async (t) => {
   if (!state.dbReady) return t.skip('لا قاعدة بيانات');
   const [user, captain] = [await makeUser(), await makeCaptain()];

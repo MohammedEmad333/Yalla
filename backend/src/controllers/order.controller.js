@@ -22,10 +22,11 @@ async function getQuote(req, res, next) {
   }
 }
 
-// المستخدم ينشئ طلبًا جديدًا
+// المستخدم ينشئ طلبًا جديدًا (يدعم ترويسة Idempotency-Key لمنع التكرار)
 async function createOrder(req, res, next) {
   try {
-    const order = await orderService.createOrder(req.auth.id, req.body);
+    const idempotencyKey = req.get('Idempotency-Key');
+    const order = await orderService.createOrder(req.auth.id, req.body, idempotencyKey);
     res.status(201).json(order);
   } catch (err) {
     next(err);

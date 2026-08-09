@@ -85,9 +85,13 @@ function buildOpenApiSpec() {
           body: { pickup: coords, dropoff: coords } }),
       },
       '/orders': {
-        post: op({ summary: 'إنشاء طلب', tags: ['Orders'], roles: ['user'],
-          body: { pickup: { type: 'object' }, dropoff: { type: 'object' }, packageNote: str,
-            scheduledAt: { type: 'string', format: 'date-time' } } }),
+        post: {
+          ...op({ summary: 'إنشاء طلب', tags: ['Orders'], roles: ['user'],
+            body: { pickup: { type: 'object' }, dropoff: { type: 'object' }, packageNote: str,
+              scheduledAt: { type: 'string', format: 'date-time' } } }),
+          // ترويسة اختيارية لمنع تكرار الطلب عند إعادة الإرسال
+          parameters: [{ name: 'Idempotency-Key', in: 'header', required: false, schema: str }],
+        },
       },
       '/orders/mine': { get: op({ summary: 'سجلّ طلباتي', tags: ['Orders'], roles: ['user'] }) },
       '/orders/active': { get: op({ summary: 'الطلبات النشطة', tags: ['Orders'], roles: ['admin'] }) },

@@ -17,6 +17,7 @@ const { buildOrderFilter, parsePagination } = require('../utils/orderQuery');
 const { computeSettlement, summarizeWallet } = require('../utils/wallet');
 const { estimateEtaMinutes } = require('../utils/eta');
 const { validateScheduledAt, isDue } = require('../utils/schedule');
+const { normalizeIdempotencyKey } = require('../utils/idempotency');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
@@ -34,7 +35,14 @@ async function writeLog({ order, actorId, actorRole, action, fromStatus, toStatu
  * (1) إنشاء طلب جديد من قِبل المستخدم.
  * الحالة الابتدائية = pending، ويُبثّ للأدمن ليتولّى الإسناد يدويًا.
  */
-async function createOrder(userId, payload) {
+async function createOrder(userId, payload, idempotencyKey) {
+  // منع التكرار: إن وُصل نفس المفتاح سابقًا نُعيد الطلب الأصلي بدل إنشاء نسخة.
+  const key = normalizeIdempotencyKey(idempotencyKey);
+  if (key) {
+    const existing = await Order.findOne({ user: userId, idempotencyKey: key });
+    if (existing) return existing;
+  }
+
   // نحسب المسافة والسعر والزمن في الخادم (مصدر الحقيقة) بدل الثقة بقيم العميل.
   const { distanceKm, price } = pricing.quote(
     payload.pickup.location.coordinates,
@@ -48,17 +56,27 @@ async function createOrder(userId, payload) {
   if (scheduleError) throw Object.assign(new Error(scheduleError), { statusCode: 400 });
   const scheduledAt = payload.scheduledAt ? new Date(payload.scheduledAt) : null;
 
-  const order = await Order.create({
-    user: userId,
-    pickup: payload.pickup,
-    dropoff: payload.dropoff,
-    packageNote: payload.packageNote,
-    etaMinutes,
-    price,
-    distanceKm,
-    scheduledAt,
-    status: ORDER_STATUS.PENDING,
-  });
+  let order;
+  try {
+    order = await Order.create({
+      user: userId,
+      pickup: payload.pickup,
+      dropoff: payload.dropoff,
+      packageNote: payload.packageNote,
+      etaMinutes,
+      price,
+      distanceKm,
+      scheduledAt,
+      idempotencyKey: key || undefined,
+      status: ORDER_STATUS.PENDING,
+    });
+  } catch (err) {
+    // سباق: طلبان بنفس المفتاح في آنٍ واحد — نُعيد الأصلي عبر فهرس التفرّد
+    if (err.code === 11000 && key) {
+      return Order.findOne({ user: userId, idempotencyKey: key });
+    }
+    throw err;
+  }
 
   await writeLog({
     order: order._id,

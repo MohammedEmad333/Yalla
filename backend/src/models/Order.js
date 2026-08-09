@@ -65,6 +65,9 @@ const orderSchema = new mongoose.Schema(
 
     cancelReason: { type: String, default: '' },
 
+    // مفتاح منع التكرار — يضمن أنّ إعادة إرسال الطلب لا تُنشئ نسخة ثانية
+    idempotencyKey: { type: String, default: undefined },
+
     // تقييم المستخدم للكابتن بعد التسليم (يُملأ مرّة واحدة)
     rating: {
       stars: { type: Number, min: 1, max: 5 },
@@ -73,6 +76,12 @@ const orderSchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
+);
+
+// فريد لكل (مستخدم + مفتاح) — يُطبَّق فقط عند وجود المفتاح (sparse/partial)
+orderSchema.index(
+  { user: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } }
 );
 
 module.exports = mongoose.model('Order', orderSchema);

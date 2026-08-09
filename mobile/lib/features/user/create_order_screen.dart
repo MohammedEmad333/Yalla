@@ -131,7 +131,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       //   packageNote: _noteController.text,
       //   scheduledAt: _scheduledAt?.toUtc().toIso8601String(), // اختياري
       // );
-      // الـ Repository يرسل POST /api/orders ثم ينضمّ لغرفة الطلب على السوكت
+      // الـ Repository يرسل POST /api/orders مع ترويسة Idempotency-Key
+      // (مثلًا UUID يُولَّد مرّة لكل محاولة إرسال) لمنع تكرار الطلب عند إعادة المحاولة،
+      // ثم ينضمّ لغرفة الطلب على السوكت.
       await Future.delayed(const Duration(seconds: 1)); // محاكاة
 
       if (!mounted) return;
