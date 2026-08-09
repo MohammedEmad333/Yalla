@@ -7,6 +7,7 @@ const io = require('../sockets/io');
 const env = require('../config/env');
 const logger = require('../utils/logger');
 const pricing = require('./pricing.service');
+const { addRating } = require('../utils/rating');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
@@ -261,6 +262,56 @@ async function getOrderForTracking(orderId, requesterId, requesterRole) {
   return order;
 }
 
+// سجلّ طلبات المستخدم (كل الحالات) — مرتّبة من الأحدث، مع ترقيم بسيط
+async function getMyOrders(userId, { limit = 20, skip = 0 } = {}) {
+  return Order.find({ user: userId })
+    .populate('captain', 'name phone vehicleType rating')
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+}
+
+/**
+ * تقييم المستخدم للكابتن بعد تسليم الطلب.
+ * الشروط: الطلب يخصّ المستخدم، حالته delivered، ولم يُقيَّم من قبل.
+ */
+async function rateOrder(userId, orderId, stars, comment = '') {
+  const order = await Order.findById(orderId);
+  if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
+  if (String(order.user) !== String(userId)) {
+    throw Object.assign(new Error('هذا الطلب لا يخصّك'), { statusCode: 403 });
+  }
+  if (order.status !== ORDER_STATUS.DELIVERED) {
+    throw Object.assign(new Error('يمكن التقييم بعد التسليم فقط'), { statusCode: 400 });
+  }
+  if (order.rating?.stars) {
+    throw Object.assign(new Error('تم تقييم هذا الطلب مسبقًا'), { statusCode: 400 });
+  }
+
+  // حفظ التقييم على الطلب
+  order.rating = { stars, comment, ratedAt: new Date() };
+  await order.save();
+
+  // تحديث المتوسّط المتحرّك للكابتن
+  const captain = await Captain.findById(order.captain);
+  if (captain) {
+    const { average, count } = addRating(captain.rating, captain.ratingsCount, stars);
+    captain.rating = average;
+    captain.ratingsCount = count;
+    await captain.save();
+  }
+
+  await writeLog({
+    order: order._id,
+    actorId: userId,
+    actorRole: 'user',
+    action: 'ORDER_RATED',
+    meta: { stars },
+  });
+
+  return order;
+}
+
 module.exports = {
   createOrder,
   assignOrder,
@@ -270,4 +321,6 @@ module.exports = {
   getActiveOrders,
   getAvailableCaptains,
   getOrderForTracking,
+  getMyOrders,
+  rateOrder,
 };

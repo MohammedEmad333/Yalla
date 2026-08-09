@@ -51,6 +51,13 @@ const orderSchema = new mongoose.Schema(
     },
 
     cancelReason: { type: String, default: '' },
+
+    // تقييم المستخدم للكابتن بعد التسليم (يُملأ مرّة واحدة)
+    rating: {
+      stars: { type: Number, min: 1, max: 5 },
+      comment: { type: String, default: '' },
+      ratedAt: Date,
+    },
   },
   { timestamps: true }
 );

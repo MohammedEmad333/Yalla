@@ -12,6 +12,12 @@ router.use(authenticate);
 router.post('/quote', authorize(ROLES.USER), ctrl.getQuote);
 router.post('/', authorize(ROLES.USER), ctrl.createOrder);
 
+// المستخدم: سجلّ طلباتي (قبل مسار /:orderId لتفادي التعارض)
+router.get('/mine', authorize(ROLES.USER), ctrl.getMyOrders);
+
+// المستخدم: تقييم الكابتن بعد التسليم
+router.post('/:orderId/rate', authorize(ROLES.USER), ctrl.rateOrder);
+
 // الأدمن: عرض الطلبات النشطة + الكباتن المتاحين + الإسناد
 router.get('/active', authorize(ROLES.ADMIN), ctrl.getActiveOrders);
 router.get('/available-captains', authorize(ROLES.ADMIN), ctrl.getAvailableCaptains);

@@ -88,6 +88,33 @@ async function getAvailableCaptains(req, res, next) {
   }
 }
 
+// المستخدم يجلب سجلّ طلباته
+async function getMyOrders(req, res, next) {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const skip = parseInt(req.query.skip, 10) || 0;
+    const orders = await orderService.getMyOrders(req.auth.id, { limit, skip });
+    res.json(orders);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// المستخدم يقيّم الكابتن بعد التسليم
+async function rateOrder(req, res, next) {
+  try {
+    const { orderId } = req.params;
+    const { stars, comment } = req.body;
+    if (!stars || stars < 1 || stars > 5) {
+      return res.status(400).json({ message: 'قيّم من 1 إلى 5 نجوم' });
+    }
+    const order = await orderService.rateOrder(req.auth.id, orderId, stars, comment);
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // جلب طلب واحد للتتبّع (يحمّل الحالة الأولية قبل الاعتماد على السوكت)
 async function getOrder(req, res, next) {
   try {
@@ -111,4 +138,6 @@ module.exports = {
   getActiveOrders,
   getAvailableCaptains,
   getOrder,
+  getMyOrders,
+  rateOrder,
 };

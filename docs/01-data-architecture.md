@@ -39,7 +39,8 @@ Location = قيمة مضمّنة (Embedded GeoJSON) داخل Order (pickup / dro
 | `status` | Enum(`online`,`offline`,`busy`) | **مفهرس** |
 | `currentLocation` | GeoJSON Point `[lng,lat]` | فهرس `2dsphere` |
 | `activeOrder` | Ref→Order | الطلب الجاري |
-| `rating` | Number | 0–5 |
+| `rating` | Number | متوسّط 0–5 (متوسّط متحرّك) |
+| `ratingsCount` | Number | عدد التقييمات (لحساب المتوسّط) |
 | `isApproved` | Boolean | موافقة الأدمن |
 
 ## 3) Orders — الطلبات (الكيان المحوري)
@@ -57,6 +58,7 @@ Location = قيمة مضمّنة (Embedded GeoJSON) داخل Order (pickup / dro
 | `status` | Enum | **مفهرس** — دورة الحياة أدناه |
 | `timeline` | Object | طوابع كل مرحلة (assigned/accepted/pickedUp/delivered/cancelled) |
 | `cancelReason` | String | |
+| `rating` | Object`{stars,comment,ratedAt}` | تقييم المستخدم للكابتن بعد التسليم |
 
 ### دورة حياة الطلب (Status Machine)
 

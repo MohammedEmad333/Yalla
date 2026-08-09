@@ -33,7 +33,10 @@ const captainSchema = new mongoose.Schema(
     // الطلب النشط حاليًا (إن وُجد)
     activeOrder: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
 
+    // متوسّط التقييم وعدد التقييمات (لحساب المتوسّط المتحرّك)
     rating: { type: Number, default: 5, min: 0, max: 5 },
+    ratingsCount: { type: Number, default: 0 },
+
     isApproved: { type: Boolean, default: false }, // موافقة الأدمن على الكابتن
   },
   { timestamps: true }
