@@ -53,6 +53,15 @@ class ApiClient {
     return _handle(res);
   }
 
+  Future<dynamic> delete(String path, [Map<String, dynamic>? body]) async {
+    final res = await http.delete(
+      Uri.parse('$baseUrl$path'),
+      headers: await _headers(),
+      body: body != null ? jsonEncode(body) : null,
+    );
+    return _handle(res);
+  }
+
   // توحيد معالجة الاستجابة والأخطاء
   dynamic _handle(http.Response res) {
     final data = res.body.isNotEmpty ? jsonDecode(res.body) : null;

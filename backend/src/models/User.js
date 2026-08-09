@@ -26,6 +26,9 @@ const userSchema = new mongoose.Schema(
     ],
 
     isActive: { type: Boolean, default: true },
+
+    // رموز أجهزة FCM لإرسال الإشعارات
+    deviceTokens: { type: [String], default: [] },
   },
   { timestamps: true } // createdAt / updatedAt تلقائيًا
 );

@@ -33,6 +33,9 @@ const captainSchema = new mongoose.Schema(
     // الطلب النشط حاليًا (إن وُجد)
     activeOrder: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
 
+    // رموز أجهزة FCM لإرسال الإشعارات (قد يملك الكابتن أكثر من جهاز)
+    deviceTokens: { type: [String], default: [] },
+
     // متوسّط التقييم وعدد التقييمات (لحساب المتوسّط المتحرّك)
     rating: { type: Number, default: 5, min: 0, max: 5 },
     ratingsCount: { type: Number, default: 0 },

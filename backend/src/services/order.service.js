@@ -7,6 +7,8 @@ const io = require('../sockets/io');
 const env = require('../config/env');
 const logger = require('../utils/logger');
 const pricing = require('./pricing.service');
+const notifications = require('./notification.service');
+const User = require('../models/User');
 const { addRating } = require('../utils/rating');
 const { canUserCancel } = require('../utils/orderRules');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
@@ -104,6 +106,11 @@ async function commitAssignment(order, captain, { actorId, actorRole }) {
   io.get().to(ROOMS.user(order.user.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, populated);
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_STATUS_UPDATED, populated);
 
+  // إشعار Push لإيقاظ الكابتن حتى والتطبيق مغلق (آمن: no-op إن كان FCM معطّلًا)
+  notifications
+    .sendToTokens(captain.deviceTokens, notifications.orderAssignedPayload(order))
+    .catch((e) => logger.warn('تعذّر إرسال إشعار الإسناد:', e.message));
+
   return populated;
 }
 
@@ -197,6 +204,17 @@ function broadcastOrderUpdate(order) {
   io_.to(ROOMS.order(order._id.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
 }
 
+// إشعار Push لصاحب الطلب بتغيّر حالته (آمن: no-op إن كان FCM معطّلًا أو لا رموز)
+async function pushOrderStatusToUser(order) {
+  try {
+    const user = await User.findById(order.user).select('deviceTokens');
+    if (!user?.deviceTokens?.length) return;
+    await notifications.sendToTokens(user.deviceTokens, notifications.orderStatusPayload(order));
+  } catch (err) {
+    logger.warn('تعذّر إرسال إشعار الحالة للمستخدم:', err.message);
+  }
+}
+
 async function updateOrderStatus(captainId, orderId, nextStatus, reason = '') {
   const order = await Order.findById(orderId);
   if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
@@ -241,6 +259,7 @@ async function updateOrderStatus(captainId, orderId, nextStatus, reason = '') {
   });
 
   broadcastOrderUpdate(order);
+  pushOrderStatusToUser(order); // إشعار المستخدم بتغيّر الحالة (بلا انتظار)
   return order;
 }
 
@@ -289,6 +308,15 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
   // إشعار الكابتن (إن كان مُسنَدًا) بأن الطلب أُلغي + بقية الأطراف
   if (captainId) {
     io.get().to(ROOMS.captain(captainId.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+    // إشعار Push للكابتن بإلغاء الطلب
+    Captain.findById(captainId)
+      .select('deviceTokens')
+      .then((cap) => {
+        if (cap?.deviceTokens?.length) {
+          return notifications.sendToTokens(cap.deviceTokens, notifications.orderCancelledPayload(order));
+        }
+      })
+      .catch((e) => logger.warn('تعذّر إرسال إشعار الإلغاء للكابتن:', e.message));
   }
   broadcastOrderUpdate(order);
 
