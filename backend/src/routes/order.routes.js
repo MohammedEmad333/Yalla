@@ -47,8 +47,9 @@ router.get('/available-captains', authorize(ROLES.ADMIN), ctrl.getAvailableCapta
 router.patch('/:orderId/assign', authorize(ROLES.ADMIN), validateBody(assignSchema), ctrl.assignOrder);
 router.patch('/:orderId/auto-assign', authorize(ROLES.ADMIN), ctrl.autoAssign);
 
-// الكابتن: تحديث حالة الطلب
+// الكابتن: تحديث حالة الطلب + رفض الطلب (إعادة إسناد)
 router.patch('/:orderId/status', authorize(ROLES.CAPTAIN), ctrl.updateStatus);
+router.patch('/:orderId/reject', authorize(ROLES.CAPTAIN), ctrl.rejectOrder);
 
 // أي طرف مصرّح له (المالك/الكابتن المُسنَد/الأدمن) يجلب طلبًا للتتبّع
 // التحقّق الدقيق من الملكيّة يتمّ داخل طبقة الخدمة

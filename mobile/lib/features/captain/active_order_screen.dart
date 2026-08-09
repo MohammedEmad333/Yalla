@@ -76,9 +76,9 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     if (confirm != true) return;
 
     setState(() => _busy = true);
-    // الاستدعاء الحقيقي عبر السوكت:
-    // socket.emit('order:update_status', {'orderId': orderId, 'status': 'cancelled',
-    //   'reason': 'رفضه الكابتن'});
+    // الاستدعاء الحقيقي: PATCH /api/orders/:id/reject
+    // يعيد الطلب للمجمّع ويُعاد إسناده لأقرب كابتن آخر (باستثناء من رفض).
+    // await api.patch('/orders/$orderId/reject', {});
     await Future.delayed(const Duration(milliseconds: 600)); // محاكاة
     if (mounted) {
       setState(() => _busy = false);

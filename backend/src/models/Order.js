@@ -43,6 +43,9 @@ const orderSchema = new mongoose.Schema(
     commission: { type: Number, default: 0 },      // عمولة الشركة
     captainNet: { type: Number, default: 0 },      // صافي الكابتن
 
+    // الكباتن الذين رفضوا الطلب — يُستبعدون عند إعادة الإسناد التلقائي
+    rejectedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Captain' }],
+
     // حالة الطلب — محور المنطق اللحظي
     status: {
       type: String,

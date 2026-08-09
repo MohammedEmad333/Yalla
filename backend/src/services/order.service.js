@@ -10,7 +10,7 @@ const pricing = require('./pricing.service');
 const notifications = require('./notification.service');
 const User = require('../models/User');
 const { addRating } = require('../utils/rating');
-const { canUserCancel } = require('../utils/orderRules');
+const { canUserCancel, canCaptainReject } = require('../utils/orderRules');
 const { summarizeEarnings } = require('../utils/earnings');
 const { ratingDistribution } = require('../utils/reviews');
 const { buildOrderFilter, parsePagination } = require('../utils/orderQuery');
@@ -202,8 +202,8 @@ async function assignOrder(adminId, orderId, captainId) {
  * @param {[number, number]} coordinates  إحداثيات [lng, lat] لنقطة الاستلام
  * @param {number} maxKm  أقصى نطاق بحث بالكيلومترات
  */
-async function findNearestCaptain(coordinates, maxKm = 10) {
-  return Captain.findOne({
+async function findNearestCaptain(coordinates, maxKm = 10, excludeIds = []) {
+  const query = {
     status: CAPTAIN_STATUS.ONLINE,
     isApproved: true,
     activeOrder: null,
@@ -213,7 +213,10 @@ async function findNearestCaptain(coordinates, maxKm = 10) {
         $maxDistance: maxKm * 1000, // بالأمتار
       },
     },
-  });
+  };
+  // استبعاد كباتن معيّنين (مثل من رفضوا الطلب) عند إعادة الإسناد
+  if (excludeIds.length) query._id = { $nin: excludeIds };
+  return Captain.findOne(query);
 }
 
 /**
@@ -225,7 +228,8 @@ async function autoAssignOrder(orderId, { actorId = null, actorRole = 'system' }
   const order = await loadAssignableOrder(orderId);
 
   const pickupCoords = order.pickup.location.coordinates; // [lng, lat]
-  const captain = await findNearestCaptain(pickupCoords);
+  // نستبعد الكباتن الذين رفضوا هذا الطلب سابقًا
+  const captain = await findNearestCaptain(pickupCoords, 10, order.rejectedBy || []);
   if (!captain) {
     // لا يوجد كابتن متاح الآن → يبقى الطلب pending للإسناد اليدوي لاحقًا
     return { assigned: false, order };
@@ -326,6 +330,57 @@ async function updateOrderStatus(captainId, orderId, nextStatus, reason = '') {
 
   broadcastOrderUpdate(order);
   pushOrderStatusToUser(order); // إشعار المستخدم بتغيّر الحالة (بلا انتظار)
+  return order;
+}
+
+/**
+ * رفض الكابتن للطلب (قبل الاستلام): يعيده لحالة pending، يحرّر الكابتن،
+ * يسجّله ضمن rejectedBy، ثم يُعيد إسناده لأقرب كابتن آخر (إن كان التلقائي مفعّلًا).
+ */
+async function rejectOrder(captainId, orderId) {
+  const order = await Order.findById(orderId);
+  if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
+  if (String(order.captain) !== String(captainId)) {
+    throw Object.assign(new Error('هذا الطلب غير مُسنَد إليك'), { statusCode: 403 });
+  }
+  if (!canCaptainReject(order.status)) {
+    throw Object.assign(new Error('لا يمكن رفض الطلب في حالته الحالية'), { statusCode: 400 });
+  }
+
+  const from = order.status;
+  // إعادة الطلب للمجمّع
+  order.status = ORDER_STATUS.PENDING;
+  order.captain = null;
+  order.timeline.assignedAt = null;
+  order.timeline.acceptedAt = null;
+  if (!order.rejectedBy.map(String).includes(String(captainId))) {
+    order.rejectedBy.push(captainId);
+  }
+  await order.save();
+
+  await releaseCaptain(captainId);
+  await writeLog({
+    order: order._id,
+    actorId: captainId,
+    actorRole: 'captain',
+    action: 'ORDER_REJECTED',
+    fromStatus: from,
+    toStatus: ORDER_STATUS.PENDING,
+  });
+
+  // يعود للأدمن كطلب معلّق + إعلام المستخدم
+  io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
+  io.get().to(ROOMS.user(order.user.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+
+  // إعادة إسناد تلقائي لأقرب كابتن آخر (مع استبعاد من رفض)
+  if (env.autoAssign) {
+    try {
+      const result = await autoAssignOrder(order._id, { actorRole: 'system' });
+      return result.order;
+    } catch (err) {
+      logger.warn('فشل إعادة الإسناد بعد الرفض:', err.message);
+    }
+  }
   return order;
 }
 
@@ -624,6 +679,7 @@ module.exports = {
   autoAssignOrder,
   findNearestCaptain,
   updateOrderStatus,
+  rejectOrder,
   cancelOrder,
   getActiveOrders,
   listOrders,

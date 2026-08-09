@@ -73,6 +73,16 @@ async function updateStatus(req, res, next) {
   }
 }
 
+// الكابتن يرفض الطلب المُسنَد (يعيده للمجمّع ويُعاد إسناده)
+async function rejectOrder(req, res, next) {
+  try {
+    const order = await orderService.rejectOrder(req.auth.id, req.params.orderId);
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // المستخدم/الأدمن يلغي الطلب (قبل الاستلام)
 async function cancelOrder(req, res, next) {
   try {
@@ -195,6 +205,7 @@ module.exports = {
   assignOrder,
   autoAssign,
   updateStatus,
+  rejectOrder,
   cancelOrder,
   getActiveOrders,
   listOrders,

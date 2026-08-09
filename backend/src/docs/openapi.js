@@ -114,6 +114,9 @@ function buildOpenApiSpec() {
         patch: op({ summary: 'تحديث حالة الطلب', tags: ['Orders'], roles: ['captain'], params: ['orderId'],
           body: { status: str, reason: str } }),
       },
+      '/orders/{orderId}/reject': {
+        patch: op({ summary: 'رفض الطلب (إعادة إسناد)', tags: ['Orders'], roles: ['captain'], params: ['orderId'] }),
+      },
 
       // ── Captains ──
       '/captains/status': {
