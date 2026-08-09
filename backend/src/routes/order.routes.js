@@ -1,0 +1,22 @@
+'use strict';
+
+const router = require('express').Router();
+const ctrl = require('../controllers/order.controller');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { ROLES } = require('../utils/constants');
+
+// كل مسارات الطلبات تتطلّب مصادقة
+router.use(authenticate);
+
+// المستخدم: إنشاء طلب
+router.post('/', authorize(ROLES.USER), ctrl.createOrder);
+
+// الأدمن: عرض الطلبات النشطة + الكباتن المتاحين + الإسناد
+router.get('/active', authorize(ROLES.ADMIN), ctrl.getActiveOrders);
+router.get('/available-captains', authorize(ROLES.ADMIN), ctrl.getAvailableCaptains);
+router.patch('/:orderId/assign', authorize(ROLES.ADMIN), ctrl.assignOrder);
+
+// الكابتن: تحديث حالة الطلب
+router.patch('/:orderId/status', authorize(ROLES.CAPTAIN), ctrl.updateStatus);
+
+module.exports = router;
