@@ -86,7 +86,8 @@ function buildOpenApiSpec() {
       },
       '/orders': {
         post: op({ summary: 'إنشاء طلب', tags: ['Orders'], roles: ['user'],
-          body: { pickup: { type: 'object' }, dropoff: { type: 'object' }, packageNote: str } }),
+          body: { pickup: { type: 'object' }, dropoff: { type: 'object' }, packageNote: str,
+            scheduledAt: { type: 'string', format: 'date-time' } } }),
       },
       '/orders/mine': { get: op({ summary: 'سجلّ طلباتي', tags: ['Orders'], roles: ['user'] }) },
       '/orders/active': { get: op({ summary: 'الطلبات النشطة', tags: ['Orders'], roles: ['admin'] }) },

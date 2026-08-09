@@ -16,6 +16,7 @@ const { ratingDistribution } = require('../utils/reviews');
 const { buildOrderFilter, parsePagination } = require('../utils/orderQuery');
 const { computeSettlement, summarizeWallet } = require('../utils/wallet');
 const { estimateEtaMinutes } = require('../utils/eta');
+const { validateScheduledAt, isDue } = require('../utils/schedule');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
@@ -42,6 +43,11 @@ async function createOrder(userId, payload) {
   );
   const etaMinutes = estimateEtaMinutes(distanceKm, payload.vehicleType);
 
+  // التحقّق من وقت الجدولة (اختياري)
+  const scheduleError = validateScheduledAt(payload.scheduledAt);
+  if (scheduleError) throw Object.assign(new Error(scheduleError), { statusCode: 400 });
+  const scheduledAt = payload.scheduledAt ? new Date(payload.scheduledAt) : null;
+
   const order = await Order.create({
     user: userId,
     pickup: payload.pickup,
@@ -50,6 +56,7 @@ async function createOrder(userId, payload) {
     etaMinutes,
     price,
     distanceKm,
+    scheduledAt,
     status: ORDER_STATUS.PENDING,
   });
 
@@ -65,9 +72,10 @@ async function createOrder(userId, payload) {
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
   io.get().to(ROOMS.user(userId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
 
-  // إسناد تلقائي لأقرب كابتن عند التفعيل (AUTO_ASSIGN=true).
-  // إن لم يوجد كابتن يبقى الطلب pending للإسناد اليدوي — دون كسر تدفّق الإنشاء.
-  if (env.autoAssign) {
+  // إسناد تلقائي لأقرب كابتن عند التفعيل (AUTO_ASSIGN=true) — للطلبات المستحقّة فقط.
+  // الطلبات المجدولة مستقبلًا تبقى pending حتى يحين وقتها. إن لم يوجد كابتن يبقى
+  // الطلب pending للإسناد اليدوي — دون كسر تدفّق الإنشاء.
+  if (env.autoAssign && isDue(order.scheduledAt)) {
     try {
       const result = await autoAssignOrder(order._id, { actorRole: 'system' });
       if (result.assigned) return result.order;

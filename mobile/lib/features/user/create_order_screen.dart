@@ -27,6 +27,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   final _noteController = TextEditingController();
   bool _submitting = false;
 
+  // وقت الجدولة الاختياري (null = طلب فوري)
+  DateTime? _scheduledAt;
+
   // التسعيرة التقديرية القادمة من الخادم
   num? _quotePrice;
   num? _quoteDistance;
@@ -89,6 +92,25 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     return markers;
   }
 
+  // اختيار تاريخ ووقت الجدولة (ضمن 7 أيام قادمة)
+  Future<void> _pickSchedule() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(hours: 1)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 7)),
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+    if (time == null) return;
+
+    setState(() {
+      _scheduledAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
+  }
+
   // إرسال الطلب إلى الـ Backend
   Future<void> _submitOrder() async {
     if (_pickup == null || _dropoff == null) {
@@ -107,6 +129,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       //   dropoff: {'address': '...', 'location': {'type':'Point',
       //            'coordinates': [_dropoff!.longitude, _dropoff!.latitude]}},
       //   packageNote: _noteController.text,
+      //   scheduledAt: _scheduledAt?.toUtc().toIso8601String(), // اختياري
       // );
       // الـ Repository يرسل POST /api/orders ثم ينضمّ لغرفة الطلب على السوكت
       await Future.delayed(const Duration(seconds: 1)); // محاكاة
@@ -163,6 +186,17 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
+                // جدولة الطلب لوقت لاحق (اختياري)
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('جدولة لوقت لاحق'),
+                  subtitle: _scheduledAt != null
+                      ? Text('$_scheduledAt'.split('.').first)
+                      : const Text('طلب فوري'),
+                  value: _scheduledAt != null,
+                  onChanged: (on) => on ? _pickSchedule() : setState(() => _scheduledAt = null),
+                ),
 
                 // بطاقة التسعيرة التقديرية (تظهر بعد اختيار النقطتين)
                 if (_loadingQuote || _quotePrice != null)

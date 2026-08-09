@@ -34,6 +34,9 @@ const orderSchema = new mongoose.Schema(
     distanceKm: { type: Number, default: 0 },      // المسافة التقديرية
     etaMinutes: { type: Number, default: 0 },      // الزمن التقديري للتوصيل (دقائق)
 
+    // وقت الجدولة (اختياري) — إن وُجد فالطلب مؤجّل حتى هذا الوقت
+    scheduledAt: { type: Date, default: null, index: true },
+
     // التسوية المالية (تُحسب عند التسليم — نموذج COD)
     commission: { type: Number, default: 0 },      // عمولة الشركة
     captainNet: { type: Number, default: 0 },      // صافي الكابتن
