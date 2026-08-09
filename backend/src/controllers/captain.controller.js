@@ -52,4 +52,16 @@ async function myEarnings(req, res, next) {
   }
 }
 
-module.exports = { toggleStatus, myOrders, myEarnings };
+// مراجعات كابتن معيّن (متاحة لأي حساب مصادَق عليه)
+// يقبل "me" كاختصار لهويّة الكابتن الحالي
+async function reviews(req, res, next) {
+  try {
+    const captainId = req.params.id === 'me' ? req.auth.id : req.params.id;
+    const data = await orderService.getCaptainReviews(captainId);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { toggleStatus, myOrders, myEarnings, reviews };

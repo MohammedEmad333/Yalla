@@ -14,4 +14,7 @@ router.patch('/status', authorize(ROLES.CAPTAIN), ctrl.toggleStatus);
 router.get('/me/orders', authorize(ROLES.CAPTAIN), ctrl.myOrders);
 router.get('/me/earnings', authorize(ROLES.CAPTAIN), ctrl.myEarnings);
 
+// مراجعات كابتن — متاحة لأي حساب مصادَق عليه (مستخدم/كابتن/أدمن)
+router.get('/:id/reviews', ctrl.reviews);
+
 module.exports = router;

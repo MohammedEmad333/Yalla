@@ -12,6 +12,7 @@ const User = require('../models/User');
 const { addRating } = require('../utils/rating');
 const { canUserCancel } = require('../utils/orderRules');
 const { summarizeEarnings } = require('../utils/earnings');
+const { ratingDistribution } = require('../utils/reviews');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
@@ -375,6 +376,34 @@ async function getCaptainOrders(captainId, { limit = 20, skip = 0 } = {}) {
     .limit(limit);
 }
 
+// مراجعات الكابتن: أحدث التعليقات + توزيع النجوم + المتوسّط والعدد
+async function getCaptainReviews(captainId, { limit = 20 } = {}) {
+  const [captain, ratedOrders] = await Promise.all([
+    Captain.findById(captainId).select('name rating ratingsCount'),
+    Order.find({ captain: captainId, 'rating.stars': { $exists: true } })
+      .select('rating createdAt')
+      .sort({ 'rating.ratedAt': -1 })
+      .limit(limit)
+      .lean(),
+  ]);
+
+  if (!captain) throw Object.assign(new Error('الكابتن غير موجود'), { statusCode: 404 });
+
+  const reviews = ratedOrders.map((o) => ({
+    stars: o.rating.stars,
+    comment: o.rating.comment || '',
+    ratedAt: o.rating.ratedAt,
+  }));
+
+  return {
+    captain: { id: captain._id, name: captain.name },
+    average: captain.rating,
+    count: captain.ratingsCount,
+    distribution: ratingDistribution(reviews),
+    reviews,
+  };
+}
+
 // ملخّص أرباح الكابتن من طلباته المسلّمة (إجمالي/اليوم/الأسبوع)
 async function getCaptainEarnings(captainId) {
   const delivered = await Order.find({
@@ -443,5 +472,6 @@ module.exports = {
   getMyOrders,
   getCaptainOrders,
   getCaptainEarnings,
+  getCaptainReviews,
   rateOrder,
 };

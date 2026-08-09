@@ -78,6 +78,7 @@ function UsersTab() {
 function CaptainsTab() {
   const [captains, setCaptains] = useState([]);
   const [form, setForm] = useState({ name: '', phone: '', password: '', vehicleType: 'motorcycle' });
+  const [reviews, setReviews] = useState(null); // مراجعات الكابتن المعروض حاليًا
 
   const load = () => api.get('/admin/captains').then(setCaptains);
   useEffect(() => { load(); }, []);
@@ -86,6 +87,12 @@ function CaptainsTab() {
   async function toggleApprove(c) {
     const updated = await api.patch(`/admin/captains/${c._id}/approve`, { isApproved: !c.isApproved });
     setCaptains((prev) => prev.map((x) => (x._id === c._id ? { ...x, isApproved: updated.isApproved } : x)));
+  }
+
+  // جلب مراجعات كابتن وعرضها في لوحة أسفل الجدول
+  async function showReviews(c) {
+    const data = await api.get(`/captains/${c._id}/reviews`);
+    setReviews(data);
   }
 
   // إضافة كابتن جديد (يستخدم POST /auth/captain/register)
@@ -141,11 +148,50 @@ function CaptainsTab() {
                 >
                   {c.isApproved ? 'إلغاء الاعتماد' : 'اعتماد'}
                 </button>
+                <button style={{ ...styles.btn2('#334155'), marginInlineStart: 6 }} onClick={() => showReviews(c)}>
+                  المراجعات
+                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {/* لوحة مراجعات الكابتن المختار */}
+      {reviews && (
+        <div style={styles.reviewsPanel}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3>مراجعات {reviews.captain?.name} — ⭐ {reviews.average} ({reviews.count})</h3>
+            <button style={styles.btn2('#64748b')} onClick={() => setReviews(null)}>إغلاق</button>
+          </div>
+
+          {/* توزيع النجوم */}
+          <div style={{ margin: '12px 0' }}>
+            {[5, 4, 3, 2, 1].map((star) => {
+              const n = reviews.distribution?.[star] || 0;
+              const pct = reviews.count ? (n / reviews.count) * 100 : 0;
+              return (
+                <div key={star} style={styles.distRow}>
+                  <span style={{ width: 30 }}>{star}⭐</span>
+                  <div style={styles.barTrack}>
+                    <div style={{ ...styles.barFill, width: `${pct}%` }} />
+                  </div>
+                  <span style={{ width: 30, textAlign: 'left' }}>{n}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* التعليقات */}
+          {reviews.reviews?.length === 0 && <p style={styles.pill('#94a3b8')}>لا توجد تعليقات</p>}
+          {reviews.reviews?.filter((r) => r.comment).map((r, i) => (
+            <div key={i} style={styles.reviewItem}>
+              <strong>{'⭐'.repeat(Math.round(r.stars))}</strong>
+              <span> — {r.comment}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -164,4 +210,9 @@ const styles = {
   btn: { background: '#0f172a', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: 8, cursor: 'pointer' },
   btn2: (bg) => ({ background: bg, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }),
   pill: (bg) => ({ background: bg, color: '#fff', padding: '2px 10px', borderRadius: 12, fontSize: 12 }),
+  reviewsPanel: { background: '#fff', borderRadius: 12, padding: 16, marginTop: 16, boxShadow: '0 1px 4px rgba(0,0,0,.08)' },
+  distRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 },
+  barTrack: { flex: 1, height: 10, background: '#e2e8f0', borderRadius: 6, overflow: 'hidden' },
+  barFill: { height: '100%', background: '#f59e0b' },
+  reviewItem: { borderTop: '1px solid #f1f5f9', padding: '8px 0' },
 };
