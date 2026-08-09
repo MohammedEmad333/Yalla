@@ -1,0 +1,124 @@
+// شاشة أرباح الكابتن وسجلّ توصيلاته.
+// تعرض ملخّص الأرباح (إجمالي/اليوم/الأسبوع) وقائمة الطلبات المسلّمة.
+
+import 'package:flutter/material.dart';
+
+import '../../core/network/api_client.dart';
+
+class EarningsScreen extends StatefulWidget {
+  final ApiClient api;
+  const EarningsScreen({super.key, required this.api});
+
+  @override
+  State<EarningsScreen> createState() => _EarningsScreenState();
+}
+
+class _EarningsScreenState extends State<EarningsScreen> {
+  Map<String, dynamic>? _earnings;
+  List<dynamic> _orders = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      // نجلب الأرباح والسجلّ بالتوازي
+      final results = await Future.wait([
+        widget.api.get('/captains/me/earnings'),
+        widget.api.get('/captains/me/orders'),
+      ]);
+      setState(() {
+        _earnings = results[0] as Map<String, dynamic>;
+        _orders = results[1] as List;
+      });
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('أرباحي')),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // بطاقات ملخّص الأرباح
+                  Row(
+                    children: [
+                      _statCard('اليوم', '${_earnings?['today'] ?? 0} ج.م', Colors.green),
+                      const SizedBox(width: 12),
+                      _statCard('الأسبوع', '${_earnings?['week'] ?? 0} ج.م', Colors.blue),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _statCard('الإجمالي', '${_earnings?['total'] ?? 0} ج.م', Colors.deepPurple),
+                      const SizedBox(width: 12),
+                      _statCard('عدد التوصيلات', '${_earnings?['count'] ?? 0}', Colors.teal),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+                  const Text('سجلّ التوصيلات',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+
+                  if (_orders.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: Text('لا توجد توصيلات بعد')),
+                    )
+                  else
+                    ..._orders.map((o) => _orderTile(o as Map<String, dynamic>)),
+                ],
+              ),
+            ),
+    );
+  }
+
+  // بطاقة رقم ملخّص
+  Widget _statCard(String label, String value, Color color) => Expanded(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+                const SizedBox(height: 4),
+                Text(label, style: const TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ),
+        ),
+      );
+
+  // عنصر طلب في السجلّ
+  Widget _orderTile(Map<String, dynamic> o) {
+    final delivered = o['status'] == 'delivered';
+    return Card(
+      child: ListTile(
+        leading: Icon(delivered ? Icons.check_circle : Icons.info,
+            color: delivered ? Colors.green : Colors.grey),
+        title: Text('${o['dropoff']?['address'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(o['status'] ?? ''),
+        trailing: Text('${o['price'] ?? 0} ج.م', style: const TextStyle(fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+}

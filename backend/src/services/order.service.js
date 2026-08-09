@@ -11,6 +11,7 @@ const notifications = require('./notification.service');
 const User = require('../models/User');
 const { addRating } = require('../utils/rating');
 const { canUserCancel } = require('../utils/orderRules');
+const { summarizeEarnings } = require('../utils/earnings');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
@@ -365,6 +366,29 @@ async function getMyOrders(userId, { limit = 20, skip = 0 } = {}) {
     .limit(limit);
 }
 
+// سجلّ طلبات الكابتن (المُسنَدة إليه) — مرتّبة من الأحدث
+async function getCaptainOrders(captainId, { limit = 20, skip = 0 } = {}) {
+  return Order.find({ captain: captainId })
+    .populate('user', 'name phone')
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+}
+
+// ملخّص أرباح الكابتن من طلباته المسلّمة (إجمالي/اليوم/الأسبوع)
+async function getCaptainEarnings(captainId) {
+  const delivered = await Order.find({
+    captain: captainId,
+    status: ORDER_STATUS.DELIVERED,
+  })
+    .select('price timeline.deliveredAt')
+    .lean();
+
+  return summarizeEarnings(
+    delivered.map((o) => ({ price: o.price, deliveredAt: o.timeline?.deliveredAt }))
+  );
+}
+
 /**
  * تقييم المستخدم للكابتن بعد تسليم الطلب.
  * الشروط: الطلب يخصّ المستخدم، حالته delivered، ولم يُقيَّم من قبل.
@@ -417,5 +441,7 @@ module.exports = {
   getAvailableCaptains,
   getOrderForTracking,
   getMyOrders,
+  getCaptainOrders,
+  getCaptainEarnings,
   rateOrder,
 };
