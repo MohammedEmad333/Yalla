@@ -41,6 +41,7 @@ Location = قيمة مضمّنة (Embedded GeoJSON) داخل Order (pickup / dro
 | `activeOrder` | Ref→Order | الطلب الجاري |
 | `rating` | Number | متوسّط 0–5 (متوسّط متحرّك) |
 | `ratingsCount` | Number | عدد التقييمات (لحساب المتوسّط) |
+| `settledCommission` | Number | مجموع العمولات المسوّاة (COD) |
 | `isApproved` | Boolean | موافقة الأدمن |
 
 ## 3) Orders — الطلبات (الكيان المحوري)
@@ -59,6 +60,7 @@ Location = قيمة مضمّنة (Embedded GeoJSON) داخل Order (pickup / dro
 | `timeline` | Object | طوابع كل مرحلة (assigned/accepted/pickedUp/delivered/cancelled) |
 | `cancelReason` | String | |
 | `rating` | Object`{stars,comment,ratedAt}` | تقييم المستخدم للكابتن بعد التسليم |
+| `commission` / `captainNet` | Number | تسوية COD عند التسليم (عمولة/صافي) |
 
 ### دورة حياة الطلب (Status Machine)
 

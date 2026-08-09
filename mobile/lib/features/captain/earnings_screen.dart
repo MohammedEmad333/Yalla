@@ -15,6 +15,7 @@ class EarningsScreen extends StatefulWidget {
 
 class _EarningsScreenState extends State<EarningsScreen> {
   Map<String, dynamic>? _earnings;
+  Map<String, dynamic>? _wallet;
   List<dynamic> _orders = [];
   bool _loading = true;
 
@@ -27,14 +28,16 @@ class _EarningsScreenState extends State<EarningsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      // نجلب الأرباح والسجلّ بالتوازي
+      // نجلب الأرباح والمحفظة والسجلّ بالتوازي
       final results = await Future.wait([
         widget.api.get('/captains/me/earnings'),
         widget.api.get('/captains/me/orders'),
+        widget.api.get('/captains/me/wallet'),
       ]);
       setState(() {
         _earnings = results[0] as Map<String, dynamic>;
         _orders = results[1] as List;
+        _wallet = results[2] as Map<String, dynamic>;
       });
     } on ApiException catch (e) {
       if (mounted) {
@@ -72,6 +75,17 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       _statCard('عدد التوصيلات', '${_earnings?['count'] ?? 0}', Colors.teal),
                     ],
                   ),
+
+                  // بطاقة المستحقّ للشركة (COD) — تظهر إن كان هناك مستحقّ
+                  if ((_wallet?['owed'] ?? 0) > 0)
+                    Card(
+                      color: Colors.red.shade50,
+                      child: ListTile(
+                        leading: const Icon(Icons.account_balance_wallet, color: Colors.red),
+                        title: Text('مستحقّ للشركة: ${_wallet?['owed']} ج.م'),
+                        subtitle: const Text('عمولة محصّلة نقدًا بانتظار التسوية'),
+                      ),
+                    ),
 
                   const SizedBox(height: 24),
                   const Text('سجلّ التوصيلات',

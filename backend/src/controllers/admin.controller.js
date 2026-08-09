@@ -3,6 +3,7 @@
 const User = require('../models/User');
 const Captain = require('../models/Captain');
 const statsService = require('../services/stats.service');
+const orderService = require('../services/order.service');
 const { ROLES } = require('../utils/constants');
 
 // مؤشّرات الأداء للوحة التحكّم
@@ -77,4 +78,33 @@ async function setCaptainApproval(req, res, next) {
   }
 }
 
-module.exports = { getStats, listUsers, setUserActive, listCaptains, setCaptainApproval };
+// الأدمن يعرض محفظة كابتن معيّن
+async function captainWallet(req, res, next) {
+  try {
+    const data = await orderService.getCaptainWallet(req.params.captainId);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// الأدمن يسوّي عمولة كابتن
+async function settleCaptain(req, res, next) {
+  try {
+    const { amount } = req.body;
+    const result = await orderService.settleCaptain(req.params.captainId, amount);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  getStats,
+  listUsers,
+  setUserActive,
+  listCaptains,
+  setCaptainApproval,
+  captainWallet,
+  settleCaptain,
+};

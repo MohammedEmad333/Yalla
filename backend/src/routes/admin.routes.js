@@ -19,4 +19,8 @@ router.patch('/users/:userId/active', ctrl.setUserActive);
 router.get('/captains', ctrl.listCaptains);
 router.patch('/captains/:captainId/approve', ctrl.setCaptainApproval);
 
+// محفظة الكابتن وتسوية العمولة (COD)
+router.get('/captains/:captainId/wallet', ctrl.captainWallet);
+router.post('/captains/:captainId/settle', ctrl.settleCaptain);
+
 module.exports = router;

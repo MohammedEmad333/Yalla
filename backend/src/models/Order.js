@@ -33,6 +33,10 @@ const orderSchema = new mongoose.Schema(
     price: { type: Number, default: 0 },           // قيمة التوصيل
     distanceKm: { type: Number, default: 0 },      // المسافة التقديرية
 
+    // التسوية المالية (تُحسب عند التسليم — نموذج COD)
+    commission: { type: Number, default: 0 },      // عمولة الشركة
+    captainNet: { type: Number, default: 0 },      // صافي الكابتن
+
     // حالة الطلب — محور المنطق اللحظي
     status: {
       type: String,

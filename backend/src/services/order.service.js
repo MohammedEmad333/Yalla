@@ -14,6 +14,7 @@ const { canUserCancel } = require('../utils/orderRules');
 const { summarizeEarnings } = require('../utils/earnings');
 const { ratingDistribution } = require('../utils/reviews');
 const { buildOrderFilter, parsePagination } = require('../utils/orderQuery');
+const { computeSettlement, summarizeWallet } = require('../utils/wallet');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
@@ -239,7 +240,13 @@ async function updateOrderStatus(captainId, orderId, nextStatus, reason = '') {
   // ختم الطابع الزمني للمرحلة المناسبة
   if (nextStatus === ORDER_STATUS.ACCEPTED) order.timeline.acceptedAt = new Date();
   if (nextStatus === ORDER_STATUS.PICKED_UP) order.timeline.pickedUpAt = new Date();
-  if (nextStatus === ORDER_STATUS.DELIVERED) order.timeline.deliveredAt = new Date();
+  if (nextStatus === ORDER_STATUS.DELIVERED) {
+    order.timeline.deliveredAt = new Date();
+    // حساب التسوية المالية (COD): عمولة الشركة وصافي الكابتن
+    const { commission, net } = computeSettlement(order.price, env.commissionRate);
+    order.commission = commission;
+    order.captainNet = net;
+  }
   if (nextStatus === ORDER_STATUS.CANCELLED) {
     order.timeline.cancelledAt = new Date();
     order.cancelReason = reason || 'ألغاه الكابتن';
@@ -452,6 +459,51 @@ async function getCaptainReviews(captainId, { limit = 20 } = {}) {
   };
 }
 
+// محفظة الكابتن (COD): إجمالي التحصيل، العمولة، الصافي، والمستحقّ للشركة
+async function getCaptainWallet(captainId) {
+  const [captain, delivered] = await Promise.all([
+    Captain.findById(captainId).select('name settledCommission'),
+    Order.find({ captain: captainId, status: ORDER_STATUS.DELIVERED })
+      .select('price commission captainNet')
+      .lean(),
+  ]);
+  if (!captain) throw Object.assign(new Error('الكابتن غير موجود'), { statusCode: 404 });
+
+  const summary = summarizeWallet(delivered, captain.settledCommission);
+  return { captain: { id: captain._id, name: captain.name }, ...summary, settled: captain.settledCommission };
+}
+
+// تسوية عمولة كابتن من قِبل الأدمن (يزيد settledCommission دون تجاوز الإجمالي)
+async function settleCaptain(captainId, amount) {
+  const value = Number(amount);
+  if (!value || value <= 0) {
+    throw Object.assign(new Error('مبلغ التسوية غير صالح'), { statusCode: 400 });
+  }
+
+  const wallet = await getCaptainWallet(captainId);
+  if (value > wallet.owed) {
+    throw Object.assign(
+      new Error(`المبلغ يتجاوز المستحقّ (${wallet.owed})`),
+      { statusCode: 400 }
+    );
+  }
+
+  const captain = await Captain.findByIdAndUpdate(
+    captainId,
+    { $inc: { settledCommission: value } },
+    { new: true }
+  ).select('name settledCommission');
+
+  await writeLog({
+    actorId: captainId,
+    actorRole: 'admin',
+    action: 'COMMISSION_SETTLED',
+    meta: { amount: value },
+  });
+
+  return { captainId: captain._id, settled: captain.settledCommission };
+}
+
 // ملخّص أرباح الكابتن من طلباته المسلّمة (إجمالي/اليوم/الأسبوع)
 async function getCaptainEarnings(captainId) {
   const delivered = await Order.find({
@@ -523,5 +575,7 @@ module.exports = {
   getCaptainOrders,
   getCaptainEarnings,
   getCaptainReviews,
+  getCaptainWallet,
+  settleCaptain,
   rateOrder,
 };

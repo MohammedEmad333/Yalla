@@ -40,6 +40,9 @@ const captainSchema = new mongoose.Schema(
     rating: { type: Number, default: 5, min: 0, max: 5 },
     ratingsCount: { type: Number, default: 0 },
 
+    // إجمالي عمولات الشركة التي سوّاها الكابتن (نموذج COD)
+    settledCommission: { type: Number, default: 0 },
+
     isApproved: { type: Boolean, default: false }, // موافقة الأدمن على الكابتن
   },
   { timestamps: true }

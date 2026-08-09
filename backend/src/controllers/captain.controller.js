@@ -52,6 +52,16 @@ async function myEarnings(req, res, next) {
   }
 }
 
+// محفظة الكابتن (COD): المستحقّ للشركة والصافي
+async function myWallet(req, res, next) {
+  try {
+    const wallet = await orderService.getCaptainWallet(req.auth.id);
+    res.json(wallet);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // مراجعات كابتن معيّن (متاحة لأي حساب مصادَق عليه)
 // يقبل "me" كاختصار لهويّة الكابتن الحالي
 async function reviews(req, res, next) {
@@ -64,4 +74,4 @@ async function reviews(req, res, next) {
   }
 }
 
-module.exports = { toggleStatus, myOrders, myEarnings, reviews };
+module.exports = { toggleStatus, myOrders, myEarnings, myWallet, reviews };

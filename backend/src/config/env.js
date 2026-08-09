@@ -17,6 +17,8 @@ const env = {
   corsOrigin: process.env.CORS_ORIGIN || '*',
   // تفعيل الإسناد التلقائي لأقرب كابتن عند إنشاء الطلب
   autoAssign: process.env.AUTO_ASSIGN === 'true',
+  // نسبة عمولة الشركة من قيمة كل توصيلة (0.2 = 20%)
+  commissionRate: parseFloat(process.env.COMMISSION_RATE) || 0.2,
   // إعدادات إشعارات Firebase (اختيارية — إن غابت تُعطَّل الإشعارات)
   fcm: {
     credentialsPath: process.env.FCM_CREDENTIALS_PATH || '',

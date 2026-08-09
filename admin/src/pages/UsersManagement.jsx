@@ -79,9 +79,23 @@ function CaptainsTab() {
   const [captains, setCaptains] = useState([]);
   const [form, setForm] = useState({ name: '', phone: '', password: '', vehicleType: 'motorcycle' });
   const [reviews, setReviews] = useState(null); // مراجعات الكابتن المعروض حاليًا
+  const [wallet, setWallet] = useState(null);   // محفظة الكابتن المعروض حاليًا
 
   const load = () => api.get('/admin/captains').then(setCaptains);
   useEffect(() => { load(); }, []);
+
+  // جلب محفظة كابتن (COD)
+  async function showWallet(c) {
+    const data = await api.get(`/admin/captains/${c._id}/wallet`);
+    setWallet(data);
+  }
+
+  // تسوية كامل المستحقّ على الكابتن
+  async function settle(captainId, owed) {
+    if (owed <= 0) return;
+    await api.post(`/admin/captains/${captainId}/settle`, { amount: owed });
+    showWallet({ _id: captainId }); // إعادة تحميل المحفظة
+  }
 
   // اعتماد/إلغاء اعتماد كابتن
   async function toggleApprove(c) {
@@ -151,6 +165,9 @@ function CaptainsTab() {
                 <button style={{ ...styles.btn2('#334155'), marginInlineStart: 6 }} onClick={() => showReviews(c)}>
                   المراجعات
                 </button>
+                <button style={{ ...styles.btn2('#059669'), marginInlineStart: 6 }} onClick={() => showWallet(c)}>
+                  المحفظة
+                </button>
               </td>
             </tr>
           ))}
@@ -192,6 +209,31 @@ function CaptainsTab() {
           ))}
         </div>
       )}
+
+      {/* لوحة محفظة الكابتن (COD) */}
+      {wallet && (
+        <div style={styles.reviewsPanel}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3>محفظة {wallet.captain?.name}</h3>
+            <button style={styles.btn2('#64748b')} onClick={() => setWallet(null)}>إغلاق</button>
+          </div>
+          <div style={styles.walletGrid}>
+            <div style={styles.walletCell}><b>{wallet.deliveries}</b><span>توصيلة</span></div>
+            <div style={styles.walletCell}><b>{wallet.gross} ج.م</b><span>إجمالي محصّل</span></div>
+            <div style={styles.walletCell}><b>{wallet.net} ج.م</b><span>صافي الكابتن</span></div>
+            <div style={styles.walletCell}><b>{wallet.commission} ج.م</b><span>عمولة الشركة</span></div>
+            <div style={{ ...styles.walletCell, background: wallet.owed > 0 ? '#fef2f2' : '#f0fdf4' }}>
+              <b style={{ color: wallet.owed > 0 ? '#dc2626' : '#16a34a' }}>{wallet.owed} ج.م</b>
+              <span>مستحقّ للشركة</span>
+            </div>
+          </div>
+          {wallet.owed > 0 && (
+            <button style={styles.btn} onClick={() => settle(wallet.captain.id, wallet.owed)}>
+              تسوية المستحقّ ({wallet.owed} ج.م)
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -215,4 +257,6 @@ const styles = {
   barTrack: { flex: 1, height: 10, background: '#e2e8f0', borderRadius: 6, overflow: 'hidden' },
   barFill: { height: '100%', background: '#f59e0b' },
   reviewItem: { borderTop: '1px solid #f1f5f9', padding: '8px 0' },
+  walletGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10, margin: '12px 0' },
+  walletCell: { background: '#f8fafc', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 4, textAlign: 'center' },
 };
