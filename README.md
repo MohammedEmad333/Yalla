@@ -43,8 +43,13 @@ cd backend
 cp .env.example .env      # عدّل المتغيّرات
 npm install
 npm run dev               # يعمل على http://localhost:4000
-npm test                  # 18 اختبار وحدة (بلا قاعدة بيانات)
+npm test                  # اختبارات الوحدة (بلا قاعدة بيانات)
+npm run test:integration  # اختبارات تكامل (mongodb-memory-server أو TEST_MONGO_URI)
 ```
+
+> اختبارات التكامل تتخطّى نفسها تلقائيًا إن لم تتوفّر قاعدة بيانات، وتعمل كاملةً
+> في CI أو محليًا. لاستخدام مونجو خاصّ:
+> `TEST_MONGO_URI=mongodb://localhost:27017/yalla_test npm run test:integration`
 
 ## لوحة الأدمن (تطوير)
 
