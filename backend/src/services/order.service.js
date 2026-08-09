@@ -171,10 +171,27 @@ async function getAvailableCaptains() {
   );
 }
 
+// جلب طلب واحد للتتبّع — مع التحقّق من صلاحية الوصول (صاحب الطلب/الكابتن المُسنَد/الأدمن)
+async function getOrderForTracking(orderId, requesterId, requesterRole) {
+  const order = await Order.findById(orderId)
+    .populate('captain', 'name phone vehicleType currentLocation status')
+    .populate('user', 'name phone');
+  if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
+
+  const isOwner = String(order.user?._id || order.user) === String(requesterId);
+  const isAssignedCaptain = String(order.captain?._id || order.captain) === String(requesterId);
+  const isAdmin = requesterRole === 'admin';
+  if (!isOwner && !isAssignedCaptain && !isAdmin) {
+    throw Object.assign(new Error('غير مصرّح بعرض هذا الطلب'), { statusCode: 403 });
+  }
+  return order;
+}
+
 module.exports = {
   createOrder,
   assignOrder,
   updateOrderStatus,
   getActiveOrders,
   getAvailableCaptains,
+  getOrderForTracking,
 };

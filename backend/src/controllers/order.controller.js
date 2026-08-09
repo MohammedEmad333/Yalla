@@ -56,4 +56,25 @@ async function getAvailableCaptains(req, res, next) {
   }
 }
 
-module.exports = { createOrder, assignOrder, updateStatus, getActiveOrders, getAvailableCaptains };
+// جلب طلب واحد للتتبّع (يحمّل الحالة الأولية قبل الاعتماد على السوكت)
+async function getOrder(req, res, next) {
+  try {
+    const order = await orderService.getOrderForTracking(
+      req.params.orderId,
+      req.auth.id,
+      req.auth.role
+    );
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  createOrder,
+  assignOrder,
+  updateStatus,
+  getActiveOrders,
+  getAvailableCaptains,
+  getOrder,
+};
