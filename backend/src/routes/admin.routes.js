@@ -8,6 +8,9 @@ const { ROLES } = require('../utils/constants');
 // كل مسارات الإدارة للأدمن فقط
 router.use(authenticate, authorize(ROLES.ADMIN));
 
+// مؤشّرات الأداء (KPIs)
+router.get('/stats', ctrl.getStats);
+
 // إدارة المستخدمين
 router.get('/users', ctrl.listUsers);
 router.patch('/users/:userId/active', ctrl.setUserActive);

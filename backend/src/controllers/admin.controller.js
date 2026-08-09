@@ -2,7 +2,18 @@
 
 const User = require('../models/User');
 const Captain = require('../models/Captain');
+const statsService = require('../services/stats.service');
 const { ROLES } = require('../utils/constants');
+
+// مؤشّرات الأداء للوحة التحكّم
+async function getStats(req, res, next) {
+  try {
+    const stats = await statsService.getDashboardStats();
+    res.json(stats);
+  } catch (err) {
+    next(err);
+  }
+}
 
 // قائمة المستخدمين (العملاء) — بحث اختياري بالاسم/الهاتف
 async function listUsers(req, res, next) {
@@ -66,4 +77,4 @@ async function setCaptainApproval(req, res, next) {
   }
 }
 
-module.exports = { listUsers, setUserActive, listCaptains, setCaptainApproval };
+module.exports = { getStats, listUsers, setUserActive, listCaptains, setCaptainApproval };

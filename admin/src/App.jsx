@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './auth/AuthContext';
 import LoginPage from './pages/LoginPage';
 import LiveDashboard from './pages/LiveDashboard';
 import UsersManagement from './pages/UsersManagement';
+import StatsPage from './pages/StatsPage';
 
 function Gate() {
   const { admin, loading, logout } = useAuth();
@@ -28,6 +29,9 @@ function Gate() {
           <button style={styles.link(page === 'users')} onClick={() => setPage('users')}>
             إدارة المستخدمين
           </button>
+          <button style={styles.link(page === 'stats')} onClick={() => setPage('stats')}>
+            الإحصائيات
+          </button>
         </div>
         <div>
           <span style={{ marginInlineEnd: 12 }}>مرحبًا، {admin.name}</span>
@@ -35,7 +39,9 @@ function Gate() {
         </div>
       </nav>
 
-      {page === 'dashboard' ? <LiveDashboard /> : <UsersManagement />}
+      {page === 'dashboard' && <LiveDashboard />}
+      {page === 'users' && <UsersManagement />}
+      {page === 'stats' && <StatsPage />}
     </div>
   );
 }
