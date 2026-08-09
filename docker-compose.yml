@@ -1,0 +1,56 @@
+# تشغيل منظومة يلا كاملة محليًا: قاعدة البيانات + الـ API + لوحة الأدمن.
+# الاستخدام:  docker compose up --build
+
+services:
+  # قاعدة بيانات MongoDB مع تخزين دائم
+  mongo:
+    image: mongo:7
+    container_name: yalla-mongo
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      # ننتظر جاهزية القاعدة قبل تشغيل الـ API
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.runCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # خادم الـ API (Express + Socket.io)
+  api:
+    build: ./backend
+    container_name: yalla-api
+    restart: unless-stopped
+    ports:
+      - '4000:4000'
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      # اسم الخدمة "mongo" يُحلّ داخل شبكة compose
+      MONGO_URI: mongodb://mongo:27017/yalla
+      JWT_SECRET: ${JWT_SECRET:-change_me_super_secret}
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: '*'
+      AUTO_ASSIGN: ${AUTO_ASSIGN:-false}
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  # لوحة الأدمن (React مبنيّة + nginx)
+  admin:
+    build:
+      context: ./admin
+      args:
+        # عنوان الـ API كما يراه المتصفّح (المضيف)
+        VITE_API_URL: http://localhost:4000
+    container_name: yalla-admin
+    restart: unless-stopped
+    ports:
+      - '8080:80'
+    depends_on:
+      - api
+
+volumes:
+  mongo_data:

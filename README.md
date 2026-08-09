@@ -26,13 +26,33 @@ Yalla/
 └── docs/        # توثيق المعمارية والتدفّق اللحظي
 ```
 
-## التشغيل السريع للـ Backend
+## التشغيل السريع — المنظومة كاملةً (Docker)
+
+```bash
+docker compose up --build
+# API: http://localhost:4000 · Admin: http://localhost:8080 · Mongo: 27017
+
+# أوّل تشغيل: أنشئ حساب أدمن
+docker compose exec api npm run seed:admin "المدير" 0100000000 "StrongPass123"
+```
+
+## التشغيل اليدوي للـ Backend (للتطوير)
 
 ```bash
 cd backend
 cp .env.example .env      # عدّل المتغيّرات
 npm install
 npm run dev               # يعمل على http://localhost:4000
+npm test                  # 18 اختبار وحدة (بلا قاعدة بيانات)
 ```
 
-راجع `docs/` لتفاصيل المعمارية وتدفّق البيانات اللحظي.
+## لوحة الأدمن (تطوير)
+
+```bash
+cd admin
+cp .env.example .env
+npm install
+npm run dev               # يعمل على http://localhost:5173
+```
+
+راجع `docs/` لتفاصيل المعمارية، التدفّق اللحظي، والنشر.
