@@ -6,6 +6,7 @@ const router = require('express').Router();
 router.use('/auth', require('./auth.routes'));
 router.use('/orders', require('./order.routes'));
 router.use('/captains', require('./captain.routes'));
+router.use('/admin', require('./admin.routes'));
 
 // فحص صحّة الخادم
 router.get('/health', (req, res) => res.json({ status: 'ok', service: 'yalla-api' }));

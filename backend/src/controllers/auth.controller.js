@@ -35,6 +35,10 @@ async function loginUser(req, res, next) {
     if (!user || !(await user.verifyPassword(password))) {
       return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
     }
+    // المستخدم المعطّل من الأدمن لا يستطيع الدخول
+    if (!user.isActive) {
+      return res.status(403).json({ message: 'الحساب معطّل — تواصل مع الدعم' });
+    }
     const token = signToken(user._id, user.role);
     res.json({ token, user: { id: user._id, name: user.name, phone, role: user.role } });
   } catch (err) {
