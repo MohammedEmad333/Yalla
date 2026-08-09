@@ -62,4 +62,10 @@ npm install
 npm run dev               # يعمل على http://localhost:5173
 ```
 
+## توثيق الـ API
+
+بعد تشغيل الـ Backend:
+- مواصفة OpenAPI: `http://localhost:4000/api/openapi.json` (قابلة للاستيراد في Postman/Swagger).
+- صفحة توثيق تفاعلية: `http://localhost:4000/api/docs`.
+
 راجع `docs/` لتفاصيل المعمارية، التدفّق اللحظي، والنشر.
