@@ -114,6 +114,24 @@ Order (pickup) ──► findNearestCaptain([lng,lat])
   (`FCM_CREDENTIALS_PATH`) يعمل كـ no-op فلا يتعطّل النظام.
 - **نقاط الإرسال:** إسناد → الكابتن، تغيّر حالة → المستخدم، إلغاء → الكابتن.
 
+## الطلبات المجدولة (Scheduled Orders)
+
+يمكن للمستخدم جدولة طلب لوقت لاحق (`scheduledAt`، حتى 7 أيام). الطلب المجدول
+يبقى `pending` ولا يُسند تلقائيًا حتى يحين وقته. مُشغّل خلفي
+(`scheduler.service`) يفحص كل دقيقة الطلبات المستحقّة (`filterDueOrders`)
+ويُفعّلها:
+
+```
+worker tick (كل دقيقة)
+   └─ activateDueScheduledOrders(now)
+        • يجد: status=pending, scheduledActivated=false, scheduledAt<=now
+        • يُعلّم الطلب مُفعّلًا + Log(SCHEDULE_ACTIVATED)
+        • يبثّه للأدمن كطلب جديد (ORDER_CREATED)
+        • يُسند تلقائيًا إن كان AUTO_ASSIGN مفعّلًا
+```
+
+منطق الاستحقاق (`isDue` / `filterDueOrders`) نقيّ ومُختبَر بمعزل عن المُشغّل.
+
 ## بديل Firebase (اختياري)
 
 لو فُضّل Firebase بدل Node: استخدم **Firestore** بنفس المجموعات أعلاه، مع

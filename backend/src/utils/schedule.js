@@ -32,4 +32,16 @@ function isDue(scheduledAt, now = new Date()) {
   return new Date(scheduledAt).getTime() <= now.getTime();
 }
 
-module.exports = { validateScheduledAt, isDue, MAX_AHEAD_MS };
+/**
+ * تصفية الطلبات المجدولة المستحقّة (حان وقتها ولم تُفعّل بعد).
+ * دالة نقيّة تُوثّق شرط المُشغّل الخلفي وتُختبر بسهولة.
+ * @param {Array<{scheduledAt:Date|string|null, scheduledActivated?:boolean}>} orders
+ * @param {Date} now
+ */
+function filterDueOrders(orders, now = new Date()) {
+  return orders.filter(
+    (o) => o.scheduledAt && !o.scheduledActivated && isDue(o.scheduledAt, now)
+  );
+}
+
+module.exports = { validateScheduledAt, isDue, filterDueOrders, MAX_AHEAD_MS };

@@ -88,6 +88,47 @@ async function createOrder(userId, payload) {
 }
 
 /**
+ * تفعيل الطلبات المجدولة التي حان وقتها (يستدعيه المُشغّل الخلفي دوريًا).
+ * لكل طلب مستحقّ: يُعلَّم كمُفعّل، يُسجَّل، يُبثّ للأدمن كطلب جديد،
+ * ويُسند تلقائيًا إن كان الإسناد التلقائي مفعّلًا.
+ * @param {Date} now
+ * @returns {Promise<number>} عدد الطلبات المُفعّلة
+ */
+async function activateDueScheduledOrders(now = new Date()) {
+  const due = await Order.find({
+    status: ORDER_STATUS.PENDING,
+    scheduledActivated: false,
+    scheduledAt: { $ne: null, $lte: now },
+  });
+
+  for (const order of due) {
+    order.scheduledActivated = true;
+    await order.save();
+
+    await writeLog({
+      order: order._id,
+      actorRole: 'system',
+      action: 'SCHEDULE_ACTIVATED',
+      meta: { scheduledAt: order.scheduledAt },
+    });
+
+    // يظهر الآن كطلب جديد على لوحة الأدمن ويُعلَم المستخدم
+    io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
+    io.get().to(ROOMS.user(order.user.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+
+    if (env.autoAssign) {
+      try {
+        await autoAssignOrder(order._id, { actorRole: 'system' });
+      } catch (err) {
+        logger.warn('فشل الإسناد التلقائي لطلب مجدول:', err.message);
+      }
+    }
+  }
+
+  return due.length;
+}
+
+/**
  * منطق الإسناد المشترك: يربط طلبًا (في حالة pending) بكابتن متاح،
  * يشغّل الكابتن، يكتب Log، ويبثّ الإشعارات. يُستخدم من الإسناد اليدوي
  * والتلقائي معًا لتفادي تكرار المنطق.
@@ -578,6 +619,7 @@ async function rateOrder(userId, orderId, stars, comment = '') {
 
 module.exports = {
   createOrder,
+  activateDueScheduledOrders,
   assignOrder,
   autoAssignOrder,
   findNearestCaptain,

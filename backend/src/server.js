@@ -7,6 +7,7 @@ const env = require('./config/env');
 const app = require('./app');
 const connectDB = require('./config/db');
 const registerSocketHandlers = require('./sockets/order.socket');
+const { startScheduler } = require('./services/scheduler.service');
 const logger = require('./utils/logger');
 
 // نقطة الإقلاع: نربط Express + Socket.io على خادم HTTP واحد
@@ -22,7 +23,10 @@ async function bootstrap() {
   });
   registerSocketHandlers(io); // تسجيل معالجات الأحداث اللحظية
 
-  // 4) بدء الاستماع
+  // 4) تشغيل مُشغّل الطلبات المجدولة (يفعّل المستحقّ دوريًا)
+  startScheduler({ intervalMs: 60_000 });
+
+  // 5) بدء الاستماع
   server.listen(env.port, () => {
     logger.info(`🚀 Yalla API يعمل على المنفذ ${env.port} (${env.nodeEnv})`);
   });

@@ -36,6 +36,8 @@ const orderSchema = new mongoose.Schema(
 
     // وقت الجدولة (اختياري) — إن وُجد فالطلب مؤجّل حتى هذا الوقت
     scheduledAt: { type: Date, default: null, index: true },
+    // هل فُعّل الطلب المجدول بعد حلول وقته؟ (يمنع المعالجة المكرّرة)
+    scheduledActivated: { type: Boolean, default: false },
 
     // التسوية المالية (تُحسب عند التسليم — نموذج COD)
     commission: { type: Number, default: 0 },      // عمولة الشركة
