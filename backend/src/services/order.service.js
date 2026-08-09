@@ -8,6 +8,7 @@ const env = require('../config/env');
 const logger = require('../utils/logger');
 const pricing = require('./pricing.service');
 const { addRating } = require('../utils/rating');
+const { canUserCancel } = require('../utils/orderRules');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
@@ -179,7 +180,24 @@ const ALLOWED_TRANSITIONS = {
   [ORDER_STATUS.PICKED_UP]: [ORDER_STATUS.DELIVERED],
 };
 
-async function updateOrderStatus(captainId, orderId, nextStatus) {
+// تحرير الكابتن ليعود متاحًا (عند التسليم أو الإلغاء)
+async function releaseCaptain(captainId) {
+  if (!captainId) return;
+  await Captain.findByIdAndUpdate(captainId, {
+    status: CAPTAIN_STATUS.ONLINE,
+    activeOrder: null,
+  });
+}
+
+// بثّ تحديث حالة الطلب لكل الأطراف المتابعين له
+function broadcastOrderUpdate(order) {
+  const io_ = io.get();
+  io_.to(ROOMS.user(order.user.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  io_.to(ROOMS.admins()).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  io_.to(ROOMS.order(order._id.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+}
+
+async function updateOrderStatus(captainId, orderId, nextStatus, reason = '') {
   const order = await Order.findById(orderId);
   if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
   if (String(order.captain) !== String(captainId)) {
@@ -201,14 +219,15 @@ async function updateOrderStatus(captainId, orderId, nextStatus) {
   if (nextStatus === ORDER_STATUS.ACCEPTED) order.timeline.acceptedAt = new Date();
   if (nextStatus === ORDER_STATUS.PICKED_UP) order.timeline.pickedUpAt = new Date();
   if (nextStatus === ORDER_STATUS.DELIVERED) order.timeline.deliveredAt = new Date();
+  if (nextStatus === ORDER_STATUS.CANCELLED) {
+    order.timeline.cancelledAt = new Date();
+    order.cancelReason = reason || 'ألغاه الكابتن';
+  }
   await order.save();
 
-  // عند التسليم: حرّر الكابتن ليصبح متاحًا مجددًا
-  if (nextStatus === ORDER_STATUS.DELIVERED) {
-    await Captain.findByIdAndUpdate(captainId, {
-      status: CAPTAIN_STATUS.ONLINE,
-      activeOrder: null,
-    });
+  // عند التسليم أو الإلغاء: حرّر الكابتن ليصبح متاحًا مجددًا
+  if (nextStatus === ORDER_STATUS.DELIVERED || nextStatus === ORDER_STATUS.CANCELLED) {
+    await releaseCaptain(captainId);
   }
 
   await writeLog({
@@ -218,13 +237,60 @@ async function updateOrderStatus(captainId, orderId, nextStatus) {
     action: 'STATUS_CHANGED',
     fromStatus: from,
     toStatus: nextStatus,
+    meta: nextStatus === ORDER_STATUS.CANCELLED ? { reason: order.cancelReason } : {},
   });
 
-  // بثّ التحديث لكل الأطراف المتابعين للطلب
-  const io_ = io.get();
-  io_.to(ROOMS.user(order.user.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
-  io_.to(ROOMS.admins()).emit(EVENTS.ORDER_STATUS_UPDATED, order);
-  io_.to(ROOMS.order(order._id.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  broadcastOrderUpdate(order);
+  return order;
+}
+
+/**
+ * إلغاء الطلب من قِبل المستخدم (صاحب الطلب) أو الأدمن.
+ * يُسمح قبل الاستلام فقط (pending/assigned/accepted)، ويحرّر الكابتن إن وُجد.
+ */
+async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
+  const order = await Order.findById(orderId);
+  if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
+
+  // التحقّق من الصلاحية: المالك أو الأدمن
+  const isOwner = String(order.user) === String(actorId);
+  if (!isOwner && actorRole !== 'admin') {
+    throw Object.assign(new Error('غير مصرّح بإلغاء هذا الطلب'), { statusCode: 403 });
+  }
+
+  // التحقّق من قابلية الإلغاء حسب الحالة
+  if (!canUserCancel(order.status)) {
+    throw Object.assign(
+      new Error('لا يمكن إلغاء الطلب في حالته الحالية'),
+      { statusCode: 400 }
+    );
+  }
+
+  const from = order.status;
+  const captainId = order.captain;
+
+  order.status = ORDER_STATUS.CANCELLED;
+  order.timeline.cancelledAt = new Date();
+  order.cancelReason = reason || (actorRole === 'admin' ? 'ألغاه الأدمن' : 'ألغاه المستخدم');
+  await order.save();
+
+  await releaseCaptain(captainId); // تحرير الكابتن إن كان مُسنَدًا
+
+  await writeLog({
+    order: order._id,
+    actorId,
+    actorRole,
+    action: 'ORDER_CANCELLED',
+    fromStatus: from,
+    toStatus: ORDER_STATUS.CANCELLED,
+    meta: { reason: order.cancelReason },
+  });
+
+  // إشعار الكابتن (إن كان مُسنَدًا) بأن الطلب أُلغي + بقية الأطراف
+  if (captainId) {
+    io.get().to(ROOMS.captain(captainId.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  }
+  broadcastOrderUpdate(order);
 
   return order;
 }
@@ -318,6 +384,7 @@ module.exports = {
   autoAssignOrder,
   findNearestCaptain,
   updateOrderStatus,
+  cancelOrder,
   getActiveOrders,
   getAvailableCaptains,
   getOrderForTracking,

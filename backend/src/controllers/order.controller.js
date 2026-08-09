@@ -60,8 +60,24 @@ async function autoAssign(req, res, next) {
 async function updateStatus(req, res, next) {
   try {
     const { orderId } = req.params;
-    const { status } = req.body;
-    const order = await orderService.updateOrderStatus(req.auth.id, orderId, status);
+    const { status, reason } = req.body;
+    const order = await orderService.updateOrderStatus(req.auth.id, orderId, status, reason);
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// المستخدم/الأدمن يلغي الطلب (قبل الاستلام)
+async function cancelOrder(req, res, next) {
+  try {
+    const { orderId } = req.params;
+    const { reason } = req.body;
+    const order = await orderService.cancelOrder(
+      orderId,
+      { actorId: req.auth.id, actorRole: req.auth.role },
+      reason
+    );
     res.json(order);
   } catch (err) {
     next(err);
@@ -135,6 +151,7 @@ module.exports = {
   assignOrder,
   autoAssign,
   updateStatus,
+  cancelOrder,
   getActiveOrders,
   getAvailableCaptains,
   getOrder,

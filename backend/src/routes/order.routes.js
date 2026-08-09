@@ -18,6 +18,9 @@ router.get('/mine', authorize(ROLES.USER), ctrl.getMyOrders);
 // المستخدم: تقييم الكابتن بعد التسليم
 router.post('/:orderId/rate', authorize(ROLES.USER), ctrl.rateOrder);
 
+// المستخدم أو الأدمن: إلغاء الطلب (قبل الاستلام)
+router.post('/:orderId/cancel', authorize(ROLES.USER, ROLES.ADMIN), ctrl.cancelOrder);
+
 // الأدمن: عرض الطلبات النشطة + الكباتن المتاحين + الإسناد
 router.get('/active', authorize(ROLES.ADMIN), ctrl.getActiveOrders);
 router.get('/available-captains', authorize(ROLES.ADMIN), ctrl.getAvailableCaptains);

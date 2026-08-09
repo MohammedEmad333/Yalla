@@ -116,6 +116,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         'accepted' => 'الكابتن في الطريق إليك',
         'picked_up' => 'الطلب في الطريق للتسليم',
         'delivered' => 'تم التسليم ✓',
+        'cancelled' => 'تم إلغاء الطلب',
         _ => _status,
       };
 
@@ -148,9 +149,52 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               markers: _markers(),
             ),
           ),
+
+          // زر إلغاء الطلب — يظهر قبل الاستلام فقط
+          if (_canCancel)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                  onPressed: _cancelOrder,
+                  icon: const Icon(Icons.cancel),
+                  label: const Text('إلغاء الطلب'),
+                ),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  // يُسمح بالإلغاء قبل الاستلام فقط (يطابق قاعدة الخادم)
+  bool get _canCancel => ['pending', 'assigned', 'accepted'].contains(_status);
+
+  // تأكيد ثم إرسال طلب الإلغاء للخادم
+  Future<void> _cancelOrder() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('إلغاء الطلب'),
+        content: const Text('هل أنت متأكّد من إلغاء هذا الطلب؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('تراجع')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('نعم، ألغِ')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await widget.api.post('/orders/${widget.orderId}/cancel', {'reason': 'ألغاه المستخدم'});
+      setState(() => _status = 'cancelled');
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
   }
 
   @override

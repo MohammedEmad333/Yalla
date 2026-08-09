@@ -60,6 +60,34 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     }
   }
 
+  // رفض الطلب (قبل الاستلام) — يعيده للنظام ليُسنَد لكابتن آخر
+  Future<void> _rejectOrder() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('رفض الطلب'),
+        content: const Text('سيُعاد الطلب للنظام لإسناده لكابتن آخر. متأكّد؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('تراجع')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('رفض')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _busy = true);
+    // الاستدعاء الحقيقي عبر السوكت:
+    // socket.emit('order:update_status', {'orderId': orderId, 'status': 'cancelled',
+    //   'reason': 'رفضه الكابتن'});
+    await Future.delayed(const Duration(milliseconds: 600)); // محاكاة
+    if (mounted) {
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم رفض الطلب — بانتظار طلب جديد')),
+      );
+    }
+  }
+
   // نصّ عربي لكل حالة
   String _statusLabel(OrderStatus s) => switch (s) {
         OrderStatus.assigned => 'مُسنَد إليك',
@@ -138,6 +166,17 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                     )
                   else
                     const Center(child: Text('اكتمل الطلب — بانتظار طلب جديد')),
+
+                  // زر رفض الطلب — متاح قبل الاستلام فقط
+                  if (_status == OrderStatus.assigned || _status == OrderStatus.accepted) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      onPressed: _busy ? null : _rejectOrder,
+                      icon: const Icon(Icons.close),
+                      label: const Text('رفض الطلب'),
+                    ),
+                  ],
                 ],
               ),
             ),
