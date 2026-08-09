@@ -2,6 +2,7 @@
 
 const orderService = require('../services/order.service');
 const { toCsv } = require('../utils/csv');
+const { buildTimeline } = require('../utils/timeline');
 
 const pricing = require('../services/pricing.service');
 
@@ -178,7 +179,8 @@ async function getOrder(req, res, next) {
       req.auth.id,
       req.auth.role
     );
-    res.json(order);
+    // نُرفق خطوات الخطّ الزمني المحسوبة مع بيانات الطلب
+    res.json({ ...order.toObject(), timelineSteps: buildTimeline(order) });
   } catch (err) {
     next(err);
   }
