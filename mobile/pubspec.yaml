@@ -1,0 +1,33 @@
+name: yalla
+description: "Yalla — تطبيق التوصيل اللحظي (المستخدم/الكابتن)."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+  # الشبكة والتخزين
+  http: ^1.2.0
+  flutter_secure_storage: ^9.2.2
+
+  # اللحظي والخرائط والموقع
+  socket_io_client: ^2.0.3+1
+  google_maps_flutter: ^2.6.1
+  geolocator: ^11.0.0
+
+  # إشعارات FCM (اختيارية — تتطلّب إعداد Firebase؛ راجع README)
+  firebase_core: ^2.32.0
+  firebase_messaging: ^14.9.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.2
+
+flutter:
+  uses-material-design: true
