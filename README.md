@@ -1,5 +1,7 @@
 # Yalla (يلا) 🛵 — تطبيق التوصيل اللحظي
 
+[![CI](https://github.com/MohammedEmad333/Yalla/actions/workflows/ci.yml/badge.svg)](https://github.com/MohammedEmad333/Yalla/actions/workflows/ci.yml)
+
 منظومة توصيل لحظية (Real-Time) تعمل بالدراجات الهوائية/النارية، تتكوّن من ثلاثة أجزاء:
 
 1. **تطبيق المستخدم (User App)** — إنشاء طلبات التوصيل، تحديد نقاط الاستلام/التسليم، وتتبّع الطلب لحظيًا.
