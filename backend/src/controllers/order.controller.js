@@ -1,6 +1,7 @@
 'use strict';
 
 const orderService = require('../services/order.service');
+const { toCsv } = require('../utils/csv');
 
 const pricing = require('../services/pricing.service');
 
@@ -104,6 +105,34 @@ async function listOrders(req, res, next) {
   }
 }
 
+// الأدمن يصدّر الطلبات (بنفس الفلاتر) كملفّ CSV
+async function exportOrders(req, res, next) {
+  try {
+    const rows = await orderService.getOrdersForExport(req.query);
+    const columns = [
+      { key: 'id', header: 'المعرّف' },
+      { key: 'status', header: 'الحالة' },
+      { key: 'createdAt', header: 'تاريخ الإنشاء' },
+      { key: 'deliveredAt', header: 'تاريخ التسليم' },
+      { key: 'userName', header: 'العميل' },
+      { key: 'userPhone', header: 'هاتف العميل' },
+      { key: 'captainName', header: 'الكابتن' },
+      { key: 'pickup', header: 'الاستلام' },
+      { key: 'dropoff', header: 'التسليم' },
+      { key: 'distanceKm', header: 'المسافة (كم)' },
+      { key: 'price', header: 'السعر' },
+    ];
+    // BOM لضمان عرض العربية بشكل صحيح في Excel
+    const csv = '﻿' + toCsv(rows, columns);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="orders-${Date.now()}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // الأدمن يجلب الكباتن المتاحين للإسناد
 async function getAvailableCaptains(req, res, next) {
   try {
@@ -164,6 +193,7 @@ module.exports = {
   cancelOrder,
   getActiveOrders,
   listOrders,
+  exportOrders,
   getAvailableCaptains,
   getOrder,
   getMyOrders,

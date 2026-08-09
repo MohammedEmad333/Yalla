@@ -42,6 +42,7 @@ router.post('/:orderId/cancel', authorize(ROLES.USER, ROLES.ADMIN), ctrl.cancelO
 // الأدمن: عرض الطلبات النشطة + بحث/فلترة مع ترقيم + الكباتن المتاحين + الإسناد
 router.get('/active', authorize(ROLES.ADMIN), ctrl.getActiveOrders);
 router.get('/search', authorize(ROLES.ADMIN), ctrl.listOrders);
+router.get('/export', authorize(ROLES.ADMIN), ctrl.exportOrders);
 router.get('/available-captains', authorize(ROLES.ADMIN), ctrl.getAvailableCaptains);
 router.patch('/:orderId/assign', authorize(ROLES.ADMIN), validateBody(assignSchema), ctrl.assignOrder);
 router.patch('/:orderId/auto-assign', authorize(ROLES.ADMIN), ctrl.autoAssign);

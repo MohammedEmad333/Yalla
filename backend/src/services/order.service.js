@@ -355,6 +355,34 @@ async function listOrders(rawQuery = {}) {
   return { items, total, page, pages: Math.ceil(total / limit) || 1 };
 }
 
+// تجهيز صفوف الطلبات للتصدير CSV (بنفس مرشّحات البحث، بحدّ أعلى للأمان)
+async function getOrdersForExport(rawQuery = {}) {
+  const filter = buildOrderFilter(rawQuery);
+  const MAX_EXPORT = 5000; // حدّ يمنع تصدير ضخم يستنزف الذاكرة
+
+  const orders = await Order.find(filter)
+    .populate('user', 'name phone')
+    .populate('captain', 'name phone')
+    .sort({ createdAt: -1 })
+    .limit(MAX_EXPORT)
+    .lean();
+
+  // تسطيح كل طلب إلى صفّ مسطّح مناسب للـ CSV
+  return orders.map((o) => ({
+    id: String(o._id),
+    status: o.status,
+    createdAt: o.createdAt ? new Date(o.createdAt).toISOString() : '',
+    deliveredAt: o.timeline?.deliveredAt ? new Date(o.timeline.deliveredAt).toISOString() : '',
+    userName: o.user?.name || '',
+    userPhone: o.user?.phone || '',
+    captainName: o.captain?.name || '',
+    pickup: o.pickup?.address || '',
+    dropoff: o.dropoff?.address || '',
+    distanceKm: o.distanceKm ?? '',
+    price: o.price ?? '',
+  }));
+}
+
 // جلب الكباتن المتاحين (online) — لقائمة الإسناد في لوحة الأدمن
 async function getAvailableCaptains() {
   return Captain.find({ status: CAPTAIN_STATUS.ONLINE, isApproved: true }).select(
@@ -488,6 +516,7 @@ module.exports = {
   cancelOrder,
   getActiveOrders,
   listOrders,
+  getOrdersForExport,
   getAvailableCaptains,
   getOrderForTracking,
   getMyOrders,
