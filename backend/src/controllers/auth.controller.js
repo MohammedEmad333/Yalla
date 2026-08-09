@@ -60,4 +60,43 @@ async function loginCaptain(req, res, next) {
   }
 }
 
-module.exports = { registerUser, loginUser, loginCaptain };
+// إنشاء كابتن جديد — متاح للأدمن فقط (لا تسجيل ذاتي للكباتن)
+async function registerCaptain(req, res, next) {
+  try {
+    const { name, phone, password, vehicleType, vehiclePlate } = req.body;
+    const captain = new Captain({
+      name,
+      phone,
+      vehicleType,
+      vehiclePlate,
+      isApproved: true, // الأدمن هو من ينشئه فيُعتمَد مباشرةً
+    });
+    await captain.setPassword(password);
+    await captain.save();
+
+    res.status(201).json({
+      captain: { id: captain._id, name, phone, vehicleType: captain.vehicleType },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// جلب بيانات الحساب الحالي من التوكن — يُستخدم لاستعادة الجلسة عند فتح التطبيق
+async function me(req, res, next) {
+  try {
+    const { id, role } = req.auth;
+    if (role === ROLES.CAPTAIN) {
+      const captain = await Captain.findById(id).select('name phone status vehicleType activeOrder');
+      if (!captain) return res.status(404).json({ message: 'الحساب غير موجود' });
+      return res.json({ role, captain });
+    }
+    const user = await User.findById(id).select('name phone email role');
+    if (!user) return res.status(404).json({ message: 'الحساب غير موجود' });
+    res.json({ role: user.role, user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { registerUser, loginUser, loginCaptain, registerCaptain, me };
