@@ -10,6 +10,8 @@ const env = {
   jwtSecret: process.env.JWT_SECRET || 'change_me_super_secret',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   corsOrigin: process.env.CORS_ORIGIN || '*',
+  // تفعيل الإسناد التلقائي لأقرب كابتن عند إنشاء الطلب
+  autoAssign: process.env.AUTO_ASSIGN === 'true',
 };
 
 module.exports = env;

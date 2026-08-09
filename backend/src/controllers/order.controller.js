@@ -24,6 +24,23 @@ async function assignOrder(req, res, next) {
   }
 }
 
+// الأدمن يطلب إسنادًا تلقائيًا لأقرب كابتن متاح
+async function autoAssign(req, res, next) {
+  try {
+    const { orderId } = req.params;
+    const result = await orderService.autoAssignOrder(orderId, {
+      actorId: req.auth.id,
+      actorRole: 'admin',
+    });
+    if (!result.assigned) {
+      return res.status(409).json({ message: 'لا يوجد كابتن متاح قريب حاليًا', order: result.order });
+    }
+    res.json(result.order);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // الكابتن يحدّث حالة الطلب (accepted / picked_up / delivered)
 async function updateStatus(req, res, next) {
   try {
@@ -73,6 +90,7 @@ async function getOrder(req, res, next) {
 module.exports = {
   createOrder,
   assignOrder,
+  autoAssign,
   updateStatus,
   getActiveOrders,
   getAvailableCaptains,

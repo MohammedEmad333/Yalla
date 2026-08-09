@@ -15,6 +15,7 @@ router.post('/', authorize(ROLES.USER), ctrl.createOrder);
 router.get('/active', authorize(ROLES.ADMIN), ctrl.getActiveOrders);
 router.get('/available-captains', authorize(ROLES.ADMIN), ctrl.getAvailableCaptains);
 router.patch('/:orderId/assign', authorize(ROLES.ADMIN), ctrl.assignOrder);
+router.patch('/:orderId/auto-assign', authorize(ROLES.ADMIN), ctrl.autoAssign);
 
 // الكابتن: تحديث حالة الطلب
 router.patch('/:orderId/status', authorize(ROLES.CAPTAIN), ctrl.updateStatus);

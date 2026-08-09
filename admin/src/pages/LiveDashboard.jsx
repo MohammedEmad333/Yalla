@@ -72,6 +72,18 @@ export default function LiveDashboard() {
     // لا نحدّث الحالة يدويًا — سيصلنا حدث order:status_updated
   }
 
+  // إسناد تلقائي لأقرب كابتن (يعتمد فهرس 2dsphere في الخادم)
+  async function autoAssign(orderId) {
+    const res = await fetch(`${API}/api/orders/${orderId}/auto-assign`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 409) {
+      alert('لا يوجد كابتن متاح قريب حاليًا — جرّب الإسناد اليدوي');
+    }
+    // النجاح يصل عبر حدث order:status_updated
+  }
+
   // لون شارة الحالة
   const statusColor = (s) =>
     ({ pending: '#f59e0b', assigned: '#3b82f6', accepted: '#8b5cf6', picked_up: '#06b6d4' }[s] || '#6b7280');
@@ -118,6 +130,10 @@ export default function LiveDashboard() {
                     ))}
                   </select>
                   <button onClick={() => assign(o._id)} style={styles.btn}>إسناد</button>
+                  {/* زر الإسناد التلقائي لأقرب كابتن */}
+                  <button onClick={() => autoAssign(o._id)} style={styles.btnAuto} title="أقرب كابتن متاح">
+                    ⚡ تلقائي
+                  </button>
                 </div>
               )}
             </div>
@@ -155,6 +171,7 @@ const styles = {
   assignRow: { display: 'flex', gap: 8, marginTop: 12 },
   select: { flex: 1, padding: 8, borderRadius: 8, border: '1px solid #cbd5e1' },
   btn: { background: '#16a34a', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 8, cursor: 'pointer' },
+  btnAuto: { background: '#7c3aed', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap' },
   captainCard: { background: '#fff', borderRadius: 12, padding: 12, display: 'flex', gap: 12, alignItems: 'center' },
   dot: { width: 10, height: 10, borderRadius: '50%', background: '#22c55e' },
   muted: { color: '#94a3b8', fontSize: 13 },

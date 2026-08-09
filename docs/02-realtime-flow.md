@@ -75,6 +75,27 @@ Captain App              Backend                          User + Admin
 - **الغرف** → عزل وكفاءة: لا نُغرق كل العملاء بأحداث لا تخصّهم.
 - **طبقة Service موحّدة** → نفس منطق العمل يُستدعى من REST ومن Socket دون تكرار.
 
+## الإسناد التلقائي لأقرب كابتن (Auto-Assign)
+
+بدل الإسناد اليدوي، يمكن للنظام اختيار أقرب كابتن متاح آليًا باستخدام فهرس
+`2dsphere` على `Captains.currentLocation` واستعلام `$near`:
+
+```
+Order (pickup) ──► findNearestCaptain([lng,lat])
+   شرط الكابتن: status=online, isApproved=true, activeOrder=null
+   ترتيب: الأقرب مسافةً أولًا، ضمن نطاق أقصى (maxKm)
+        │
+        ├─ وُجد كابتن → commitAssignment (نفس منطق الإسناد اليدوي + بثّ الإشعارات)
+        └─ لا يوجد    → يبقى الطلب pending للإسناد اليدوي
+```
+
+**طريقتان للتشغيل:**
+- تلقائيًا عند الإنشاء: بضبط `AUTO_ASSIGN=true` في البيئة.
+- عند الطلب من الأدمن: `PATCH /orders/:id/auto-assign` (زر «⚡ تلقائي» في اللوحة).
+
+منطق الإسناد (اليدوي/التلقائي) موحّد عبر الدالة `commitAssignment` لتفادي التكرار،
+وكلاهما يبثّ نفس الأحداث ويكتب Log مع `meta.mode = manual | auto`.
+
 ## بديل Firebase (اختياري)
 
 لو فُضّل Firebase بدل Node: استخدم **Firestore** بنفس المجموعات أعلاه، مع

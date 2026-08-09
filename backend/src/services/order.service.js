@@ -4,6 +4,8 @@ const Order = require('../models/Order');
 const Captain = require('../models/Captain');
 const Log = require('../models/Log');
 const io = require('../sockets/io');
+const env = require('../config/env');
+const logger = require('../utils/logger');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
@@ -44,27 +46,28 @@ async function createOrder(userId, payload) {
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
   io.get().to(ROOMS.user(userId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
 
+  // إسناد تلقائي لأقرب كابتن عند التفعيل (AUTO_ASSIGN=true).
+  // إن لم يوجد كابتن يبقى الطلب pending للإسناد اليدوي — دون كسر تدفّق الإنشاء.
+  if (env.autoAssign) {
+    try {
+      const result = await autoAssignOrder(order._id, { actorRole: 'system' });
+      if (result.assigned) return result.order;
+    } catch (err) {
+      logger.warn('فشل الإسناد التلقائي، يبقى الطلب للإسناد اليدوي:', err.message);
+    }
+  }
+
   return order;
 }
 
 /**
- * (2) الإسناد اليدوي من قِبل الأدمن: ربط طلب pending بكابتن متاح.
+ * منطق الإسناد المشترك: يربط طلبًا (في حالة pending) بكابتن متاح،
+ * يشغّل الكابتن، يكتب Log، ويبثّ الإشعارات. يُستخدم من الإسناد اليدوي
+ * والتلقائي معًا لتفادي تكرار المنطق.
  */
-async function assignOrder(adminId, orderId, captainId) {
-  const order = await Order.findById(orderId);
-  if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
-  if (order.status !== ORDER_STATUS.PENDING) {
-    throw Object.assign(new Error('لا يمكن إسناد طلب ليس في حالة الانتظار'), { statusCode: 400 });
-  }
-
-  const captain = await Captain.findById(captainId);
-  if (!captain) throw Object.assign(new Error('الكابتن غير موجود'), { statusCode: 404 });
-  if (captain.status !== CAPTAIN_STATUS.ONLINE) {
-    throw Object.assign(new Error('الكابتن غير متاح حاليًا'), { statusCode: 400 });
-  }
-
+async function commitAssignment(order, captain, { actorId, actorRole }) {
   const from = order.status;
-  order.captain = captainId;
+  order.captain = captain._id;
   order.status = ORDER_STATUS.ASSIGNED;
   order.timeline.assignedAt = new Date();
   await order.save();
@@ -76,22 +79,85 @@ async function assignOrder(adminId, orderId, captainId) {
 
   await writeLog({
     order: order._id,
-    actorId: adminId,
-    actorRole: 'admin',
+    actorId,
+    actorRole,
     action: 'ORDER_ASSIGNED',
     fromStatus: from,
     toStatus: ORDER_STATUS.ASSIGNED,
-    meta: { captainId },
+    meta: { captainId: captain._id, mode: actorRole === 'system' ? 'auto' : 'manual' },
   });
 
   const populated = await order.populate('captain', 'name phone vehicleType');
 
   // إشعارات لحظية: للكابتن (طلب جديد مُسنَد)، للمستخدم، وللأدمن
-  io.get().to(ROOMS.captain(captainId)).emit(EVENTS.ORDER_ASSIGNED, populated);
+  io.get().to(ROOMS.captain(captain._id.toString())).emit(EVENTS.ORDER_ASSIGNED, populated);
   io.get().to(ROOMS.user(order.user.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, populated);
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_STATUS_UPDATED, populated);
 
   return populated;
+}
+
+// جلب طلب pending والتحقّق من صلاحيته للإسناد
+async function loadAssignableOrder(orderId) {
+  const order = await Order.findById(orderId);
+  if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
+  if (order.status !== ORDER_STATUS.PENDING) {
+    throw Object.assign(new Error('لا يمكن إسناد طلب ليس في حالة الانتظار'), { statusCode: 400 });
+  }
+  return order;
+}
+
+/**
+ * (2) الإسناد اليدوي من قِبل الأدمن: ربط طلب pending بكابتن محدّد.
+ */
+async function assignOrder(adminId, orderId, captainId) {
+  const order = await loadAssignableOrder(orderId);
+
+  const captain = await Captain.findById(captainId);
+  if (!captain) throw Object.assign(new Error('الكابتن غير موجود'), { statusCode: 404 });
+  if (captain.status !== CAPTAIN_STATUS.ONLINE) {
+    throw Object.assign(new Error('الكابتن غير متاح حاليًا'), { statusCode: 400 });
+  }
+
+  return commitAssignment(order, captain, { actorId: adminId, actorRole: 'admin' });
+}
+
+/**
+ * البحث عن أقرب كابتن متاح لنقطة معيّنة باستخدام فهرس 2dsphere.
+ * @param {[number, number]} coordinates  إحداثيات [lng, lat] لنقطة الاستلام
+ * @param {number} maxKm  أقصى نطاق بحث بالكيلومترات
+ */
+async function findNearestCaptain(coordinates, maxKm = 10) {
+  return Captain.findOne({
+    status: CAPTAIN_STATUS.ONLINE,
+    isApproved: true,
+    activeOrder: null,
+    currentLocation: {
+      $near: {
+        $geometry: { type: 'Point', coordinates },
+        $maxDistance: maxKm * 1000, // بالأمتار
+      },
+    },
+  });
+}
+
+/**
+ * الإسناد التلقائي: يجد أقرب كابتن متاح لنقطة الاستلام ويُسنده الطلب.
+ * يُستدعى تلقائيًا عند إنشاء الطلب (إن فُعِّل) أو يدويًا من الأدمن.
+ * @param {'system'|'admin'} actorRole  من أطلق الإسناد التلقائي
+ */
+async function autoAssignOrder(orderId, { actorId = null, actorRole = 'system' } = {}) {
+  const order = await loadAssignableOrder(orderId);
+
+  const pickupCoords = order.pickup.location.coordinates; // [lng, lat]
+  const captain = await findNearestCaptain(pickupCoords);
+  if (!captain) {
+    // لا يوجد كابتن متاح الآن → يبقى الطلب pending للإسناد اليدوي لاحقًا
+    return { assigned: false, order };
+  }
+
+  const populated = await commitAssignment(order, captain, { actorId, actorRole });
+  return { assigned: true, order: populated };
 }
 
 /**
@@ -190,6 +256,8 @@ async function getOrderForTracking(orderId, requesterId, requesterRole) {
 module.exports = {
   createOrder,
   assignOrder,
+  autoAssignOrder,
+  findNearestCaptain,
   updateOrderStatus,
   getActiveOrders,
   getAvailableCaptains,
