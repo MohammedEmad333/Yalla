@@ -30,6 +30,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   // التسعيرة التقديرية القادمة من الخادم
   num? _quotePrice;
   num? _quoteDistance;
+  num? _quoteEta;
   bool _loadingQuote = false;
 
   // عند الضغط على الخريطة نُسند النقطة للحقل النشط ثم نحدّث التسعيرة
@@ -57,6 +58,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       setState(() {
         _quotePrice = q['price'];
         _quoteDistance = q['distanceKm'];
+        _quoteEta = q['etaMinutes'];
       });
     } on ApiException {
       // نتجاهل خطأ التسعيرة بهدوء — السعر يُحسب نهائيًا في الخادم عند الإنشاء
@@ -172,7 +174,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                           ? const Text('جارٍ حساب السعر...')
                           : Text('السعر التقديري: $_quotePrice ج.م'),
                       subtitle: _quoteDistance != null
-                          ? Text('المسافة: ~$_quoteDistance كم')
+                          ? Text('المسافة: ~$_quoteDistance كم'
+                              '${_quoteEta != null ? ' · الزمن المتوقّع: ~$_quoteEta دقيقة' : ''}')
                           : null,
                     ),
                   ),

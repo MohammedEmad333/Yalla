@@ -15,6 +15,7 @@ const { summarizeEarnings } = require('../utils/earnings');
 const { ratingDistribution } = require('../utils/reviews');
 const { buildOrderFilter, parsePagination } = require('../utils/orderQuery');
 const { computeSettlement, summarizeWallet } = require('../utils/wallet');
+const { estimateEtaMinutes } = require('../utils/eta');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
@@ -33,18 +34,20 @@ async function writeLog({ order, actorId, actorRole, action, fromStatus, toStatu
  * الحالة الابتدائية = pending، ويُبثّ للأدمن ليتولّى الإسناد يدويًا.
  */
 async function createOrder(userId, payload) {
-  // نحسب المسافة والسعر في الخادم (مصدر الحقيقة) بدل الثقة بقيم العميل.
+  // نحسب المسافة والسعر والزمن في الخادم (مصدر الحقيقة) بدل الثقة بقيم العميل.
   const { distanceKm, price } = pricing.quote(
     payload.pickup.location.coordinates,
     payload.dropoff.location.coordinates,
     payload.vehicleType
   );
+  const etaMinutes = estimateEtaMinutes(distanceKm, payload.vehicleType);
 
   const order = await Order.create({
     user: userId,
     pickup: payload.pickup,
     dropoff: payload.dropoff,
     packageNote: payload.packageNote,
+    etaMinutes,
     price,
     distanceKm,
     status: ORDER_STATUS.PENDING,

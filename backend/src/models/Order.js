@@ -32,6 +32,7 @@ const orderSchema = new mongoose.Schema(
     packageNote: { type: String, default: '' },   // وصف مختصر لما يُوصَّل
     price: { type: Number, default: 0 },           // قيمة التوصيل
     distanceKm: { type: Number, default: 0 },      // المسافة التقديرية
+    etaMinutes: { type: Number, default: 0 },      // الزمن التقديري للتوصيل (دقائق)
 
     // التسوية المالية (تُحسب عند التسليم — نموذج COD)
     commission: { type: Number, default: 0 },      // عمولة الشركة

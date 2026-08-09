@@ -3,17 +3,20 @@
 const orderService = require('../services/order.service');
 const { toCsv } = require('../utils/csv');
 const { buildTimeline } = require('../utils/timeline');
+const { estimateEtaMinutes } = require('../utils/eta');
 
 const pricing = require('../services/pricing.service');
 
-// عرض تسعيرة تقديرية (مسافة + سعر) قبل تأكيد الطلب
+// عرض تسعيرة تقديرية (مسافة + سعر + زمن متوقّع) قبل تأكيد الطلب
 async function getQuote(req, res, next) {
   try {
     const { pickup, dropoff, vehicleType } = req.body; // pickup/dropoff = [lng, lat]
     if (!Array.isArray(pickup) || !Array.isArray(dropoff)) {
       return res.status(400).json({ message: 'أرسل إحداثيات الاستلام والتسليم [lng, lat]' });
     }
-    res.json(pricing.quote(pickup, dropoff, vehicleType));
+    const q = pricing.quote(pickup, dropoff, vehicleType);
+    // نرفق الزمن التقديري للتوصيل
+    res.json({ ...q, etaMinutes: estimateEtaMinutes(q.distanceKm, vehicleType) });
   } catch (err) {
     next(err);
   }
