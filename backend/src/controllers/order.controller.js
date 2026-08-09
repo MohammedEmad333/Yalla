@@ -94,6 +94,16 @@ async function getActiveOrders(req, res, next) {
   }
 }
 
+// الأدمن يبحث/يفلتر الطلبات مع ترقيم (?status=&from=&to=&q=&page=&limit=)
+async function listOrders(req, res, next) {
+  try {
+    const result = await orderService.listOrders(req.query);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // الأدمن يجلب الكباتن المتاحين للإسناد
 async function getAvailableCaptains(req, res, next) {
   try {
@@ -153,6 +163,7 @@ module.exports = {
   updateStatus,
   cancelOrder,
   getActiveOrders,
+  listOrders,
   getAvailableCaptains,
   getOrder,
   getMyOrders,

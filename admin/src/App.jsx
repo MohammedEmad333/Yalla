@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import LiveDashboard from './pages/LiveDashboard';
 import UsersManagement from './pages/UsersManagement';
 import StatsPage from './pages/StatsPage';
+import OrdersPage from './pages/OrdersPage';
 
 function Gate() {
   const { admin, loading, logout } = useAuth();
@@ -29,6 +30,9 @@ function Gate() {
           <button style={styles.link(page === 'users')} onClick={() => setPage('users')}>
             إدارة المستخدمين
           </button>
+          <button style={styles.link(page === 'orders')} onClick={() => setPage('orders')}>
+            بحث الطلبات
+          </button>
           <button style={styles.link(page === 'stats')} onClick={() => setPage('stats')}>
             الإحصائيات
           </button>
@@ -40,6 +44,7 @@ function Gate() {
       </nav>
 
       {page === 'dashboard' && <LiveDashboard />}
+      {page === 'orders' && <OrdersPage />}
       {page === 'users' && <UsersManagement />}
       {page === 'stats' && <StatsPage />}
     </div>

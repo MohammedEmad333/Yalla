@@ -13,6 +13,7 @@ const { addRating } = require('../utils/rating');
 const { canUserCancel } = require('../utils/orderRules');
 const { summarizeEarnings } = require('../utils/earnings');
 const { ratingDistribution } = require('../utils/reviews');
+const { buildOrderFilter, parsePagination } = require('../utils/orderQuery');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
@@ -335,6 +336,25 @@ async function getActiveOrders() {
     .sort({ createdAt: -1 });
 }
 
+// بحث/فلترة الطلبات مع ترقيم (للوحة الأدمن) — يعيد العناصر والإجمالي وعدد الصفحات
+async function listOrders(rawQuery = {}) {
+  const filter = buildOrderFilter(rawQuery);
+  const { page, limit, skip } = parsePagination(rawQuery);
+
+  // نُشغّل جلب الصفحة والعدّ الكلّي بالتوازي
+  const [items, total] = await Promise.all([
+    Order.find(filter)
+      .populate('user', 'name phone')
+      .populate('captain', 'name phone status')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Order.countDocuments(filter),
+  ]);
+
+  return { items, total, page, pages: Math.ceil(total / limit) || 1 };
+}
+
 // جلب الكباتن المتاحين (online) — لقائمة الإسناد في لوحة الأدمن
 async function getAvailableCaptains() {
   return Captain.find({ status: CAPTAIN_STATUS.ONLINE, isApproved: true }).select(
@@ -467,6 +487,7 @@ module.exports = {
   updateOrderStatus,
   cancelOrder,
   getActiveOrders,
+  listOrders,
   getAvailableCaptains,
   getOrderForTracking,
   getMyOrders,

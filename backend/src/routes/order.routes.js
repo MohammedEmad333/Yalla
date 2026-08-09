@@ -39,8 +39,9 @@ router.post('/:orderId/rate', authorize(ROLES.USER), validateBody(rateSchema), c
 // المستخدم أو الأدمن: إلغاء الطلب (قبل الاستلام)
 router.post('/:orderId/cancel', authorize(ROLES.USER, ROLES.ADMIN), ctrl.cancelOrder);
 
-// الأدمن: عرض الطلبات النشطة + الكباتن المتاحين + الإسناد
+// الأدمن: عرض الطلبات النشطة + بحث/فلترة مع ترقيم + الكباتن المتاحين + الإسناد
 router.get('/active', authorize(ROLES.ADMIN), ctrl.getActiveOrders);
+router.get('/search', authorize(ROLES.ADMIN), ctrl.listOrders);
 router.get('/available-captains', authorize(ROLES.ADMIN), ctrl.getAvailableCaptains);
 router.patch('/:orderId/assign', authorize(ROLES.ADMIN), validateBody(assignSchema), ctrl.assignOrder);
 router.patch('/:orderId/auto-assign', authorize(ROLES.ADMIN), ctrl.autoAssign);
