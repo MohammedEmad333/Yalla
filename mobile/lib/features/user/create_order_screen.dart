@@ -5,8 +5,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../core/network/api_client.dart';
+
 class CreateOrderScreen extends StatefulWidget {
-  const CreateOrderScreen({super.key});
+  final ApiClient api;
+  const CreateOrderScreen({super.key, required this.api});
 
   @override
   State<CreateOrderScreen> createState() => _CreateOrderScreenState();
@@ -24,7 +27,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   final _noteController = TextEditingController();
   bool _submitting = false;
 
-  // عند الضغط على الخريطة نُسند النقطة للحقل النشط
+  // التسعيرة التقديرية القادمة من الخادم
+  num? _quotePrice;
+  num? _quoteDistance;
+  bool _loadingQuote = false;
+
+  // عند الضغط على الخريطة نُسند النقطة للحقل النشط ثم نحدّث التسعيرة
   void _onMapTap(LatLng point) {
     setState(() {
       if (_selectingPickup) {
@@ -33,6 +41,28 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         _dropoff = point;
       }
     });
+    _refreshQuote(); // احسب السعر فور اكتمال النقطتين
+  }
+
+  // جلب تسعيرة تقديرية من الخادم عند توفّر النقطتين
+  Future<void> _refreshQuote() async {
+    if (_pickup == null || _dropoff == null) return;
+    setState(() => _loadingQuote = true);
+    try {
+      final q = await widget.api.post('/orders/quote', {
+        'pickup': [_pickup!.longitude, _pickup!.latitude], // [lng, lat]
+        'dropoff': [_dropoff!.longitude, _dropoff!.latitude],
+        'vehicleType': 'motorcycle',
+      });
+      setState(() {
+        _quotePrice = q['price'];
+        _quoteDistance = q['distanceKm'];
+      });
+    } on ApiException {
+      // نتجاهل خطأ التسعيرة بهدوء — السعر يُحسب نهائيًا في الخادم عند الإنشاء
+    } finally {
+      if (mounted) setState(() => _loadingQuote = false);
+    }
   }
 
   // بناء علامات الخريطة (Markers) للنقطتين
@@ -131,6 +161,22 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
+                // بطاقة التسعيرة التقديرية (تظهر بعد اختيار النقطتين)
+                if (_loadingQuote || _quotePrice != null)
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: const Icon(Icons.payments),
+                      title: _loadingQuote
+                          ? const Text('جارٍ حساب السعر...')
+                          : Text('السعر التقديري: $_quotePrice ج.م'),
+                      subtitle: _quoteDistance != null
+                          ? Text('المسافة: ~$_quoteDistance كم')
+                          : null,
+                    ),
+                  ),
+
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(

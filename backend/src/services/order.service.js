@@ -6,6 +6,7 @@ const Log = require('../models/Log');
 const io = require('../sockets/io');
 const env = require('../config/env');
 const logger = require('../utils/logger');
+const pricing = require('./pricing.service');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
@@ -24,13 +25,20 @@ async function writeLog({ order, actorId, actorRole, action, fromStatus, toStatu
  * الحالة الابتدائية = pending، ويُبثّ للأدمن ليتولّى الإسناد يدويًا.
  */
 async function createOrder(userId, payload) {
+  // نحسب المسافة والسعر في الخادم (مصدر الحقيقة) بدل الثقة بقيم العميل.
+  const { distanceKm, price } = pricing.quote(
+    payload.pickup.location.coordinates,
+    payload.dropoff.location.coordinates,
+    payload.vehicleType
+  );
+
   const order = await Order.create({
     user: userId,
     pickup: payload.pickup,
     dropoff: payload.dropoff,
     packageNote: payload.packageNote,
-    price: payload.price || 0,
-    distanceKm: payload.distanceKm || 0,
+    price,
+    distanceKm,
     status: ORDER_STATUS.PENDING,
   });
 

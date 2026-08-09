@@ -8,7 +8,8 @@ const { ROLES } = require('../utils/constants');
 // كل مسارات الطلبات تتطلّب مصادقة
 router.use(authenticate);
 
-// المستخدم: إنشاء طلب
+// المستخدم: تسعيرة تقديرية قبل الطلب، ثم إنشاء الطلب
+router.post('/quote', authorize(ROLES.USER), ctrl.getQuote);
 router.post('/', authorize(ROLES.USER), ctrl.createOrder);
 
 // الأدمن: عرض الطلبات النشطة + الكباتن المتاحين + الإسناد

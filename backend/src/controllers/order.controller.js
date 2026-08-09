@@ -2,6 +2,21 @@
 
 const orderService = require('../services/order.service');
 
+const pricing = require('../services/pricing.service');
+
+// عرض تسعيرة تقديرية (مسافة + سعر) قبل تأكيد الطلب
+async function getQuote(req, res, next) {
+  try {
+    const { pickup, dropoff, vehicleType } = req.body; // pickup/dropoff = [lng, lat]
+    if (!Array.isArray(pickup) || !Array.isArray(dropoff)) {
+      return res.status(400).json({ message: 'أرسل إحداثيات الاستلام والتسليم [lng, lat]' });
+    }
+    res.json(pricing.quote(pickup, dropoff, vehicleType));
+  } catch (err) {
+    next(err);
+  }
+}
+
 // المستخدم ينشئ طلبًا جديدًا
 async function createOrder(req, res, next) {
   try {
@@ -88,6 +103,7 @@ async function getOrder(req, res, next) {
 }
 
 module.exports = {
+  getQuote,
   createOrder,
   assignOrder,
   autoAssign,
