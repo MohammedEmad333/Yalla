@@ -132,6 +132,13 @@ worker tick (كل دقيقة)
 
 منطق الاستحقاق (`isDue` / `filterDueOrders`) نقيّ ومُختبَر بمعزل عن المُشغّل.
 
+## مهلة قبول الطلب (Accept Timeout)
+
+نفس المُشغّل الخلفي يفحص الطلبات المُسنَدة التي لم يقبلها الكابتن خلال المهلة
+(`ACCEPT_TIMEOUT_SECONDS`، افتراضي 60ث): `expireStaleAssignments` يعيدها للمجمّع
+ويستبعد الكابتن الذي لم يستجب ثم يُعيد الإسناد لأقرب كابتن آخر — بنفس مسار الرفض
+(`returnToPoolAndReassign`). قاعدة الوقت (`isAssignmentExpired`) نقيّة ومُختبَرة.
+
 ## بديل Firebase (اختياري)
 
 لو فُضّل Firebase بدل Node: استخدم **Firestore** بنفس المجموعات أعلاه، مع

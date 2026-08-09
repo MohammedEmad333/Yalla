@@ -14,10 +14,15 @@ const logger = require('../utils/logger');
 function startScheduler({ intervalMs = 60_000 } = {}) {
   async function tick() {
     try {
-      const count = await orderService.activateDueScheduledOrders();
-      if (count > 0) logger.info(`⏰ فُعّل ${count} طلب مجدول مستحقّ`);
+      // 1) تفعيل الطلبات المجدولة المستحقّة
+      const activated = await orderService.activateDueScheduledOrders();
+      if (activated > 0) logger.info(`⏰ فُعّل ${activated} طلب مجدول مستحقّ`);
+
+      // 2) إعادة إسناد الطلبات التي انتهت مهلة قبولها
+      const reassigned = await orderService.expireStaleAssignments();
+      if (reassigned > 0) logger.info(`⏰ أُعيد إسناد ${reassigned} طلب انتهت مهلته`);
     } catch (err) {
-      logger.error('خطأ في مُشغّل الطلبات المجدولة:', err.message);
+      logger.error('خطأ في المُشغّل الخلفي:', err.message);
     }
   }
 

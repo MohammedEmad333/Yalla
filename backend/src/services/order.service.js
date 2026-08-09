@@ -334,8 +334,49 @@ async function updateOrderStatus(captainId, orderId, nextStatus, reason = '') {
 }
 
 /**
- * رفض الكابتن للطلب (قبل الاستلام): يعيده لحالة pending، يحرّر الكابتن،
- * يسجّله ضمن rejectedBy، ثم يُعيد إسناده لأقرب كابتن آخر (إن كان التلقائي مفعّلًا).
+ * منطق مشترك: إعادة طلب للمجمّع (pending)، استبعاد الكابتن المعنيّ،
+ * تحريره، ثم إعادة الإسناد التلقائي لأقرب كابتن آخر. يُستخدم من الرفض اليدوي
+ * ومن انتهاء مهلة القبول.
+ */
+async function returnToPoolAndReassign(order, captainId, { actorRole, action }) {
+  const from = order.status;
+  order.status = ORDER_STATUS.PENDING;
+  order.captain = null;
+  order.timeline.assignedAt = null;
+  order.timeline.acceptedAt = null;
+  if (captainId && !order.rejectedBy.map(String).includes(String(captainId))) {
+    order.rejectedBy.push(captainId);
+  }
+  await order.save();
+
+  await releaseCaptain(captainId);
+  await writeLog({
+    order: order._id,
+    actorId: actorRole === 'system' ? null : captainId,
+    actorRole,
+    action,
+    fromStatus: from,
+    toStatus: ORDER_STATUS.PENDING,
+  });
+
+  // يعود للأدمن كطلب معلّق + إعلام المستخدم
+  io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
+  io.get().to(ROOMS.user(order.user.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+
+  // إعادة إسناد تلقائي لأقرب كابتن آخر (مع استبعاد من رُفض/انتهت مهلته)
+  if (env.autoAssign) {
+    try {
+      const result = await autoAssignOrder(order._id, { actorRole: 'system' });
+      return result.order;
+    } catch (err) {
+      logger.warn('فشل إعادة الإسناد:', err.message);
+    }
+  }
+  return order;
+}
+
+/**
+ * رفض الكابتن للطلب (قبل الاستلام): يعيده للمجمّع ويُعاد إسناده لكابتن آخر.
  */
 async function rejectOrder(captainId, orderId) {
   const order = await Order.findById(orderId);
@@ -347,41 +388,34 @@ async function rejectOrder(captainId, orderId) {
     throw Object.assign(new Error('لا يمكن رفض الطلب في حالته الحالية'), { statusCode: 400 });
   }
 
-  const from = order.status;
-  // إعادة الطلب للمجمّع
-  order.status = ORDER_STATUS.PENDING;
-  order.captain = null;
-  order.timeline.assignedAt = null;
-  order.timeline.acceptedAt = null;
-  if (!order.rejectedBy.map(String).includes(String(captainId))) {
-    order.rejectedBy.push(captainId);
-  }
-  await order.save();
-
-  await releaseCaptain(captainId);
-  await writeLog({
-    order: order._id,
-    actorId: captainId,
+  return returnToPoolAndReassign(order, captainId, {
     actorRole: 'captain',
     action: 'ORDER_REJECTED',
-    fromStatus: from,
-    toStatus: ORDER_STATUS.PENDING,
+  });
+}
+
+/**
+ * انتهاء مهلة القبول: يجد الطلبات المُسنَدة التي لم تُقبَل خلال المهلة
+ * ويعيد إسنادها (كابتن لم يستجب يُستبعَد). يستدعيه المُشغّل الخلفي.
+ * @param {Date} now
+ * @returns {Promise<number>} عدد الطلبات المُعاد إسنادها
+ */
+async function expireStaleAssignments(now = new Date()) {
+  const timeoutMs = env.acceptTimeoutSeconds * 1000;
+  const cutoff = new Date(now.getTime() - timeoutMs);
+
+  const stale = await Order.find({
+    status: ORDER_STATUS.ASSIGNED,
+    'timeline.assignedAt': { $ne: null, $lte: cutoff },
   });
 
-  // يعود للأدمن كطلب معلّق + إعلام المستخدم
-  io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
-  io.get().to(ROOMS.user(order.user.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
-
-  // إعادة إسناد تلقائي لأقرب كابتن آخر (مع استبعاد من رفض)
-  if (env.autoAssign) {
-    try {
-      const result = await autoAssignOrder(order._id, { actorRole: 'system' });
-      return result.order;
-    } catch (err) {
-      logger.warn('فشل إعادة الإسناد بعد الرفض:', err.message);
-    }
+  for (const order of stale) {
+    await returnToPoolAndReassign(order, order.captain, {
+      actorRole: 'system',
+      action: 'ORDER_ASSIGN_TIMEOUT',
+    });
   }
-  return order;
+  return stale.length;
 }
 
 /**
@@ -680,6 +714,7 @@ module.exports = {
   findNearestCaptain,
   updateOrderStatus,
   rejectOrder,
+  expireStaleAssignments,
   cancelOrder,
   getActiveOrders,
   listOrders,
