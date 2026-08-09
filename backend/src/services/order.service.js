@@ -111,9 +111,11 @@ async function commitAssignment(order, captain, { actorId, actorRole }) {
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_STATUS_UPDATED, populated);
 
   // إشعار Push لإيقاظ الكابتن حتى والتطبيق مغلق (آمن: no-op إن كان FCM معطّلًا)
+  const assignedPayload = notifications.orderAssignedPayload(order);
   notifications
-    .sendToTokens(captain.deviceTokens, notifications.orderAssignedPayload(order))
+    .sendToTokens(captain.deviceTokens, assignedPayload)
     .catch((e) => logger.warn('تعذّر إرسال إشعار الإسناد:', e.message));
+  notifications.createInApp(captain._id, 'captain', assignedPayload); // إشعار داخلي
 
   return populated;
 }
@@ -211,9 +213,11 @@ function broadcastOrderUpdate(order) {
 // إشعار Push لصاحب الطلب بتغيّر حالته (آمن: no-op إن كان FCM معطّلًا أو لا رموز)
 async function pushOrderStatusToUser(order) {
   try {
+    const payload = notifications.orderStatusPayload(order);
+    notifications.createInApp(order.user, 'user', payload); // إشعار داخلي للمستخدم
     const user = await User.findById(order.user).select('deviceTokens');
     if (!user?.deviceTokens?.length) return;
-    await notifications.sendToTokens(user.deviceTokens, notifications.orderStatusPayload(order));
+    await notifications.sendToTokens(user.deviceTokens, payload);
   } catch (err) {
     logger.warn('تعذّر إرسال إشعار الحالة للمستخدم:', err.message);
   }
@@ -318,12 +322,14 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
   // إشعار الكابتن (إن كان مُسنَدًا) بأن الطلب أُلغي + بقية الأطراف
   if (captainId) {
     io.get().to(ROOMS.captain(captainId.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+    const cancelPayload = notifications.orderCancelledPayload(order);
+    notifications.createInApp(captainId, 'captain', cancelPayload); // إشعار داخلي
     // إشعار Push للكابتن بإلغاء الطلب
     Captain.findById(captainId)
       .select('deviceTokens')
       .then((cap) => {
         if (cap?.deviceTokens?.length) {
-          return notifications.sendToTokens(cap.deviceTokens, notifications.orderCancelledPayload(order));
+          return notifications.sendToTokens(cap.deviceTokens, cancelPayload);
         }
       })
       .catch((e) => logger.warn('تعذّر إرسال إشعار الإلغاء للكابتن:', e.message));

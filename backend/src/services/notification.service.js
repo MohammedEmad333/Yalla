@@ -3,6 +3,8 @@
 const fs = require('fs');
 const env = require('../config/env');
 const logger = require('../utils/logger');
+const Notification = require('../models/Notification');
+const { unreadCount } = require('../utils/notifications');
 
 /**
  * خدمة الإشعارات (FCM) عبر Firebase Admin.
@@ -106,10 +108,61 @@ function orderCancelledPayload(order) {
   };
 }
 
+// ── إشعارات داخل التطبيق (In-App) ─────────────────────────────
+
+// إنشاء إشعار داخلي للمستلِم (آمن: لا يرمي أخطاءً تُوقف التدفّق الأساسي)
+async function createInApp(recipientId, recipientRole, payload) {
+  try {
+    await Notification.create({
+      recipient: recipientId,
+      recipientRole,
+      type: payload.data?.type || 'GENERAL',
+      title: payload.title,
+      body: payload.body,
+      data: payload.data || {},
+    });
+  } catch (err) {
+    logger.warn('تعذّر إنشاء إشعار داخلي:', err.message);
+  }
+}
+
+// قائمة إشعارات المستلِم + عدد غير المقروء
+async function listForRecipient(recipientId, { limit = 30 } = {}) {
+  const items = await Notification.find({ recipient: recipientId })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+  return { items, unread: unreadCount(items) };
+}
+
+// تعليم إشعار واحد كمقروء (لمالكه فقط)
+async function markRead(recipientId, notificationId) {
+  const notif = await Notification.findOneAndUpdate(
+    { _id: notificationId, recipient: recipientId },
+    { read: true },
+    { new: true }
+  );
+  if (!notif) throw Object.assign(new Error('الإشعار غير موجود'), { statusCode: 404 });
+  return notif;
+}
+
+// تعليم كل إشعارات المستلِم كمقروءة
+async function markAllRead(recipientId) {
+  const res = await Notification.updateMany(
+    { recipient: recipientId, read: false },
+    { read: true }
+  );
+  return { updated: res.modifiedCount };
+}
+
 module.exports = {
   isEnabled,
   sendToTokens,
   orderAssignedPayload,
   orderStatusPayload,
   orderCancelledPayload,
+  createInApp,
+  listForRecipient,
+  markRead,
+  markAllRead,
 };

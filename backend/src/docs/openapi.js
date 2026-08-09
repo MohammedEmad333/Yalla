@@ -148,6 +148,11 @@ function buildOpenApiSpec() {
         post: op({ summary: 'تسجيل رمز جهاز', tags: ['Notifications'], body: { token: str } }),
         delete: op({ summary: 'إزالة رمز جهاز', tags: ['Notifications'], body: { token: str } }),
       },
+      '/notifications': { get: op({ summary: 'إشعاراتي (داخل التطبيق)', tags: ['Notifications'] }) },
+      '/notifications/read-all': { patch: op({ summary: 'تعليم الكلّ كمقروء', tags: ['Notifications'] }) },
+      '/notifications/{id}/read': {
+        patch: op({ summary: 'تعليم إشعار كمقروء', tags: ['Notifications'], params: ['id'] }),
+      },
     },
   };
 }

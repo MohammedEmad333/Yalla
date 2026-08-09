@@ -2,6 +2,7 @@
 
 const User = require('../models/User');
 const Captain = require('../models/Captain');
+const notificationService = require('../services/notification.service');
 const { ROLES } = require('../utils/constants');
 
 // نختار الموديل المناسب حسب دور صاحب الطلب
@@ -37,4 +38,34 @@ async function removeDeviceToken(req, res, next) {
   }
 }
 
-module.exports = { registerDeviceToken, removeDeviceToken };
+// قائمة إشعارات الحساب الحالي + عدد غير المقروء
+async function listMine(req, res, next) {
+  try {
+    const data = await notificationService.listForRecipient(req.auth.id);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// تعليم إشعار كمقروء
+async function markRead(req, res, next) {
+  try {
+    const notif = await notificationService.markRead(req.auth.id, req.params.id);
+    res.json(notif);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// تعليم الكلّ كمقروء
+async function markAllRead(req, res, next) {
+  try {
+    const result = await notificationService.markAllRead(req.auth.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { registerDeviceToken, removeDeviceToken, listMine, markRead, markAllRead };

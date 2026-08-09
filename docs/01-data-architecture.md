@@ -104,6 +104,17 @@ pending ──(admin assigns)──> assigned ──(captain accepts)──> acc
 | `meta` | Mixed | بيانات إضافية (موقع، captainId...) |
 | `createdAt` | Date | وقت الحدث |
 
+## 6) Notifications — الإشعارات داخل التطبيق
+
+| الحقل | النوع | ملاحظات |
+|------|------|---------|
+| `recipient` | ObjectId | **مفهرس** — المستخدم/الكابتن المستلِم |
+| `recipientRole` | Enum(`user`,`captain`) | نوع المستلِم |
+| `type` | String | ORDER_ASSIGNED, ORDER_STATUS, ORDER_CANCELLED... |
+| `title`,`body` | String | نصّ الإشعار |
+| `data` | Mixed | {orderId, status...} |
+| `read` | Boolean | **مفهرس** — مقروء أم لا |
+
 ## الفهارس المهمّة (Indexes)
 
 - `Users.phone` (unique), `Captains.phone` (unique)
