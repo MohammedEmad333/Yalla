@@ -15,10 +15,11 @@ dependencies:
   http: ^1.2.0
   flutter_secure_storage: ^9.2.2
 
-  # اللحظي والخرائط والموقع
+  # اللحظي والموقع
   socket_io_client: ^2.0.3+1
-  google_maps_flutter: ^2.6.1
   geolocator: ^11.0.0
+  # ملاحظة: google_maps_flutter أُزيلت من الإعداد الافتراضي لتسهيل التشغيل
+  # (تحتاج مفتاح Google Maps). شاشتا الطلب والتتبّع تعملان بلا خريطة حاليًا.
 
   # ملاحظة: إشعارات FCM أُزيلت من الإعداد الافتراضي لتسهيل أوّل تشغيل.
   # لإعادتها: أضف firebase_core و firebase_messaging وأعد ملفّ push_service.dart،

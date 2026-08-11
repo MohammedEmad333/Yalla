@@ -1,9 +1,9 @@
-// شاشة تتبّع الطلب (تطبيق المستخدم)
+// شاشة تتبّع الطلب (تطبيق المستخدم) — نسخة بلا خريطة.
 // تحمّل الحالة الأولية عبر REST ثم تنضمّ لغرفة الطلب على السوكت لتتلقّى
-// موقع الكابتن وتحديثات الحالة لحظيًا، وتحرّك علامة الكابتن على الخريطة.
+// حالة الطلب وموقع الكابتن لحظيًا (يُعرَض كإحداثيات + مؤشّر حيّ).
+// (يمكن لاحقًا إضافة خريطة عبر google_maps_flutter + مفتاح Google Maps.)
 
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
@@ -25,91 +25,60 @@ class OrderTrackingScreen extends StatefulWidget {
 }
 
 class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
-  GoogleMapController? _map;
-
-  LatLng? _pickup;
-  LatLng? _dropoff;
-  LatLng? _captain;        // موقع الكابتن اللحظي
+  String _pickup = '';
+  String _dropoff = '';
+  double? _captainLat;
+  double? _captainLng;
+  DateTime? _lastUpdate;
   String _status = 'pending';
   String _captainName = '';
 
   @override
   void initState() {
     super.initState();
-    _loadInitial();     // 1) الحالة الأولية عبر REST
-    _subscribeRealtime(); // 2) الاشتراك في التحديثات اللحظية
+    _loadInitial();
+    _subscribeRealtime();
   }
 
-  // تحميل تفاصيل الطلب لرسم النقاط الثابتة وحالة البداية
   Future<void> _loadInitial() async {
     try {
       final data = await widget.api.get('/orders/${widget.orderId}');
-      final pick = data['pickup']['location']['coordinates']; // [lng, lat]
-      final drop = data['dropoff']['location']['coordinates'];
       setState(() {
-        _pickup = LatLng(pick[1], pick[0]);
-        _dropoff = LatLng(drop[1], drop[0]);
+        _pickup = data['pickup']?['address'] ?? '';
+        _dropoff = data['dropoff']?['address'] ?? '';
         _status = data['status'] ?? 'pending';
         _captainName = data['captain']?['name'] ?? '';
-        // موقع الكابتن الابتدائي إن كان متوفّرًا
         final cap = data['captain']?['currentLocation']?['coordinates'];
-        if (cap != null) _captain = LatLng(cap[1], cap[0]);
+        if (cap != null) {
+          _captainLng = (cap[0] as num).toDouble();
+          _captainLat = (cap[1] as num).toDouble();
+        }
       });
     } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
-  // الانضمام لغرفة الطلب والاستماع للأحداث
   void _subscribeRealtime() {
     widget.socket.joinOrder(widget.orderId);
 
-    // كل تحديث لموقع الكابتن يحرّك العلامة ويحرّك الكاميرا
+    // موقع الكابتن اللحظي
     widget.socket.onCaptainLocation((data) {
       if (data['orderId'] != widget.orderId) return;
-      final pos = LatLng((data['lat'] as num).toDouble(), (data['lng'] as num).toDouble());
-      setState(() => _captain = pos);
-      _map?.animateCamera(CameraUpdate.newLatLng(pos));
+      setState(() {
+        _captainLat = (data['lat'] as num).toDouble();
+        _captainLng = (data['lng'] as num).toDouble();
+        _lastUpdate = DateTime.now();
+      });
     });
 
-    // تحديث حالة الطلب (accepted/picked_up/delivered)
+    // تحديث حالة الطلب
     widget.socket.onOrderStatusUpdated((data) {
       if (data['_id'] != widget.orderId) return;
       setState(() => _status = data['status'] ?? _status);
     });
   }
 
-  // بناء العلامات: استلام (أخضر)، تسليم (أحمر)، كابتن (أزرق)
-  Set<Marker> _markers() {
-    final m = <Marker>{};
-    if (_pickup != null) {
-      m.add(Marker(
-        markerId: const MarkerId('pickup'),
-        position: _pickup!,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-      ));
-    }
-    if (_dropoff != null) {
-      m.add(Marker(
-        markerId: const MarkerId('dropoff'),
-        position: _dropoff!,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-      ));
-    }
-    if (_captain != null) {
-      m.add(Marker(
-        markerId: const MarkerId('captain'),
-        position: _captain!,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        infoWindow: InfoWindow(title: _captainName.isEmpty ? 'الكابتن' : _captainName),
-      ));
-    }
-    return m;
-  }
-
-  // نصّ عربي مبسّط للحالة
   String get _statusText => switch (_status) {
         'pending' => 'بانتظار إسناد كابتن...',
         'assigned' => 'تم تعيين كابتن',
@@ -120,59 +89,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         _ => _status,
       };
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('تتبّع الطلب')),
-      body: Column(
-        children: [
-          // شريط الحالة اللحظي
-          Container(
-            width: double.infinity,
-            color: Theme.of(context).colorScheme.primaryContainer,
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                const Icon(Icons.delivery_dining),
-                const SizedBox(width: 12),
-                Text(_statusText, style: const TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          Expanded(
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: _pickup ?? const LatLng(30.0444, 31.2357),
-                zoom: 13,
-              ),
-              onMapCreated: (c) => _map = c,
-              markers: _markers(),
-            ),
-          ),
-
-          // زر إلغاء الطلب — يظهر قبل الاستلام فقط
-          if (_canCancel)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                  onPressed: _cancelOrder,
-                  icon: const Icon(Icons.cancel),
-                  label: const Text('إلغاء الطلب'),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // يُسمح بالإلغاء قبل الاستلام فقط (يطابق قاعدة الخادم)
   bool get _canCancel => ['pending', 'assigned', 'accepted'].contains(_status);
 
-  // تأكيد ثم إرسال طلب الإلغاء للخادم
   Future<void> _cancelOrder() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -186,20 +104,70 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       ),
     );
     if (confirm != true) return;
-
     try {
       await widget.api.post('/orders/${widget.orderId}/cancel', {'reason': 'ألغاه المستخدم'});
       setState(() => _status = 'cancelled');
     } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
   @override
-  void dispose() {
-    _map?.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('تتبّع الطلب')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // شريط الحالة اللحظي
+          Card(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.delivery_dining),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(_statusText, style: const TextStyle(fontWeight: FontWeight.bold))),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          _tile(Icons.store, 'الاستلام', _pickup),
+          _tile(Icons.flag, 'التسليم', _dropoff),
+          if (_captainName.isNotEmpty) _tile(Icons.person, 'الكابتن', _captainName),
+
+          // موقع الكابتن اللحظي (كإحداثيات + مؤشّر تحديث حيّ)
+          if (_captainLat != null)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.my_location, color: Colors.blue),
+                title: Text('موقع الكابتن: ${_captainLat!.toStringAsFixed(4)}, ${_captainLng!.toStringAsFixed(4)}'),
+                subtitle: Text(_lastUpdate != null
+                    ? 'آخر تحديث: ${_lastUpdate!.hour.toString().padLeft(2, '0')}:${_lastUpdate!.minute.toString().padLeft(2, '0')}'
+                    : 'آخر موقع معروف'),
+                trailing: _lastUpdate != null ? const Icon(Icons.circle, size: 10, color: Colors.green) : null,
+              ),
+            ),
+
+          const SizedBox(height: 16),
+          if (_canCancel)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                onPressed: _cancelOrder,
+                icon: const Icon(Icons.cancel),
+                label: const Text('إلغاء الطلب'),
+              ),
+            ),
+        ],
+      ),
+    );
   }
+
+  Widget _tile(IconData icon, String label, String value) =>
+      Card(child: ListTile(leading: Icon(icon), title: Text(label), subtitle: Text(value)));
 }

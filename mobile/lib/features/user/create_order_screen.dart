@@ -1,11 +1,21 @@
-// شاشة إنشاء طلب توصيل (تطبيق المستخدم)
-// Clean Architecture: هذه طبقة العرض (Presentation) — تستدعي طبقة الـ Repository
-// عبر Provider. لأغراض الـ MVP نضع منطق الاستدعاء مباشرةً مع تعليقات توضيحية.
+// شاشة إنشاء طلب توصيل (تطبيق المستخدم) — نسخة بلا خريطة.
+// تختار نقطتَي الاستلام/التسليم من مواقع جاهزة (بإحداثيات معروفة)، وتعرض
+// التسعيرة والزمن المتوقّع، وتدعم الجدولة. (يمكن لاحقًا إضافة خريطة تفاعلية
+// عبر google_maps_flutter + مفتاح Google Maps.)
 
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../core/network/api_client.dart';
+
+// مواقع جاهزة: الاسم -> [lng, lat]
+const Map<String, List<double>> _presetLocations = {
+  'وسط البلد، غزة': [34.4668, 31.5069],
+  'حي الرمال، غزة': [34.4400, 31.5300],
+  'حي الشجاعية، غزة': [34.4800, 31.5050],
+  'جباليا': [34.4830, 31.5280],
+  'خان يونس': [34.3060, 31.3400],
+  'رفح': [34.2500, 31.2870],
+};
 
 class CreateOrderScreen extends StatefulWidget {
   final ApiClient api;
@@ -16,13 +26,8 @@ class CreateOrderScreen extends StatefulWidget {
 }
 
 class _CreateOrderScreenState extends State<CreateOrderScreen> {
-  // متحكّم الخريطة ونقاط الاستلام/التسليم المختارة
-  GoogleMapController? _mapController;
-  LatLng? _pickup;
-  LatLng? _dropoff;
-
-  // نحدّد أي نقطة نختار حاليًا (استلام أم تسليم)
-  bool _selectingPickup = true;
+  String? _pickupName;
+  String? _dropoffName;
 
   final _noteController = TextEditingController();
   bool _submitting = false;
@@ -36,26 +41,17 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   num? _quoteEta;
   bool _loadingQuote = false;
 
-  // عند الضغط على الخريطة نُسند النقطة للحقل النشط ثم نحدّث التسعيرة
-  void _onMapTap(LatLng point) {
-    setState(() {
-      if (_selectingPickup) {
-        _pickup = point;
-      } else {
-        _dropoff = point;
-      }
-    });
-    _refreshQuote(); // احسب السعر فور اكتمال النقطتين
-  }
+  List<double>? get _pickupCoords => _pickupName == null ? null : _presetLocations[_pickupName];
+  List<double>? get _dropoffCoords => _dropoffName == null ? null : _presetLocations[_dropoffName];
 
-  // جلب تسعيرة تقديرية من الخادم عند توفّر النقطتين
+  // جلب تسعيرة تقديرية عند اكتمال النقطتين
   Future<void> _refreshQuote() async {
-    if (_pickup == null || _dropoff == null) return;
+    if (_pickupCoords == null || _dropoffCoords == null) return;
     setState(() => _loadingQuote = true);
     try {
       final q = await widget.api.post('/orders/quote', {
-        'pickup': [_pickup!.longitude, _pickup!.latitude], // [lng, lat]
-        'dropoff': [_dropoff!.longitude, _dropoff!.latitude],
+        'pickup': _pickupCoords,
+        'dropoff': _dropoffCoords,
         'vehicleType': 'motorcycle',
       });
       setState(() {
@@ -64,32 +60,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         _quoteEta = q['etaMinutes'];
       });
     } on ApiException {
-      // نتجاهل خطأ التسعيرة بهدوء — السعر يُحسب نهائيًا في الخادم عند الإنشاء
+      // نتجاهل خطأ التسعيرة — السعر يُحسب نهائيًا في الخادم عند الإنشاء
     } finally {
       if (mounted) setState(() => _loadingQuote = false);
     }
-  }
-
-  // بناء علامات الخريطة (Markers) للنقطتين
-  Set<Marker> _buildMarkers() {
-    final markers = <Marker>{};
-    if (_pickup != null) {
-      markers.add(Marker(
-        markerId: const MarkerId('pickup'),
-        position: _pickup!,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: const InfoWindow(title: 'نقطة الاستلام'),
-      ));
-    }
-    if (_dropoff != null) {
-      markers.add(Marker(
-        markerId: const MarkerId('dropoff'),
-        position: _dropoff!,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        infoWindow: const InfoWindow(title: 'نقطة التسليم'),
-      ));
-    }
-    return markers;
   }
 
   // اختيار تاريخ ووقت الجدولة (ضمن 7 أيام قادمة)
@@ -102,44 +76,48 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       lastDate: now.add(const Duration(days: 7)),
     );
     if (date == null || !mounted) return;
-
     final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
     if (time == null) return;
-
     setState(() {
       _scheduledAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
     });
   }
 
-  // إرسال الطلب إلى الـ Backend
+  // إرسال الطلب للـ Backend
   Future<void> _submitOrder() async {
-    if (_pickup == null || _dropoff == null) {
+    if (_pickupCoords == null || _dropoffCoords == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('حدّد نقطتي الاستلام والتسليم أولًا')),
+        const SnackBar(content: Text('اختر نقطتَي الاستلام والتسليم')),
       );
       return;
     }
-
     setState(() => _submitting = true);
     try {
-      // ── هنا يُستدعى الـ Repository ──────────────────────────────
-      // await orderRepository.createOrder(
-      //   pickup: {'address': '...', 'location': {'type':'Point',
-      //            'coordinates': [_pickup!.longitude, _pickup!.latitude]}},
-      //   dropoff: {'address': '...', 'location': {'type':'Point',
-      //            'coordinates': [_dropoff!.longitude, _dropoff!.latitude]}},
-      //   packageNote: _noteController.text,
-      //   scheduledAt: _scheduledAt?.toUtc().toIso8601String(), // اختياري
-      // );
-      // الـ Repository يرسل POST /api/orders مع ترويسة Idempotency-Key
-      // (مثلًا UUID يُولَّد مرّة لكل محاولة إرسال) لمنع تكرار الطلب عند إعادة المحاولة،
-      // ثم ينضمّ لغرفة الطلب على السوكت.
-      await Future.delayed(const Duration(seconds: 1)); // محاكاة
-
+      await widget.api.post('/orders', {
+        'pickup': {
+          'address': _pickupName,
+          'location': {'type': 'Point', 'coordinates': _pickupCoords},
+        },
+        'dropoff': {
+          'address': _dropoffName,
+          'location': {'type': 'Point', 'coordinates': _dropoffCoords},
+        },
+        'packageNote': _noteController.text,
+        if (_scheduledAt != null) 'scheduledAt': _scheduledAt!.toUtc().toIso8601String(),
+      });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم إنشاء الطلب بنجاح — بانتظار إسناد كابتن')),
       );
+      setState(() {
+        _pickupName = null;
+        _dropoffName = null;
+        _noteController.clear();
+        _scheduledAt = null;
+        _quotePrice = _quoteDistance = _quoteEta = null;
+      });
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -149,85 +127,74 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('طلب توصيل جديد')),
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          // الخريطة لاختيار النقاط
-          Expanded(
-            child: GoogleMap(
-              initialCameraPosition: const CameraPosition(
-                target: LatLng(30.0444, 31.2357), // القاهرة كنقطة بداية
-                zoom: 12,
-              ),
-              onMapCreated: (c) => _mapController = c,
-              onTap: _onMapTap,
-              markers: _buildMarkers(),
-              myLocationEnabled: true,
+          // اختيار نقطة الاستلام
+          _locationPicker(
+            label: 'نقطة الاستلام',
+            icon: Icons.store,
+            value: _pickupName,
+            onChanged: (v) {
+              setState(() => _pickupName = v);
+              _refreshQuote();
+            },
+          ),
+          const SizedBox(height: 12),
+          // اختيار نقطة التسليم
+          _locationPicker(
+            label: 'نقطة التسليم',
+            icon: Icons.flag,
+            value: _dropoffName,
+            onChanged: (v) {
+              setState(() => _dropoffName = v);
+              _refreshQuote();
+            },
+          ),
+          const SizedBox(height: 12),
+
+          TextField(
+            controller: _noteController,
+            decoration: const InputDecoration(
+              labelText: 'ملاحظة الشحنة (اختياري)',
+              border: OutlineInputBorder(),
             ),
           ),
+          const SizedBox(height: 12),
 
-          // لوحة الإدخال السفلية
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                // مبدّل: نختار نقطة الاستلام أم التسليم
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: true, label: Text('الاستلام'), icon: Icon(Icons.store)),
-                    ButtonSegment(value: false, label: Text('التسليم'), icon: Icon(Icons.flag)),
-                  ],
-                  selected: {_selectingPickup},
-                  onSelectionChanged: (s) => setState(() => _selectingPickup = s.first),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _noteController,
-                  decoration: const InputDecoration(
-                    labelText: 'ملاحظة الشحنة (اختياري)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
+          // جدولة لوقت لاحق (اختياري)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('جدولة لوقت لاحق'),
+            subtitle: _scheduledAt != null ? Text('$_scheduledAt'.split('.').first) : const Text('طلب فوري'),
+            value: _scheduledAt != null,
+            onChanged: (on) => on ? _pickSchedule() : setState(() => _scheduledAt = null),
+          ),
 
-                // جدولة الطلب لوقت لاحق (اختياري)
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('جدولة لوقت لاحق'),
-                  subtitle: _scheduledAt != null
-                      ? Text('$_scheduledAt'.split('.').first)
-                      : const Text('طلب فوري'),
-                  value: _scheduledAt != null,
-                  onChanged: (on) => on ? _pickSchedule() : setState(() => _scheduledAt = null),
-                ),
+          // بطاقة التسعيرة
+          if (_loadingQuote || _quotePrice != null)
+            Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                leading: const Icon(Icons.payments),
+                title: _loadingQuote
+                    ? const Text('جارٍ حساب السعر...')
+                    : Text('السعر التقديري: $_quotePrice ج.م'),
+                subtitle: _quoteDistance != null
+                    ? Text('المسافة: ~$_quoteDistance كم'
+                        '${_quoteEta != null ? ' · الزمن المتوقّع: ~$_quoteEta دقيقة' : ''}')
+                    : null,
+              ),
+            ),
 
-                // بطاقة التسعيرة التقديرية (تظهر بعد اختيار النقطتين)
-                if (_loadingQuote || _quotePrice != null)
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: const Icon(Icons.payments),
-                      title: _loadingQuote
-                          ? const Text('جارٍ حساب السعر...')
-                          : Text('السعر التقديري: $_quotePrice ج.م'),
-                      subtitle: _quoteDistance != null
-                          ? Text('المسافة: ~$_quoteDistance كم'
-                              '${_quoteEta != null ? ' · الزمن المتوقّع: ~$_quoteEta دقيقة' : ''}')
-                          : null,
-                    ),
-                  ),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _submitting ? null : _submitOrder,
-                    icon: _submitting
-                        ? const SizedBox(
-                            width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.send),
-                    label: const Text('تأكيد الطلب'),
-                  ),
-                ),
-              ],
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _submitting ? null : _submitOrder,
+              icon: _submitting
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.send),
+              label: const Text('تأكيد الطلب'),
             ),
           ),
         ],
@@ -235,10 +202,31 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     );
   }
 
+  // منتقي موقع من القائمة الجاهزة
+  Widget _locationPicker({
+    required String label,
+    required IconData icon,
+    required String? value,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: const OutlineInputBorder(),
+      ),
+      items: _presetLocations.keys
+          .map((name) => DropdownMenuItem(value: name, child: Text(name)))
+          .toList(),
+      onChanged: onChanged,
+    );
+  }
+
   @override
   void dispose() {
     _noteController.dispose();
-    _mapController?.dispose();
     super.dispose();
   }
 }

@@ -30,13 +30,17 @@ flutter pub get
 flutter run
 ```
 
-## الخرائط والإشعارات (اختياري لأوّل تشغيل)
-- **Google Maps**: أضف مفتاح API في
-  `android/app/src/main/AndroidManifest.xml` (و`ios/Runner/AppDelegate.swift`).
-  بدونه يعمل التطبيق لكن الخريطة تظهر فارغة.
-- **إشعارات FCM**: تتطلّب إعداد Firebase (`flutterfire configure`).
-  **لتخطّيها في أوّل تشغيل**: احذف `firebase_core`/`firebase_messaging` من
-  `pubspec.yaml` واحذف `lib/core/notifications/push_service.dart`.
+## الخرائط والإشعارات (مُزالة افتراضيًا لتسهيل التشغيل)
+لتفادي متطلّبات المفاتيح الخارجية، أُزيلت المكتبتان الأصليّتان من الإعداد الافتراضي:
+- **Google Maps**: شاشتا «إنشاء طلب» و«التتبّع» تعملان **بلا خريطة** (اختيار مواقع
+  جاهزة + عرض إحداثيات الكابتن). لإضافة خريطة تفاعلية: أعِد `google_maps_flutter`
+  إلى `pubspec.yaml`، واستبدل الشاشتين بنسخ الخريطة، وأضف مفتاح Google Maps في
+  `android/app/src/main/AndroidManifest.xml`.
+- **إشعارات FCM**: تتطلّب إعداد Firebase (`flutterfire configure`). لإعادتها أضِف
+  `firebase_core`/`firebase_messaging` وأعِد `push_service.dart`.
+
+> السماح بـ HTTP: للاتصال بالـ Backend عبر `http` من جهاز حقيقي، أضِف
+> `android:usesCleartextTraffic="true"` إلى وسم `<application>` في AndroidManifest.
 
 ## البنية
 ```
