@@ -13,12 +13,8 @@ services:
       - '27017:27017'
     volumes:
       - mongo_data:/data/db
-    healthcheck:
-      # ننتظر جاهزية القاعدة قبل تشغيل الـ API
-      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.runCommand('ping').ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    # ملاحظة: صورة community-server لا تتضمّن mongosh، لذا لا نضع healthcheck
+    # يعتمد عليه؛ بدلًا من ذلك يعيد الـ API محاولة الاتصال حتى جاهزية القاعدة.
 
   # خادم الـ API (Express + Socket.io)
   api:
@@ -36,9 +32,9 @@ services:
       JWT_EXPIRES_IN: 7d
       CORS_ORIGIN: '*'
       AUTO_ASSIGN: ${AUTO_ASSIGN:-false}
+    # نبدأ mongo أولًا؛ والـ API يعيد محاولة الاتصال حتى جاهزيتها
     depends_on:
-      mongo:
-        condition: service_healthy
+      - mongo
 
   # لوحة الأدمن (React مبنيّة + nginx)
   admin:
