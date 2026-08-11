@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import '../config/app_config.dart';
 import '../storage/token_storage.dart';
 
 class ApiException implements Exception {
@@ -15,8 +16,8 @@ class ApiException implements Exception {
 }
 
 class ApiClient {
-  // غيّر العنوان حسب بيئتك (10.0.2.2 = localhost لمحاكي أندرويد)
-  static const String baseUrl = 'http://10.0.2.2:4000/api';
+  // العنوان يُضبط عبر --dart-define=API_HOST=... (راجع AppConfig)
+  static const String baseUrl = AppConfig.apiBaseUrl;
 
   final TokenStorage _tokenStorage;
   ApiClient(this._tokenStorage);

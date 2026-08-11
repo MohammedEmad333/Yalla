@@ -18,11 +18,11 @@ flutter create --platforms=android,ios,web .
 > لا يحذف هذا الأمر ملفّاتنا؛ يُنشئ المفقود فقط. لو عدّل `pubspec.yaml`
 > استعده من git: `git checkout pubspec.yaml`.
 
-### 3) ضبط عنوان الـ Backend
-في `lib/core/network/api_client.dart` و`lib/core/realtime/socket_service.dart`:
-- **محاكي أندرويد**: `http://10.0.2.2:4000` (الافتراضي الحالي).
-- **محاكي iOS**: `http://127.0.0.1:4000`.
-- **جهاز حقيقي**: `http://<IP-جهازك>:4000`.
+### 3) ضبط عنوان الـ Backend (بلا تعديل كود)
+العنوان يُمرَّر عبر `--dart-define=API_HOST=...` (انظر `lib/core/config/app_config.dart`):
+- **محاكي أندرويد**: الافتراضي `10.0.2.2` — لا تحتاج شيئًا.
+- **محاكي iOS**: `flutter run --dart-define=API_HOST=127.0.0.1`
+- **جهاز حقيقي**: `flutter run --dart-define=API_HOST=<IP-جهازك>` (من `ipconfig`، ونفس WiFi).
 
 ### 4) التشغيل
 ```bash

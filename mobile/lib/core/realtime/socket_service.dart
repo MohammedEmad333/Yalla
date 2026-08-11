@@ -4,11 +4,12 @@
 
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
+import '../config/app_config.dart';
 import '../storage/token_storage.dart';
 
 class SocketService {
-  // نفس عنوان الـ Backend (بدون /api لأن السوكت على الجذر)
-  static const String _url = 'http://10.0.2.2:4000';
+  // نفس عنوان الـ Backend (بدون /api لأن السوكت على الجذر) — يُضبط عبر --dart-define
+  static const String _url = AppConfig.origin;
 
   final TokenStorage _tokenStorage;
   io.Socket? _socket;
