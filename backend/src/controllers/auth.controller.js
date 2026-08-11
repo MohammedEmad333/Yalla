@@ -26,21 +26,38 @@ async function registerUser(req, res, next) {
   }
 }
 
-// تسجيل دخول المستخدم أو الأدمن
+// تسجيل دخول موحّد: يفحص المستخدم/الأدمن أولًا ثم الكابتن — صفحة دخول واحدة للجميع
 async function loginUser(req, res, next) {
   try {
     const { phone, password } = req.body;
-    // نطلب حقل passwordHash صراحةً لأنه select:false
+
+    // 1) مستخدم أو أدمن
     const user = await User.findOne({ phone }).select('+passwordHash');
-    if (!user || !(await user.verifyPassword(password))) {
-      return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
+    if (user) {
+      if (!(await user.verifyPassword(password))) {
+        return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
+      }
+      if (!user.isActive) {
+        return res.status(403).json({ message: 'الحساب معطّل — تواصل مع الدعم' });
+      }
+      const token = signToken(user._id, user.role);
+      return res.json({ token, user: { id: user._id, name: user.name, phone, role: user.role } });
     }
-    // المستخدم المعطّل من الأدمن لا يستطيع الدخول
-    if (!user.isActive) {
-      return res.status(403).json({ message: 'الحساب معطّل — تواصل مع الدعم' });
+
+    // 2) كابتن
+    const captain = await Captain.findOne({ phone }).select('+passwordHash');
+    if (captain) {
+      if (!(await captain.verifyPassword(password))) {
+        return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
+      }
+      const token = signToken(captain._id, ROLES.CAPTAIN);
+      return res.json({
+        token,
+        user: { id: captain._id, name: captain.name, phone, role: ROLES.CAPTAIN },
+      });
     }
-    const token = signToken(user._id, user.role);
-    res.json({ token, user: { id: user._id, name: user.name, phone, role: user.role } });
+
+    return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
   } catch (err) {
     next(err);
   }

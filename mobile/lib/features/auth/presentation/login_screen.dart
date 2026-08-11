@@ -1,23 +1,14 @@
-// شاشة تسجيل الدخول — مشتركة بين تطبيق المستخدم والكابتن عبر معامل [role].
-// تطبيق React Native/Flutter نظيف: الشاشة تستدعي AuthRepository فقط.
+// شاشة مصادقة موحّدة للجميع (مستخدم/كابتن/أدمن): دخول برقم الهاتف وكلمة المرور،
+// مع إمكانية إنشاء حساب مستخدم. النجاح يحدّث حالة الجلسة فتنتقل الواجهة تلقائيًا.
 
 import 'package:flutter/material.dart';
 
+import '../../../core/network/api_client.dart';
 import '../data/auth_repository.dart';
 
 class LoginScreen extends StatefulWidget {
   final AuthRepository authRepository;
-  final bool isCaptain; // true = دخول كابتن، false = دخول مستخدم
-  final VoidCallback onLoggedIn; // ننتقل للشاشة الرئيسية بعد النجاح
-  final VoidCallback? onGoToRegister;
-
-  const LoginScreen({
-    super.key,
-    required this.authRepository,
-    required this.onLoggedIn,
-    this.isCaptain = false,
-    this.onGoToRegister,
-  });
+  const LoginScreen({super.key, required this.authRepository});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -25,8 +16,11 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _name = TextEditingController();
   final _phone = TextEditingController();
   final _password = TextEditingController();
+
+  bool _isRegister = false; // false = دخول، true = إنشاء حساب
   bool _loading = false;
   String? _error;
 
@@ -37,15 +31,23 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      // نختار نوع الدخول حسب الدور
-      if (widget.isCaptain) {
-        await widget.authRepository.loginCaptain(phone: _phone.text, password: _password.text);
+      if (_isRegister) {
+        await widget.authRepository.register(
+          name: _name.text,
+          phone: _phone.text,
+          password: _password.text,
+        );
       } else {
-        await widget.authRepository.loginUser(phone: _phone.text, password: _password.text);
+        await widget.authRepository.login(
+          phone: _phone.text,
+          password: _password.text,
+        );
       }
-      if (mounted) widget.onLoggedIn();
-    } catch (e) {
-      setState(() => _error = 'فشل الدخول: تحقّق من الهاتف وكلمة المرور');
+      // لا حاجة للتنقّل يدويًا — تغيّر الجلسة يقود الواجهة (انظر AuthGate)
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } catch (_) {
+      setState(() => _error = 'تعذّر الاتصال بالخادم — تحقّق من الشبكة');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -62,11 +64,25 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('🛵 يلا', style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold)),
+                const Text('🛵 يلا', style: TextStyle(fontSize: 44, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Text(widget.isCaptain ? 'دخول الكابتن' : 'أهلًا بك',
+                Text(_isRegister ? 'إنشاء حساب جديد' : 'تسجيل الدخول',
                     style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
+
+                // الاسم (للتسجيل فقط)
+                if (_isRegister) ...[
+                  TextFormField(
+                    controller: _name,
+                    decoration: const InputDecoration(
+                      labelText: 'الاسم',
+                      prefixIcon: Icon(Icons.person),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) => (v == null || v.isEmpty) ? 'أدخل الاسم' : null,
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 TextFormField(
                   controller: _phone,
@@ -93,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 if (_error != null) ...[
                   const SizedBox(height: 12),
-                  Text(_error!, style: const TextStyle(color: Colors.red)),
+                  Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
                 ],
 
                 const SizedBox(height: 24),
@@ -102,18 +118,21 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: FilledButton(
                     onPressed: _loading ? null : _submit,
                     child: _loading
-                        ? const SizedBox(
-                            width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('تسجيل الدخول'),
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Text(_isRegister ? 'إنشاء الحساب' : 'دخول'),
                   ),
                 ),
 
-                // رابط إنشاء الحساب (للمستخدم فقط — الكباتن يُنشئهم الأدمن)
-                if (!widget.isCaptain && widget.onGoToRegister != null)
-                  TextButton(
-                    onPressed: widget.onGoToRegister,
-                    child: const Text('ليس لديك حساب؟ أنشئ حسابًا'),
-                  ),
+                // التبديل بين الدخول والتسجيل
+                TextButton(
+                  onPressed: _loading
+                      ? null
+                      : () => setState(() {
+                            _isRegister = !_isRegister;
+                            _error = null;
+                          }),
+                  child: Text(_isRegister ? 'لديك حساب؟ سجّل الدخول' : 'ليس لديك حساب؟ أنشئ حسابًا'),
+                ),
               ],
             ),
           ),
@@ -124,6 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _name.dispose();
     _phone.dispose();
     _password.dispose();
     super.dispose();
