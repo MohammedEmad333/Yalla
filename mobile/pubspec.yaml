@@ -20,9 +20,9 @@ dependencies:
   google_maps_flutter: ^2.6.1
   geolocator: ^11.0.0
 
-  # إشعارات FCM (اختيارية — تتطلّب إعداد Firebase؛ راجع README)
-  firebase_core: ^2.32.0
-  firebase_messaging: ^14.9.4
+  # ملاحظة: إشعارات FCM أُزيلت من الإعداد الافتراضي لتسهيل أوّل تشغيل.
+  # لإعادتها: أضف firebase_core و firebase_messaging وأعد ملفّ push_service.dart،
+  # ثم شغّل `flutterfire configure`.
 
 dev_dependencies:
   flutter_test:
