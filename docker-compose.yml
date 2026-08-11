@@ -46,7 +46,8 @@ services:
     container_name: yalla-admin
     restart: unless-stopped
     ports:
-      - '8080:80'
+      # 8090 على المضيف (8080 قد يكون مشغولًا بتطبيق آخر) → 80 داخل الحاوية
+      - '8090:80'
     depends_on:
       - api
 
