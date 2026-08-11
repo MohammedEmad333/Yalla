@@ -2,9 +2,11 @@
 # الاستخدام:  docker compose up --build
 
 services:
-  # قاعدة بيانات MongoDB مع تخزين دائم
+  # قاعدة بيانات MongoDB مع تخزين دائم.
+  # نستخدم صورة MongoDB الرسميّة متعدّدة المعماريّات (amd64 + arm64)
+  # لأن صورة "mongo:7" الرسميّة لا توفّر نسخة arm64.
   mongo:
-    image: mongo:7
+    image: mongodb/mongodb-community-server:7.0-ubuntu2204
     container_name: yalla-mongo
     restart: unless-stopped
     ports:
