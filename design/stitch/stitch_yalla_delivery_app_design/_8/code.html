@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>تقييم الخدمة - Yalla</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "primary-fixed": "#ffdbcc",
+                      "on-error-container": "#93000a",
+                      "secondary-fixed": "#cfe5ff",
+                      "on-surface": "#1a1c1e",
+                      "on-surface-variant": "#5a4136",
+                      "on-tertiary-fixed": "#1a1c1c",
+                      "secondary-container": "#00a2fd",
+                      "surface-tint": "#a04100",
+                      "outline-variant": "#e2bfb0",
+                      "on-secondary": "#ffffff",
+                      "surface-container-highest": "#e2e2e5",
+                      "surface-bright": "#f9f9fc",
+                      "on-tertiary-fixed-variant": "#454747",
+                      "surface-dim": "#dadadc",
+                      "tertiary": "#5d5f5f",
+                      "tertiary-fixed-dim": "#c6c6c7",
+                      "on-background": "#1a1c1e",
+                      "surface-container-low": "#f3f3f6",
+                      "surface-container-lowest": "#ffffff",
+                      "inverse-on-surface": "#f0f0f3",
+                      "primary-container": "#ff6b00",
+                      "inverse-primary": "#ffb693",
+                      "surface": "#f9f9fc",
+                      "on-error": "#ffffff",
+                      "on-secondary-container": "#003558",
+                      "surface-variant": "#e2e2e5",
+                      "on-primary-fixed": "#351000",
+                      "secondary-fixed-dim": "#98cbff",
+                      "primary": "#a04100",
+                      "outline": "#8e7164",
+                      "on-tertiary": "#ffffff",
+                      "primary-fixed-dim": "#ffb693",
+                      "on-secondary-fixed-variant": "#004a77",
+                      "tertiary-container": "#989999",
+                      "error-container": "#ffdad6",
+                      "secondary": "#00629d",
+                      "tertiary-fixed": "#e2e2e2",
+                      "on-tertiary-container": "#2f3132",
+                      "on-primary-fixed-variant": "#7a3000",
+                      "on-secondary-fixed": "#001d33",
+                      "surface-container-high": "#e8e8ea",
+                      "on-primary": "#ffffff",
+                      "on-primary-container": "#572000",
+                      "background": "#f9f9fc",
+                      "error": "#ba1a1a",
+                      "surface-container": "#eeeef0",
+                      "inverse-surface": "#2f3133"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-mobile": "16px",
+                      "md": "16px",
+                      "unit": "4px",
+                      "sm": "8px",
+                      "gutter": "16px",
+                      "margin-desktop": "32px",
+                      "xl": "40px",
+                      "xs": "4px",
+                      "lg": "24px"
+              },
+              "fontFamily": {
+                      "label-sm": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "headline-lg-mobile": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "headline-lg": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "body-md": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "body-lg": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "display-lg": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "title-md": [
+                              "IBM Plex Sans Arabic"
+                      ]
+              },
+              "fontSize": {
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "26px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "title-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        body {
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            background-color: #f9f9fc; /* surface */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* Subtle glow for primary buttons */
+        .btn-primary-glow {
+            box-shadow: inset 0px 2px 4px rgba(255, 255, 255, 0.3), 0px 4px 12px rgba(255, 107, 0, 0.2);
+        }
+        
+        /* Glassmorphic effect */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .rating-star {
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        .rating-star:active {
+            transform: scale(0.9);
+        }
+        .rating-star.selected {
+            color: #ff6b00; /* primary-container */
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        .feedback-chip {
+            transition: all 0.2s ease;
+        }
+        .feedback-chip.selected {
+            background-color: #e6f5ff; /* very light blue */
+            border-color: #00a2fd; /* secondary-container */
+            color: #00629d; /* secondary */
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-surface flex justify-center min-h-screen">
+<!-- Mobile Container -->
+<main class="w-full max-w-md bg-surface min-h-screen relative shadow-[0_0_40px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col pb-[100px]">
+<!-- Top App Bar (Transactional, no bottom nav) -->
+<header class="flex justify-between items-center px-margin-mobile h-16 w-full glass-panel z-50 sticky top-0 border-b border-surface-variant">
+<button aria-label="العودة" class="p-2 -mr-2 rounded-full hover:bg-surface-container active:scale-95 transition-all text-on-surface-variant">
+<span class="material-symbols-outlined text-[24px]">arrow_forward</span>
+</button>
+<h1 class="font-title-md text-title-md text-on-surface">تقييم الخدمة</h1>
+<div class="w-10"></div> <!-- Spacer for centering -->
+</header>
+<!-- Content Area -->
+<div class="flex-1 overflow-y-auto">
+<!-- Captain Appreciation Section -->
+<section class="px-margin-mobile pt-lg pb-md flex flex-col items-center border-b border-surface-variant bg-surface-container-lowest">
+<div class="relative mb-md">
+<div class="w-24 h-24 rounded-full overflow-hidden border-4 border-surface shadow-md">
+<img alt="صورة الكابتن محمد" class="w-full h-full object-cover" data-alt="A professional, well-lit portrait of an Arab delivery driver smiling warmly. The lighting is soft and bright, suggesting a sunny day. The style is modern, friendly, and matches a high-quality service app profile picture." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkF-LEB8zT8_14HR3xK6lfDOQxUkIM2vTrl0pEtMS6A7HZiy1DrljrLSIEJVxiNbbDrIsHiZ9SLUf2O7ljCJHcuowzu7mNFLNuGSEfXp_BQqlJyMjA5cTp-fHJ3LEWRRF2RN1Vaz3eEmwOS7TBe82qyobArNKV5hrvGEOMWat4mlV54m9ubdimryB9Wr9Hrw7WZBj-tHGP_ZYozYXHr5SQ6Wg7zmoAC-MhyTGa9B32rI9PS_rgEtph"/>
+</div>
+<!-- Badge -->
+<div class="absolute -bottom-2 -right-2 bg-primary-container text-on-primary rounded-full p-1 border-2 border-surface shadow-sm">
+<span class="material-symbols-outlined text-[16px] leading-none block" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</div>
+<h2 class="font-title-md text-title-md text-on-surface mb-xs">كابتن محمد</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mb-lg">كيف كانت تجربتك مع التوصيل؟</p>
+<!-- 5-Star Rating (Captain) -->
+<div class="flex flex-row-reverse gap-2 mb-md" id="captain-rating">
+<span class="material-symbols-outlined text-[40px] text-surface-variant rating-star" data-value="5">star</span>
+<span class="material-symbols-outlined text-[40px] text-surface-variant rating-star" data-value="4">star</span>
+<span class="material-symbols-outlined text-[40px] text-surface-variant rating-star" data-value="3">star</span>
+<span class="material-symbols-outlined text-[40px] text-surface-variant rating-star" data-value="2">star</span>
+<span class="material-symbols-outlined text-[40px] text-surface-variant rating-star" data-value="1">star</span>
+</div>
+<!-- Quick Feedback Tags -->
+<div class="flex flex-wrap justify-center gap-sm mt-md w-full">
+<button class="feedback-chip border border-outline-variant rounded-full px-4 py-2 font-body-md text-body-md text-on-surface-variant bg-surface-container-lowest hover:bg-surface-container-low active:scale-95">سريع جداً</button>
+<button class="feedback-chip border border-outline-variant rounded-full px-4 py-2 font-body-md text-body-md text-on-surface-variant bg-surface-container-lowest hover:bg-surface-container-low active:scale-95">تعامل راقي</button>
+<button class="feedback-chip border border-outline-variant rounded-full px-4 py-2 font-body-md text-body-md text-on-surface-variant bg-surface-container-lowest hover:bg-surface-container-low active:scale-95">التوصيل احترافي</button>
+<button class="feedback-chip border border-outline-variant rounded-full px-4 py-2 font-body-md text-body-md text-on-surface-variant bg-surface-container-lowest hover:bg-surface-container-low active:scale-95">مركبة نظيفة</button>
+</div>
+</section>
+<!-- Order Quality Section -->
+<section class="px-margin-mobile py-lg mt-md bg-surface-container-lowest rounded-xl mx-margin-mobile shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-surface-variant">
+<h3 class="font-title-md text-title-md text-on-surface mb-xs text-center">جودة الطلب</h3>
+<p class="font-body-md text-body-md text-on-surface-variant text-center mb-md">هل وصلك الطلب بحالة جيدة؟</p>
+<!-- 5-Star Rating (Order) -->
+<div class="flex flex-row-reverse justify-center gap-2 mb-md" id="order-rating">
+<span class="material-symbols-outlined text-[32px] text-surface-variant rating-star" data-value="5">star</span>
+<span class="material-symbols-outlined text-[32px] text-surface-variant rating-star" data-value="4">star</span>
+<span class="material-symbols-outlined text-[32px] text-surface-variant rating-star" data-value="3">star</span>
+<span class="material-symbols-outlined text-[32px] text-surface-variant rating-star" data-value="2">star</span>
+<span class="material-symbols-outlined text-[32px] text-surface-variant rating-star" data-value="1">star</span>
+</div>
+</section>
+<!-- Text Area Section -->
+<section class="px-margin-mobile py-lg mt-md">
+<label class="block font-body-md text-body-md text-on-surface-variant mb-sm" for="feedback-text">أضف تعليقاً إضافياً (اختياري)</label>
+<div class="relative">
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant rounded-xl p-md font-body-md text-body-md text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-colors resize-none shadow-sm" id="feedback-text" placeholder="اكتب ملاحظاتك هنا..." rows="4"></textarea>
+<div class="absolute bottom-3 left-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">edit_note</span>
+</div>
+</div>
+</section>
+<div class="h-lg"></div> <!-- Spacer -->
+</div>
+<!-- Call to Action (Fixed at bottom) -->
+<div class="fixed bottom-0 w-full max-w-md bg-surface-container-lowest p-margin-mobile border-t border-surface-variant shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40 pb-safe">
+<button class="w-full bg-primary-container text-on-primary font-title-md text-title-md py-4 rounded-xl btn-primary-glow flex justify-center items-center gap-2 active:scale-95 transition-all duration-200">
+                إرسال التقييم
+                <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</main>
+<script>
+        // Simple script to handle star rating logic
+        function setupRating(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const stars = container.querySelectorAll('.rating-star');
+            
+            stars.forEach(star => {
+                star.addEventListener('click', () => {
+                    const value = parseInt(star.getAttribute('data-value'));
+                    
+                    // Reset all
+                    stars.forEach(s => s.classList.remove('selected'));
+                    
+                    // Select clicked and previous (because of flex-row-reverse, we select values <= clicked)
+                    stars.forEach(s => {
+                        if (parseInt(s.getAttribute('data-value')) <= value) {
+                            s.classList.add('selected');
+                        }
+                    });
+                });
+            });
+        }
+
+        // Setup both rating sections
+        setupRating('captain-rating');
+        setupRating('order-rating');
+
+        // Setup feedback chips toggle
+        const chips = document.querySelectorAll('.feedback-chip');
+        chips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                chip.classList.toggle('selected');
+            });
+        });
+    </script>
+</body></html>

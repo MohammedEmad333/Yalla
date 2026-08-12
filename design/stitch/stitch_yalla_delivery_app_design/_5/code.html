@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Yalla - Sign Up</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#ffffff",
+                        "inverse-primary": "#ffb693",
+                        "secondary-container": "#00a2fd",
+                        "on-primary-fixed": "#351000",
+                        "tertiary": "#5d5f5f",
+                        "inverse-surface": "#2f3133",
+                        "surface-tint": "#a04100",
+                        "on-surface-variant": "#5a4136",
+                        "on-surface": "#1a1c1e",
+                        "on-tertiary-container": "#2f3132",
+                        "surface-container-highest": "#e2e2e5",
+                        "on-primary-container": "#572000",
+                        "error-container": "#ffdad6",
+                        "outline": "#8e7164",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#e2e2e2",
+                        "secondary-fixed": "#cfe5ff",
+                        "surface-variant": "#e2e2e5",
+                        "background": "#f9f9fc",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#454747",
+                        "tertiary-container": "#989999",
+                        "primary-fixed-dim": "#ffb693",
+                        "on-background": "#1a1c1e",
+                        "primary-fixed": "#ffdbcc",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f9f9fc",
+                        "on-secondary-container": "#003558",
+                        "on-secondary-fixed": "#001d33",
+                        "surface-container": "#eeeef0",
+                        "error": "#ba1a1a",
+                        "outline-variant": "#e2bfb0",
+                        "on-primary-fixed-variant": "#7a3000",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed": "#1a1c1c",
+                        "surface-container-high": "#e8e8ea",
+                        "surface-container-low": "#f3f3f6",
+                        "inverse-on-surface": "#f0f0f3",
+                        "primary-container": "#ff6b00",
+                        "tertiary-fixed-dim": "#c6c6c7",
+                        "primary": "#a04100",
+                        "surface-dim": "#dadadc",
+                        "secondary-fixed-dim": "#98cbff",
+                        "surface-bright": "#f9f9fc",
+                        "secondary": "#00629d",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed-variant": "#004a77"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "32px",
+                        "margin-mobile": "16px",
+                        "md": "16px",
+                        "unit": "4px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "xl": "40px",
+                        "lg": "24px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["IBM Plex Sans Arabic"],
+                        "body-md": ["IBM Plex Sans Arabic"],
+                        "headline-lg-mobile": ["IBM Plex Sans Arabic"],
+                        "body-lg": ["IBM Plex Sans Arabic"],
+                        "label-sm": ["IBM Plex Sans Arabic"],
+                        "title-md": ["IBM Plex Sans Arabic"],
+                        "display-lg": ["IBM Plex Sans Arabic"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "26px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background antialiased font-body-md selection:bg-primary-container selection:text-on-primary-container min-h-screen flex flex-col items-center">
+<!-- Top Navigation (Contextual suppression applied - Transactional Screen) -->
+<!-- Content Canvas -->
+<main class="w-full max-w-md mx-auto px-margin-mobile pt-lg pb-xl flex flex-col flex-1 relative">
+<!-- Header -->
+<header class="flex items-center justify-between mb-xl w-full">
+<button aria-label="Go back" class="w-12 h-12 flex items-center justify-center rounded-full bg-surface-container-low text-on-surface hover:bg-surface-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary-container">
+<span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+<div class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary">Yalla</div>
+<div class="w-12 h-12"></div> <!-- Spacer for balance -->
+</header>
+<!-- Title & Intro -->
+<div class="mb-lg">
+<h1 class="font-display-lg text-display-lg mb-sm">إنشاء حساب جديد</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">انضم إلينا وابدأ تجربتك السريعة والموثوقة.</p>
+</div>
+<!-- Glassmorphic Card Container -->
+<div class="bg-surface/80 backdrop-blur-xl rounded-xl p-md shadow-sm border border-outline-variant/30 flex-1 flex flex-col relative z-10">
+<form class="flex flex-col gap-md flex-1">
+<!-- Full Name -->
+<div class="relative">
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs" for="fullName">الاسم الكامل</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute right-3 text-on-surface-variant" data-icon="person">person</span>
+<input class="w-full h-12 pl-4 pr-10 rounded-lg bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary text-on-surface transition-colors font-body-md" id="fullName" placeholder="أحمد محمد" required="" type="text"/>
+</div>
+</div>
+<!-- Email -->
+<div class="relative">
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs" for="email">البريد الإلكتروني</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute right-3 text-on-surface-variant" data-icon="mail">mail</span>
+<input class="w-full h-12 pl-4 pr-10 rounded-lg bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary text-on-surface transition-colors font-body-md" dir="ltr" id="email" placeholder="example@domain.com" required="" style="text-align: right;" type="email"/>
+</div>
+</div>
+<!-- Phone Number -->
+<div class="relative">
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs" for="phone">رقم الهاتف</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute right-3 text-on-surface-variant" data-icon="phone_iphone">phone_iphone</span>
+<input class="w-full h-12 pl-4 pr-10 rounded-lg bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary text-on-surface transition-colors font-body-md" dir="ltr" id="phone" placeholder="050 123 4567" required="" style="text-align: right;" type="tel"/>
+</div>
+</div>
+<!-- Password -->
+<div class="relative">
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs" for="password">كلمة المرور</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute right-3 text-on-surface-variant" data-icon="lock">lock</span>
+<input class="w-full h-12 pl-10 pr-10 rounded-lg bg-surface-container-lowest border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary text-on-surface transition-colors font-body-md" id="password" placeholder="••••••••" required="" type="password"/>
+<button aria-label="Toggle password visibility" class="absolute left-3 text-on-surface-variant hover:text-primary transition-colors focus:outline-none" type="button">
+<span class="material-symbols-outlined" data-icon="visibility">visibility</span>
+</button>
+</div>
+</div>
+<!-- Terms & Conditions -->
+<div class="flex items-center gap-2 mt-sm">
+<input class="w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container bg-surface-container-lowest cursor-pointer" id="terms" required="" type="checkbox"/>
+<label class="font-body-md text-body-md text-on-surface-variant cursor-pointer select-none" for="terms">
+                        أوافق على <a class="text-secondary hover:underline font-medium" href="#">الشروط والأحكام</a>
+</label>
+</div>
+<!-- Register Button -->
+<div class="mt-auto pt-lg">
+<button class="w-full h-12 rounded-lg bg-primary-container text-on-primary-container font-title-md text-title-md font-bold shadow-[inset_0_2px_0_rgba(255,255,255,0.2),0_4px_12px_rgba(255,107,0,0.3)] hover:opacity-90 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2" type="submit">
+                        إنشاء حساب
+                        <span class="material-symbols-outlined text-[20px]" data-icon="arrow_back">arrow_back</span>
+</button>
+</div>
+</form>
+</div>
+<!-- Footer Link -->
+<div class="mt-lg text-center pb-safe">
+<p class="font-body-md text-body-md text-on-surface-variant">
+                لديك حساب بالفعل؟ <a class="text-primary font-semibold hover:underline" href="#">تسجيل الدخول</a>
+</p>
+</div>
+</main>
+</body></html>

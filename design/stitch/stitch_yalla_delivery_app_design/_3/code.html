@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Yalla - Captain Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "on-tertiary": "#ffffff",
+                "tertiary-container": "#989999",
+                "on-tertiary-fixed-variant": "#454747",
+                "on-primary-fixed": "#351000",
+                "secondary-fixed-dim": "#98cbff",
+                "secondary": "#00629d",
+                "surface-variant": "#e2e2e5",
+                "tertiary-fixed": "#e2e2e2",
+                "surface-container-highest": "#e2e2e5",
+                "primary-container": "#ff6b00",
+                "tertiary-fixed-dim": "#c6c6c7",
+                "on-secondary-fixed-variant": "#004a77",
+                "background": "#f9f9fc",
+                "inverse-on-surface": "#f0f0f3",
+                "on-surface": "#1a1c1e",
+                "inverse-primary": "#ffb693",
+                "on-primary-container": "#572000",
+                "surface-container-lowest": "#ffffff",
+                "tertiary": "#5d5f5f",
+                "error": "#ba1a1a",
+                "outline": "#8e7164",
+                "secondary-container": "#00a2fd",
+                "outline-variant": "#e2bfb0",
+                "primary-fixed": "#ffdbcc",
+                "on-primary": "#ffffff",
+                "inverse-surface": "#2f3133",
+                "surface": "#f9f9fc",
+                "surface-dim": "#dadadc",
+                "on-tertiary-container": "#2f3132",
+                "on-secondary-fixed": "#001d33",
+                "on-error-container": "#93000a",
+                "on-secondary": "#ffffff",
+                "surface-bright": "#f9f9fc",
+                "on-surface-variant": "#5a4136",
+                "on-secondary-container": "#003558",
+                "surface-tint": "#a04100",
+                "secondary-fixed": "#cfe5ff",
+                "surface-container": "#eeeef0",
+                "primary": "#a04100",
+                "primary-fixed-dim": "#ffb693",
+                "on-background": "#1a1c1e",
+                "surface-container-low": "#f3f3f6",
+                "error-container": "#ffdad6",
+                "on-primary-fixed-variant": "#7a3000",
+                "surface-container-high": "#e8e8ea",
+                "on-tertiary-fixed": "#1a1c1c",
+                "on-error": "#ffffff"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "xl": "40px",
+                "lg": "24px",
+                "gutter": "16px",
+                "unit": "4px",
+                "margin-desktop": "32px",
+                "sm": "8px",
+                "md": "16px",
+                "xs": "4px",
+                "margin-mobile": "16px"
+        },
+        "fontFamily": {
+                "body-lg": [
+                        "IBM Plex Sans Arabic"
+                ],
+                "display-lg": [
+                        "IBM Plex Sans Arabic"
+                ],
+                "body-md": [
+                        "IBM Plex Sans Arabic"
+                ],
+                "label-sm": [
+                        "IBM Plex Sans Arabic"
+                ],
+                "title-md": [
+                        "IBM Plex Sans Arabic"
+                ],
+                "headline-lg-mobile": [
+                        "IBM Plex Sans Arabic"
+                ],
+                "headline-lg": [
+                        "IBM Plex Sans Arabic"
+                ]
+        },
+        "fontSize": {
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "26px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "display-lg": [
+                        "48px",
+                        {
+                                "lineHeight": "56px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "label-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "500"
+                        }
+                ],
+                "title-md": [
+                        "20px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-lg-mobile": [
+                        "28px",
+                        {
+                                "lineHeight": "36px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "fontWeight": "600"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+    body { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+    .glass-effect {
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+    .shadow-level-2 {
+        box-shadow: 0px 4px 20px rgba(0,0,0, 0.05);
+    }
+    .shadow-level-3 {
+        box-shadow: 0px 8px 30px rgba(255, 107, 0, 0.15); /* Hint of Primary Orange */
+    }
+    .glow-top-edge {
+        box-shadow: inset 0px 1px 0px rgba(255, 255, 255, 0.3);
+    }
+</style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex flex-col relative pb-[80px] md:pb-0 pt-16">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface-dim/80 backdrop-blur-xl shadow-sm">
+<div class="flex justify-between items-center px-margin-mobile h-16 w-full max-w-7xl mx-auto">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-high border-2 border-primary-container">
+<img class="w-full h-full object-cover" data-alt="Close-up portrait of a smiling delivery captain wearing an orange uniform, professional and approachable, well-lit, shallow depth of field, modern corporate photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB75ByCmkzggjCYwIGd5sl_8suqO9HHZX9aY-t6XDJenQS6oSBxJdkZkjsuR5B3HDYZCZrvouMY67VtCT2K092zy4a91lCAqHQOSJSBnsRRW-wVCGsk_logji2WL2cKOXoKCluiUU8IAJ1kBKPBCNMmaBF1r3mvzKFqleTRWwNjM4fDtqffrVvlEnAk25XQDy5HuJkZoTcg3BZpridV_FVwRHOjawgC9g7Edqp7V301ZHk-M9SUsq_L"/>
+</div>
+<div>
+<h1 class="font-title-md text-title-md text-on-surface">مرحباً، كابتن أحمد!</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span> متصل
+                </p>
+</div>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-primary dark:text-primary-fixed-dim hover:bg-surface-container dark:hover:bg-surface-container-high transition-colors active:scale-95 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</div>
+</header>
+<main class="flex-1 w-full max-w-7xl mx-auto md:px-margin-desktop relative">
+<!-- Full Screen Map Background for Mobile -->
+<div class="fixed inset-0 z-0 top-16 bottom-[80px] md:relative md:top-0 md:bottom-0 md:h-[400px] md:rounded-xl md:mt-6 overflow-hidden md:shadow-level-2">
+<img class="w-full h-full object-cover" data-alt="A stylized digital map showing city streets in a modern interface design. The map is bright and clean with a subtle orange route highlighted, indicating a delivery path. Minimalist cartography, glassmorphic UI aesthetic, energetic vibe." data-location="Riyadh" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQvURx4mcQaGgJYFhuthF5XYk8Tw0WEVXbkHCTiM09RZTcrvANvu5048QQhsACBwmHFdpXvSq2XZIJRLXdZqEVigBXrOySvcx8m5FGTlgTHe4LvyQXvQF97xjp24j46KudSA1GReIp3SVA80JKB4mBTP6PvDFkzOquaHoi3J4C0vTNJvw7DA0UYogwg2jSoZYF7oQibFa1j2lQNTb3vpoYaiV9mate7T0cYD2lYkGzVDcGxlyHnC3l"/>
+<!-- Interactive Marker Example -->
+<div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+<div class="bg-primary-container text-on-primary-container px-3 py-1 rounded-full font-label-sm text-label-sm shadow-level-3 mb-1 whitespace-nowrap">
+                العميل: محمد
+            </div>
+<div class="w-8 h-8 bg-surface rounded-full flex items-center justify-center shadow-lg border-2 border-primary-container relative">
+<span class="material-symbols-outlined text-primary" data-icon="location_on" data-weight="fill" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<span class="absolute -bottom-1 -right-1 flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary-container opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-secondary-container border border-surface"></span>
+</span>
+</div>
+</div>
+</div>
+<!-- Interactive Floating Dashboard (Glassmorphic) -->
+<div class="relative z-10 md:mt-8 mt-[353px] px-margin-mobile flex flex-col gap-md">
+<!-- Status Toggle -->
+<button class="w-full h-14 bg-primary-container text-on-primary font-title-md text-title-md rounded-xl shadow-level-3 glow-top-edge flex items-center justify-center gap-2 active:scale-95 transition-all duration-300" id="statusToggle">
+<span class="material-symbols-outlined">power_settings_new</span>
+<span>أنا متاح للطلبات</span>
+</button>
+<!-- Bento Grid for Captain Stats -->
+<div class="grid grid-cols-2 gap-sm">
+<!-- Earnings -->
+<div class="bg-surface/90 glass-effect p-md rounded-xl shadow-level-2 border border-surface-variant flex flex-col justify-between h-28">
+<div class="flex items-center gap-2 text-on-surface-variant mb-1">
+<span class="material-symbols-outlined text-secondary" data-icon="payments">payments</span>
+<span class="font-label-sm text-label-sm">ملخص الأرباح (اليوم)</span>
+</div>
+<div>
+<span class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface font-bold">145.50</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">ر.س</span>
+</div>
+</div>
+<!-- Trips -->
+<div class="bg-surface/90 glass-effect p-md rounded-xl shadow-level-2 border border-surface-variant flex flex-col justify-between h-28">
+<div class="flex items-center gap-2 text-on-surface-variant mb-1">
+<span class="material-symbols-outlined text-primary" data-icon="route">route</span>
+<span class="font-label-sm text-label-sm">الطلبات المكتملة</span>
+</div>
+<div>
+<span class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface font-bold">8</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">طلبات</span>
+</div>
+</div>
+</div>
+<!-- Incoming Order Alert Card -->
+<div class="bg-surface rounded-xl shadow-level-3 border border-primary-fixed p-4 relative overflow-hidden mt-2 animate-pulse" style="animation-duration: 3s;">
+<!-- Vertical Status Line -->
+<div class="absolute right-0 top-0 bottom-0 w-2 bg-primary-container"></div>
+<div class="flex justify-between items-start mb-4 pr-3">
+<div>
+<div class="inline-flex items-center gap-1 bg-primary-fixed text-on-primary-fixed-variant px-2 py-1 rounded-full font-label-sm text-label-sm mb-2">
+<span class="material-symbols-outlined" style="font-size: 14px;">bolt</span> طلب جديد
+                    </div>
+<h3 class="font-title-md text-title-md text-on-surface">استلام من: مطعم البيك</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">توصيل إلى: حي العليا (العميل: سارة)</p>
+</div>
+<div class="text-left">
+<div class="font-title-md text-title-md text-primary font-bold">25 ر.س</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">قيمة التوصيل</div>
+</div>
+</div>
+<div class="flex gap-4 mb-4 pr-3 text-on-surface-variant font-label-sm text-label-sm">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined">directions_car</span> 5.2 كم
+                </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined">schedule</span> 15 دقيقة
+                </div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-high text-on-surface font-label-sm text-label-sm py-3 rounded-lg hover:bg-surface-variant transition-colors">رفض</button>
+<button class="flex-[2] bg-primary-container text-on-primary font-title-md text-title-md py-3 rounded-lg shadow-md glow-top-edge hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                    قبول الطلب
+                </button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 rounded-t-xl bg-surface dark:bg-surface-dim shadow-[0px_-4px_20px_rgba(0,0,0,0.05)]">
+<div class="flex justify-around items-center px-4 py-2 pb-safe">
+<button class="flex flex-col items-center justify-center bg-primary-container dark:bg-on-primary-fixed-variant text-on-primary-container dark:text-primary-fixed rounded-full px-4 py-1 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="home" data-weight="fill" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-label-sm text-label-sm mt-1">الرئيسية</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-tertiary-fixed-variant hover:opacity-80 active:scale-90 transition-all duration-200 px-4 py-1">
+<span class="material-symbols-outlined" data-icon="motorcycle">motorcycle</span>
+<span class="font-label-sm text-label-sm mt-1">الطلبات</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-tertiary-fixed-variant hover:opacity-80 active:scale-90 transition-all duration-200 px-4 py-1">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm mt-1">حسابي</span>
+</button>
+</div>
+</nav>
+<script>
+    // Simple toggle interaction for the status button
+    const statusToggle = document.getElementById('statusToggle');
+    let isAvailable = true;
+
+    statusToggle.addEventListener('click', () => {
+        isAvailable = !isAvailable;
+        if(isAvailable) {
+            statusToggle.classList.remove('bg-surface-variant', 'text-on-surface');
+            statusToggle.classList.add('bg-primary-container', 'text-on-primary', 'shadow-level-3', 'glow-top-edge');
+            statusToggle.innerHTML = '<span class="material-symbols-outlined">power_settings_new</span><span>أنا متاح للطلبات</span>';
+        } else {
+            statusToggle.classList.remove('bg-primary-container', 'text-on-primary', 'shadow-level-3', 'glow-top-edge');
+            statusToggle.classList.add('bg-surface-variant', 'text-on-surface');
+            statusToggle.innerHTML = '<span class="material-symbols-outlined text-error">power_off</span><span>غير متاح حالياً</span>';
+        }
+    });
+</script>
+</body></html>

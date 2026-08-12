@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Yalla - Home</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#ffffff",
+                        "tertiary-container": "#989999",
+                        "on-tertiary-fixed-variant": "#454747",
+                        "on-primary-fixed": "#351000",
+                        "secondary-fixed-dim": "#98cbff",
+                        "secondary": "#00629d",
+                        "surface-variant": "#e2e2e5",
+                        "tertiary-fixed": "#e2e2e2",
+                        "surface-container-highest": "#e2e2e5",
+                        "primary-container": "#ff6b00",
+                        "tertiary-fixed-dim": "#c6c6c7",
+                        "on-secondary-fixed-variant": "#004a77",
+                        "background": "#f9f9fc",
+                        "inverse-on-surface": "#f0f0f3",
+                        "on-surface": "#1a1c1e",
+                        "inverse-primary": "#ffb693",
+                        "on-primary-container": "#572000",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary": "#5d5f5f",
+                        "error": "#ba1a1a",
+                        "outline": "#8e7164",
+                        "secondary-container": "#00a2fd",
+                        "outline-variant": "#e2bfb0",
+                        "primary-fixed": "#ffdbcc",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#2f3133",
+                        "surface": "#f9f9fc",
+                        "surface-dim": "#dadadc",
+                        "on-tertiary-container": "#2f3132",
+                        "on-secondary-fixed": "#001d33",
+                        "on-error-container": "#93000a",
+                        "on-secondary": "#ffffff",
+                        "surface-bright": "#f9f9fc",
+                        "on-surface-variant": "#5a4136",
+                        "on-secondary-container": "#003558",
+                        "surface-tint": "#a04100",
+                        "secondary-fixed": "#cfe5ff",
+                        "surface-container": "#eeeef0",
+                        "primary": "#a04100",
+                        "primary-fixed-dim": "#ffb693",
+                        "on-background": "#1a1c1e",
+                        "surface-container-low": "#f3f3f6",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#7a3000",
+                        "surface-container-high": "#e8e8ea",
+                        "on-tertiary-fixed": "#1a1c1c",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "40px",
+                        "lg": "24px",
+                        "gutter": "16px",
+                        "unit": "4px",
+                        "margin-desktop": "32px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["IBM Plex Sans Arabic"],
+                        "display-lg": ["IBM Plex Sans Arabic"],
+                        "body-md": ["IBM Plex Sans Arabic"],
+                        "label-sm": ["IBM Plex Sans Arabic"],
+                        "title-md": ["IBM Plex Sans Arabic"],
+                        "headline-lg-mobile": ["IBM Plex Sans Arabic"],
+                        "headline-lg": ["IBM Plex Sans Arabic"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "26px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Hide scrollbar for horizontal scrolling lists */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
+        .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-[90px] md:pb-0 pt-safe">
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface-dim/80 backdrop-blur-xl shadow-sm transition-transform duration-300" id="topAppBar">
+<div class="flex justify-between items-center px-margin-mobile h-16 w-full max-w-7xl mx-auto pt-safe">
+<!-- Leading Avatar -->
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container overflow-hidden active:scale-95 transition-transform duration-200">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A close up profile picture of a young smiling person in a bright outdoor setting, energetic and modern style, soft focused background, high quality lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAflpItgmX8sOPVtvVdm7ZnXyDplvjgdJqlKHIu3oyX48jKfXxfhVzBjc4OzhfQ-2BR8rZfu2KUjCmajRbyT9ipoLckvL5uM2IdZkVwEEWPtLdBj02GCGoAUgaDikxg5mINmiGx4u_QOqJaPVn7SrVqvfFkR1bzJjvb7-6MCy7ect1rAAM-sOMCET0ucsZrxdr5zImaQrJ1Q0uo6qbe7W9DkV1SZoKMzC2FaFn95vTuhCRFHz24Q5cR"/>
+</button>
+<!-- Headline / Brand -->
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary dark:text-primary-fixed-dim">
+                Yalla
+            </h1>
+<!-- Trailing Icon -->
+<button class="flex items-center justify-center w-10 h-10 rounded-full text-primary dark:text-primary-fixed-dim hover:bg-surface-container dark:hover:bg-surface-container-high transition-colors active:scale-95 duration-200 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-error border border-surface"></span>
+</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="max-w-7xl mx-auto px-margin-mobile pt-24 md:pt-32 space-y-lg">
+<!-- Search Bar -->
+<section class="relative group">
+<div class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+<span class="material-symbols-outlined text-on-surface-variant">search</span>
+</div>
+<input class="w-full h-14 pl-4 pr-12 rounded-xl bg-surface-container-lowest border border-surface-variant focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-colors font-body-md text-body-md text-on-surface placeholder-on-surface-variant shadow-sm outline-none" placeholder="ماذا تريد أن تطلب؟" type="text"/>
+<button class="absolute inset-y-0 left-0 flex items-center pl-4 text-primary active:scale-95 transition-transform">
+<span class="material-symbols-outlined">tune</span>
+</button>
+</section>
+<!-- Quick Categories (Bento Grid Style) -->
+<section class="grid grid-cols-4 gap-3 md:gap-4">
+<!-- Restaurants -->
+<button class="flex flex-col items-center justify-center p-3 rounded-2xl bg-surface-container-lowest shadow-[0px_4px_20px_rgba(0,0,0,0.05)] active:scale-95 transition-transform group">
+<div class="w-12 h-12 rounded-full bg-primary-container/10 flex items-center justify-center mb-2 group-hover:bg-primary-container/20 transition-colors">
+<span class="material-symbols-outlined text-primary-container text-[28px]">restaurant</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface">مطاعم</span>
+</button>
+<!-- Groceries -->
+<button class="flex flex-col items-center justify-center p-3 rounded-2xl bg-surface-container-lowest shadow-[0px_4px_20px_rgba(0,0,0,0.05)] active:scale-95 transition-transform group">
+<div class="w-12 h-12 rounded-full bg-secondary-container/10 flex items-center justify-center mb-2 group-hover:bg-secondary-container/20 transition-colors">
+<span class="material-symbols-outlined text-secondary-container text-[28px]">shopping_basket</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface">بقالة</span>
+</button>
+<!-- Pharmacy -->
+<button class="flex flex-col items-center justify-center p-3 rounded-2xl bg-surface-container-lowest shadow-[0px_4px_20px_rgba(0,0,0,0.05)] active:scale-95 transition-transform group">
+<div class="w-12 h-12 rounded-full bg-[#34A853]/10 flex items-center justify-center mb-2 group-hover:bg-[#34A853]/20 transition-colors">
+<span class="material-symbols-outlined text-[#34A853] text-[28px]">local_pharmacy</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface">صيدلية</span>
+</button>
+<!-- More -->
+<button class="flex flex-col items-center justify-center p-3 rounded-2xl bg-surface-container-lowest shadow-[0px_4px_20px_rgba(0,0,0,0.05)] active:scale-95 transition-transform group">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center mb-2 group-hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant text-[28px]">grid_view</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface">المزيد</span>
+</button>
+</section>
+<!-- Promo Banner -->
+<section class="relative rounded-2xl overflow-hidden h-40 shadow-sm">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="A vibrant promotional banner image showcasing delicious, steaming hot fast food burgers and fries against an abstract, dynamic orange and blue graphic background. High energy, modern corporate style, glossy finish, appetizing lighting." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBtqiShbkkmubZqrSJGs-OQZKpmDWlpc4sCgRNIO8rEMki456v1DJ3mJA4W65l67IfIZMmQ05aatxNPIQUAco6Z0MLSMyiZ8om92uLiHTcD9waMIw2XEIOH927kHEbnuqBSI3zNQCq3Ry3dTSpTKkFnlghovyzwdPf9gxfM5gUT1BjhnbVShhahBxIRRZSTw2uURkFPH2WHK61ht260F6I6n-OZ-8Cdg9Lsal6jeFos0kgyW_G_da3D')"></div>
+<div class="absolute inset-0 bg-gradient-to-l from-on-surface/80 to-transparent flex flex-col justify-center p-6 text-on-primary">
+<h2 class="font-title-md text-title-md font-bold mb-1">خصم 50%</h2>
+<p class="font-body-md text-body-md mb-3 opacity-90">على طلبك الأول من المطاعم المختارة</p>
+<button class="self-start bg-primary-container text-on-primary font-label-sm text-label-sm px-4 py-2 rounded-full shadow-lg shadow-primary-container/30 active:scale-95 transition-transform">
+                    اطلب الآن
+                </button>
+</div>
+</section>
+<!-- Recent Orders -->
+<section class="space-y-4">
+<div class="flex justify-between items-center">
+<h3 class="font-title-md text-title-md text-on-surface">آخر طلباتك</h3>
+<button class="font-label-sm text-label-sm text-primary-container hover:underline">عرض الكل</button>
+</div>
+<div class="flex overflow-x-auto no-scrollbar -mx-margin-mobile px-margin-mobile space-x-4 space-x-reverse pb-4">
+<!-- Order Card 1 -->
+<div class="flex-none w-72 bg-surface-container-lowest rounded-2xl p-4 shadow-[0px_4px_20px_rgba(0,0,0,0.05)] border-r-4 border-primary">
+<div class="flex items-center space-x-3 space-x-reverse mb-3">
+<div class="w-12 h-12 rounded-xl bg-surface-container overflow-hidden">
+<img alt="Restaurant Logo" class="w-full h-full object-cover" data-alt="A small logo of a local burger restaurant, clean minimalist design, bright colors, isolated on white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZNIuGrXVQjhB6at3bXjaXEOTE7xPObRxuV6OfUQqqp1bYjRlVXZsRC6z9KBcUyeiE3xjFTcgddKjNEqavmEeNP1ja3r63rRUO99V6ZgcGQ1svWJbV2IXXST1nF8s1BxgXSaL0Xpi9-9pV0OQPiQMNmqcwWqpGDWzo40UO-KuDCQE4BucpcaNBWwyIhorUQSM4Ff3GolK8PHJRx7w9G_bSnA1D7W5wR8QIm7NUvt_lgurtqBJHqOVO"/>
+</div>
+<div>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface">برجر كنج</h4>
+<p class="font-label-sm text-label-sm text-on-surface-variant">أمس، 08:30 م</p>
+</div>
+</div>
+<div class="flex justify-between items-center mt-4">
+<span class="font-label-sm text-label-sm text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            تم التوصيل
+                        </span>
+<button class="bg-surface-variant text-on-surface-variant font-label-sm text-label-sm px-3 py-1.5 rounded-lg active:scale-95 transition-transform">
+                            إعادة الطلب
+                        </button>
+</div>
+</div>
+<!-- Order Card 2 -->
+<div class="flex-none w-72 bg-surface-container-lowest rounded-2xl p-4 shadow-[0px_4px_20px_rgba(0,0,0,0.05)] border-r-4 border-tertiary-fixed-dim">
+<div class="flex items-center space-x-3 space-x-reverse mb-3">
+<div class="w-12 h-12 rounded-xl bg-surface-container overflow-hidden">
+<img alt="Coffee Logo" class="w-full h-full object-cover" data-alt="A small logo of a modern coffee shop, clean minimalist line art design, isolated on white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAImfuaZtcz0LWwLA6FwXLjwWD3IhvHIPgXhePdBQfU859vVNTpCEsAVi1KPcdXV8F2aedy4D08H_JgiIe_oEKxy_O2xNpS0IfZspVpGrq-v2R6TxoBCiGEXVDtQJKixkjBpduS6TpiaZk1nzwa1zJvM-KUL1dz9xojxknr7D_HxsFYXiSekbKFF6DIjlHgbOG0MbTM-H_0KC5q5UF8e3whLtEvfC3qRrVZKStrcpLGl-1j-6iRGQK_"/>
+</div>
+<div>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface">ستاربكس</h4>
+<p class="font-label-sm text-label-sm text-on-surface-variant">24 مايو، 09:00 ص</p>
+</div>
+</div>
+<div class="flex justify-between items-center mt-4">
+<span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            تم التوصيل
+                        </span>
+<button class="bg-surface-variant text-on-surface-variant font-label-sm text-label-sm px-3 py-1.5 rounded-lg active:scale-95 transition-transform">
+                            إعادة الطلب
+                        </button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-2 pb-safe bg-surface dark:bg-surface-dim shadow-[0px_-4px_20px_rgba(0,0,0,0.05)] rounded-t-xl z-50">
+<!-- Home (Active) -->
+<button class="flex flex-col items-center justify-center bg-primary-container dark:bg-on-primary-fixed-variant text-on-primary-container dark:text-primary-fixed rounded-full px-4 py-1 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined fill">home</span>
+<span class="font-label-sm text-label-sm mt-1">Home</span>
+</button>
+<!-- Orders (Inactive) -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-tertiary-fixed-variant hover:opacity-80 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined">motorcycle</span>
+<span class="font-label-sm text-label-sm mt-1">Orders</span>
+</button>
+<!-- Profile (Inactive) -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-tertiary-fixed-variant hover:opacity-80 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm mt-1">Profile</span>
+</button>
+</nav>
+<script>
+        // Simple scroll effect for top app bar shadow
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('topAppBar');
+            if (window.scrollY > 10) {
+                header.classList.add('shadow-md');
+                header.classList.remove('shadow-sm');
+            } else {
+                header.classList.remove('shadow-md');
+                header.classList.add('shadow-sm');
+            }
+        });
+    </script>
+</body></html>

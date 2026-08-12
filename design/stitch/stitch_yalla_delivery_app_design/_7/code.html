@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Yalla - Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "error-container": "#ffdad6",
+                      "on-primary-container": "#572000",
+                      "outline": "#8e7164",
+                      "primary-fixed-dim": "#ffb693",
+                      "on-tertiary-container": "#2f3132",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-fixed-dim": "#98cbff",
+                      "surface-container-low": "#f3f3f6",
+                      "surface-container-highest": "#e2e2e5",
+                      "on-surface-variant": "#5a4136",
+                      "tertiary": "#5d5f5f",
+                      "surface-container-high": "#e8e8ea",
+                      "on-secondary-fixed": "#001d33",
+                      "on-primary-fixed": "#351000",
+                      "background": "#f9f9fc",
+                      "on-primary": "#ffffff",
+                      "secondary-fixed": "#cfe5ff",
+                      "tertiary-fixed-dim": "#c6c6c7",
+                      "error": "#ba1a1a",
+                      "surface": "#f9f9fc",
+                      "surface-dim": "#dadadc",
+                      "inverse-on-surface": "#f0f0f3",
+                      "secondary-container": "#00a2fd",
+                      "secondary": "#00629d",
+                      "on-background": "#1a1c1e",
+                      "primary": "#a04100",
+                      "surface-container": "#eeeef0",
+                      "inverse-primary": "#ffb693",
+                      "on-error": "#ffffff",
+                      "on-tertiary": "#ffffff",
+                      "surface-tint": "#a04100",
+                      "surface-bright": "#f9f9fc",
+                      "primary-fixed": "#ffdbcc",
+                      "on-error-container": "#93000a",
+                      "on-tertiary-fixed": "#1a1c1c",
+                      "tertiary-container": "#989999",
+                      "surface-variant": "#e2e2e5",
+                      "tertiary-fixed": "#e2e2e2",
+                      "primary-container": "#ff6b00",
+                      "on-secondary-container": "#003558",
+                      "on-primary-fixed-variant": "#7a3000",
+                      "on-secondary": "#ffffff",
+                      "outline-variant": "#e2bfb0",
+                      "on-tertiary-fixed-variant": "#454747",
+                      "inverse-surface": "#2f3133",
+                      "on-surface": "#1a1c1e",
+                      "on-secondary-fixed-variant": "#004a77"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "lg": "24px",
+                      "sm": "8px",
+                      "margin-mobile": "16px",
+                      "unit": "4px",
+                      "xl": "40px",
+                      "gutter": "16px",
+                      "margin-desktop": "32px",
+                      "md": "16px",
+                      "xs": "4px"
+              },
+              "fontFamily": {
+                      "title-md": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "headline-lg-mobile": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "headline-lg": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "display-lg": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "body-lg": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "body-md": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "label-sm": [
+                              "IBM Plex Sans Arabic"
+                      ]
+              },
+              "fontSize": {
+                      "title-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "26px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        body {
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            background-color: theme('colors.background');
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .input-glow:focus-within {
+            border-color: theme('colors.primary');
+            box-shadow: 0 0 0 2px rgba(160, 65, 0, 0.2);
+        }
+
+        .btn-primary-glow {
+            box-shadow: inset 0 2px 0 rgba(255,255,255,0.2), 0 4px 12px rgba(160, 65, 0, 0.3);
+        }
+      </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col items-center justify-center p-margin-mobile md:p-margin-desktop relative overflow-hidden bg-surface-container-low">
+<!-- Decorative Background Elements -->
+<div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
+<div class="absolute top-[-10%] right-[-5%] w-[40vw] h-[40vw] rounded-full bg-primary-fixed-dim/20 blur-[100px]"></div>
+<div class="absolute bottom-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-secondary-fixed/30 blur-[120px]"></div>
+</div>
+<!-- Main Container -->
+<main class="w-full max-w-md mx-auto">
+<!-- App Logo Area -->
+<div class="text-center mb-xl">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary tracking-tight">Yalla</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-sm">أهلاً بك في يلا. سجل دخولك للمتابعة.</p>
+</div>
+<!-- Login Card -->
+<div class="glass-panel rounded-xl p-lg shadow-[0px_8px_32px_rgba(0,0,0,0.06)] relative z-10">
+<form class="flex flex-col gap-lg">
+<!-- Phone Input Group -->
+<div class="flex flex-col gap-xs relative">
+<label class="font-label-sm text-label-sm text-on-surface" for="phone">رقم الهاتف</label>
+<div class="flex flex-row-reverse items-center bg-surface-container-lowest border border-outline-variant rounded-lg h-[56px] overflow-hidden input-glow transition-all duration-200">
+<!-- Country Code Selector (Simplified) -->
+<div class="flex items-center gap-xs px-md border-r border-outline-variant bg-surface-container-lowest h-full cursor-pointer hover:bg-surface-container-low transition-colors">
+<span class="font-body-md text-body-md text-on-surface dir-ltr">+966</span>
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant">keyboard_arrow_down</span>
+</div>
+<!-- Phone Input Field -->
+<input class="flex-1 w-full bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface px-md dir-ltr text-right placeholder:text-outline-variant outline-none" dir="ltr" id="phone" placeholder="5X XXX XXXX" type="tel"/>
+</div>
+</div>
+<!-- Primary Action Button -->
+<button class="w-full h-[56px] bg-primary text-on-primary font-title-md text-title-md rounded-lg btn-primary-glow hover:bg-primary/90 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-sm mt-sm" type="button">
+<span>إرسال رمز التحقق</span>
+<span class="material-symbols-outlined text-[20px]">arrow_back</span>
+</button>
+</form>
+<!-- Divider -->
+<div class="flex items-center gap-md my-lg">
+<div class="h-px bg-outline-variant flex-1"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">أو الدخول باستخدام</span>
+<div class="h-px bg-outline-variant flex-1"></div>
+</div>
+<!-- Social Logins -->
+<div class="flex flex-col gap-md">
+<button class="w-full h-[48px] bg-surface-container-lowest border border-outline-variant text-on-surface font-title-md text-title-md rounded-lg hover:bg-surface-container-low active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-md" type="button">
+<!-- Google Icon Placeholder (Simplified) -->
+<svg class="w-5 h-5" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
+<path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+<path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"></path>
+<path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
+</svg>
+<span>جوجل</span>
+</button>
+<button class="w-full h-[48px] bg-[#000000] text-[#ffffff] font-title-md text-title-md rounded-lg hover:bg-[#333333] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-md" type="button">
+<svg class="w-5 h-5 fill-current" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M16.59 9.38C17.15 8.7 17.51 7.76 17.41 6.81C16.56 6.85 15.54 7.37 14.95 8.05C14.42 8.65 14 9.61 14.12 10.53C15.07 10.6 16.03 10.05 16.59 9.38ZM17.12 11.23C15.55 11.23 14.28 12.19 13.43 12.19C12.55 12.19 11.45 11.35 10.15 11.38C8.45 11.41 6.89 12.35 6.01 13.88C4.19 17.06 5.56 21.75 7.31 24.28C8.16 25.52 9.17 26.93 10.52 26.88C11.83 26.83 12.33 26.04 13.91 26.04C15.48 26.04 15.93 26.88 17.29 26.83C18.67 26.79 19.55 25.5 20.39 24.25C21.38 22.82 21.78 21.43 21.81 21.35C21.77 21.33 19.06 20.31 19.03 17.18C19.01 14.54 21.2 13.23 21.29 13.18C19.98 11.25 17.9 11.26 17.12 11.23Z"></path>
+</svg>
+<span>أبل</span>
+</button>
+</div>
+<!-- Secondary Action -->
+<div class="mt-lg text-center">
+<a class="font-body-md text-body-md text-primary hover:text-primary/80 transition-colors" href="#">ليس لديك حساب؟ إنشاء حساب جديد</a>
+</div>
+</div>
+</main>
+</body></html>

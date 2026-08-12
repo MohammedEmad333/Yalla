@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>إكمال الملف الشخصي - Yalla</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#ff6b00",
+                        "on-primary-fixed": "#351000",
+                        "tertiary": "#5d5f5f",
+                        "primary-fixed-dim": "#ffb693",
+                        "outline": "#8e7164",
+                        "surface-dim": "#dadadc",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface": "#f9f9fc",
+                        "error-container": "#ffdad6",
+                        "on-tertiary": "#ffffff",
+                        "inverse-on-surface": "#f0f0f3",
+                        "on-error-container": "#93000a",
+                        "inverse-surface": "#2f3133",
+                        "on-surface-variant": "#5a4136",
+                        "on-tertiary-container": "#2f3132",
+                        "tertiary-fixed-dim": "#c6c6c7",
+                        "on-secondary-fixed": "#001d33",
+                        "surface-container-high": "#e8e8ea",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-container": "#003558",
+                        "on-primary-fixed-variant": "#7a3000",
+                        "secondary-fixed-dim": "#98cbff",
+                        "tertiary-container": "#989999",
+                        "surface-container-low": "#f3f3f6",
+                        "primary-fixed": "#ffdbcc",
+                        "secondary-fixed": "#cfe5ff",
+                        "primary": "#a04100",
+                        "inverse-primary": "#ffb693",
+                        "on-surface": "#1a1c1e",
+                        "on-tertiary-fixed": "#1a1c1c",
+                        "on-primary-container": "#572000",
+                        "surface-container": "#eeeef0",
+                        "on-tertiary-fixed-variant": "#454747",
+                        "surface-container-highest": "#e2e2e5",
+                        "background": "#f9f9fc",
+                        "secondary": "#00629d",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed": "#e2e2e2",
+                        "on-secondary-fixed-variant": "#004a77",
+                        "outline-variant": "#e2bfb0",
+                        "surface-tint": "#a04100",
+                        "surface-variant": "#e2e2e5",
+                        "secondary-container": "#00a2fd",
+                        "surface-bright": "#f9f9fc",
+                        "on-primary": "#ffffff",
+                        "on-background": "#1a1c1e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "xl": "40px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "sm": "8px",
+                        "unit": "4px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "32px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["IBM Plex Sans Arabic"],
+                        "display-lg": ["IBM Plex Sans Arabic"],
+                        "headline-lg-mobile": ["IBM Plex Sans Arabic"],
+                        "body-lg": ["IBM Plex Sans Arabic"],
+                        "headline-lg": ["IBM Plex Sans Arabic"],
+                        "title-md": ["IBM Plex Sans Arabic"],
+                        "body-md": ["IBM Plex Sans Arabic"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "26px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background min-h-screen flex flex-col items-center justify-center p-4">
+<!-- Mobile Container -->
+<div class="w-full max-w-[400px] bg-surface-container-lowest rounded-xl shadow-lg overflow-hidden flex flex-col relative h-[800px] max-h-screen">
+<!-- Header -->
+<header class="flex items-center px-4 py-4 h-16 w-full fixed top-0 bg-surface/80 backdrop-blur-xl z-50 shadow-sm w-full max-w-[400px]">
+<button aria-label="العودة" class="p-2 -mr-2 text-on-surface">
+<span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+<h1 class="flex-1 text-center font-headline-lg-mobile text-headline-lg-mobile text-on-surface">إكمال الملف الشخصي</h1>
+<div class="w-10"></div> <!-- Spacer for center alignment -->
+</header>
+<!-- Main Content Scrollable Area -->
+<main class="flex-1 overflow-y-auto pt-20 pb-24 px-4 scrollbar-hide">
+<!-- Avatar Upload -->
+<div class="flex flex-col items-center justify-center mt-6 mb-8">
+<div class="relative group cursor-pointer">
+<div class="w-24 h-24 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border-2 border-primary-container">
+<span class="material-symbols-outlined text-4xl text-on-surface-variant" data-icon="person">person</span>
+<!-- Image placeholder -->
+<!-- <img src="placeholder" data-alt="A close-up studio portrait of a young Arab professional looking directly at the camera, smiling slightly. The lighting is bright and even, highlighting their features. The background is a clean, bright white studio backdrop. They are wearing modern, casual corporate attire. This image serves as a placeholder for a user profile avatar." class="w-full h-full object-cover hidden" alt="صورة الملف الشخصي"> -->
+</div>
+<div class="absolute bottom-0 left-0 bg-primary-container text-on-primary w-8 h-8 rounded-full flex items-center justify-center shadow-md shadow-primary/20 border-2 border-surface-container-lowest transition-transform group-hover:scale-110">
+<span class="material-symbols-outlined text-sm" data-icon="edit">edit</span>
+</div>
+</div>
+</div>
+<!-- Form Fields -->
+<form class="flex flex-col gap-6">
+<!-- Date of Birth -->
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant">تاريخ الميلاد</label>
+<div class="relative">
+<input class="w-full h-12 rounded-lg border border-outline bg-surface px-4 py-2 font-body-md text-body-md text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container focus:outline-none transition-colors" dir="rtl" placeholder="يوم / شهر / سنة" type="date"/>
+</div>
+</div>
+<!-- Gender (Segmented Control) -->
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant">الجنس</label>
+<div class="flex bg-surface-container-high rounded-lg p-1">
+<button class="flex-1 py-2 text-center rounded-md font-title-md text-title-md text-on-surface-variant hover:bg-surface-variant transition-colors" type="button">ذكر</button>
+<button class="flex-1 py-2 text-center rounded-md bg-primary-container text-on-primary shadow-sm font-title-md text-title-md transition-colors" type="button">أنثى</button>
+</div>
+</div>
+<!-- City -->
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant">المدينة</label>
+<div class="relative">
+<select class="w-full h-12 rounded-lg border border-outline bg-surface px-4 py-2 font-body-md text-body-md text-on-surface appearance-none focus:border-primary-container focus:ring-1 focus:ring-primary-container focus:outline-none transition-colors pr-10">
+<option disabled="" selected="" value="">اختر مدينتك</option>
+<option value="riyadh">الرياض</option>
+<option value="jeddah">جدة</option>
+<option value="dammam">الدمام</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<!-- Preferred Address -->
+<div class="flex flex-col gap-2 mt-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant">العنوان المفضل</label>
+<button class="w-full h-14 rounded-lg border-2 border-dashed border-outline-variant bg-surface flex items-center px-4 hover:bg-surface-container transition-colors group" type="button">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center mr-3 group-hover:bg-primary-container/10 transition-colors ml-3">
+<span class="material-symbols-outlined text-primary-container" data-icon="add_location">add_location</span>
+</div>
+<span class="font-title-md text-title-md text-primary-container flex-1 text-right">إضافة عنوان جديد</span>
+</button>
+</div>
+</form>
+</main>
+<!-- Bottom Action Area -->
+<div class="absolute bottom-0 w-full p-4 bg-surface-container-lowest border-t border-surface-variant">
+<button class="w-full h-12 bg-primary-container text-on-primary rounded-lg font-title-md text-title-md font-bold shadow-lg shadow-primary-container/30 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                حفظ ومتابعة
+                <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+</body></html>

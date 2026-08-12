@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Yalla - تتبع الطلب</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-dim": "#dadadc",
+                      "on-surface-variant": "#5a4136",
+                      "surface-container-highest": "#e2e2e5",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-container-low": "#f3f3f6",
+                      "secondary": "#00629d",
+                      "surface": "#f9f9fc",
+                      "surface-variant": "#e2e2e5",
+                      "outline-variant": "#e2bfb0",
+                      "on-tertiary": "#ffffff",
+                      "on-primary": "#ffffff",
+                      "on-tertiary-container": "#2f3132",
+                      "tertiary-fixed-dim": "#c6c6c7",
+                      "on-secondary": "#ffffff",
+                      "background": "#f9f9fc",
+                      "on-primary-container": "#572000",
+                      "primary": "#a04100",
+                      "on-background": "#1a1c1e",
+                      "on-tertiary-fixed-variant": "#454747",
+                      "on-secondary-fixed-variant": "#004a77",
+                      "surface-tint": "#a04100",
+                      "surface-container": "#eeeef0",
+                      "primary-fixed-dim": "#ffb693",
+                      "secondary-fixed": "#cfe5ff",
+                      "on-tertiary-fixed": "#1a1c1c",
+                      "tertiary-fixed": "#e2e2e2",
+                      "on-error-container": "#93000a",
+                      "tertiary": "#5d5f5f",
+                      "primary-fixed": "#ffdbcc",
+                      "tertiary-container": "#989999",
+                      "on-primary-fixed": "#351000",
+                      "error-container": "#ffdad6",
+                      "on-surface": "#1a1c1e",
+                      "error": "#ba1a1a",
+                      "inverse-primary": "#ffb693",
+                      "primary-container": "#ff6b00",
+                      "surface-bright": "#f9f9fc",
+                      "surface-container-high": "#e8e8ea",
+                      "on-error": "#ffffff",
+                      "on-secondary-fixed": "#001d33",
+                      "secondary-container": "#00a2fd",
+                      "outline": "#8e7164",
+                      "on-primary-fixed-variant": "#7a3000",
+                      "inverse-surface": "#2f3133",
+                      "inverse-on-surface": "#f0f0f3",
+                      "secondary-fixed-dim": "#98cbff",
+                      "on-secondary-container": "#003558"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xl": "40px",
+                      "margin-mobile": "16px",
+                      "xs": "4px",
+                      "unit": "4px",
+                      "sm": "8px",
+                      "gutter": "16px",
+                      "lg": "24px",
+                      "md": "16px",
+                      "margin-desktop": "32px"
+              },
+              "fontFamily": {
+                      "label-sm": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "headline-lg-mobile": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "title-md": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "body-lg": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "display-lg": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "body-md": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "headline-lg": [
+                              "IBM Plex Sans Arabic"
+                      ]
+              },
+              "fontSize": {
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "title-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "26px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        body { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+        .glass-panel {
+            background: rgba(249, 249, 252, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .progress-line::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #e2e2e5;
+            z-index: 0;
+            transform: translateY(-50%);
+        }
+        .progress-line-active::after {
+            background: #a04100;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background h-screen overflow-hidden flex flex-col">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl shadow-sm flex justify-between items-center px-margin-mobile h-16 w-full max-w-7xl mx-auto">
+<button class="text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all duration-200 rounded-full p-2 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="arrow_forward" style="font-variation-settings: 'FILL' 0;">arrow_forward</span>
+</button>
+<h1 class="font-title-md text-title-md text-primary">تتبع الطلب</h1>
+<div class="w-10"></div> <!-- Spacer for centering -->
+</header>
+<!-- Map Area (Top 60%) -->
+<div class="relative w-full h-[530px] mt-16 z-0">
+<img class="w-full h-full object-cover" data-alt="A stylized, modern high-contrast digital map showing a city grid. The map uses a light theme with subtle grays for roads and light beige for landmasses. A bright orange path clearly marks a delivery route. The overall aesthetic is clean, energetic, and corporate tech-focused." data-location="Riyadh" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMX5tAJZS5049KobhZjkaGjd0RwkSnLH8PJWFFJ0Jn4aITM_pXAwNxZkBD2VSYlpdfEatewol9JqDdZBr5NUIqeEVTPBCxs7bcT3xWjk5exFjoDohC7xhYpBedEmFC2FVsgCfNjHH_EB64CeLBcu6cGGCY8-KnUqpF_pCWXFnd5fLd_E9BzNERkpEfODe__jk__VozLFYjAOWuOyJaJ9-fBOZmnbxteRDYml2uDefqCbJHN31EH4WM"/>
+<!-- Markers -->
+<div class="absolute top-[30%] right-[20%] transform -translate-x-1/2 -translate-y-1/2">
+<div class="bg-surface rounded-full p-2 shadow-lg border-2 border-primary">
+<span class="material-symbols-outlined text-primary" data-icon="storefront" style="font-variation-settings: 'FILL' 1;">storefront</span>
+</div>
+</div>
+<div class="absolute top-[60%] right-[70%] transform -translate-x-1/2 -translate-y-1/2">
+<div class="bg-primary-container text-on-primary-container rounded-full p-2 shadow-lg animate-bounce">
+<span class="material-symbols-outlined" data-icon="two_wheeler" style="font-variation-settings: 'FILL' 1;">two_wheeler</span>
+</div>
+</div>
+<div class="absolute top-[80%] right-[85%] transform -translate-x-1/2 -translate-y-1/2">
+<div class="bg-secondary rounded-full p-2 shadow-lg border-2 border-surface">
+<span class="material-symbols-outlined text-on-secondary" data-icon="home" style="font-variation-settings: 'FILL' 1;">home</span>
+</div>
+</div>
+</div>
+<!-- Bottom Sliding Panel (Bottom 40%) -->
+<div class="glass-panel absolute bottom-0 w-full h-[397px] rounded-t-3xl shadow-[0px_-4px_20px_rgba(0,0,0,0.1)] z-10 flex flex-col pt-2 pb-6 px-4 transition-transform duration-300 overflow-y-auto">
+<!-- Drag Handle -->
+<div class="w-12 h-1 bg-surface-variant rounded-full mx-auto mb-4"></div>
+<!-- Time & Status Banner -->
+<div class="flex justify-between items-center bg-primary-fixed rounded-xl p-4 mb-4 shadow-sm">
+<div>
+<p class="font-body-md text-body-md text-on-primary-fixed-variant">الوقت المتوقع للوصول</p>
+<p class="font-display-lg text-display-lg text-primary">12 <span class="font-title-md text-title-md">دقيقة</span></p>
+</div>
+<div class="text-left">
+<span class="inline-flex items-center gap-1 bg-surface-container-highest text-on-surface rounded-full px-3 py-1 font-label-sm text-label-sm">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                    الكابتن في الطريق إليك
+                </span>
+</div>
+</div>
+<!-- Progress Tracker -->
+<div class="relative flex justify-between items-center mb-6 px-2 progress-line progress-line-active">
+<!-- Step 1: Received -->
+<div class="relative z-10 flex flex-col items-center gap-1">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined text-on-primary text-[14px]" data-icon="check" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="font-label-sm text-label-sm text-primary">استلام</span>
+</div>
+<!-- Step 2: Preparing -->
+<div class="relative z-10 flex flex-col items-center gap-1">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined text-on-primary text-[14px]" data-icon="check" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="font-label-sm text-label-sm text-primary">تجهيز</span>
+</div>
+<!-- Step 3: On the way -->
+<div class="relative z-10 flex flex-col items-center gap-1">
+<div class="w-8 h-8 rounded-full bg-primary-container border-4 border-surface flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-on-primary-container text-[16px]" data-icon="two_wheeler" style="font-variation-settings: 'FILL' 1;">two_wheeler</span>
+</div>
+<span class="font-label-sm text-label-sm text-primary font-bold">في الطريق</span>
+</div>
+<!-- Step 4: Delivered -->
+<div class="relative z-10 flex flex-col items-center gap-1">
+<div class="w-6 h-6 rounded-full bg-surface-variant flex items-center justify-center shadow-inner">
+<span class="material-symbols-outlined text-outline text-[14px]" data-icon="home" style="font-variation-settings: 'FILL' 0;">home</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">تم التوصيل</span>
+</div>
+</div>
+<!-- Captain Info Card -->
+<div class="bg-surface-container-lowest rounded-xl p-4 flex items-center justify-between shadow-sm mb-4 border border-surface-variant">
+<div class="flex items-center gap-3">
+<div class="relative">
+<img class="w-12 h-12 rounded-full object-cover border-2 border-primary" data-alt="A professional headshot of a delivery driver wearing a high-vis orange vest, smiling confidently. Bright, clean lighting against a neutral light background, modern corporate style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfqOSY_imICDh3h4NuFRCY9UB-9TAXrpwN2OJhcu-833JuE_tmfyGqnteWYV864bjZapvfLAklahFWiRca8H2kaP-lhq0WYh-6Ox6uyQhodUvRQL9pDzR229YR6_795SOD8SeWncwTOfonXvKpxBaAUl8Oq4P9nsPfjThFwFnNDoxKvV5mpuXDC61BVNyzqxB9b_5j0WnpqOvU86xECzWuKiUOV0lVMu8i3R5AU9S0W1bwNm9oi234"/>
+<div class="absolute -bottom-1 -right-1 bg-surface rounded-full p-[2px]">
+<span class="material-symbols-outlined text-primary text-[12px]" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+</div>
+<div>
+<h3 class="font-title-md text-title-md text-on-surface">كابتن محمد</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
+                        4.8 <span class="text-tertiary">|</span> تويوتا يارس - أ ب ج ١٢٣
+                    </p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary hover:bg-surface-container-high transition-colors active:scale-95 shadow-sm">
+<span class="material-symbols-outlined" data-icon="chat" style="font-variation-settings: 'FILL' 0;">chat</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container hover:opacity-90 transition-opacity active:scale-95 shadow-md">
+<span class="material-symbols-outlined" data-icon="call" style="font-variation-settings: 'FILL' 1;">call</span>
+</button>
+</div>
+</div>
+<!-- Order Summary Mini -->
+<div class="flex justify-between items-center bg-surface-container-low rounded-lg p-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-outline" data-icon="receipt_long" style="font-variation-settings: 'FILL' 0;">receipt_long</span>
+<span class="font-body-md text-body-md text-on-surface">طلب رقم #Y-4030</span>
+</div>
+<button class="font-label-sm text-label-sm text-secondary hover:underline">التفاصيل</button>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Yalla - Onboarding</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error-container": "#ffdad6",
+                        "on-primary-container": "#572000",
+                        "outline": "#8e7164",
+                        "primary-fixed-dim": "#ffb693",
+                        "on-tertiary-container": "#2f3132",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed-dim": "#98cbff",
+                        "surface-container-low": "#f3f3f6",
+                        "surface-container-highest": "#e2e2e5",
+                        "on-surface-variant": "#5a4136",
+                        "tertiary": "#5d5f5f",
+                        "surface-container-high": "#e8e8ea",
+                        "on-secondary-fixed": "#001d33",
+                        "on-primary-fixed": "#351000",
+                        "background": "#f9f9fc",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed": "#cfe5ff",
+                        "tertiary-fixed-dim": "#c6c6c7",
+                        "error": "#ba1a1a",
+                        "surface": "#f9f9fc",
+                        "surface-dim": "#dadadc",
+                        "inverse-on-surface": "#f0f0f3",
+                        "secondary-container": "#00a2fd",
+                        "secondary": "#00629d",
+                        "on-background": "#1a1c1e",
+                        "primary": "#a04100",
+                        "surface-container": "#eeeef0",
+                        "inverse-primary": "#ffb693",
+                        "on-error": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#a04100",
+                        "surface-bright": "#f9f9fc",
+                        "primary-fixed": "#ffdbcc",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed": "#1a1c1c",
+                        "tertiary-container": "#989999",
+                        "surface-variant": "#e2e2e5",
+                        "tertiary-fixed": "#e2e2e2",
+                        "primary-container": "#ff6b00",
+                        "on-secondary-container": "#003558",
+                        "on-primary-fixed-variant": "#7a3000",
+                        "on-secondary": "#ffffff",
+                        "outline-variant": "#e2bfb0",
+                        "on-tertiary-fixed-variant": "#454747",
+                        "inverse-surface": "#2f3133",
+                        "on-surface": "#1a1c1e",
+                        "on-secondary-fixed-variant": "#004a77"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "sm": "8px",
+                        "margin-mobile": "16px",
+                        "unit": "4px",
+                        "xl": "40px",
+                        "gutter": "16px",
+                        "margin-desktop": "32px",
+                        "md": "16px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "title-md": ["IBM Plex Sans Arabic"],
+                        "headline-lg-mobile": ["IBM Plex Sans Arabic"],
+                        "headline-lg": ["IBM Plex Sans Arabic"],
+                        "display-lg": ["IBM Plex Sans Arabic"],
+                        "body-lg": ["IBM Plex Sans Arabic"],
+                        "body-md": ["IBM Plex Sans Arabic"],
+                        "label-sm": ["IBM Plex Sans Arabic"]
+                    },
+                    "fontSize": {
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "26px", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface h-screen w-full overflow-hidden flex flex-col justify-between">
+<!-- Top Spacer for App Vibe -->
+<div class="h-12 w-full"></div>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col relative px-margin-mobile">
+<!-- Illustration Container -->
+<div class="relative w-full h-[55%] mb-lg rounded-2xl overflow-hidden shadow-sm">
+<img class="absolute inset-0 w-full h-full object-cover" data-alt="A vibrant, high-quality vector illustration of a modern delivery courier riding an orange motorcycle through a stylized, futuristic Arab metropolis. The scene is sunlit, energetic, and features sleek glass buildings reflecting a bright blue sky. The visual style is modern corporate with glassmorphic accents, clean lines, and a feeling of rapid forward momentum. The lighting is bright and optimistic, suitable for a light-mode app." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAoHZQSrs1c_lxE4J2Zc_7hx8P--UfMfBdZ4fNy3J_pSH5rONsqAWghLPahF8zplJ78JSdZK1HnTPaN-QA0aaGPSOxUya00Bey_9xlOxCj3UkK4Pi526oXcj6YqwlDWetAAsbhz4yTx_755Fwj9mOzJ7owFpBUTYEEC_cjoHT3P5dBcDtnp5wDmO9U5TJACY6Z33RpkKLRL7wxt-erxUVD12CdQ6jvQ9Lj3XwMhTJhbAuabIR9Xl9Do"/>
+<!-- Glassmorphic Overlay Element for Depth -->
+<div class="absolute bottom-4 left-4 right-4 h-24 bg-surface/40 backdrop-blur-xl rounded-xl border border-white/20 p-4 flex items-center shadow-lg">
+<div class="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center mr-4">
+<svg class="w-6 h-6 text-on-primary-container" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div>
+<p class="font-title-md text-title-md text-on-surface">سرعة البرق</p>
+<p class="font-body-md text-body-md text-on-surface-variant">توصيل في أقل من 20 دقيقة</p>
+</div>
+</div>
+</div>
+<!-- Text and Actions Container -->
+<div class="flex flex-col flex-1 justify-end pb-xl">
+<!-- Branding / Welcome Text -->
+<div class="text-center mb-xl">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-sm">أهلاً بك في يلا!</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant px-md">أسرع خدمة توصيل بالدراجات النارية في مدينتك. اطلب الآن واستلم في لمح البصر.</p>
+</div>
+<!-- Action Buttons -->
+<div class="flex flex-col gap-sm w-full">
+<!-- Primary Button (Get Started) -->
+<button class="w-full h-14 bg-primary text-on-primary rounded-xl font-title-md text-title-md flex items-center justify-center shadow-lg shadow-primary/20 active:scale-95 transition-transform duration-200 relative overflow-hidden group">
+<span class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+<span class="relative z-10">ابدأ الآن</span>
+</button>
+<!-- Secondary Button (Login Link) -->
+<button class="w-full h-14 text-primary rounded-xl font-title-md text-title-md flex items-center justify-center hover:bg-surface-container transition-colors duration-200">
+                    تسجيل الدخول
+                </button>
+</div>
+</div>
+</main>
+</body></html>
