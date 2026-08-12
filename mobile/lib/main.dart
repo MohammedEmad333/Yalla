@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'core/theme/app_theme.dart';
 import 'core/network/api_client.dart';
 import 'core/realtime/socket_service.dart';
 import 'core/storage/token_storage.dart';
@@ -27,7 +28,7 @@ class YallaApp extends StatelessWidget {
     return MaterialApp(
       title: 'Yalla',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: const Color(0xFF16A34A)),
+      theme: buildYallaTheme(),
       builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
       home: const AuthGate(),
     );

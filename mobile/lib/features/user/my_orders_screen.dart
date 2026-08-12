@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/theme/app_theme.dart';
 import 'rate_order_dialog.dart';
 
 class MyOrdersScreen extends StatefulWidget {
@@ -49,13 +50,13 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
 
   // نصّ ولون لكل حالة
   (String, Color) _statusMeta(String s) => switch (s) {
-        'pending' => ('بانتظار كابتن', Colors.orange),
-        'assigned' => ('تم التعيين', Colors.blue),
-        'accepted' => ('في الطريق', Colors.purple),
-        'picked_up' => ('جارٍ التوصيل', Colors.teal),
-        'delivered' => ('تم التسليم', Colors.green),
-        'cancelled' => ('ملغى', Colors.red),
-        _ => (s, Colors.grey),
+        'pending' => ('بانتظار كابتن', YallaColors.statusPending),
+        'assigned' => ('تم التعيين', YallaColors.statusAssigned),
+        'accepted' => ('في الطريق', YallaColors.statusInTransit),
+        'picked_up' => ('جارٍ التوصيل', YallaColors.statusInTransit),
+        'delivered' => ('تم التسليم', YallaColors.statusDelivered),
+        'cancelled' => ('ملغى', YallaColors.statusCancelled),
+        _ => (s, YallaColors.muted),
       };
 
   @override

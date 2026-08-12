@@ -11,6 +11,9 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.6
 
+  # الخطوط: IBM Plex Sans Arabic (خطّ نظام Yalla Velocity)
+  google_fonts: ^6.2.1
+
   # الشبكة والتخزين
   http: ^1.2.0
   flutter_secure_storage: ^9.2.2
