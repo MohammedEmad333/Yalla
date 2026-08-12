@@ -33,13 +33,14 @@ export default function LiveDashboard() {
   useEffect(() => {
     const headers = { Authorization: `Bearer ${token}` };
 
-    // جلب الطلبات النشطة والكباتن المتاحين
-    fetch(`${API}/api/orders/active`, { headers })
-      .then((r) => r.json())
-      .then(setOrders);
-    fetch(`${API}/api/orders/available-captains`, { headers })
-      .then((r) => r.json())
-      .then(setCaptains);
+    const loadOrders = () =>
+      fetch(`${API}/api/orders/active`, { headers }).then((r) => r.json()).then(setOrders);
+    // نعيد جلب قائمة المتاحين من الخادم بدل التخمين — تعكس حالة online/busy الحقيقية
+    const loadCaptains = () =>
+      fetch(`${API}/api/orders/available-captains`, { headers }).then((r) => r.json()).then(setCaptains);
+
+    loadOrders();
+    loadCaptains();
 
     socket.connect();
 
@@ -55,15 +56,14 @@ export default function LiveDashboard() {
         const others = prev.filter((o) => o._id !== order._id);
         return done ? others : [order, ...others];
       });
+      // الإسناد/التسليم/الإلغاء يغيّر توفّر الكباتن → أعِد جلب المتاحين
+      loadCaptains();
     });
 
-    // تغيّر توفّر كابتن -> حدّث قائمة الكباتن
-    socket.on('captain:status_changed', ({ captainId, status }) => {
-      setCaptains((prev) =>
-        status === 'online'
-          ? prev // (تبسيط: نعيد الجلب في تطبيق حقيقي)
-          : prev.filter((c) => c._id !== captainId)
-      );
+    // تغيّر توفّر كابتن (اتصال/انفصال) -> أعِد جلب المتاحين من الخادم.
+    // أبسط وأصحّ من التعديل اليدوي: يُظهر الكابتن فور اتصاله دون تحديث الصفحة.
+    socket.on('captain:status_changed', () => {
+      loadCaptains();
     });
 
     return () => socket.disconnect(); // تنظيف عند مغادرة الصفحة
@@ -94,6 +94,23 @@ export default function LiveDashboard() {
     // النجاح يصل عبر حدث order:status_updated
   }
 
+  // إلغاء/حذف طلب عالق. الخادم يحرّر الكابتن المُسنَد تلقائيًا (releaseCaptain)
+  // فيعود متاحًا. مسموح للحالات: بانتظار/مُسنَد/مقبول (ليس بعد الاستلام).
+  async function cancelOrder(orderId) {
+    if (!window.confirm('هل تريد إلغاء هذا الطلب؟ سيتحرّر الكابتن المُسنَد إن وُجد ويعود متاحًا.')) return;
+
+    const res = await fetch(`${API}/api/orders/${orderId}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ reason: 'ألغاه الأدمن من اللوحة' }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      return alert(data?.message || 'تعذّر إلغاء الطلب');
+    }
+    // النجاح يصل عبر حدث order:status_updated فيُزال من القائمة تلقائيًا
+  }
+
   return (
     <div style={styles.page}>
       <header style={styles.header}>
@@ -116,9 +133,17 @@ export default function LiveDashboard() {
             <div key={o._id} style={styles.card(orderStatusColor(o.status))}>
               <div style={styles.cardTop}>
                 <strong style={styles.orderId}>#{o._id?.slice(-5)}</strong>
-                <span style={styles.status(orderStatusColor(o.status))}>
-                  {STATUS_AR[o.status] || o.status}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={styles.status(orderStatusColor(o.status))}>
+                    {STATUS_AR[o.status] || o.status}
+                  </span>
+                  {/* إلغاء متاح قبل الاستلام فقط */}
+                  {['pending', 'assigned', 'accepted'].includes(o.status) && (
+                    <button onClick={() => cancelOrder(o._id)} style={styles.cancelBtn} title="إلغاء الطلب">
+                      ✕ إلغاء
+                    </button>
+                  )}
+                </div>
               </div>
 
               <p style={styles.line}>📍 <b>استلام:</b> {o.pickup?.address}</p>
@@ -215,6 +240,15 @@ const styles = {
   }),
   cardTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   orderId: { fontSize: 16, color: theme.color.onSurface },
+  cancelBtn: {
+    background: 'transparent',
+    color: theme.color.error,
+    border: `1px solid ${theme.color.error}`,
+    padding: '4px 10px',
+    borderRadius: theme.radius.pill,
+    cursor: 'pointer',
+    fontSize: 12,
+  },
   status: (bg) => ({
     color: theme.color.onPrimary,
     background: bg,
