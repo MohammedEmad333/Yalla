@@ -2,6 +2,9 @@
 
 تُشغَّل المنظومة كاملةً عبر Docker Compose: قاعدة البيانات + الـ API + لوحة الأدمن.
 
+> 🌐 للنشر السحابي المجاني (Render + MongoDB Atlas + Netlify/Vercel) بدل Docker،
+> راجع [`04-cloud-deployment.md`](04-cloud-deployment.md).
+
 ## التشغيل بأمر واحد
 
 ```bash

@@ -1,0 +1,58 @@
+# Render Blueprint — نشر Yalla Backend (Express + Socket.io)
+# https://render.com/docs/blueprint-spec
+#
+# الاستخدام:
+#   1) ادفع هذا الملف إلى GitHub.
+#   2) على Render: New + → Blueprint → اختر مستودع Yalla.
+#   3) Render يقرأ هذا الملف ويُنشئ الخدمة تلقائيًا.
+#   4) اضبط القيم السريّة (MONGO_URI) من لوحة Render — راجع docs/04-cloud-deployment.md
+#
+# ملاحظة: قاعدة البيانات ليست هنا — نستخدم MongoDB Atlas المجاني (خارج Render).
+
+services:
+  - type: web
+    name: yalla-api
+    runtime: node
+    plan: free
+    region: frankfurt        # الأقرب للشرق الأوسط — غيّرها إن لزم (oregon / singapore ...)
+    rootDir: backend         # الكود داخل مجلد backend/
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true         # نشر تلقائي عند كل push على الفرع الافتراضي
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Render يوفّر PORT تلقائيًا ويربط الخدمة عليه — الخادم يقرأ process.env.PORT
+      - key: PORT
+        value: 10000
+
+      # سلسلة اتصال MongoDB Atlas — تُضبط يدويًا كـ Secret من لوحة Render (لا تُكتب هنا)
+      - key: MONGO_URI
+        sync: false
+
+      # مفتاح توقيع JWT — Render يولّد قيمة عشوائية آمنة تلقائيًا
+      - key: JWT_SECRET
+        generateValue: true
+
+      - key: JWT_EXPIRES_IN
+        value: 7d
+
+      # نطاق لوحة الأدمن المسموح له بالوصول (CORS) — عدّله لعنوان Netlify/Vercel الحقيقي
+      # مثال: https://gazalook-admin.netlify.app  (أو نطاقك المخصّص)
+      - key: CORS_ORIGIN
+        sync: false
+
+      - key: AUTO_ASSIGN
+        value: "false"
+
+      - key: COMMISSION_RATE
+        value: "0.2"
+
+      - key: ACCEPT_TIMEOUT_SECONDS
+        value: "60"
+
+      # إشعارات Firebase اختيارية — اتركها فارغة لتعطيلها
+      - key: FCM_CREDENTIALS_PATH
+        value: ""
