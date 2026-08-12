@@ -16,7 +16,7 @@ services:
     plan: free
     region: frankfurt        # الأقرب للشرق الأوسط — غيّرها إن لزم (oregon / singapore ...)
     rootDir: backend         # الكود داخل مجلد backend/
-    buildCommand: npm ci
+    buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeploy: true         # نشر تلقائي عند كل push على الفرع الافتراضي
