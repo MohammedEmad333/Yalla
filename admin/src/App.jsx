@@ -3,43 +3,53 @@
 
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './auth/AuthContext';
+import { theme } from './theme';
 import LoginPage from './pages/LoginPage';
 import LiveDashboard from './pages/LiveDashboard';
 import UsersManagement from './pages/UsersManagement';
 import StatsPage from './pages/StatsPage';
 import OrdersPage from './pages/OrdersPage';
 
+const TABS = [
+  { key: 'dashboard', label: 'اللوحة اللحظية' },
+  { key: 'orders', label: 'بحث الطلبات' },
+  { key: 'users', label: 'إدارة المستخدمين' },
+  { key: 'stats', label: 'الإحصائيات' },
+];
+
 function Gate() {
   const { admin, loading, logout } = useAuth();
-  const [page, setPage] = useState('dashboard'); // dashboard | users
+  const [page, setPage] = useState('dashboard'); // dashboard | orders | users | stats
 
   // أثناء استعادة الجلسة نعرض مؤشّر تحميل
-  if (loading) return <div style={{ display: 'grid', placeItems: 'center', height: '100vh' }}>...جارٍ التحميل</div>;
+  if (loading) return <div style={styles.loading}>...جارٍ التحميل</div>;
 
   // غير مسجّل → صفحة الدخول
   if (!admin) return <LoginPage />;
 
   // مسجّل → شريط تنقّل + الصفحة المختارة
   return (
-    <div>
+    <div style={{ direction: 'rtl', minHeight: '100vh', background: theme.color.surface }}>
       <nav style={styles.nav}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button style={styles.link(page === 'dashboard')} onClick={() => setPage('dashboard')}>
-            اللوحة اللحظية
-          </button>
-          <button style={styles.link(page === 'users')} onClick={() => setPage('users')}>
-            إدارة المستخدمين
-          </button>
-          <button style={styles.link(page === 'orders')} onClick={() => setPage('orders')}>
-            بحث الطلبات
-          </button>
-          <button style={styles.link(page === 'stats')} onClick={() => setPage('stats')}>
-            الإحصائيات
-          </button>
+        <div style={styles.brandBlock}>
+          <span style={styles.logoMark}>🛵</span>
+          <span style={styles.logo}>Yalla</span>
+          <div style={styles.tabs}>
+            {TABS.map((t) => (
+              <button key={t.key} style={styles.link(page === t.key)} onClick={() => setPage(t.key)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div>
-          <span style={{ marginInlineEnd: 12 }}>مرحبًا، {admin.name}</span>
-          <button onClick={logout} style={{ cursor: 'pointer' }}>خروج</button>
+
+        <div style={styles.userBlock}>
+          <span style={styles.hello}>
+            مرحبًا، <b style={{ color: theme.color.onSurface }}>{admin.name}</b>
+          </span>
+          <button onClick={logout} style={styles.logout}>
+            خروج
+          </button>
         </div>
       </nav>
 
@@ -52,23 +62,60 @@ function Gate() {
 }
 
 const styles = {
+  loading: {
+    display: 'grid',
+    placeItems: 'center',
+    height: '100vh',
+    direction: 'rtl',
+    color: theme.color.muted,
+    fontFamily: theme.font,
+  },
   nav: {
     direction: 'rtl',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '10px 24px',
-    background: '#fff',
-    borderBottom: '1px solid #e2e8f0',
+    padding: '12px 32px',
+    background: 'rgba(255,255,255,0.85)',
+    backdropFilter: 'blur(12px)',
+    borderBottom: `1px solid ${theme.color.outline}`,
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
+    flexWrap: 'wrap',
+    gap: 12,
   },
+  brandBlock: { display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' },
+  logoMark: { fontSize: 22 },
+  logo: {
+    fontSize: 22,
+    fontWeight: 700,
+    color: theme.color.primaryDeep,
+    letterSpacing: '-0.02em',
+    marginInlineStart: -8,
+  },
+  tabs: { display: 'flex', gap: 4, flexWrap: 'wrap' },
   link: (active) => ({
-    padding: '8px 16px',
-    borderRadius: 8,
+    padding: '9px 18px',
+    borderRadius: theme.radius.pill,
     cursor: 'pointer',
     border: 'none',
-    background: active ? '#0f172a' : 'transparent',
-    color: active ? '#fff' : '#334155',
+    fontSize: 14,
+    background: active ? theme.color.primary : 'transparent',
+    color: active ? theme.color.onPrimary : theme.color.muted,
+    boxShadow: active ? theme.shadow.float : 'none',
   }),
+  userBlock: { display: 'flex', alignItems: 'center', gap: 12 },
+  hello: { color: theme.color.muted, fontSize: 14 },
+  logout: {
+    cursor: 'pointer',
+    border: `1px solid ${theme.color.outlineStrong}`,
+    background: theme.color.card,
+    color: theme.color.onSurfaceVariant,
+    padding: '8px 16px',
+    borderRadius: theme.radius.pill,
+    fontSize: 14,
+  },
 };
 
 export default function App() {
