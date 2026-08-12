@@ -1,0 +1,23 @@
+# Netlify — نشر لوحة تحكم Yalla (React + Vite)
+# https://docs.netlify.com/configure-builds/file-based-configuration/
+#
+# عند ربط المستودع في Netlify:
+#   Base directory:     admin
+#   Build command:      npm run build   (مضبوط أدناه)
+#   Publish directory:  admin/dist      (مضبوط أدناه)
+#
+# مهم: اضبط متغيّر البيئة VITE_API_URL من لوحة Netlify (Site settings → Environment)
+#       على عنوان الـ Backend على Render، مثال:
+#       VITE_API_URL = https://yalla-api.onrender.com
+#       (يُقرأ وقت البناء — أي تغيير يتطلّب إعادة نشر Redeploy)
+
+[build]
+  base    = "admin"
+  command = "npm run build"
+  publish = "dist"
+
+# تطبيق صفحة واحدة (SPA): أعِد توجيه أي مسار غير موجود إلى index.html
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200

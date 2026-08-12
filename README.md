@@ -69,3 +69,9 @@ npm run dev               # يعمل على http://localhost:5173
 - صفحة توثيق تفاعلية: `http://localhost:4000/api/docs`.
 
 راجع `docs/` لتفاصيل المعمارية، التدفّق اللحظي، والنشر.
+
+## النشر السحابي المجاني
+
+لنشر Yalla على خدمات مجانية (Render + MongoDB Atlas + Netlify/Vercel) بدل Docker
+المحلّي — وربطه بنطاق مثل `gazalook.great-site.net` — راجع الدليل خطوةً بخطوة:
+[`docs/04-cloud-deployment.md`](docs/04-cloud-deployment.md).
