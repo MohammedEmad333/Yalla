@@ -45,6 +45,11 @@ class SocketService {
     _socket?.on('order:status_updated', (data) => cb(Map<String, dynamic>.from(data)));
   }
 
+  // (للكابتن) الاستماع لطلب جديد مُسنَد لحظيًا
+  void onOrderAssigned(void Function(Map<String, dynamic>) cb) {
+    _socket?.on('order:assigned', (data) => cb(Map<String, dynamic>.from(data)));
+  }
+
   // (للكابتن) بثّ الموقع الحالي أثناء التوصيل
   void sendLocation({required String orderId, required double lng, required double lat}) {
     _socket?.emit('captain:update_location', {'orderId': orderId, 'lng': lng, 'lat': lat});

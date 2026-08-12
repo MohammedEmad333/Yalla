@@ -37,7 +37,7 @@ class _CaptainHomeState extends State<CaptainHome> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      const ActiveOrderScreen(),
+      ActiveOrderScreen(api: widget.api, socket: widget.socket),
       EarningsScreen(api: widget.api),
       NotificationsScreen(api: widget.api),
       ProfileScreen(onLogout: widget.onLogout),
