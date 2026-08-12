@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/theme/app_theme.dart';
 import '../data/auth_repository.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -64,10 +65,22 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('🛵 يلا', style: TextStyle(fontSize: 44, fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('🛵', style: TextStyle(fontSize: 40)),
+                    const SizedBox(width: 8),
+                    Text('Yalla',
+                        style: TextStyle(
+                          fontSize: 44,
+                          fontWeight: FontWeight.bold,
+                          color: YallaColors.primaryDeep,
+                        )),
+                  ],
+                ),
                 const SizedBox(height: 8),
-                Text(_isRegister ? 'إنشاء حساب جديد' : 'تسجيل الدخول',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(_isRegister ? 'إنشاء حساب جديد' : 'سجّل دخولك للمتابعة',
+                    style: const TextStyle(color: YallaColors.muted, fontSize: 15)),
                 const SizedBox(height: 28),
 
                 // الاسم (للتسجيل فقط)
@@ -76,8 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _name,
                     decoration: const InputDecoration(
                       labelText: 'الاسم',
-                      prefixIcon: Icon(Icons.person),
-                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person_outline),
                     ),
                     validator: (v) => (v == null || v.isEmpty) ? 'أدخل الاسم' : null,
                   ),
@@ -89,8 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
                     labelText: 'رقم الهاتف',
-                    prefixIcon: Icon(Icons.phone),
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.phone_outlined),
                   ),
                   validator: (v) => (v == null || v.length < 6) ? 'أدخل رقم هاتف صحيح' : null,
                 ),
@@ -101,15 +112,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   obscureText: true,
                   decoration: const InputDecoration(
                     labelText: 'كلمة المرور',
-                    prefixIcon: Icon(Icons.lock),
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.lock_outline),
                   ),
                   validator: (v) => (v == null || v.length < 6) ? '6 أحرف على الأقل' : null,
                 ),
 
                 if (_error != null) ...[
                   const SizedBox(height: 12),
-                  Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+                  Text(_error!, style: const TextStyle(color: YallaColors.error), textAlign: TextAlign.center),
                 ],
 
                 const SizedBox(height: 24),
