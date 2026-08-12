@@ -1,0 +1,130 @@
+/* نظام تصميم Yalla Velocity — أنماط عامّة للوحة الأدمن (React) */
+
+:root {
+  --surface: #f9f9fc;
+  --surface-container: #f3f3f6;
+  --card: #ffffff;
+  --on-surface: #1a1c1e;
+  --on-surface-variant: #5a4136;
+  --muted: #6b6f76;
+  --primary: #ff6b00;
+  --primary-deep: #a04100;
+  --secondary: #00a2fd;
+  --outline: #e8e4e1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
+  background: var(--surface);
+  color: var(--on-surface);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--on-surface);
+  letter-spacing: -0.01em;
+}
+h1 {
+  font-weight: 700;
+}
+h2,
+h3 {
+  font-weight: 600;
+}
+
+/* الأزرار: انتقال ناعم وإحساس قابل للضغط */
+button {
+  font-family: inherit;
+  font-weight: 600;
+  transition: filter 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+}
+button:not(:disabled):hover {
+  filter: brightness(0.96);
+}
+button:not(:disabled):active {
+  transform: translateY(1px);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+}
+
+/* الحقول: حدّ رمادي يتحوّل إلى برتقالي عند التركيز (كما في التصميم) */
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--on-surface);
+  background: var(--card);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.15);
+}
+::placeholder {
+  color: #a7a2a0;
+}
+
+/* الجداول: تنسيق موحّد وأنيق لكل الصفحات */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+th,
+td {
+  padding: 13px 16px;
+  text-align: right;
+  font-size: 14px;
+}
+thead th {
+  background: var(--surface-container);
+  color: var(--on-surface-variant);
+  font-weight: 600;
+  border-bottom: 1px solid var(--outline);
+  white-space: nowrap;
+}
+tbody tr {
+  border-bottom: 1px solid #f2efec;
+}
+tbody tr:last-child {
+  border-bottom: none;
+}
+tbody tr:hover {
+  background: #faf7f5;
+}
+
+/* شريط تمرير خفيف */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d8d2ce;
+  border-radius: 9999px;
+  border: 2px solid var(--surface);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c4bdb8;
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { theme } from '../theme';
 
 export default function StatsPage() {
   const [stats, setStats] = useState(null);
@@ -14,32 +15,36 @@ export default function StatsPage() {
     load();
   }, []);
 
-  if (error) return <div style={styles.page}><p style={{ color: 'red' }}>{error}</p></div>;
-  if (!stats) return <div style={styles.page}>...جارٍ التحميل</div>;
+  if (error) return <div style={styles.page}><p style={styles.err}>{error}</p></div>;
+  if (!stats) return <div style={{ ...styles.page, color: theme.color.muted }}>...جارٍ التحميل</div>;
 
-  // تعريف البطاقات (تسمية، قيمة، أيقونة، لون)
+  const C = theme.color;
+  // تعريف البطاقات (تسمية، قيمة، أيقونة، لون من نظام Velocity)
   const cards = [
-    { label: 'إجمالي الطلبات', value: stats.totalOrders, icon: '📦', color: '#0ea5e9' },
-    { label: 'طلبات اليوم', value: stats.todayOrders, icon: '📅', color: '#6366f1' },
-    { label: 'طلبات نشطة', value: stats.active, icon: '🚴', color: '#f59e0b' },
-    { label: 'تم التسليم', value: stats.delivered, icon: '✅', color: '#16a34a' },
-    { label: 'ملغاة', value: stats.cancelled, icon: '❌', color: '#dc2626' },
-    { label: 'الإيرادات', value: `${stats.revenue} ج.م`, icon: '💰', color: '#059669' },
-    { label: 'متوسّط زمن التوصيل', value: `${stats.avgDeliveryMinutes} دق`, icon: '⏱️', color: '#7c3aed' },
-    { label: 'كباتن متصلون', value: stats.onlineCaptains, icon: '🧑‍✈️', color: '#0891b2' },
+    { label: 'إجمالي الطلبات', value: stats.totalOrders, icon: '📦', color: C.secondary },
+    { label: 'طلبات اليوم', value: stats.todayOrders, icon: '📅', color: C.secondaryDeep },
+    { label: 'طلبات نشطة', value: stats.active, icon: '🚴', color: C.primary },
+    { label: 'تم التسليم', value: stats.delivered, icon: '✅', color: C.success },
+    { label: 'ملغاة', value: stats.cancelled, icon: '❌', color: C.error },
+    { label: 'الإيرادات', value: `${stats.revenue} ج.م`, icon: '💰', color: C.primaryDeep },
+    { label: 'متوسّط زمن التوصيل', value: `${stats.avgDeliveryMinutes} دق`, icon: '⏱️', color: C.warning },
+    { label: 'كباتن متصلون', value: stats.onlineCaptains, icon: '🧑‍✈️', color: C.secondary },
   ];
 
   return (
     <div style={styles.page}>
       <div style={styles.headerRow}>
-        <h1>📊 لوحة الإحصائيات</h1>
-        <button style={styles.refresh} onClick={load}>تحديث</button>
+        <div>
+          <h1 style={{ margin: 0 }}>الإحصائيات</h1>
+          <p style={styles.subtitle}>نظرة عامّة على أداء المنظومة</p>
+        </div>
+        <button style={styles.refresh} onClick={load}>↻ تحديث</button>
       </div>
 
       <div style={styles.grid}>
         {cards.map((c) => (
-          <div key={c.label} style={styles.card}>
-            <div style={{ ...styles.iconWrap, background: `${c.color}22` }}>
+          <div key={c.label} style={styles.card(c.color)}>
+            <div style={{ ...styles.iconWrap, background: `${c.color}1a` }}>
               <span style={{ fontSize: 24 }}>{c.icon}</span>
             </div>
             <div>
@@ -54,15 +59,30 @@ export default function StatsPage() {
 }
 
 const styles = {
-  page: { direction: 'rtl', fontFamily: 'system-ui', padding: 24, background: '#f8fafc', minHeight: '100vh' },
-  headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  refresh: { padding: '8px 16px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 },
-  card: {
-    background: '#fff', borderRadius: 12, padding: 18, display: 'flex', alignItems: 'center', gap: 14,
-    boxShadow: '0 1px 4px rgba(0,0,0,.08)',
+  page: { direction: 'rtl', fontFamily: theme.font, padding: 32, maxWidth: 1200, margin: '0 auto' },
+  headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 16, flexWrap: 'wrap' },
+  subtitle: { color: theme.color.muted, margin: '4px 0 0', fontSize: 14 },
+  err: { color: theme.color.error, background: theme.color.errorSoft, padding: 14, borderRadius: theme.radius.md },
+  refresh: {
+    padding: '9px 18px',
+    borderRadius: theme.radius.pill,
+    border: `1px solid ${theme.color.outlineStrong}`,
+    background: theme.color.card,
+    color: theme.color.onSurfaceVariant,
+    cursor: 'pointer',
   },
-  iconWrap: { width: 48, height: 48, borderRadius: 12, display: 'grid', placeItems: 'center' },
-  value: { fontSize: 22, fontWeight: 700 },
-  label: { color: '#64748b', fontSize: 13 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 16 },
+  card: (accent) => ({
+    background: theme.color.card,
+    borderRadius: theme.radius.lg,
+    padding: 20,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+    boxShadow: theme.shadow.card,
+    borderRight: `4px solid ${accent}`,
+  }),
+  iconWrap: { width: 52, height: 52, borderRadius: theme.radius.md, display: 'grid', placeItems: 'center', flexShrink: 0 },
+  value: { fontSize: 24, fontWeight: 700, color: theme.color.onSurface },
+  label: { color: theme.color.muted, fontSize: 13, marginTop: 2 },
 };

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { theme } from '../theme';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -27,21 +28,28 @@ export default function LoginPage() {
   return (
     <div style={styles.wrap}>
       <form onSubmit={handleSubmit} style={styles.card}>
-        <h1 style={{ textAlign: 'center' }}>🛵 يلا — لوحة الأدمن</h1>
+        <div style={styles.brand}>
+          <span style={{ fontSize: 30 }}>🛵</span>
+          <span style={styles.logo}>Yalla</span>
+        </div>
+        <h1 style={styles.title}>لوحة الأدمن</h1>
         <p style={styles.sub}>سجّل الدخول للمتابعة</p>
 
+        <label style={styles.label}>رقم الهاتف</label>
         <input
           style={styles.input}
           type="tel"
-          placeholder="رقم الهاتف"
+          placeholder="05X XXX XXXX"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           required
         />
+
+        <label style={styles.label}>كلمة المرور</label>
         <input
           style={styles.input}
           type="password"
-          placeholder="كلمة المرور"
+          placeholder="••••••••"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -63,29 +71,51 @@ const styles = {
     minHeight: '100vh',
     display: 'grid',
     placeItems: 'center',
-    background: '#0f172a',
-    fontFamily: 'system-ui',
+    padding: 16,
+    background: `radial-gradient(1200px 600px at 100% 0%, ${theme.color.primarySoft} 0%, ${theme.color.surface} 55%)`,
+    fontFamily: theme.font,
   },
   card: {
-    background: '#fff',
-    padding: 32,
-    borderRadius: 16,
-    width: 360,
+    background: theme.color.card,
+    padding: 36,
+    borderRadius: theme.radius.xl,
+    width: 380,
+    maxWidth: '100%',
     display: 'flex',
     flexDirection: 'column',
-    gap: 12,
-    boxShadow: '0 10px 40px rgba(0,0,0,.3)',
+    gap: 8,
+    boxShadow: theme.shadow.card,
+    border: `1px solid ${theme.color.outline}`,
   },
-  sub: { textAlign: 'center', color: '#64748b', marginTop: -8 },
-  input: { padding: 12, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 },
+  brand: { display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' },
+  logo: { fontSize: 30, fontWeight: 700, color: theme.color.primaryDeep, letterSpacing: '-0.02em' },
+  title: { textAlign: 'center', margin: '10px 0 0', fontSize: 26 },
+  sub: { textAlign: 'center', color: theme.color.muted, margin: '2px 0 14px', fontSize: 15 },
+  label: { fontSize: 13, fontWeight: 600, color: theme.color.onSurfaceVariant, marginTop: 6 },
+  input: {
+    padding: '13px 14px',
+    borderRadius: theme.radius.md,
+    border: `1px solid ${theme.color.outlineStrong}`,
+    fontSize: 15,
+  },
   btn: {
-    padding: 12,
-    borderRadius: 8,
+    marginTop: 18,
+    padding: 14,
+    borderRadius: theme.radius.pill,
     border: 'none',
-    background: '#16a34a',
-    color: '#fff',
+    background: theme.color.primary,
+    color: theme.color.onPrimary,
     fontSize: 16,
     cursor: 'pointer',
+    boxShadow: theme.shadow.float,
   },
-  error: { color: '#dc2626', fontSize: 14, textAlign: 'center' },
+  error: {
+    color: theme.color.error,
+    background: theme.color.errorSoft,
+    fontSize: 14,
+    textAlign: 'center',
+    padding: '10px 12px',
+    borderRadius: theme.radius.sm,
+    marginTop: 10,
+  },
 };

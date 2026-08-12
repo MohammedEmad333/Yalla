@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, API } from '../api/client';
+import { theme, orderStatusColor } from '../theme';
 
 const STATUSES = ['', 'pending', 'assigned', 'accepted', 'picked_up', 'delivered', 'cancelled'];
 const STATUS_AR = {
@@ -53,7 +54,8 @@ export default function OrdersPage() {
 
   return (
     <div style={styles.page}>
-      <h1>🔍 بحث الطلبات</h1>
+      <h1 style={{ margin: '0 0 4px' }}>بحث الطلبات</h1>
+      <p style={styles.subtitle}>فلترة الطلبات وتصديرها</p>
 
       {/* شريط الفلاتر */}
       <div style={styles.filters}>
@@ -61,7 +63,7 @@ export default function OrdersPage() {
           {STATUSES.map((s) => <option key={s} value={s}>{STATUS_AR[s]}</option>)}
         </select>
         <input
-          style={styles.input}
+          style={{ ...styles.input, flex: 1, minWidth: 200 }}
           placeholder="بحث في العناوين/الملاحظة"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -71,33 +73,37 @@ export default function OrdersPage() {
         <button style={styles.exportBtn} onClick={exportCsv}>⬇ تصدير CSV</button>
       </div>
 
-      <p style={styles.count}>الإجمالي: {data.total} طلب</p>
+      <p style={styles.count}>الإجمالي: <b>{data.total}</b> طلب</p>
 
-      <table style={styles.table}>
-        <thead>
-          <tr><th>#</th><th>الحالة</th><th>الاستلام</th><th>التسليم</th><th>الكابتن</th><th>السعر</th></tr>
-        </thead>
-        <tbody>
-          {data.items.map((o) => (
-            <tr key={o._id}>
-              <td>#{o._id.slice(-5)}</td>
-              <td>{STATUS_AR[o.status] || o.status}</td>
-              <td>{o.pickup?.address}</td>
-              <td>{o.dropoff?.address}</td>
-              <td>{o.captain?.name || '—'}</td>
-              <td>{o.price} ج.م</td>
-            </tr>
-          ))}
-          {data.items.length === 0 && (
-            <tr><td colSpan={6} style={{ textAlign: 'center', color: '#94a3b8', padding: 16 }}>لا نتائج</td></tr>
-          )}
-        </tbody>
-      </table>
+      <div style={styles.tableWrap}>
+        <table>
+          <thead>
+            <tr><th>#</th><th>الحالة</th><th>الاستلام</th><th>التسليم</th><th>الكابتن</th><th>السعر</th></tr>
+          </thead>
+          <tbody>
+            {data.items.map((o) => (
+              <tr key={o._id}>
+                <td style={{ fontWeight: 600 }}>#{o._id.slice(-5)}</td>
+                <td>
+                  <span style={styles.pill(orderStatusColor(o.status))}>{STATUS_AR[o.status] || o.status}</span>
+                </td>
+                <td>{o.pickup?.address}</td>
+                <td>{o.dropoff?.address}</td>
+                <td>{o.captain?.name || '—'}</td>
+                <td style={{ fontWeight: 600 }}>{o.price} ج.م</td>
+              </tr>
+            ))}
+            {data.items.length === 0 && (
+              <tr><td colSpan={6} style={{ textAlign: 'center', color: theme.color.muted, padding: 20 }}>لا نتائج</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {/* ترقيم */}
       <div style={styles.pager}>
         <button style={styles.pageBtn} disabled={data.page <= 1} onClick={() => load(data.page - 1)}>السابق</button>
-        <span>صفحة {data.page} من {data.pages}</span>
+        <span style={styles.pageInfo}>صفحة {data.page} من {data.pages}</span>
         <button style={styles.pageBtn} disabled={data.page >= data.pages} onClick={() => load(data.page + 1)}>التالي</button>
       </div>
     </div>
@@ -105,13 +111,45 @@ export default function OrdersPage() {
 }
 
 const styles = {
-  page: { direction: 'rtl', fontFamily: 'system-ui', padding: 24, background: '#f8fafc', minHeight: '100vh' },
-  filters: { display: 'flex', gap: 8, margin: '16px 0' },
-  input: { padding: 10, borderRadius: 8, border: '1px solid #cbd5e1' },
-  btn: { background: '#0f172a', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer' },
-  exportBtn: { background: '#059669', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer' },
-  count: { color: '#64748b' },
-  table: { width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden' },
-  pager: { display: 'flex', gap: 16, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
-  pageBtn: { padding: '8px 16px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' },
+  page: { direction: 'rtl', fontFamily: theme.font, padding: 32, maxWidth: 1200, margin: '0 auto' },
+  subtitle: { color: theme.color.muted, margin: '0 0 16px', fontSize: 14 },
+  filters: { display: 'flex', gap: 8, margin: '16px 0', flexWrap: 'wrap' },
+  input: { padding: '11px 14px', borderRadius: theme.radius.md, border: `1px solid ${theme.color.outlineStrong}` },
+  btn: {
+    background: theme.color.primary,
+    color: theme.color.onPrimary,
+    border: 'none',
+    padding: '11px 22px',
+    borderRadius: theme.radius.pill,
+    cursor: 'pointer',
+  },
+  exportBtn: {
+    background: theme.color.secondary,
+    color: theme.color.onSecondary,
+    border: 'none',
+    padding: '11px 20px',
+    borderRadius: theme.radius.pill,
+    cursor: 'pointer',
+  },
+  count: { color: theme.color.muted, fontSize: 14 },
+  tableWrap: { overflowX: 'auto' },
+  pill: (bg) => ({
+    background: bg,
+    color: theme.color.onPrimary,
+    padding: '3px 12px',
+    borderRadius: theme.radius.pill,
+    fontSize: 12,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+  }),
+  pager: { display: 'flex', gap: 16, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  pageInfo: { color: theme.color.onSurfaceVariant, fontSize: 14 },
+  pageBtn: {
+    padding: '9px 18px',
+    borderRadius: theme.radius.pill,
+    border: `1px solid ${theme.color.outlineStrong}`,
+    background: theme.color.card,
+    color: theme.color.onSurfaceVariant,
+    cursor: 'pointer',
+  },
 };

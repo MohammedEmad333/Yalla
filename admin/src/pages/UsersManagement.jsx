@@ -3,11 +3,15 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { theme } from '../theme';
 
 export default function UsersManagement() {
   const [tab, setTab] = useState('users'); // users | captains
   return (
     <div style={styles.page}>
+      <h1 style={{ margin: '0 0 4px' }}>إدارة المستخدمين</h1>
+      <p style={styles.subtitle}>العملاء والكباتن — التفعيل والاعتماد والمحافظ</p>
+
       <div style={styles.tabs}>
         <button style={styles.tab(tab === 'users')} onClick={() => setTab('users')}>العملاء</button>
         <button style={styles.tab(tab === 'captains')} onClick={() => setTab('captains')}>الكباتن</button>
@@ -239,24 +243,69 @@ function CaptainsTab() {
 }
 
 const styles = {
-  page: { direction: 'rtl', fontFamily: 'system-ui', padding: 24, background: '#f8fafc', minHeight: '100vh' },
+  page: { direction: 'rtl', fontFamily: theme.font, padding: 32, maxWidth: 1200, margin: '0 auto' },
+  subtitle: { color: theme.color.muted, margin: '0 0 16px', fontSize: 14 },
   tabs: { display: 'flex', gap: 8, marginBottom: 16 },
   tab: (active) => ({
-    padding: '8px 20px', borderRadius: 8, cursor: 'pointer', border: 'none',
-    background: active ? '#0f172a' : '#e2e8f0', color: active ? '#fff' : '#334155',
+    padding: '9px 22px',
+    borderRadius: theme.radius.pill,
+    cursor: 'pointer',
+    border: 'none',
+    fontSize: 14,
+    background: active ? theme.color.primary : theme.color.surfaceContainer,
+    color: active ? theme.color.onPrimary : theme.color.muted,
+    boxShadow: active ? theme.shadow.float : 'none',
   }),
-  searchRow: { display: 'flex', gap: 8, marginBottom: 16 },
+  searchRow: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   addForm: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
-  search: { padding: 10, borderRadius: 8, border: '1px solid #cbd5e1' },
-  table: { width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 12, overflow: 'hidden' },
-  btn: { background: '#0f172a', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: 8, cursor: 'pointer' },
-  btn2: (bg) => ({ background: bg, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }),
-  pill: (bg) => ({ background: bg, color: '#fff', padding: '2px 10px', borderRadius: 12, fontSize: 12 }),
-  reviewsPanel: { background: '#fff', borderRadius: 12, padding: 16, marginTop: 16, boxShadow: '0 1px 4px rgba(0,0,0,.08)' },
-  distRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 },
-  barTrack: { flex: 1, height: 10, background: '#e2e8f0', borderRadius: 6, overflow: 'hidden' },
-  barFill: { height: '100%', background: '#f59e0b' },
-  reviewItem: { borderTop: '1px solid #f1f5f9', padding: '8px 0' },
-  walletGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10, margin: '12px 0' },
-  walletCell: { background: '#f8fafc', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 4, textAlign: 'center' },
+  search: { padding: '11px 14px', borderRadius: theme.radius.md, border: `1px solid ${theme.color.outlineStrong}` },
+  table: { marginTop: 4 },
+  btn: {
+    background: theme.color.primary,
+    color: theme.color.onPrimary,
+    border: 'none',
+    padding: '11px 18px',
+    borderRadius: theme.radius.pill,
+    cursor: 'pointer',
+  },
+  btn2: (bg) => ({
+    background: bg,
+    color: '#fff',
+    border: 'none',
+    padding: '7px 14px',
+    borderRadius: theme.radius.pill,
+    cursor: 'pointer',
+    fontSize: 13,
+  }),
+  pill: (bg) => ({
+    background: bg,
+    color: '#fff',
+    padding: '3px 12px',
+    borderRadius: theme.radius.pill,
+    fontSize: 12,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+  }),
+  reviewsPanel: {
+    background: theme.color.card,
+    borderRadius: theme.radius.lg,
+    padding: 20,
+    marginTop: 16,
+    boxShadow: theme.shadow.card,
+  },
+  distRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 },
+  barTrack: { flex: 1, height: 10, background: theme.color.surfaceContainer, borderRadius: theme.radius.pill, overflow: 'hidden' },
+  barFill: { height: '100%', background: theme.color.primary, borderRadius: theme.radius.pill },
+  reviewItem: { borderTop: `1px solid ${theme.color.outline}`, padding: '10px 0', color: theme.color.onSurfaceVariant },
+  walletGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10, margin: '14px 0' },
+  walletCell: {
+    background: theme.color.surface,
+    borderRadius: theme.radius.md,
+    padding: 14,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    textAlign: 'center',
+    border: `1px solid ${theme.color.outline}`,
+  },
 };
