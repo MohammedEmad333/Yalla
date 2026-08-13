@@ -33,19 +33,16 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.2
 
-  # توليد أيقونة التطبيق واسمه على أجهزة Android/iOS (Card: تغيير الأيقونة والاسم)
-  flutter_launcher_icons: ^0.13.1
-  flutter_launcher_name: ^0.0.1
+  # توليد أيقونة التطبيق على أجهزة Android/iOS (Card: تغيير الأيقونة والاسم)
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
   assets:
     - assets/icon/
 
-# اسم التطبيق كما يظهر تحت الأيقونة على الجهاز (يستبدل الاسم الافتراضي "mobile")
-# التطبيق:  dart run flutter_launcher_name
-flutter_launcher_name:
-  name: "Yalla"
+# اسم التطبيق كما يظهر تحت الأيقونة "Yalla" يُضبط يدويًا في AndroidManifest
+# (android:label) وiOS Info.plist — راجع README (خطوة 5).
 
 # أيقونة التطبيق المثبّت (تستبدل أيقونة Flutter الافتراضية)
 # التطبيق:  dart run flutter_launcher_icons
