@@ -115,6 +115,43 @@ tbody tr:hover {
   background: #faf7f5;
 }
 
+/* ═══ التصميم المتجاوب (Card 13): تحسين العرض على شاشة الجوال ═══ */
+
+/* حاوية جدول قابلة للتمرير أفقيًا على الشاشات الضيّقة (تمنع كسر التخطيط) */
+.yl-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* أجهزة لوحية وجوّالات كبيرة: نُقلّل الحشو ونجعل لوحة الأدمن عمودًا واحدًا */
+@media (max-width: 820px) {
+  .yl-page {
+    padding: 18px 14px !important;
+  }
+  .yl-nav {
+    padding: 10px 16px !important;
+  }
+  /* اللوحة اللحظية: الطلبات فوق الكباتن بدل عمودين متجاورين */
+  .yl-dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* جوّالات صغيرة: خطّ أصغر وحشو أقل في الجداول لتفادي التمرير الزائد */
+@media (max-width: 560px) {
+  .yl-page {
+    padding: 14px 10px !important;
+  }
+  th,
+  td {
+    padding: 10px 10px;
+    font-size: 13px;
+  }
+  h1 {
+    font-size: 22px;
+  }
+}
+
 /* شريط تمرير خفيف */
 ::-webkit-scrollbar {
   width: 10px;

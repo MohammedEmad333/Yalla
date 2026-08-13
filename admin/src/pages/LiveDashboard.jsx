@@ -47,9 +47,10 @@ export default function LiveDashboard() {
 
     socket.connect();
 
-    // طلب جديد أنشأه مستخدم -> أضِفه أعلى القائمة
+    // طلب جديد أنشأه مستخدم (أو عاد للمجمّع بعد رفض) -> أضِفه أعلى القائمة فورًا.
+    // نُزيل أي نسخة سابقة بنفس المعرّف تفاديًا للتكرار عند تسابق الأحداث.
     socket.on('order:created', (order) => {
-      setOrders((prev) => [order, ...prev]);
+      setOrders((prev) => [order, ...prev.filter((o) => o._id !== order._id)]);
     });
 
     // تحديث حالة طلب -> استبدله في القائمة (أو أزِله إن اكتمل)
@@ -115,7 +116,7 @@ export default function LiveDashboard() {
   }
 
   return (
-    <div style={styles.page}>
+    <div className="yl-page" style={styles.page}>
       <header style={styles.header}>
         <div>
           <h1 style={{ margin: 0 }}>اللوحة اللحظية</h1>
@@ -126,7 +127,7 @@ export default function LiveDashboard() {
         </span>
       </header>
 
-      <div style={styles.grid}>
+      <div className="yl-dashboard-grid" style={styles.grid}>
         {/* عمود الطلبات النشطة */}
         <section style={styles.col}>
           <h2 style={styles.colTitle}>الطلبات النشطة ({orders.length})</h2>

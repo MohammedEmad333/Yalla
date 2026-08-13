@@ -60,14 +60,30 @@ dart run flutter_launcher_icons    # يستبدل الأيقونة الافتر�
 flutter run
 ```
 
-## الخرائط والإشعارات (مُزالة افتراضيًا لتسهيل التشغيل)
-لتفادي متطلّبات المفاتيح الخارجية، أُزيلت المكتبتان الأصليّتان من الإعداد الافتراضي:
-- **Google Maps**: شاشتا «إنشاء طلب» و«التتبّع» تعملان **بلا خريطة** (اختيار مواقع
-  جاهزة + عرض إحداثيات الكابتن). لإضافة خريطة تفاعلية: أعِد `google_maps_flutter`
-  إلى `pubspec.yaml`، واستبدل الشاشتين بنسخ الخريطة، وأضف مفتاح Google Maps في
-  `android/app/src/main/AndroidManifest.xml`.
-- **إشعارات FCM**: تتطلّب إعداد Firebase (`flutterfire configure`). لإعادتها أضِف
-  `firebase_core`/`firebase_messaging` وأعِد `push_service.dart`.
+## خدمة خرائط جوجل (Card 10)
+التطبيق يفتح **خرائط جوجل** عبر روابط عميقة (بلا مفتاح API ولا خريطة مضمّنة):
+- **الكابتن** — زرّ «الملاحة إلى الاستلام/التسليم» في شاشة الطلب النشط يفتح خرائط
+  جوجل للملاحة نحو النقطة الصحيحة حسب مرحلة الطلب (`core/maps/maps_service.dart`).
+- **المستخدم** — في شاشة التتبّع زرّ الخريطة بجانب موقع الكابتن يفتح موقعه على خرائط جوجل.
+- كما يمكن للكابتن الاتصال بصاحب الطلب مباشرةً عبر زرّ الاتصال (`tel:`).
+
+> **مطلوب على Android 11+ (API 30+):** حتى تعمل روابط `url_launcher` يجب إضافة وسم
+> `<queries>` داخل `android/app/src/main/AndroidManifest.xml` (بجانب `<application>`):
+> ```xml
+> <queries>
+>   <intent><action android:name="android.intent.action.VIEW" />
+>     <data android:scheme="https" /></intent>
+>   <intent><action android:name="android.intent.action.DIAL" />
+>     <data android:scheme="tel" /></intent>
+> </queries>
+> ```
+> لإضافة خريطة **مضمّنة** داخل التطبيق لاحقًا: أعِد `google_maps_flutter` مع مفتاح
+> Google Maps في نفس الملفّ.
+
+## الإشعارات (مُزالة افتراضيًا لتسهيل التشغيل)
+**إشعارات FCM**: تتطلّب إعداد Firebase (`flutterfire configure`). لإعادتها أضِف
+`firebase_core`/`firebase_messaging` وأعِد `push_service.dart`. الإشعارات الداخلية
+(in-app) تعمل حاليًا وتصل **لحظيًا** عبر السوكت دون Firebase.
 
 > السماح بـ HTTP: للاتصال بالـ Backend عبر `http` من جهاز حقيقي، أضِف
 > `android:usesCleartextTraffic="true"` إلى وسم `<application>` في AndroidManifest.

@@ -4,10 +4,12 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/realtime/socket_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final ApiClient api;
-  const NotificationsScreen({super.key, required this.api});
+  final SocketService? socket;
+  const NotificationsScreen({super.key, required this.api, this.socket});
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -22,6 +24,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     _load();
+
+    // إشعار داخلي جديد يصل لحظيًا (مثل إسناد طلب للكابتن) — نضيفه أعلى القائمة فورًا
+    // دون تحديث الصفحة (Card 3: أرسل الإشعار فورًا للكابتن).
+    widget.socket?.onNotificationNew((notif) {
+      if (!mounted) return;
+      setState(() {
+        _items = [notif, ..._items];
+        if (notif['read'] != true) _unread += 1;
+      });
+    });
   }
 
   Future<void> _load() async {

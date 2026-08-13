@@ -12,6 +12,13 @@ async function toggleStatus(req, res, next) {
     if (![CAPTAIN_STATUS.ONLINE, CAPTAIN_STATUS.OFFLINE].includes(status)) {
       return res.status(400).json({ message: 'حالة غير صالحة' });
     }
+
+    // عند التحوّل إلى "غير متصل": إن كان لديه طلب لم يُستَلم بعد يُرفَض ويعود للأدمن (Card 16)
+    if (status === CAPTAIN_STATUS.OFFLINE) {
+      const captain = await orderService.setCaptainOffline(req.auth.id);
+      return res.json(captain);
+    }
+
     const captain = await Captain.findByIdAndUpdate(
       req.auth.id,
       { status },

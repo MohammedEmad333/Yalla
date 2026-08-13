@@ -6,7 +6,7 @@ const Captain = require('../models/Captain');
 const orderService = require('../services/order.service');
 const ioRef = require('./io');
 const logger = require('../utils/logger');
-const { ROLES, ROOMS, EVENTS } = require('../utils/constants');
+const { ROLES, ROOMS, EVENTS, CAPTAIN_STATUS } = require('../utils/constants');
 
 /**
  * Middleware للمصادقة على مستوى السوكت: نتحقّق من التوكن المُرسل في
@@ -47,6 +47,13 @@ function registerSocketHandlers(io) {
     socket.on(EVENTS.CAPTAIN_TOGGLE_STATUS, async ({ status }, ack) => {
       try {
         if (role !== ROLES.CAPTAIN) throw new Error('غير مصرّح');
+
+        // عند "غير متصل": إن كان لديه طلب لم يُستَلم بعد يُرفَض ويعود للأدمن (Card 16)
+        if (status === CAPTAIN_STATUS.OFFLINE) {
+          const captain = await orderService.setCaptainOffline(id);
+          return ack?.({ ok: true, status: captain.status });
+        }
+
         const captain = await Captain.findByIdAndUpdate(id, { status }, { new: true });
         // إعلام الأدمن لتحديث قائمة الكباتن المتاحين
         io.to(ROOMS.admins()).emit(EVENTS.CAPTAIN_STATUS_CHANGED, {
@@ -88,11 +95,25 @@ function registerSocketHandlers(io) {
       }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       logger.info(`❎ فصل الاتصال: ${role}:${id}`);
-      // ملاحظة: لا نُحوّل الكابتن إلى offline عند فصل السوكت (إغلاق التطبيق).
-      // التوفّر يبقى تحت سيطرة الكابتن عبر مفتاح الحالة فقط، فيظلّ "متصلًا"
-      // ويستقبل الطلبات عبر إشعارات Push حتى والتطبيق مغلق.
+      // Card 15: الكابتن غير المتصل يجب ألّا يظهر "متاحًا" في لوحة الأدمن.
+      // عند فقد اتصال كابتن متاح (online) وبلا طلب نشط — إغلاق التطبيق/انقطاع الشبكة —
+      // نعتبره غير متصل فورًا ونُعلم الأدمن. أمّا الكابتن المشغول بطلب (busy) فنُبقيه
+      // كما هو حتى لا نُفسد توصيلًا جاريًا عند انقطاع لحظي.
+      if (role !== ROLES.CAPTAIN) return;
+      try {
+        const captain = await Captain.findById(id).select('status activeOrder');
+        if (captain && captain.status === CAPTAIN_STATUS.ONLINE && !captain.activeOrder) {
+          await Captain.findByIdAndUpdate(id, { status: CAPTAIN_STATUS.OFFLINE });
+          io.to(ROOMS.admins()).emit(EVENTS.CAPTAIN_STATUS_CHANGED, {
+            captainId: id,
+            status: CAPTAIN_STATUS.OFFLINE,
+          });
+        }
+      } catch (err) {
+        logger.error(`فشل ضبط الكابتن غير متصل عند الفصل: ${err.message}`);
+      }
     });
   });
 }

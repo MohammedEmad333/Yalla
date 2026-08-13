@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/maps/maps_service.dart';
 import '../../core/realtime/socket_service.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
@@ -139,7 +140,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           _tile(Icons.flag, 'التسليم', _dropoff),
           if (_captainName.isNotEmpty) _tile(Icons.person, 'الكابتن', _captainName),
 
-          // موقع الكابتن اللحظي (كإحداثيات + مؤشّر تحديث حيّ)
+          // موقع الكابتن اللحظي (كإحداثيات + مؤشّر تحديث حيّ) + فتحه على خرائط جوجل
           if (_captainLat != null)
             Card(
               child: ListTile(
@@ -148,7 +149,15 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 subtitle: Text(_lastUpdate != null
                     ? 'آخر تحديث: ${_lastUpdate!.hour.toString().padLeft(2, '0')}:${_lastUpdate!.minute.toString().padLeft(2, '0')}'
                     : 'آخر موقع معروف'),
-                trailing: _lastUpdate != null ? const Icon(Icons.circle, size: 10, color: Colors.green) : null,
+                trailing: IconButton(
+                  icon: const Icon(Icons.map, color: Colors.blue),
+                  tooltip: 'عرض على خرائط جوجل',
+                  onPressed: () => MapsService.showLocation(
+                    _captainLat!,
+                    _captainLng!,
+                    label: _captainName.isNotEmpty ? 'الكابتن $_captainName' : 'الكابتن',
+                  ),
+                ),
               ),
             ),
 

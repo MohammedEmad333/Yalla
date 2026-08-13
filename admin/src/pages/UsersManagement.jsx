@@ -8,7 +8,7 @@ import { theme } from '../theme';
 export default function UsersManagement() {
   const [tab, setTab] = useState('users'); // users | captains
   return (
-    <div style={styles.page}>
+    <div className="yl-page" style={styles.page}>
       <h1 style={{ margin: '0 0 4px' }}>إدارة المستخدمين</h1>
       <p style={styles.subtitle}>العملاء والكباتن — التفعيل والاعتماد والمحافظ</p>
 
@@ -48,32 +48,34 @@ function UsersTab() {
         <button style={styles.btn} onClick={load}>بحث</button>
       </div>
 
-      <table style={styles.table}>
-        <thead>
-          <tr><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>إجراء</th></tr>
-        </thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u._id}>
-              <td>{u.name}</td>
-              <td>{u.phone}</td>
-              <td>
-                <span style={styles.pill(u.isActive ? '#16a34a' : '#dc2626')}>
-                  {u.isActive ? 'مفعّل' : 'معطّل'}
-                </span>
-              </td>
-              <td>
-                <button
-                  style={styles.btn2(u.isActive ? '#dc2626' : '#16a34a')}
-                  onClick={() => toggle(u)}
-                >
-                  {u.isActive ? 'تعطيل' : 'تفعيل'}
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="yl-table-wrap">
+        <table style={styles.table}>
+          <thead>
+            <tr><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>إجراء</th></tr>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u._id}>
+                <td>{u.name}</td>
+                <td>{u.phone}</td>
+                <td>
+                  <span style={styles.pill(u.isActive ? '#16a34a' : '#dc2626')}>
+                    {u.isActive ? 'مفعّل' : 'معطّل'}
+                  </span>
+                </td>
+                <td>
+                  <button
+                    style={styles.btn2(u.isActive ? '#dc2626' : '#16a34a')}
+                    onClick={() => toggle(u)}
+                  >
+                    {u.isActive ? 'تعطيل' : 'تفعيل'}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -143,40 +145,42 @@ function CaptainsTab() {
         <button style={styles.btn} type="submit">+ إضافة كابتن</button>
       </form>
 
-      <table style={styles.table}>
-        <thead>
-          <tr><th>الاسم</th><th>الهاتف</th><th>المركبة</th><th>التقييم</th><th>الاعتماد</th><th>إجراء</th></tr>
-        </thead>
-        <tbody>
-          {captains.map((c) => (
-            <tr key={c._id}>
-              <td>{c.name}</td>
-              <td>{c.phone}</td>
-              <td>{c.vehicleType}</td>
-              <td>⭐ {c.rating} ({c.ratingsCount})</td>
-              <td>
-                <span style={styles.pill(c.isApproved ? '#16a34a' : '#f59e0b')}>
-                  {c.isApproved ? 'معتمَد' : 'قيد المراجعة'}
-                </span>
-              </td>
-              <td>
-                <button
-                  style={styles.btn2(c.isApproved ? '#f59e0b' : '#16a34a')}
-                  onClick={() => toggleApprove(c)}
-                >
-                  {c.isApproved ? 'إلغاء الاعتماد' : 'اعتماد'}
-                </button>
-                <button style={{ ...styles.btn2('#334155'), marginInlineStart: 6 }} onClick={() => showReviews(c)}>
-                  المراجعات
-                </button>
-                <button style={{ ...styles.btn2('#059669'), marginInlineStart: 6 }} onClick={() => showWallet(c)}>
-                  المحفظة
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="yl-table-wrap">
+        <table style={styles.table}>
+          <thead>
+            <tr><th>الاسم</th><th>الهاتف</th><th>المركبة</th><th>التقييم</th><th>الاعتماد</th><th>إجراء</th></tr>
+          </thead>
+          <tbody>
+            {captains.map((c) => (
+              <tr key={c._id}>
+                <td>{c.name}</td>
+                <td>{c.phone}</td>
+                <td>{c.vehicleType}</td>
+                <td>⭐ {c.rating} ({c.ratingsCount})</td>
+                <td>
+                  <span style={styles.pill(c.isApproved ? '#16a34a' : '#f59e0b')}>
+                    {c.isApproved ? 'معتمَد' : 'قيد المراجعة'}
+                  </span>
+                </td>
+                <td>
+                  <button
+                    style={styles.btn2(c.isApproved ? '#f59e0b' : '#16a34a')}
+                    onClick={() => toggleApprove(c)}
+                  >
+                    {c.isApproved ? 'إلغاء الاعتماد' : 'اعتماد'}
+                  </button>
+                  <button style={{ ...styles.btn2('#334155'), marginInlineStart: 6 }} onClick={() => showReviews(c)}>
+                    المراجعات
+                  </button>
+                  <button style={{ ...styles.btn2('#059669'), marginInlineStart: 6 }} onClick={() => showWallet(c)}>
+                    المحفظة
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* لوحة مراجعات الكابتن المختار */}
       {reviews && (

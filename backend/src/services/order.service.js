@@ -178,7 +178,12 @@ async function commitAssignment(order, captain, { actorId, actorRole }) {
     meta: { captainId: captain._id, mode: actorRole === 'system' ? 'auto' : 'manual' },
   });
 
-  const populated = await order.populate('captain', 'name phone vehicleType');
+  // نُحمّل بيانات الكابتن وصاحب الطلب (الاسم الكامل + الهاتف) لتظهر فورًا في
+  // شاشة الكابتن عبر حمولة الإسناد اللحظية (Card: تفاصيل صاحب الطلب في صفحة الكابتن)
+  const populated = await order.populate([
+    { path: 'captain', select: 'name phone vehicleType' },
+    { path: 'user', select: 'name lastName phone' },
+  ]);
 
   // إشعارات لحظية: للكابتن (طلب جديد مُسنَد)، للمستخدم، وللأدمن
   io.get().to(ROOMS.captain(captain._id.toString())).emit(EVENTS.ORDER_ASSIGNED, populated);
@@ -392,6 +397,12 @@ async function returnToPoolAndReassign(order, captainId, { actorRole, action }) 
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
   io.get().to(ROOMS.user(ownerId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
 
+  // إعلام الكابتن السابق ليختفي الطلب من شاشته فورًا دون تحديث (Cards: رفض/انتقال لغير متصل).
+  // في هذه اللحظة الطلب pending وبلا كابتن، فتعرف شاشة الكابتن أنه لم يعد مُسنَدًا إليها.
+  if (captainId) {
+    io.get().to(ROOMS.captain(String(captainId))).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  }
+
   // إعادة إسناد تلقائي لأقرب كابتن آخر (مع استبعاد من رُفض/انتهت مهلته)
   if (env.autoAssign) {
     try {
@@ -598,13 +609,55 @@ async function getMyOrders(userId, { limit = 20, skip = 0 } = {}) {
     .limit(limit);
 }
 
-// سجلّ طلبات الكابتن (المُسنَدة إليه) — مرتّبة من الأحدث
+// سجلّ طلبات الكابتن (المُسنَدة إليه) — مرتّبة من الأحدث.
+// نُحمّل الاسم الكامل (name + lastName) والهاتف لعرض تفاصيل صاحب الطلب في شاشة الكابتن.
 async function getCaptainOrders(captainId, { limit = 20, skip = 0 } = {}) {
   return Order.find({ captain: captainId })
-    .populate('user', 'name phone')
+    .populate('user', 'name lastName phone')
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit);
+}
+
+/**
+ * تحويل الكابتن إلى "غير متصل" (offline) — يُستدعى من REST ومن السوكت.
+ * إن كان لديه طلب نشط لم يُستَلم بعد (assigned/accepted) يُرفَض الطلب فورًا،
+ * يُعاد إلى مجمّع الأدمن لإسناده لكابتن آخر، ويختفي من شاشة الكابتن لحظيًا (Card 16).
+ * الطلبات التي بعد الاستلام (picked_up) لا تُمَسّ.
+ */
+async function setCaptainOffline(captainId) {
+  const captain = await Captain.findById(captainId);
+  if (!captain) throw Object.assign(new Error('الكابتن غير موجود'), { statusCode: 404 });
+
+  let clearedActive = false;
+  if (captain.activeOrder) {
+    const activeOrder = await Order.findById(captain.activeOrder);
+    const prePickup =
+      activeOrder &&
+      [ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED].includes(activeOrder.status);
+    if (prePickup) {
+      // يعيده للمجمّع (يحرّر الكابتن + يبثّ للكابتن ليختفي + يعيد الإسناد لآخر)
+      await returnToPoolAndReassign(activeOrder, captainId, {
+        actorRole: 'captain',
+        action: 'ORDER_REJECTED_CAPTAIN_OFFLINE',
+      });
+      clearedActive = true;
+    }
+  }
+
+  // نضبط الكابتن غير متصل (نتجاوز أي إعادة تعيين online من returnToPoolAndReassign)
+  const update = { status: CAPTAIN_STATUS.OFFLINE };
+  if (clearedActive) update.activeOrder = null;
+  const updated = await Captain.findByIdAndUpdate(captainId, update, { new: true }).select(
+    'name status'
+  );
+
+  // إعلام الأدمن ليختفي الكابتن من قائمة المتاحين فورًا (Card 15)
+  io.get().to(ROOMS.admins()).emit(EVENTS.CAPTAIN_STATUS_CHANGED, {
+    captainId: updated._id,
+    status: updated.status,
+  });
+  return updated;
 }
 
 // مراجعات الكابتن: أحدث التعليقات + توزيع النجوم + المتوسّط والعدد
@@ -752,6 +805,7 @@ module.exports = {
   getOrderForTracking,
   getMyOrders,
   getCaptainOrders,
+  setCaptainOffline,
   getCaptainEarnings,
   getCaptainReviews,
   getCaptainWallet,

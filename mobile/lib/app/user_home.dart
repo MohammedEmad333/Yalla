@@ -40,7 +40,7 @@ class _UserHomeState extends State<UserHome> {
     final pages = [
       CreateOrderScreen(api: widget.api),
       MyOrdersScreen(api: widget.api),
-      NotificationsScreen(api: widget.api),
+      NotificationsScreen(api: widget.api, socket: widget.socket),
       ProfileScreen(onLogout: widget.onLogout),
     ];
 
