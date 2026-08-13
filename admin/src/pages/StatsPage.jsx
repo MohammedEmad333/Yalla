@@ -32,7 +32,7 @@ export default function StatsPage() {
   ];
 
   return (
-    <div style={styles.page}>
+    <div className="yl-page" style={styles.page}>
       <div style={styles.headerRow}>
         <div>
           <h1 style={{ margin: 0 }}>الإحصائيات</h1>

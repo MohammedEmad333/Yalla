@@ -30,7 +30,7 @@ function Gate() {
   // مسجّل → شريط تنقّل + الصفحة المختارة
   return (
     <div style={{ direction: 'rtl', minHeight: '100vh', background: theme.color.surface }}>
-      <nav style={styles.nav}>
+      <nav className="yl-nav" style={styles.nav}>
         <div style={styles.brandBlock}>
           <span style={styles.logoMark}>🛵</span>
           <span style={styles.logo}>Yalla</span>

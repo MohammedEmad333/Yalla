@@ -14,12 +14,21 @@ class SocketService {
   final TokenStorage _tokenStorage;
   io.Socket? _socket;
 
+  // مستمعو الأحداث المُسجّلون من الشاشات. نحتفظ بهم في خريطة (حدث -> قائمة دوال)
+  // حتى نُعيد ربطهم بالسوكت فور اكتمال الاتصال (connect غير متزامن) وعند إعادة
+  // الاتصال. هذا يُصلح مشكلة "لا يظهر إلا بعد تحديث الصفحة": كانت الشاشات تُسجّل
+  // مستمعيها قبل جاهزية _socket فتُهمَل بصمت.
+  final Map<String, List<void Function(Map<String, dynamic>)>> _listeners = {};
+
   SocketService(this._tokenStorage);
 
   bool get isConnected => _socket?.connected ?? false;
 
   // فتح الاتصال مع تمرير التوكن في المصادقة (يطابق socketAuth بالخادم)
   Future<void> connect() async {
+    // متصل بالفعل — لا نُكرّر
+    if (_socket != null && _socket!.connected) return;
+
     final token = await _tokenStorage.read();
     _socket = io.io(
       _url,
@@ -29,26 +38,59 @@ class SocketService {
           .setAuth({'token': token})
           .build(),
     );
+
+    // نربط مُوزّعًا واحدًا لكل حدث مسجّل على مثيل السوكت. socket.io يحتفظ
+    // بالمستمعين عبر إعادة الاتصال، فيكفي ربطها مرّة عند إنشاء السوكت.
+    _bindRegisteredListeners();
     _socket!.connect();
+  }
+
+  // ربط كل الأحداث المسجّلة حاليًا بمثيل السوكت (مُوزّع واحد لكل حدث يُنادي كل المستمعين)
+  void _bindRegisteredListeners() {
+    if (_socket == null) return;
+    for (final event in _listeners.keys) {
+      _socket!.on(event, (data) => _dispatch(event, data));
+    }
+  }
+
+  // استدعاء كل مستمعي حدث معيّن بأمان (نُحوّل الحمولة إلى Map)
+  void _dispatch(String event, dynamic data) {
+    final cbs = _listeners[event];
+    if (cbs == null || data == null) return;
+    final map = Map<String, dynamic>.from(data as Map);
+    for (final cb in List.of(cbs)) {
+      cb(map);
+    }
+  }
+
+  // تسجيل مستمع لحدث. يدعم عدّة مستمعين للحدث نفسه (مثل شاشتَي الطلب والأرباح).
+  void _addListener(String event, void Function(Map<String, dynamic>) cb) {
+    final list = _listeners.putIfAbsent(event, () => []);
+    list.add(cb);
+    // إن كان السوكت موجودًا بالفعل ولم يُربط هذا الحدث بعد، اربطه الآن
+    if (_socket != null && list.length == 1) {
+      _socket!.on(event, (data) => _dispatch(event, data));
+    }
   }
 
   // الانضمام لغرفة طلب معيّن لاستقبال تحديثاته وموقع الكابتن
   void joinOrder(String orderId) => _socket?.emit('order:join', {'orderId': orderId});
 
   // الاستماع لموقع الكابتن اللحظي
-  void onCaptainLocation(void Function(Map<String, dynamic>) cb) {
-    _socket?.on('captain:location', (data) => cb(Map<String, dynamic>.from(data)));
-  }
+  void onCaptainLocation(void Function(Map<String, dynamic>) cb) =>
+      _addListener('captain:location', cb);
 
   // الاستماع لتحديثات حالة الطلب
-  void onOrderStatusUpdated(void Function(Map<String, dynamic>) cb) {
-    _socket?.on('order:status_updated', (data) => cb(Map<String, dynamic>.from(data)));
-  }
+  void onOrderStatusUpdated(void Function(Map<String, dynamic>) cb) =>
+      _addListener('order:status_updated', cb);
 
   // (للكابتن) الاستماع لطلب جديد مُسنَد لحظيًا
-  void onOrderAssigned(void Function(Map<String, dynamic>) cb) {
-    _socket?.on('order:assigned', (data) => cb(Map<String, dynamic>.from(data)));
-  }
+  void onOrderAssigned(void Function(Map<String, dynamic>) cb) =>
+      _addListener('order:assigned', cb);
+
+  // الاستماع لإشعار داخلي جديد يُبثّ لحظيًا للمستلِم
+  void onNotificationNew(void Function(Map<String, dynamic>) cb) =>
+      _addListener('notification:new', cb);
 
   // (للكابتن) بثّ الموقع الحالي أثناء التوصيل
   void sendLocation({required String orderId, required double lng, required double lat}) {
@@ -61,5 +103,6 @@ class SocketService {
   void dispose() {
     _socket?.dispose();
     _socket = null;
+    _listeners.clear();
   }
 }

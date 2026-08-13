@@ -3,8 +3,10 @@
 // بالإضافة إلى مفتاح التوفّر (online/offline) الذي يُعلم الأدمن بحالة الكابتن.
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/maps/maps_service.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -146,6 +148,33 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  // الاسم الكامل لصاحب الطلب (الاسم الأول + اسم العائلة إن وُجد)
+  String _senderName(Map<String, dynamic>? user) {
+    if (user == null) return '';
+    return [user['name'], user['lastName']].where((p) => p != null && '$p'.trim().isNotEmpty).join(' ');
+  }
+
+  // اتصال هاتفي بصاحب الطلب عبر تطبيق الاتصال
+  Future<void> _callSender(String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (!await launchUrl(uri)) _snack('تعذّر بدء الاتصال');
+  }
+
+  // فتح خرائط جوجل للملاحة: قبل الاستلام → نقطة الاستلام، بعده → نقطة التسليم (Card 10)
+  Future<void> _openNavigation() async {
+    final order = _order;
+    if (order == null) return;
+    final status = order['status'] as String? ?? 'assigned';
+    final target = status == 'picked_up' ? order['dropoff'] : order['pickup'];
+    final point = MapsService.latLngFrom(target?['location']);
+    if (point == null) {
+      _snack('لا يوجد موقع صالح لهذه النقطة');
+      return;
+    }
+    final ok = await MapsService.navigateTo(point.lat, point.lng);
+    if (!ok) _snack('تعذّر فتح خرائط جوجل');
+  }
+
   // زرّ الإجراء التالي حسب حالة الطلب
   ({String label, String next, IconData icon})? _nextAction(String status) => switch (status) {
         'assigned' => (label: 'قبول الطلب', next: 'accepted', icon: Icons.check_circle),
@@ -205,6 +234,10 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
 
     final status = order['status'] as String? ?? 'assigned';
     final action = _nextAction(status);
+    final Map<String, dynamic>? sender =
+        order['user'] is Map ? Map<String, dynamic>.from(order['user']) : null;
+    final String senderName = _senderName(sender);
+    final String senderPhone = (sender?['phone'] ?? '').toString();
     final String pickup = (order['pickup']?['address'] ?? '—').toString();
     final String dropoff = (order['dropoff']?['address'] ?? '—').toString();
     final String note = (order['packageNote'] ?? '').toString();
@@ -230,7 +263,24 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         ),
         const SizedBox(height: 16),
 
-        // تفاصيل الطلب الحقيقية
+        // بيانات صاحب الطلب: الاسم الكامل + الهاتف مع زرّ اتصال (Card 9)
+        if (senderName.isNotEmpty)
+          ListTile(
+            leading: const Icon(Icons.person),
+            title: const Text('صاحب الطلب'),
+            subtitle: Text(senderName + (senderPhone.isNotEmpty ? '\n$senderPhone' : '')),
+            isThreeLine: senderPhone.isNotEmpty,
+            trailing: senderPhone.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.call, color: YallaColors.success),
+                    tooltip: 'اتصال بصاحب الطلب',
+                    onPressed: () => _callSender(senderPhone),
+                  )
+                : null,
+            dense: true,
+          ),
+
+        // تفاصيل الطلب الحقيقية (نقطتا الاستلام والتسليم)
         _detailTile(Icons.store, 'الاستلام', pickup),
         _detailTile(Icons.flag, 'التسليم', dropoff),
         if (note.isNotEmpty) _detailTile(Icons.note, 'ملاحظة', note),
@@ -238,11 +288,11 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
 
         const SizedBox(height: 24),
 
-        // زر فتح الملاحة (يُوصَل بخرائط جوجل لاحقًا)
+        // زر فتح الملاحة عبر خرائط جوجل (نحو الاستلام قبل الاستلام، والتسليم بعده)
         OutlinedButton.icon(
-          onPressed: () {/* TODO: launch maps navigation */},
+          onPressed: _openNavigation,
           icon: const Icon(Icons.navigation),
-          label: const Text('بدء الملاحة'),
+          label: Text(status == 'picked_up' ? 'الملاحة إلى التسليم' : 'الملاحة إلى الاستلام'),
         ),
         const SizedBox(height: 12),
 

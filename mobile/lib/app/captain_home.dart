@@ -39,7 +39,7 @@ class _CaptainHomeState extends State<CaptainHome> {
     final pages = [
       ActiveOrderScreen(api: widget.api, socket: widget.socket),
       EarningsScreen(api: widget.api, socket: widget.socket),
-      NotificationsScreen(api: widget.api),
+      NotificationsScreen(api: widget.api, socket: widget.socket),
       ProfileScreen(onLogout: widget.onLogout),
     ];
 

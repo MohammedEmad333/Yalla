@@ -161,6 +161,43 @@ test('الإلغاء: بعد الاستلام مرفوض', async (t) => {
   );
 });
 
+test('تحوّل الكابتن لغير متصل: يُعيد طلبه غير المستَلم للمجمّع ويصبح offline (Card 16)', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const [user, captain, admin] = [await makeUser(), await makeCaptain(), await makeUser()];
+  const order = await orderService.createOrder(user._id, orderPayload());
+  await orderService.assignOrder(admin._id, order._id, captain._id);
+
+  // الكابتن يحوّل حالته إلى "غير متصل" قبل قبول/استلام الطلب
+  const updated = await orderService.setCaptainOffline(captain._id);
+
+  assert.equal(updated.status, CAPTAIN_STATUS.OFFLINE, 'أصبح غير متصل');
+  const freshCaptain = await Captain.findById(captain._id);
+  assert.equal(freshCaptain.activeOrder, null, 'تحرّر من الطلب');
+
+  const freshOrder = await require('../../src/models/Order').findById(order._id);
+  assert.equal(freshOrder.status, ORDER_STATUS.PENDING, 'عاد الطلب للمجمّع لإعادة الإسناد');
+  assert.equal(freshOrder.captain, null, 'لم يعد مُسنَدًا للكابتن السابق');
+  assert.ok(
+    freshOrder.rejectedBy.map(String).includes(String(captain._id)),
+    'أُدرج الكابتن في قائمة الرفض فلا يُعاد إسناده إليه'
+  );
+});
+
+test('تحوّل الكابتن لغير متصل بعد الاستلام: لا يمسّ الطلب الجاري (Card 16)', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const [user, captain, admin] = [await makeUser(), await makeCaptain(), await makeUser()];
+  const order = await orderService.createOrder(user._id, orderPayload());
+  await orderService.assignOrder(admin._id, order._id, captain._id);
+  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.ACCEPTED);
+  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.PICKED_UP);
+
+  await orderService.setCaptainOffline(captain._id);
+
+  const freshOrder = await require('../../src/models/Order').findById(order._id);
+  assert.equal(freshOrder.status, ORDER_STATUS.PICKED_UP, 'الطلب الجاري بعد الاستلام لا يُلغى');
+  assert.equal(String(freshOrder.captain), String(captain._id), 'يبقى مع الكابتن حتى التسليم');
+});
+
 test('التقييم: يحدّث متوسّط الكابتن ويمنع التكرار', async (t) => {
   if (!state.dbReady) return t.skip('لا قاعدة بيانات');
   const [user, captain, admin] = [await makeUser(), await makeCaptain(), await makeUser()];

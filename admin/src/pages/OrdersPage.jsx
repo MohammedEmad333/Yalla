@@ -53,7 +53,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <div style={styles.page}>
+    <div className="yl-page" style={styles.page}>
       <h1 style={{ margin: '0 0 4px' }}>بحث الطلبات</h1>
       <p style={styles.subtitle}>فلترة الطلبات وتصديرها</p>
 
@@ -75,7 +75,7 @@ export default function OrdersPage() {
 
       <p style={styles.count}>الإجمالي: <b>{data.total}</b> طلب</p>
 
-      <div style={styles.tableWrap}>
+      <div className="yl-table-wrap" style={styles.tableWrap}>
         <table>
           <thead>
             <tr><th>#</th><th>الحالة</th><th>صاحب الطلب</th><th>الاستلام</th><th>التسليم</th><th>الكابتن</th><th>السعر</th></tr>
