@@ -9,14 +9,23 @@
 - الـ Backend شغّال (راجع `../backend` أو `docker compose up` من الجذر).
 
 ### 2) توليد مجلّدات المنصّات (مرّة واحدة)
-هذا المستودع يحوي `lib/` و`pubspec.yaml` فقط؛ ولّد مجلّدات android/ios/web:
+المستودع يحوي `lib/` و`pubspec.yaml` و**ملفّ `android/app/src/main/AndroidManifest.xml`**
+(يحمل اسم التطبيق «Yalla» + صلاحيات الموقع/الإنترنت + وسم `<queries>`). ولّد بقيّة
+مجلّدات المنصّات دون المساس بالمانيفست:
 
 ```bash
 cd mobile
+# نحفظ المانيفست ثم نُعيد توليد السقالة ثم نُعيده (لأن flutter create يُعيد كتابته)
+cp android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml
 flutter create --platforms=android,ios,web .
+cp /tmp/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
 ```
-> لا يحذف هذا الأمر ملفّاتنا؛ يُنشئ المفقود فقط. لو عدّل `pubspec.yaml`
-> استعده من git: `git checkout pubspec.yaml`.
+> لو عدّل `pubspec.yaml` استعده من git: `git checkout pubspec.yaml`.
+>
+> **بناء APK جاهز عبر GitHub:** لا حاجة لتوليد المنصّات يدويًا — شغّل
+> workflow **«Build Mobile APK»** من تبويب Actions (أو يُبنى تلقائيًا عند تعديل
+> `mobile/`)، وحمّل ملفّ `yalla-apk` من مخرجات التشغيل. يمرّر عنوان الخادم عبر
+> مُدخَل `API_ORIGIN` (افتراضيًا الخادم السحابي).
 
 ### 3) ضبط عنوان الـ Backend (بلا تعديل كود)
 العنوان يُمرَّر عبر `--dart-define=API_HOST=...` (انظر `lib/core/config/app_config.dart`):
@@ -43,17 +52,10 @@ dart run flutter_launcher_icons    # يستبدل الأيقونة الافتر�
 > لاستبدال التصميم لاحقًا، ضع صورة مربّعة 1024×1024 مكان
 > `assets/icon/yalla_icon.png` وأعِد تشغيل الأمر.
 
-**الاسم → "Yalla"** — عدّل سطرًا واحدًا في المنصّتين (لا نستخدم حزمة
-`flutter_launcher_name` لأنها قديمة ولا تدعم null-safety فتكسر `pub get`):
-
-- **Android** — في `android/app/src/main/AndroidManifest.xml` داخل وسم
-  `<application>` غيّر:
-  ```xml
-  android:label="mobile"   <!-- إلى: -->
-  android:label="Yalla"
-  ```
-- **iOS** (اختياري) — في `ios/Runner/Info.plist` اضبط
-  `CFBundleDisplayName` و`CFBundleName` إلى `Yalla`.
+**الاسم → "Yalla"** — مضبوط مسبقًا لـ **Android** في المانيفست المتتبَّع
+(`android/app/src/main/AndroidManifest.xml` → `android:label="Yalla"`)، فلا حاجة
+لأي تعديل يدوي. للـ **iOS** (اختياري) اضبط `CFBundleDisplayName` و`CFBundleName`
+إلى `Yalla` في `ios/Runner/Info.plist`.
 
 ثم أعِد التثبيت لرؤية الاسم والأيقونة الجديدَين:
 ```bash
