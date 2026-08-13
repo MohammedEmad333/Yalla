@@ -32,19 +32,33 @@ flutter run
 
 ### 5) اسم التطبيق وأيقونته على الجهاز (مرّة واحدة بعد توليد المنصّات)
 الاسم الافتراضي الذي يظهر تحت الأيقونة هو «mobile» وأيقونة Flutter الافتراضية.
-لضبطهما إلى **Yalla** وأيقونة الاسكوتر البرتقالية (المولّدة في `assets/icon/`):
 
+**الأيقونة** — أيقونة الدرّاجة الكهربائية البرتقالية مضبوطة مسبقًا في `pubspec.yaml`
+(قسم `flutter_launcher_icons`). ولّدها بأمر واحد:
 ```bash
 cd mobile
 flutter pub get
-dart run flutter_launcher_name    # يضبط الاسم إلى "Yalla"
-dart run flutter_launcher_icons   # يستبدل الأيقونة الافتراضية بأيقونة Yalla
-flutter run                       # أعِد التثبيت لرؤية الاسم/الأيقونة الجديدَين
+dart run flutter_launcher_icons    # يستبدل الأيقونة الافتراضية بأيقونة Yalla
 ```
-> الإعدادات مضبوطة مسبقًا في `pubspec.yaml` (قسمَا `flutter_launcher_name`
-> و`flutter_launcher_icons`). شغّل الأمرين بعد `flutter create` وكلّما غيّرت
-> ملفّ الأيقونة. لاستبدال الأيقونة بتصميم آخر، ضع صورة مربّعة 1024×1024 مكان
-> `assets/icon/yalla_icon.png` وأعِد تشغيل `dart run flutter_launcher_icons`.
+> لاستبدال التصميم لاحقًا، ضع صورة مربّعة 1024×1024 مكان
+> `assets/icon/yalla_icon.png` وأعِد تشغيل الأمر.
+
+**الاسم → "Yalla"** — عدّل سطرًا واحدًا في المنصّتين (لا نستخدم حزمة
+`flutter_launcher_name` لأنها قديمة ولا تدعم null-safety فتكسر `pub get`):
+
+- **Android** — في `android/app/src/main/AndroidManifest.xml` داخل وسم
+  `<application>` غيّر:
+  ```xml
+  android:label="mobile"   <!-- إلى: -->
+  android:label="Yalla"
+  ```
+- **iOS** (اختياري) — في `ios/Runner/Info.plist` اضبط
+  `CFBundleDisplayName` و`CFBundleName` إلى `Yalla`.
+
+ثم أعِد التثبيت لرؤية الاسم والأيقونة الجديدَين:
+```bash
+flutter run
+```
 
 ## الخرائط والإشعارات (مُزالة افتراضيًا لتسهيل التشغيل)
 لتفادي متطلّبات المفاتيح الخارجية، أُزيلت المكتبتان الأصليّتان من الإعداد الافتراضي:
