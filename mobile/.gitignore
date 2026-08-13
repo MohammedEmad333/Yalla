@@ -1,0 +1,34 @@
+# ملفّات Flutter/Dart المولّدة محليًا
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.iml
+
+# محرّرات
+.idea/
+.vscode/
+
+# مجلّدات المنصّات المولّدة عبر `flutter create` (نُبقي فقط ملفّ المانيفست
+# الخاصّ بنا تحت المتابعة — راجع android/app/src/main/AndroidManifest.xml).
+# نستثني المانيفست صراحةً حتى لا يُتجاهَل.
+/android/.gradle/
+/android/gradle/
+/android/gradlew
+/android/gradlew.bat
+/android/local.properties
+/android/key.properties
+/android/*.iml
+/android/app/build/
+/ios/
+/linux/
+/macos/
+/windows/
+/web/
+
+# مخرجات البناء (APK/AAB)
+*.apk
+*.aab

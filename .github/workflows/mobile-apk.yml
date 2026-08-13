@@ -1,0 +1,75 @@
+name: Build Mobile APK
+
+# بناء ملفّ APK لتطبيق يلا (المستخدم/الكابتن) على GitHub.
+# يُشغّل يدويًا (workflow_dispatch) أو تلقائيًا عند تغيّر ملفّات mobile/.
+on:
+  workflow_dispatch:
+    inputs:
+      api_origin:
+        description: 'عنوان الـ Backend الذي يتصل به التطبيق (API_ORIGIN)'
+        required: false
+        default: 'https://yalla-api-z6t0.onrender.com'
+  push:
+    branches: ['**']
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile-apk.yml'
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Java مطلوب لبناء Android عبر Gradle
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # تثبيت Flutter (قناة stable) مع تخزين مؤقت لتسريع البناء
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # تحديد عنوان الخادم: مُدخَل التشغيل اليدوي أو الافتراضي السحابي
+      - name: تحديد API_ORIGIN
+        run: |
+          ORIGIN="${{ github.event.inputs.api_origin }}"
+          if [ -z "$ORIGIN" ]; then ORIGIN="https://yalla-api-z6t0.onrender.com"; fi
+          echo "API_ORIGIN=$ORIGIN" >> "$GITHUB_ENV"
+          echo "سيُبنى التطبيق للاتصال بـ: $ORIGIN"
+
+      # مجلّد android/ لا يُحفظ كاملًا في الريبو (يُولَّد عبر flutter create).
+      # نحفظ ملفّ المانيفست الخاصّ بنا (اسم Yalla + الصلاحيات + queries)، نُعيد
+      # توليد سقالة Android كاملة، ثم نُعيد المانيفست فوق المولّد.
+      - name: توليد سقالة Android مع الحفاظ على المانيفست
+        run: |
+          cp android/app/src/main/AndroidManifest.xml "$RUNNER_TEMP/AndroidManifest.xml"
+          rm -rf android
+          flutter create --platforms=android --org com.yalla --project-name yalla .
+          cp "$RUNNER_TEMP/AndroidManifest.xml" android/app/src/main/AndroidManifest.xml
+
+      - name: تثبيت التبعيات
+        run: flutter pub get
+
+      # توليد أيقونة يلا في mipmap (غير حاسم — البناء يكمل بأيقونة افتراضية عند الفشل)
+      - name: توليد أيقونة التطبيق
+        run: dart run flutter_launcher_icons || echo "تخطّي توليد الأيقونة"
+
+      # بناء APK للإصدار (موقّع بمفتاح debug تلقائيًا فيكون قابلًا للتثبيت مباشرة)
+      - name: بناء APK
+        run: flutter build apk --release --dart-define=API_ORIGIN=$API_ORIGIN
+
+      # رفع الـ APK كأثر (artifact) يمكن تنزيله من صفحة التشغيل
+      - name: رفع الـ APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: yalla-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
