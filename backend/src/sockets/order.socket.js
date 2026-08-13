@@ -6,7 +6,7 @@ const Captain = require('../models/Captain');
 const orderService = require('../services/order.service');
 const ioRef = require('./io');
 const logger = require('../utils/logger');
-const { ROLES, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
+const { ROLES, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
  * Middleware للمصادقة على مستوى السوكت: نتحقّق من التوكن المُرسل في
@@ -90,12 +90,9 @@ function registerSocketHandlers(io) {
 
     socket.on('disconnect', () => {
       logger.info(`❎ فصل الاتصال: ${role}:${id}`);
-      // (اختياري) عند فصل الكابتن يمكن تعيينه offline تلقائيًا
-      if (role === ROLES.CAPTAIN) {
-        Captain.updateOne({ _id: id, status: CAPTAIN_STATUS.ONLINE }, { status: CAPTAIN_STATUS.OFFLINE }).catch(
-          () => {}
-        );
-      }
+      // ملاحظة: لا نُحوّل الكابتن إلى offline عند فصل السوكت (إغلاق التطبيق).
+      // التوفّر يبقى تحت سيطرة الكابتن عبر مفتاح الحالة فقط، فيظلّ "متصلًا"
+      // ويستقبل الطلبات عبر إشعارات Push حتى والتطبيق مغلق.
     });
   });
 }

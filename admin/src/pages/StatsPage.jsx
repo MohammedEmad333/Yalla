@@ -26,7 +26,7 @@ export default function StatsPage() {
     { label: 'طلبات نشطة', value: stats.active, icon: '🚴', color: C.primary },
     { label: 'تم التسليم', value: stats.delivered, icon: '✅', color: C.success },
     { label: 'ملغاة', value: stats.cancelled, icon: '❌', color: C.error },
-    { label: 'الإيرادات', value: `${stats.revenue} ج.م`, icon: '💰', color: C.primaryDeep },
+    { label: 'الإيرادات', value: `${stats.revenue} ₪`, icon: '💰', color: C.primaryDeep },
     { label: 'متوسّط زمن التوصيل', value: `${stats.avgDeliveryMinutes} دق`, icon: '⏱️', color: C.warning },
     { label: 'كباتن متصلون', value: stats.onlineCaptains, icon: '🧑‍✈️', color: C.secondary },
   ];

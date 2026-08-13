@@ -43,5 +43,5 @@ test('quote: يُرجع مسافة وسعر وعملة صحيحة', () => {
   const q = pricing.quote(TAHRIR, GIZA, 'motorcycle');
   assert.ok(q.distanceKm > 0);
   assert.ok(q.price >= pricing.TARIFF.minFare);
-  assert.equal(q.currency, 'EGP');
+  assert.equal(q.currency, 'ILS');
 });

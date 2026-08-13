@@ -223,17 +223,17 @@ function CaptainsTab() {
           </div>
           <div style={styles.walletGrid}>
             <div style={styles.walletCell}><b>{wallet.deliveries}</b><span>توصيلة</span></div>
-            <div style={styles.walletCell}><b>{wallet.gross} ج.م</b><span>إجمالي محصّل</span></div>
-            <div style={styles.walletCell}><b>{wallet.net} ج.م</b><span>صافي الكابتن</span></div>
-            <div style={styles.walletCell}><b>{wallet.commission} ج.م</b><span>عمولة الشركة</span></div>
+            <div style={styles.walletCell}><b>{wallet.gross} ₪</b><span>إجمالي محصّل</span></div>
+            <div style={styles.walletCell}><b>{wallet.net} ₪</b><span>صافي الكابتن</span></div>
+            <div style={styles.walletCell}><b>{wallet.commission} ₪</b><span>عمولة الشركة</span></div>
             <div style={{ ...styles.walletCell, background: wallet.owed > 0 ? '#fef2f2' : '#f0fdf4' }}>
-              <b style={{ color: wallet.owed > 0 ? '#dc2626' : '#16a34a' }}>{wallet.owed} ج.م</b>
+              <b style={{ color: wallet.owed > 0 ? '#dc2626' : '#16a34a' }}>{wallet.owed} ₪</b>
               <span>مستحقّ للشركة</span>
             </div>
           </div>
           {wallet.owed > 0 && (
             <button style={styles.btn} onClick={() => settle(wallet.captain.id, wallet.owed)}>
-              تسوية المستحقّ ({wallet.owed} ج.م)
+              تسوية المستحقّ ({wallet.owed} ₪)
             </button>
           )}
         </div>

@@ -12,7 +12,7 @@ const { haversineKm } = require('../utils/geo');
 
 // تعرفة أساسية قابلة للضبط (يمكن نقلها لقاعدة إعدادات لاحقًا)
 const TARIFF = {
-  baseFare: 15,        // أجرة البدء (ج.م)
+  baseFare: 15,        // أجرة البدء (₪)
   perKm: 5,            // سعر الكيلومتر
   minFare: 20,         // الحدّ الأدنى للأجرة
   // معامل نوع المركبة (الموتوسيكل أسرع/أبعد مدى)
@@ -50,7 +50,7 @@ function calculatePrice(distanceKm, vehicleType = 'motorcycle') {
 function quote(pickup, dropoff, vehicleType = 'motorcycle') {
   const distanceKm = estimateDistanceKm(pickup, dropoff);
   const price = calculatePrice(distanceKm, vehicleType);
-  return { distanceKm, price, currency: 'EGP' };
+  return { distanceKm, price, currency: 'ILS' };
 }
 
 module.exports = { estimateDistanceKm, calculatePrice, quote, TARIFF };

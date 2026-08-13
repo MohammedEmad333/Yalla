@@ -67,7 +67,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             _row('رقم الطلب', '#${(_order!['_id'] as String).substring(_order!['_id'].length - 5)}'),
                             _row('الاستلام', _order!['pickup']?['address'] ?? ''),
                             _row('التسليم', _order!['dropoff']?['address'] ?? ''),
-                            _row('السعر', '${_order!['price']} ج.م'),
+                            _row('السعر', '${_order!['price']} ₪'),
                             if (_order!['captain'] != null)
                               _row('الكابتن', _order!['captain']?['name'] ?? ''),
                           ],

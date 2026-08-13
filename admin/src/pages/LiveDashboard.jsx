@@ -8,6 +8,9 @@ import { theme, orderStatusColor } from '../theme';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
+// اسم صاحب الطلب كاملًا (الاسم الأول + اسم العائلة إن وُجد)
+const fullName = (u) => [u?.name, u?.lastName].filter(Boolean).join(' ') || '—';
+
 const STATUS_AR = {
   pending: 'بانتظار',
   assigned: 'مُسنَد',
@@ -146,6 +149,12 @@ export default function LiveDashboard() {
                 </div>
               </div>
 
+              {o.user && (
+                <p style={styles.line}>
+                  👤 <b>صاحب الطلب:</b> {fullName(o.user)}
+                  {o.user?.phone ? ` · ${o.user.phone}` : ''}
+                </p>
+              )}
               <p style={styles.line}>📍 <b>استلام:</b> {o.pickup?.address}</p>
               <p style={styles.line}>🏁 <b>تسليم:</b> {o.dropoff?.address}</p>
               {o.captain && <p style={styles.line}>🧑‍✈️ <b>الكابتن:</b> {o.captain?.name}</p>}

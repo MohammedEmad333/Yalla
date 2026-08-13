@@ -18,6 +18,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
+  final _lastName = TextEditingController();
   final _phone = TextEditingController();
   final _password = TextEditingController();
 
@@ -35,6 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (_isRegister) {
         await widget.authRepository.register(
           name: _name.text,
+          lastName: _lastName.text,
           phone: _phone.text,
           password: _password.text,
         );
@@ -83,15 +85,24 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: const TextStyle(color: YallaColors.muted, fontSize: 15)),
                 const SizedBox(height: 28),
 
-                // الاسم (للتسجيل فقط)
+                // الاسم واسم العائلة (للتسجيل فقط)
                 if (_isRegister) ...[
                   TextFormField(
                     controller: _name,
                     decoration: const InputDecoration(
-                      labelText: 'الاسم',
+                      labelText: 'الاسم الأول',
                       prefixIcon: Icon(Icons.person_outline),
                     ),
-                    validator: (v) => (v == null || v.isEmpty) ? 'أدخل الاسم' : null,
+                    validator: (v) => (v == null || v.isEmpty) ? 'أدخل الاسم الأول' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _lastName,
+                    decoration: const InputDecoration(
+                      labelText: 'اسم العائلة',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                    ),
+                    validator: (v) => (v == null || v.isEmpty) ? 'أدخل اسم العائلة' : null,
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -154,6 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _name.dispose();
+    _lastName.dispose();
     _phone.dispose();
     _password.dispose();
     super.dispose();

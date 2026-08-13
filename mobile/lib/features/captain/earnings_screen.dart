@@ -4,10 +4,12 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/realtime/socket_service.dart';
 
 class EarningsScreen extends StatefulWidget {
   final ApiClient api;
-  const EarningsScreen({super.key, required this.api});
+  final SocketService socket;
+  const EarningsScreen({super.key, required this.api, required this.socket});
 
   @override
   State<EarningsScreen> createState() => _EarningsScreenState();
@@ -23,6 +25,13 @@ class _EarningsScreenState extends State<EarningsScreen> {
   void initState() {
     super.initState();
     _load();
+
+    // تحديث لحظي: عند تسليم/إلغاء طلب للكابتن تتغيّر الأرباح والسجلّ فأعِد الجلب فورًا
+    widget.socket.onOrderStatusUpdated((order) {
+      if (!mounted) return;
+      final status = order['status'];
+      if (status == 'delivered' || status == 'cancelled') _load();
+    });
   }
 
   Future<void> _load() async {
@@ -62,15 +71,15 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   // بطاقات ملخّص الأرباح
                   Row(
                     children: [
-                      _statCard('اليوم', '${_earnings?['today'] ?? 0} ج.م', Colors.green),
+                      _statCard('اليوم', '${_earnings?['today'] ?? 0} ₪', Colors.green),
                       const SizedBox(width: 12),
-                      _statCard('الأسبوع', '${_earnings?['week'] ?? 0} ج.م', Colors.blue),
+                      _statCard('الأسبوع', '${_earnings?['week'] ?? 0} ₪', Colors.blue),
                     ],
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      _statCard('الإجمالي', '${_earnings?['total'] ?? 0} ج.م', Colors.deepPurple),
+                      _statCard('الإجمالي', '${_earnings?['total'] ?? 0} ₪', Colors.deepPurple),
                       const SizedBox(width: 12),
                       _statCard('عدد التوصيلات', '${_earnings?['count'] ?? 0}', Colors.teal),
                     ],
@@ -82,7 +91,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       color: Colors.red.shade50,
                       child: ListTile(
                         leading: const Icon(Icons.account_balance_wallet, color: Colors.red),
-                        title: Text('مستحقّ للشركة: ${_wallet?['owed']} ج.م'),
+                        title: Text('مستحقّ للشركة: ${_wallet?['owed']} ₪'),
                         subtitle: const Text('عمولة محصّلة نقدًا بانتظار التسوية'),
                       ),
                     ),
@@ -131,7 +140,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
             color: delivered ? Colors.green : Colors.grey),
         title: Text('${o['dropoff']?['address'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(o['status'] ?? ''),
-        trailing: Text('${o['price'] ?? 0} ج.م', style: const TextStyle(fontWeight: FontWeight.bold)),
+        trailing: Text('${o['price'] ?? 0} ₪', style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
