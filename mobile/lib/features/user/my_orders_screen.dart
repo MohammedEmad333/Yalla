@@ -86,7 +86,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                             child: Icon(Icons.receipt_long, color: color),
                           ),
                           title: Text('#${(o['_id'] as String).substring(o['_id'].length - 5)}'
-                              ' · ${o['price']} ج.م'),
+                              ' · ${o['price']} ₪'),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [

@@ -1,13 +1,13 @@
 // شاشة إنشاء طلب توصيل (تطبيق المستخدم) — نسخة بلا خريطة.
-// تختار نقطتَي الاستلام/التسليم من مواقع جاهزة (بإحداثيات معروفة)، وتعرض
-// التسعيرة والزمن المتوقّع، وتدعم الجدولة. (يمكن لاحقًا إضافة خريطة تفاعلية
-// عبر google_maps_flutter + مفتاح Google Maps.)
+// المستخدم يكتب عنوان الاستلام والتسليم بنفسه (نصّ حرّ)، ويختار المنطقة
+// التقريبية فقط لتحديد الموقع على الخريطة (لحساب المسافة وأقرب كابتن).
+// يمكن لاحقًا استبدال منتقي المنطقة بخريطة تفاعلية عبر google_maps_flutter.
 
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
 
-// مواقع جاهزة: الاسم -> [lng, lat]
+// مناطق تقريبية لتحديد الإحداثيات: الاسم -> [lng, lat]
 const Map<String, List<double>> _presetLocations = {
   'وسط البلد، غزة': [34.4668, 31.5069],
   'حي الرمال، غزة': [34.4400, 31.5300],
@@ -26,6 +26,11 @@ class CreateOrderScreen extends StatefulWidget {
 }
 
 class _CreateOrderScreenState extends State<CreateOrderScreen> {
+  // عناوين يكتبها المستخدم بنفسه
+  final _pickupAddr = TextEditingController();
+  final _dropoffAddr = TextEditingController();
+
+  // المنطقة التقريبية لكل نقطة (لتحديد الإحداثيات فقط)
   String? _pickupName;
   String? _dropoffName;
 
@@ -85,9 +90,18 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   // إرسال الطلب للـ Backend
   Future<void> _submitOrder() async {
+    final pickupText = _pickupAddr.text.trim();
+    final dropoffText = _dropoffAddr.text.trim();
+
+    if (pickupText.isEmpty || dropoffText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('اكتب عنوان الاستلام وعنوان التسليم')),
+      );
+      return;
+    }
     if (_pickupCoords == null || _dropoffCoords == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('اختر نقطتَي الاستلام والتسليم')),
+        const SnackBar(content: Text('اختر المنطقة التقريبية للاستلام والتسليم')),
       );
       return;
     }
@@ -95,11 +109,11 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     try {
       await widget.api.post('/orders', {
         'pickup': {
-          'address': _pickupName,
+          'address': pickupText,
           'location': {'type': 'Point', 'coordinates': _pickupCoords},
         },
         'dropoff': {
-          'address': _dropoffName,
+          'address': dropoffText,
           'location': {'type': 'Point', 'coordinates': _dropoffCoords},
         },
         'packageNote': _noteController.text,
@@ -110,6 +124,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         const SnackBar(content: Text('تم إنشاء الطلب بنجاح — بانتظار إسناد كابتن')),
       );
       setState(() {
+        _pickupAddr.clear();
+        _dropoffAddr.clear();
         _pickupName = null;
         _dropoffName = null;
         _noteController.clear();
@@ -130,21 +146,48 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // اختيار نقطة الاستلام
+          // نقطة الاستلام: عنوان يكتبه المستخدم + المنطقة التقريبية
+          _sectionLabel('نقطة الاستلام', Icons.store),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _pickupAddr,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'عنوان الاستلام',
+              hintText: 'اكتب العنوان بالتفصيل (شارع، مبنى، علامة مميّزة)',
+              prefixIcon: Icon(Icons.edit_location_alt),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
           _locationPicker(
-            label: 'نقطة الاستلام',
-            icon: Icons.store,
+            label: 'المنطقة التقريبية (لحساب المسافة)',
+            icon: Icons.map,
             value: _pickupName,
             onChanged: (v) {
               setState(() => _pickupName = v);
               _refreshQuote();
             },
           ),
-          const SizedBox(height: 12),
-          // اختيار نقطة التسليم
+          const SizedBox(height: 20),
+
+          // نقطة التسليم: عنوان يكتبه المستخدم + المنطقة التقريبية
+          _sectionLabel('نقطة التسليم', Icons.flag),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _dropoffAddr,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'عنوان التسليم',
+              hintText: 'اكتب العنوان بالتفصيل (شارع، مبنى، علامة مميّزة)',
+              prefixIcon: Icon(Icons.edit_location_alt),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
           _locationPicker(
-            label: 'نقطة التسليم',
-            icon: Icons.flag,
+            label: 'المنطقة التقريبية (لحساب المسافة)',
+            icon: Icons.map,
             value: _dropoffName,
             onChanged: (v) {
               setState(() => _dropoffName = v);
@@ -179,7 +222,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 leading: const Icon(Icons.payments),
                 title: _loadingQuote
                     ? const Text('جارٍ حساب السعر...')
-                    : Text('السعر التقديري: $_quotePrice ج.م'),
+                    : Text('السعر التقديري: $_quotePrice ₪'),
                 subtitle: _quoteDistance != null
                     ? Text('المسافة: ~$_quoteDistance كم'
                         '${_quoteEta != null ? ' · الزمن المتوقّع: ~$_quoteEta دقيقة' : ''}')
@@ -202,7 +245,16 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     );
   }
 
-  // منتقي موقع من القائمة الجاهزة
+  // عنوان قسم (نقطة استلام/تسليم)
+  Widget _sectionLabel(String text, IconData icon) => Row(
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 8),
+          Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        ],
+      );
+
+  // منتقي المنطقة التقريبية (لتحديد الإحداثيات)
   Widget _locationPicker({
     required String label,
     required IconData icon,
@@ -226,6 +278,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   @override
   void dispose() {
+    _pickupAddr.dispose();
+    _dropoffAddr.dispose();
     _noteController.dispose();
     super.dispose();
   }

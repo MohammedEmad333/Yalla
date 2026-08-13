@@ -14,13 +14,16 @@ function signToken(id, role) {
 // تسجيل مستخدم جديد (عميل)
 async function registerUser(req, res, next) {
   try {
-    const { name, phone, email, password } = req.body;
-    const user = new User({ name, phone, email, role: ROLES.USER });
+    const { name, lastName, phone, email, password } = req.body;
+    const user = new User({ name, lastName, phone, email, role: ROLES.USER });
     await user.setPassword(password); // تشفير كلمة المرور
     await user.save();
 
     const token = signToken(user._id, user.role);
-    res.status(201).json({ token, user: { id: user._id, name, phone, role: user.role } });
+    res.status(201).json({
+      token,
+      user: { id: user._id, name, lastName: user.lastName, phone, role: user.role },
+    });
   } catch (err) {
     next(err);
   }
@@ -41,7 +44,10 @@ async function loginUser(req, res, next) {
         return res.status(403).json({ message: 'الحساب معطّل — تواصل مع الدعم' });
       }
       const token = signToken(user._id, user.role);
-      return res.json({ token, user: { id: user._id, name: user.name, phone, role: user.role } });
+      return res.json({
+        token,
+        user: { id: user._id, name: user.name, lastName: user.lastName, phone, role: user.role },
+      });
     }
 
     // 2) كابتن
@@ -112,7 +118,7 @@ async function me(req, res, next) {
       if (!captain) return res.status(404).json({ message: 'الحساب غير موجود' });
       return res.json({ role, captain });
     }
-    const user = await User.findById(id).select('name phone email role');
+    const user = await User.findById(id).select('name lastName phone email role');
     if (!user) return res.status(404).json({ message: 'الحساب غير موجود' });
     res.json({ role: user.role, user });
   } catch (err) {

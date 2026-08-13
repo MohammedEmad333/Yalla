@@ -40,6 +40,7 @@ const EVENTS = Object.freeze({
   ORDER_STATUS_UPDATED: 'order:status_updated',
   CAPTAIN_LOCATION: 'captain:location',
   CAPTAIN_STATUS_CHANGED: 'captain:status_changed',
+  NOTIFICATION_NEW: 'notification:new', // إشعار داخلي جديد يُبثّ لحظيًا للمستلِم
   // من العملاء -> الخادم
   CAPTAIN_TOGGLE_STATUS: 'captain:toggle_status',
   CAPTAIN_UPDATE_LOCATION: 'captain:update_location',

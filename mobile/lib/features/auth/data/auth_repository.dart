@@ -35,10 +35,12 @@ class AuthRepository {
     required String name,
     required String phone,
     required String password,
+    String? lastName,
     String? email,
   }) async {
     final data = await _api.post('/auth/register', {
       'name': name,
+      if (lastName != null && lastName.isNotEmpty) 'lastName': lastName,
       'phone': phone,
       'password': password,
       if (email != null && email.isNotEmpty) 'email': email,

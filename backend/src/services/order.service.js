@@ -86,6 +86,9 @@ async function createOrder(userId, payload, idempotencyKey) {
     toStatus: ORDER_STATUS.PENDING,
   });
 
+  // نُحمّل بيانات صاحب الطلب لتظهر لوحة الأدمن اسمه فورًا (Card: اسم صاحب الطلب)
+  await order.populate('user', 'name lastName phone');
+
   // بثّ لكل الأدمن: طلب جديد بانتظار الإسناد + إعلام المستخدم بغرفته
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
   io.get().to(ROOMS.user(userId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
@@ -130,9 +133,11 @@ async function activateDueScheduledOrders(now = new Date()) {
       meta: { scheduledAt: order.scheduledAt },
     });
 
-    // يظهر الآن كطلب جديد على لوحة الأدمن ويُعلَم المستخدم
+    // يظهر الآن كطلب جديد على لوحة الأدمن ويُعلَم المستخدم (باسم صاحب الطلب)
+    const uid = order.user.toString();
+    await order.populate('user', 'name lastName phone');
     io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
-    io.get().to(ROOMS.user(order.user.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+    io.get().to(ROOMS.user(uid)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
 
     if (env.autoAssign) {
       try {
@@ -282,6 +287,10 @@ function broadcastOrderUpdate(order) {
   io_.to(ROOMS.user(order.user.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
   io_.to(ROOMS.admins()).emit(EVENTS.ORDER_STATUS_UPDATED, order);
   io_.to(ROOMS.order(order._id.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  // الكابتن المُسنَد أيضًا — لتحديث شاشتَي الطلب والأرباح لحظيًا (تسليم/إلغاء)
+  if (order.captain) {
+    io_.to(ROOMS.captain(order.captain.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  }
 }
 
 // إشعار Push لصاحب الطلب بتغيّر حالته (آمن: no-op إن كان FCM معطّلًا أو لا رموز)
@@ -377,9 +386,11 @@ async function returnToPoolAndReassign(order, captainId, { actorRole, action }) 
     toStatus: ORDER_STATUS.PENDING,
   });
 
-  // يعود للأدمن كطلب معلّق + إعلام المستخدم
+  // يعود للأدمن كطلب معلّق + إعلام المستخدم (باسم صاحب الطلب)
+  const ownerId = order.user.toString();
+  await order.populate('user', 'name lastName phone');
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
-  io.get().to(ROOMS.user(order.user.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  io.get().to(ROOMS.user(ownerId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
 
   // إعادة إسناد تلقائي لأقرب كابتن آخر (مع استبعاد من رُفض/انتهت مهلته)
   if (env.autoAssign) {
@@ -503,7 +514,7 @@ async function getActiveOrders() {
   return Order.find({
     status: { $in: [ORDER_STATUS.PENDING, ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED, ORDER_STATUS.PICKED_UP] },
   })
-    .populate('user', 'name phone')
+    .populate('user', 'name lastName phone')
     .populate('captain', 'name phone status')
     .sort({ createdAt: -1 });
 }
@@ -533,7 +544,7 @@ async function getOrdersForExport(rawQuery = {}) {
   const MAX_EXPORT = 5000; // حدّ يمنع تصدير ضخم يستنزف الذاكرة
 
   const orders = await Order.find(filter)
-    .populate('user', 'name phone')
+    .populate('user', 'name lastName phone')
     .populate('captain', 'name phone')
     .sort({ createdAt: -1 })
     .limit(MAX_EXPORT)
@@ -545,7 +556,7 @@ async function getOrdersForExport(rawQuery = {}) {
     status: o.status,
     createdAt: o.createdAt ? new Date(o.createdAt).toISOString() : '',
     deliveredAt: o.timeline?.deliveredAt ? new Date(o.timeline.deliveredAt).toISOString() : '',
-    userName: o.user?.name || '',
+    userName: [o.user?.name, o.user?.lastName].filter(Boolean).join(' ') || '',
     userPhone: o.user?.phone || '',
     captainName: o.captain?.name || '',
     pickup: o.pickup?.address || '',

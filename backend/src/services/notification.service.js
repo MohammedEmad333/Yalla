@@ -4,7 +4,9 @@ const fs = require('fs');
 const env = require('../config/env');
 const logger = require('../utils/logger');
 const Notification = require('../models/Notification');
+const io = require('../sockets/io');
 const { unreadCount } = require('../utils/notifications');
+const { ROLES, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
  * خدمة الإشعارات (FCM) عبر Firebase Admin.
@@ -110,10 +112,17 @@ function orderCancelledPayload(order) {
 
 // ── إشعارات داخل التطبيق (In-App) ─────────────────────────────
 
+// غرفة السوكت المناسبة لدور المستلِم (لبثّ الإشعار لحظيًا)
+function recipientRoom(recipientId, recipientRole) {
+  if (recipientRole === ROLES.CAPTAIN) return ROOMS.captain(String(recipientId));
+  if (recipientRole === ROLES.ADMIN) return ROOMS.admins();
+  return ROOMS.user(String(recipientId));
+}
+
 // إنشاء إشعار داخلي للمستلِم (آمن: لا يرمي أخطاءً تُوقف التدفّق الأساسي)
 async function createInApp(recipientId, recipientRole, payload) {
   try {
-    await Notification.create({
+    const notif = await Notification.create({
       recipient: recipientId,
       recipientRole,
       type: payload.data?.type || 'GENERAL',
@@ -121,6 +130,13 @@ async function createInApp(recipientId, recipientRole, payload) {
       body: payload.body,
       data: payload.data || {},
     });
+
+    // بثّ لحظي للمستلِم ليظهر الإشعار فورًا دون تحديث الصفحة
+    try {
+      io.get().to(recipientRoom(recipientId, recipientRole)).emit(EVENTS.NOTIFICATION_NEW, notif);
+    } catch (_) {
+      // السوكت غير مهيّأ (مثلًا في الاختبارات) — نتجاهل بأمان
+    }
   } catch (err) {
     logger.warn('تعذّر إنشاء إشعار داخلي:', err.message);
   }

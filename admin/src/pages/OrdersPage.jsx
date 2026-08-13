@@ -78,7 +78,7 @@ export default function OrdersPage() {
       <div style={styles.tableWrap}>
         <table>
           <thead>
-            <tr><th>#</th><th>الحالة</th><th>الاستلام</th><th>التسليم</th><th>الكابتن</th><th>السعر</th></tr>
+            <tr><th>#</th><th>الحالة</th><th>صاحب الطلب</th><th>الاستلام</th><th>التسليم</th><th>الكابتن</th><th>السعر</th></tr>
           </thead>
           <tbody>
             {data.items.map((o) => (
@@ -87,14 +87,15 @@ export default function OrdersPage() {
                 <td>
                   <span style={styles.pill(orderStatusColor(o.status))}>{STATUS_AR[o.status] || o.status}</span>
                 </td>
+                <td>{[o.user?.name, o.user?.lastName].filter(Boolean).join(' ') || '—'}</td>
                 <td>{o.pickup?.address}</td>
                 <td>{o.dropoff?.address}</td>
                 <td>{o.captain?.name || '—'}</td>
-                <td style={{ fontWeight: 600 }}>{o.price} ج.م</td>
+                <td style={{ fontWeight: 600 }}>{o.price} ₪</td>
               </tr>
             ))}
             {data.items.length === 0 && (
-              <tr><td colSpan={6} style={{ textAlign: 'center', color: theme.color.muted, padding: 20 }}>لا نتائج</td></tr>
+              <tr><td colSpan={7} style={{ textAlign: 'center', color: theme.color.muted, padding: 20 }}>لا نتائج</td></tr>
             )}
           </tbody>
         </table>

@@ -38,7 +38,7 @@ class _CaptainHomeState extends State<CaptainHome> {
   Widget build(BuildContext context) {
     final pages = [
       ActiveOrderScreen(api: widget.api, socket: widget.socket),
-      EarningsScreen(api: widget.api),
+      EarningsScreen(api: widget.api, socket: widget.socket),
       NotificationsScreen(api: widget.api),
       ProfileScreen(onLogout: widget.onLogout),
     ];

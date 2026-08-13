@@ -7,7 +7,8 @@ const { ROLES } = require('../utils/constants');
 // موديل المستخدم (العميل الذي يطلب التوصيل)
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
+    name: { type: String, required: true, trim: true }, // الاسم الأول
+    lastName: { type: String, trim: true, default: '' }, // اسم العائلة
     phone: { type: String, required: true, unique: true, trim: true },
     email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true, select: false }, // لا يُرجَع افتراضيًا

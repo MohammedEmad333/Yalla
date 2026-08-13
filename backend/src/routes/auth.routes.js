@@ -14,6 +14,7 @@ const authLimiter = rateLimit({ windowMs: 60_000, max: 20 });
 // مخطّطات التحقّق
 const registerSchema = {
   name: [V.required, V.string],
+  lastName: [V.string], // اسم العائلة — اختياري
   phone: [V.required, V.phone],
   password: [V.required, V.minLength(6)],
 };

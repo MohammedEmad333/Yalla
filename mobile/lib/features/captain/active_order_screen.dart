@@ -29,6 +29,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
   @override
   void initState() {
     super.initState();
+    _loadStatus();      // نعكس حالة الاتصال الحقيقية (يبقى الكابتن متصلًا بعد إغلاق التطبيق)
     _loadActiveOrder();
 
     // استقبال طلب جديد مُسنَد لحظيًا (بثّه الخادم عند الإسناد)
@@ -44,6 +45,20 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       final status = order['status'];
       setState(() => _order = _activeStatuses.contains(status) ? order : null);
     });
+  }
+
+  // جلب حالة توفّر الكابتن من الخادم لضبط المفتاح عند فتح التطبيق.
+  // مهم: الكابتن يظلّ "متصلًا" حتى لو أُغلق التطبيق، فيجب أن يعكس المفتاح ذلك.
+  Future<void> _loadStatus() async {
+    try {
+      final me = await widget.api.get('/auth/me');
+      final status = me['captain']?['status'];
+      if (mounted && status != null) {
+        setState(() => _isOnline = status != 'offline');
+      }
+    } catch (_) {
+      // نتجاهل — يبقى المفتاح على قيمته الافتراضية
+    }
   }
 
   // جلب الطلب النشط الحالي من الخادم (سجلّ الكابتن → أوّل طلب غير منتهٍ)
@@ -193,7 +208,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     final String pickup = (order['pickup']?['address'] ?? '—').toString();
     final String dropoff = (order['dropoff']?['address'] ?? '—').toString();
     final String note = (order['packageNote'] ?? '').toString();
-    final String price = '${order['price'] ?? 0} ج.م';
+    final String price = '${order['price'] ?? 0} ₪';
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
