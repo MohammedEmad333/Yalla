@@ -5,6 +5,7 @@ const ctrl = require('../controllers/auth.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { validateBody } = require('../middlewares/validate.middleware');
 const { rateLimit } = require('../middlewares/rateLimit.middleware');
+const { uploadAvatar } = require('../middlewares/upload.middleware');
 const { V } = require('../utils/validate');
 const { ROLES } = require('../utils/constants');
 
@@ -34,8 +35,15 @@ router.post('/register', authLimiter, validateBody(registerSchema), ctrl.registe
 router.post('/login', authLimiter, validateBody(loginSchema), ctrl.loginUser);
 router.post('/captain/login', authLimiter, validateBody(loginSchema), ctrl.loginCaptain);
 
-// مسارات محميّة
+// مسارات محميّة — بيانات الحساب وتحديثه ورفع الصورة الشخصية (Card 17)
+const updateProfileSchema = {
+  name: [V.string],
+  lastName: [V.string],
+  city: [V.string],
+};
 router.get('/me', authenticate, ctrl.me);
+router.patch('/me', authenticate, validateBody(updateProfileSchema), ctrl.updateProfile);
+router.post('/me/avatar', authenticate, uploadAvatar.single('avatar'), ctrl.uploadAvatar);
 router.post(
   '/captain/register',
   authenticate,

@@ -1,6 +1,7 @@
 // شاشة إنشاء طلب توصيل (تطبيق المستخدم) — نسخة بلا خريطة.
-// المستخدم يكتب عنوان الاستلام والتسليم بنفسه (نصّ حرّ)، ويختار المنطقة
-// التقريبية فقط لتحديد الموقع على الخريطة (لحساب المسافة وأقرب كابتن).
+// لكل نقطة (استلام/تسليم) يكتب المستخدم عنوانًا مُفصّلًا بالترتيب (Card 21):
+//   الحي ← الشارع ← العنوان بالتفاصيل ← الملاحظة.
+// ويختار المنطقة التقريبية فقط لتحديد الإحداثيات (لحساب المسافة وأقرب كابتن).
 // يمكن لاحقًا استبدال منتقي المنطقة بخريطة تفاعلية عبر google_maps_flutter.
 
 import 'package:flutter/material.dart';
@@ -17,6 +18,43 @@ const Map<String, List<double>> _presetLocations = {
   'رفح': [34.2500, 31.2870],
 };
 
+// حقول عنوان مُفصّلة لنقطة واحدة (استلام أو تسليم) — Card 21
+class _AddressFields {
+  final neighborhood = TextEditingController(); // الحي
+  final street = TextEditingController();        // الشارع
+  final details = TextEditingController();       // العنوان بالتفاصيل
+  final note = TextEditingController();          // ملاحظة
+
+  // حمولة الموقع المُرسَلة للخادم (بلا الإحداثيات — تُضاف عند الإرسال)
+  Map<String, dynamic> toJson(List<double> coords) => {
+        'neighborhood': neighborhood.text.trim(),
+        'street': street.text.trim(),
+        'details': details.text.trim(),
+        'note': note.text.trim(),
+        'location': {'type': 'Point', 'coordinates': coords},
+      };
+
+  // هل أدخل المستخدم أيّ جزء من العنوان؟ (الحد الأدنى للقبول)
+  bool get hasAny =>
+      neighborhood.text.trim().isNotEmpty ||
+      street.text.trim().isNotEmpty ||
+      details.text.trim().isNotEmpty;
+
+  void clear() {
+    neighborhood.clear();
+    street.clear();
+    details.clear();
+    note.clear();
+  }
+
+  void dispose() {
+    neighborhood.dispose();
+    street.dispose();
+    details.dispose();
+    note.dispose();
+  }
+}
+
 class CreateOrderScreen extends StatefulWidget {
   final ApiClient api;
   const CreateOrderScreen({super.key, required this.api});
@@ -26,15 +64,15 @@ class CreateOrderScreen extends StatefulWidget {
 }
 
 class _CreateOrderScreenState extends State<CreateOrderScreen> {
-  // عناوين يكتبها المستخدم بنفسه
-  final _pickupAddr = TextEditingController();
-  final _dropoffAddr = TextEditingController();
+  // حقول العنوان المُفصّلة لكل نقطة
+  final _pickup = _AddressFields();
+  final _dropoff = _AddressFields();
 
   // المنطقة التقريبية لكل نقطة (لتحديد الإحداثيات فقط)
   String? _pickupName;
   String? _dropoffName;
 
-  final _noteController = TextEditingController();
+  final _noteController = TextEditingController(); // وصف الشحنة (منفصل عن ملاحظة العنوان)
   bool _submitting = false;
 
   // وقت الجدولة الاختياري (null = طلب فوري)
@@ -90,12 +128,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   // إرسال الطلب للـ Backend
   Future<void> _submitOrder() async {
-    final pickupText = _pickupAddr.text.trim();
-    final dropoffText = _dropoffAddr.text.trim();
-
-    if (pickupText.isEmpty || dropoffText.isEmpty) {
+    if (!_pickup.hasAny || !_dropoff.hasAny) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('اكتب عنوان الاستلام وعنوان التسليم')),
+        const SnackBar(content: Text('أدخل عنوان الاستلام والتسليم (الحي/الشارع على الأقلّ)')),
       );
       return;
     }
@@ -108,24 +143,18 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     setState(() => _submitting = true);
     try {
       await widget.api.post('/orders', {
-        'pickup': {
-          'address': pickupText,
-          'location': {'type': 'Point', 'coordinates': _pickupCoords},
-        },
-        'dropoff': {
-          'address': dropoffText,
-          'location': {'type': 'Point', 'coordinates': _dropoffCoords},
-        },
+        'pickup': _pickup.toJson(_pickupCoords!),
+        'dropoff': _dropoff.toJson(_dropoffCoords!),
         'packageNote': _noteController.text,
         if (_scheduledAt != null) 'scheduledAt': _scheduledAt!.toUtc().toIso8601String(),
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم إنشاء الطلب بنجاح — بانتظار إسناد كابتن')),
+        const SnackBar(content: Text('تم إنشاء الطلب — ستصلك رسالة برمز التسليم')),
       );
       setState(() {
-        _pickupAddr.clear();
-        _dropoffAddr.clear();
+        _pickup.clear();
+        _dropoff.clear();
         _pickupName = null;
         _dropoffName = null;
         _noteController.clear();
@@ -146,19 +175,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // نقطة الاستلام: عنوان يكتبه المستخدم + المنطقة التقريبية
+          // نقطة الاستلام: عنوان مُفصّل + المنطقة التقريبية
           _sectionLabel('نقطة الاستلام', Icons.store),
           const SizedBox(height: 8),
-          TextField(
-            controller: _pickupAddr,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'عنوان الاستلام',
-              hintText: 'اكتب العنوان بالتفصيل (شارع، مبنى، علامة مميّزة)',
-              prefixIcon: Icon(Icons.edit_location_alt),
-              border: OutlineInputBorder(),
-            ),
-          ),
+          ..._addressInputs(_pickup),
           const SizedBox(height: 8),
           _locationPicker(
             label: 'المنطقة التقريبية (لحساب المسافة)',
@@ -171,19 +191,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           ),
           const SizedBox(height: 20),
 
-          // نقطة التسليم: عنوان يكتبه المستخدم + المنطقة التقريبية
+          // نقطة التسليم: عنوان مُفصّل + المنطقة التقريبية
           _sectionLabel('نقطة التسليم', Icons.flag),
           const SizedBox(height: 8),
-          TextField(
-            controller: _dropoffAddr,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'عنوان التسليم',
-              hintText: 'اكتب العنوان بالتفصيل (شارع، مبنى، علامة مميّزة)',
-              prefixIcon: Icon(Icons.edit_location_alt),
-              border: OutlineInputBorder(),
-            ),
-          ),
+          ..._addressInputs(_dropoff),
           const SizedBox(height: 8),
           _locationPicker(
             label: 'المنطقة التقريبية (لحساب المسافة)',
@@ -194,12 +205,14 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
               _refreshQuote();
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
 
+          _sectionLabel('الشحنة', Icons.inventory_2_outlined),
+          const SizedBox(height: 8),
           TextField(
             controller: _noteController,
             decoration: const InputDecoration(
-              labelText: 'ملاحظة الشحنة (اختياري)',
+              labelText: 'وصف الشحنة (اختياري)',
               border: OutlineInputBorder(),
             ),
           ),
@@ -245,6 +258,49 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     );
   }
 
+  // حقول العنوان المُفصّلة بالترتيب المطلوب: الحي ← الشارع ← التفاصيل ← الملاحظة (Card 21)
+  List<Widget> _addressInputs(_AddressFields f) => [
+        TextField(
+          controller: f.neighborhood,
+          textInputAction: TextInputAction.next,
+          decoration: const InputDecoration(
+            labelText: 'الحي',
+            prefixIcon: Icon(Icons.location_city),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: f.street,
+          textInputAction: TextInputAction.next,
+          decoration: const InputDecoration(
+            labelText: 'الشارع',
+            prefixIcon: Icon(Icons.add_road),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: f.details,
+          textInputAction: TextInputAction.next,
+          decoration: const InputDecoration(
+            labelText: 'العنوان بالتفاصيل',
+            hintText: 'مبنى، طابق، علامة مميّزة',
+            prefixIcon: Icon(Icons.edit_location_alt),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: f.note,
+          decoration: const InputDecoration(
+            labelText: 'ملاحظة (اختياري)',
+            prefixIcon: Icon(Icons.note_alt_outlined),
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ];
+
   // عنوان قسم (نقطة استلام/تسليم)
   Widget _sectionLabel(String text, IconData icon) => Row(
         children: [
@@ -278,8 +334,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   @override
   void dispose() {
-    _pickupAddr.dispose();
-    _dropoffAddr.dispose();
+    _pickup.dispose();
+    _dropoff.dispose();
     _noteController.dispose();
     super.dispose();
   }

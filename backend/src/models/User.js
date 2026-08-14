@@ -14,6 +14,10 @@ const userSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true, select: false }, // لا يُرجَع افتراضيًا
     role: { type: String, enum: [ROLES.USER, ROLES.ADMIN], default: ROLES.USER },
 
+    // بيانات إضافية لصفحة "حسابي" (Card 17)
+    avatarUrl: { type: String, default: '' }, // مسار الصورة الشخصية المرفوعة
+    city: { type: String, default: '', trim: true }, // المدينة
+
     // عناوين محفوظة للاستخدام السريع عند الطلب
     savedAddresses: [
       {

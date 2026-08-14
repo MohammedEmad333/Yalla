@@ -35,10 +35,16 @@ const V = {
       ? null
       : 'إحداثيات [lng, lat] غير صالحة',
 
-  // موقع طلب: عنوان نصّي + إحداثيات صالحة داخل location.coordinates
+  // موقع طلب: عنوان صالح + إحداثيات صالحة داخل location.coordinates.
+  // العنوان صالح إمّا بحقل `address` نصّي، أو بأحد الحقول المُفصّلة (الحي/الشارع/التفاصيل)
+  // ليُركَّب منها العنوان تلقائيًا لاحقًا (Card 21).
   location: (v) => {
     if (typeof v !== 'object' || v === null) return 'الموقع غير صالح';
-    if (!v.address || typeof v.address !== 'string') return 'العنوان مطلوب';
+    const hasAddress = typeof v.address === 'string' && v.address.trim() !== '';
+    const hasParts = ['neighborhood', 'street', 'details'].some(
+      (k) => typeof v[k] === 'string' && v[k].trim() !== ''
+    );
+    if (!hasAddress && !hasParts) return 'العنوان مطلوب (أدخل الحي/الشارع أو عنوانًا)';
     return V.coordinates(v.location?.coordinates);
   },
 };

@@ -11,11 +11,17 @@ const { haversineKm } = require('../utils/geo');
  */
 
 // تعرفة أساسية قابلة للضبط (يمكن نقلها لقاعدة إعدادات لاحقًا)
+//
+// نموذج التسعير (بطلب العميل): "كيلو ونص مسافة سعر عشرة شيكل".
+//   • أوّل baseDistanceKm كيلومتر (كيلو ونص) بسعر ثابت = baseFare (١٠ ₪).
+//   • كل كيلومتر إضافي بعد ذلك يُحسب بـ perKm (يتأثّر بنوع المركبة).
+// هكذا: مسافة ١.٥ كم → ١٠ ₪ بالضبط، بغضّ النظر عن نوع المركبة.
 const TARIFF = {
-  baseFare: 15,        // أجرة البدء (₪)
-  perKm: 5,            // سعر الكيلومتر
-  minFare: 20,         // الحدّ الأدنى للأجرة
-  // معامل نوع المركبة (الموتوسيكل أسرع/أبعد مدى)
+  baseFare: 10,          // السعر الثابت لأوّل مسافة أساسية (₪)
+  baseDistanceKm: 1.5,   // المسافة المشمولة بالسعر الثابت (كيلو ونص)
+  perKm: 5,              // سعر الكيلومتر الإضافي بعد المسافة الأساسية
+  minFare: 10,           // الحدّ الأدنى للأجرة
+  // معامل نوع المركبة (الموتوسيكل أسرع/أبعد مدى) — يُطبَّق على المسافة الإضافية فقط
   vehicleFactor: { bicycle: 1.0, motorcycle: 1.15 },
 };
 
@@ -34,12 +40,15 @@ function estimateDistanceKm(pickup, dropoff) {
 
 /**
  * حساب السعر من المسافة ونوع المركبة.
+ * السعر = أجرة أساسية ثابتة (تشمل أوّل كيلو ونص) + (المسافة الإضافية × سعر الكيلومتر × معامل المركبة).
+ * مثال: ١.٥ كم → ١٠ ₪ بالضبط.
  * @param {number} distanceKm
  * @param {'bicycle'|'motorcycle'} vehicleType
  */
 function calculatePrice(distanceKm, vehicleType = 'motorcycle') {
   const factor = TARIFF.vehicleFactor[vehicleType] ?? 1;
-  const raw = (TARIFF.baseFare + distanceKm * TARIFF.perKm) * factor;
+  const extraKm = Math.max(0, distanceKm - TARIFF.baseDistanceKm); // ما بعد المسافة الأساسية
+  const raw = TARIFF.baseFare + extraKm * TARIFF.perKm * factor;
   return Math.max(TARIFF.minFare, Math.round(raw));
 }
 

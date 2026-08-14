@@ -49,6 +49,28 @@ const WALLET_TX_TYPE = Object.freeze({
   ADJUSTMENT: 'adjustment',       // تعديل يدوي من الأدمن
 });
 
+// ── سحب أرباح الكابتن (Card 19) ──────────────────────────────────
+// حالات طلب سحب الأموال من محفظة الكابتن:
+//   pending : بانتظار تحويل الأدمن
+//   done    : حوّل الأدمن المبلغ وخُصم من رصيد الكابتن
+//   rejected: رُفض الطلب (بيانات غير صحيحة/سبب آخر)
+const WITHDRAWAL_STATUS = Object.freeze({
+  PENDING: 'pending',
+  DONE: 'done',
+  REJECTED: 'rejected',
+});
+
+// طرق سحب الأموال المتاحة للكابتن
+const WITHDRAWAL_METHOD = Object.freeze({
+  BANK_OF_PALESTINE: 'bank_of_palestine', // بنك فلسطين
+  JAWWAL_PAY: 'jawwal_pay',               // جوال باي
+  PALPAY: 'palpay',                       // بال باي
+  CASH: 'cash',                           // نقدًا
+});
+
+// الحدّ الأدنى لرصيد السحب (₪) — لا يُسمح بالسحب تحته
+const MIN_WITHDRAWAL = 10;
+
 // طرق الدفع لشحن الرصيد — المفتاح يُستخدم لاختيار استراتيجية الدفع (Strategy).
 // المرحلة 1: كلّها يدوية (رفع إيصال). المرحلة 2: تُربَط ببوابات رسمية.
 const PAYMENT_METHOD = Object.freeze({
@@ -75,6 +97,10 @@ const EVENTS = Object.freeze({
   CAPTAIN_STATUS_CHANGED: 'captain:status_changed',
   NOTIFICATION_NEW: 'notification:new', // إشعار داخلي جديد يُبثّ لحظيًا للمستلِم
   WALLET_UPDATED: 'wallet:updated',     // تغيّر رصيد محفظة المستخدم (بثّ لحظي له)
+  CAPTAIN_WALLET_UPDATED: 'captain_wallet:updated', // تغيّر رصيد محفظة الكابتن (Card 19)
+  WITHDRAWAL_REQUESTED: 'withdrawal:requested',     // طلب سحب جديد يُبثّ للأدمن (Card 19)
+  CHAT_MESSAGE: 'chat:message',   // رسالة دردشة جديدة على طلب (Card 18)
+  CHAT_CLEARED: 'chat:cleared',   // حُذفت رسائل الطلب (بعد التسليم/الإلغاء)
   // من العملاء -> الخادم
   CAPTAIN_TOGGLE_STATUS: 'captain:toggle_status',
   CAPTAIN_UPDATE_LOCATION: 'captain:update_location',
@@ -89,6 +115,9 @@ module.exports = {
   WALLET_DIRECTION,
   WALLET_TX_TYPE,
   PAYMENT_METHOD,
+  WITHDRAWAL_STATUS,
+  WITHDRAWAL_METHOD,
+  MIN_WITHDRAWAL,
   ROOMS,
   EVENTS,
 };

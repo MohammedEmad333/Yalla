@@ -100,7 +100,10 @@ test('انتقالات الحالة: accepted → picked_up → delivered تحر
 
   await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.ACCEPTED);
   await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.PICKED_UP);
-  const delivered = await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.DELIVERED);
+  // Card 20: التسليم يتطلّب رمز صاحب الطلب
+  const delivered = await orderService.updateOrderStatus(
+    captain._id, order._id, ORDER_STATUS.DELIVERED, '', order.deliveryCode
+  );
 
   assert.equal(delivered.status, ORDER_STATUS.DELIVERED);
   const freshCaptain = await Captain.findById(captain._id);
@@ -205,7 +208,9 @@ test('التقييم: يحدّث متوسّط الكابتن ويمنع التك
   await orderService.assignOrder(admin._id, order._id, captain._id);
   await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.ACCEPTED);
   await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.PICKED_UP);
-  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.DELIVERED);
+  await orderService.updateOrderStatus(
+    captain._id, order._id, ORDER_STATUS.DELIVERED, '', order.deliveryCode
+  );
 
   await orderService.rateOrder(user._id, order._id, 4);
   const rated = await Captain.findById(captain._id);

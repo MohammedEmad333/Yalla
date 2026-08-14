@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 const Captain = require('../models/Captain');
 const orderService = require('../services/order.service');
+const chatService = require('../services/chat.service');
 const ioRef = require('./io');
 const logger = require('../utils/logger');
 const { ROLES, ROOMS, EVENTS, CAPTAIN_STATUS } = require('../utils/constants');
@@ -85,11 +86,24 @@ function registerSocketHandlers(io) {
     });
 
     // ── الكابتن يحدّث حالة الطلب عبر السوكت ────────────────────────
-    socket.on(EVENTS.ORDER_UPDATE_STATUS, async ({ orderId, status }, ack) => {
+    socket.on(EVENTS.ORDER_UPDATE_STATUS, async ({ orderId, status, reason, deliveryCode }, ack) => {
       try {
         if (role !== ROLES.CAPTAIN) throw new Error('غير مصرّح');
-        const order = await orderService.updateOrderStatus(id, orderId, status);
+        // نمرّر رمز التسليم للتحقّق عند "تم التسليم" (Card 20)
+        const order = await orderService.updateOrderStatus(id, orderId, status, reason, deliveryCode);
         ack?.({ ok: true, order });
+      } catch (err) {
+        ack?.({ ok: false, error: err.message });
+      }
+    });
+
+    // ── دردشة الطلب: صاحب الطلب/الكابتن يرسل رسالة لحظيًا (Card 18) ──
+    socket.on(EVENTS.CHAT_MESSAGE, async ({ orderId, text }, ack) => {
+      try {
+        if (role !== ROLES.USER && role !== ROLES.CAPTAIN) throw new Error('غير مصرّح');
+        // الخدمة تتحقّق من العضويّة والحالة والنصّ، وتبثّ لغرفة الطلب
+        const message = await chatService.sendMessage(orderId, { id, role }, text);
+        ack?.({ ok: true, message });
       } catch (err) {
         ack?.({ ok: false, error: err.message });
       }

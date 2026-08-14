@@ -3,10 +3,17 @@
 const mongoose = require('mongoose');
 const { ORDER_STATUS } = require('../utils/constants');
 
-// موقع (نقطة استلام أو تسليم) — GeoJSON مع عنوان نصّي
+// موقع (نقطة استلام أو تسليم) — GeoJSON مع عنوان نصّي مُفصّل.
+// حقول العنوان المُفصّلة (Card 21) بالترتيب: الحي ← الشارع ← العنوان بالتفاصيل ← الملاحظة.
+// يبقى الحقل النصّي `address` مصدرًا موحّدًا للعرض والبحث؛ يُركَّب تلقائيًا من الأجزاء
+// إن لم يُرسله العميل (انظر composeAddress في طبقة الخدمة) لضمان توافق ما سبق.
 const locationSchema = new mongoose.Schema(
   {
-    address: { type: String, required: true },
+    address: { type: String, required: true },   // عنوان موحّد للعرض/البحث (مُركَّب أو مُرسَل)
+    neighborhood: { type: String, default: '' },  // الحي
+    street: { type: String, default: '' },         // الشارع
+    details: { type: String, default: '' },        // العنوان بالتفاصيل
+    note: { type: String, default: '' },           // ملاحظة (رقم شقّة، علامة مميّزة...)
     contactName: String,
     contactPhone: String,
     location: {
@@ -31,6 +38,11 @@ const orderSchema = new mongoose.Schema(
     // تفاصيل الشحنة
     packageNote: { type: String, default: '' },   // وصف مختصر لما يُوصَّل
     price: { type: Number, default: 0 },           // قيمة التوصيل
+
+    // رمز تسليم الطلب (Card 20) — يُنشأ عند الإنشاء، يُعطى لصاحب الطلب،
+    // ويُطلب من الكابتن عند تأكيد التسليم. لا يُرجَع افتراضيًا في الاستعلامات
+    // العامّة لمنع تسريبه للكابتن (يُرسَل لصاحب الطلب فقط عبر إشعاره).
+    deliveryCode: { type: String, default: '', select: false },
     distanceKm: { type: Number, default: 0 },      // المسافة التقديرية
     etaMinutes: { type: Number, default: 0 },      // الزمن التقديري للتوصيل (دقائق)
 

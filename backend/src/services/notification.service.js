@@ -64,10 +64,28 @@ async function sendToTokens(tokens, { title, body, data = {} }) {
     const stringData = Object.fromEntries(
       Object.entries(data).map(([k, v]) => [k, String(v)])
     );
+    // إعدادات لضمان وصول الإشعار حتى والتطبيق مغلق/في الخلفية (Card 22):
+    //  • Android: أولويّة عالية + قناة إشعارات + صوت افتراضي ليظهر في شريط النظام.
+    //  • iOS (APNs): إشعار مرئي + صوت.
+    // نُبقي كتلة notification حاضرة دائمًا حتى يعرضها نظام التشغيل تلقائيًا
+    // (display message) دون الاعتماد على كون التطبيق نشطًا.
     const res = await messaging.sendEachForMulticast({
       tokens,
       notification: { title, body },
       data: stringData,
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'yalla_orders',
+          sound: 'default',
+          defaultSound: true,
+          priority: 'high',
+        },
+      },
+      apns: {
+        headers: { 'apns-priority': '10' },
+        payload: { aps: { sound: 'default', contentAvailable: true } },
+      },
     });
     return { sent: res.successCount, failed: res.failureCount };
   } catch (err) {
@@ -98,6 +116,15 @@ function orderStatusPayload(order) {
     title: 'تحديث طلبك',
     body: labels[order.status] || `حالة الطلب: ${order.status}`,
     data: { type: 'ORDER_STATUS', orderId: String(order._id), status: order.status },
+  };
+}
+
+// إشعار صاحب الطلب برمز التسليم (Card 20) — يعطيه للكابتن عند الاستلام
+function deliveryCodePayload(order, code) {
+  return {
+    title: '🔑 رمز تسليم طلبك',
+    body: `رمزك هو ${code} — أعطِه للكابتن عند استلام الطلب لتأكيد التسليم`,
+    data: { type: 'DELIVERY_CODE', orderId: String(order._id), code: String(code) },
   };
 }
 
@@ -177,6 +204,7 @@ module.exports = {
   orderAssignedPayload,
   orderStatusPayload,
   orderCancelledPayload,
+  deliveryCodePayload,
   createInApp,
   listForRecipient,
   markRead,
