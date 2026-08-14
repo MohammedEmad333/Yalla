@@ -96,6 +96,20 @@ class SocketService {
   void onWalletUpdated(void Function(Map<String, dynamic>) cb) =>
       _addListener('wallet:updated', cb);
 
+  // (للكابتن) الاستماع لتحديث رصيد محفظة الأرباح لحظيًا (بعد تنفيذ الأدمن للسحب)
+  void onCaptainWalletUpdated(void Function(Map<String, dynamic>) cb) =>
+      _addListener('captain_wallet:updated', cb);
+
+  // دردشة الطلب (Card 18): الاستماع لرسالة جديدة، ولحذف رسائل الطلب بعد التسليم
+  void onChatMessage(void Function(Map<String, dynamic>) cb) =>
+      _addListener('chat:message', cb);
+  void onChatCleared(void Function(Map<String, dynamic>) cb) =>
+      _addListener('chat:cleared', cb);
+
+  // إرسال رسالة دردشة لحظيًا (يتحقّق الخادم من العضويّة والحالة ويبثّها لغرفة الطلب)
+  void sendChatMessage(String orderId, String text) =>
+      _socket?.emit('chat:message', {'orderId': orderId, 'text': text});
+
   // (للكابتن) بثّ الموقع الحالي أثناء التوصيل
   void sendLocation({required String orderId, required double lng, required double lat}) {
     _socket?.emit('captain:update_location', {'orderId': orderId, 'lng': lng, 'lat': lat});

@@ -9,6 +9,7 @@ import '../../core/network/api_client.dart';
 import '../../core/maps/maps_service.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../chat/chat_screen.dart';
 
 class ActiveOrderScreen extends StatefulWidget {
   final ApiClient api;
@@ -225,6 +226,18 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  // فتح شاشة الدردشة مع صاحب الطلب (Card 18)
+  void _openChat(String orderId) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ChatScreen(
+        orderId: orderId,
+        api: widget.api,
+        socket: widget.socket,
+        myRole: 'captain',
+      ),
+    ));
+  }
+
   // الاسم الكامل لصاحب الطلب (الاسم الأول + اسم العائلة إن وُجد)
   String _senderName(Map<String, dynamic>? user) {
     if (user == null) return '';
@@ -378,6 +391,14 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
           onPressed: _openNavigation,
           icon: const Icon(Icons.navigation),
           label: Text(status == 'picked_up' ? 'الملاحة إلى التسليم' : 'الملاحة إلى الاستلام'),
+        ),
+        const SizedBox(height: 12),
+
+        // زر الدردشة مع صاحب الطلب خلال التوصيل (Card 18)
+        OutlinedButton.icon(
+          onPressed: () => _openChat(order['_id'] as String),
+          icon: const Icon(Icons.chat_bubble_outline),
+          label: const Text('الدردشة مع صاحب الطلب'),
         ),
         const SizedBox(height: 12),
 

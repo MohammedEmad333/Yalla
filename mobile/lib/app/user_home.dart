@@ -43,7 +43,7 @@ class _UserHomeState extends State<UserHome> {
       MyOrdersScreen(api: widget.api),
       WalletScreen(api: widget.api, socket: widget.socket),
       NotificationsScreen(api: widget.api, socket: widget.socket),
-      ProfileScreen(onLogout: widget.onLogout),
+      ProfileScreen(api: widget.api, onLogout: widget.onLogout),
     ];
 
     return Scaffold(

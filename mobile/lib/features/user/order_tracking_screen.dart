@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/maps/maps_service.dart';
 import '../../core/realtime/socket_service.dart';
+import '../chat/chat_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -113,10 +114,34 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     }
   }
 
+  // فتح شاشة الدردشة مع الكابتن (Card 18)
+  void _openChat() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ChatScreen(
+        orderId: widget.orderId,
+        api: widget.api,
+        socket: widget.socket,
+        myRole: 'user',
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
+    // الدردشة متاحة خلال فترة التوصيل فقط (بعد إسناد كابتن)
+    final canChat = ['assigned', 'accepted', 'picked_up'].contains(_status);
     return Scaffold(
-      appBar: AppBar(title: const Text('تتبّع الطلب')),
+      appBar: AppBar(
+        title: const Text('تتبّع الطلب'),
+        actions: [
+          if (canChat)
+            IconButton(
+              tooltip: 'الدردشة مع الكابتن',
+              icon: const Icon(Icons.chat_bubble_outline),
+              onPressed: _openChat,
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
