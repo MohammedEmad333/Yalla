@@ -3,6 +3,7 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
 
 import '../config/app_config.dart';
 import '../storage/token_storage.dart';
@@ -76,11 +77,27 @@ class ApiClient {
     if (token != null) req.headers['Authorization'] = 'Bearer $token';
     req.fields.addAll(fields);
     if (filePath != null && filePath.isNotEmpty) {
-      req.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+      // نحدّد نوع المحتوى صراحةً من الامتداد — وإلّا يُرسَل كـ octet-stream
+      // فيرفضه فلتر الصور في الخادم.
+      req.files.add(await http.MultipartFile.fromPath(
+        fileField,
+        filePath,
+        contentType: _imageContentType(filePath),
+      ));
     }
     final streamed = await req.send();
     final res = await http.Response.fromStream(streamed);
     return _handle(res);
+  }
+
+  // نوع محتوى الصورة من امتداد الملفّ (افتراضيًّا jpeg)
+  MediaType _imageContentType(String path) {
+    final p = path.toLowerCase();
+    if (p.endsWith('.png')) return MediaType('image', 'png');
+    if (p.endsWith('.webp')) return MediaType('image', 'webp');
+    if (p.endsWith('.heic')) return MediaType('image', 'heic');
+    if (p.endsWith('.heif')) return MediaType('image', 'heif');
+    return MediaType('image', 'jpeg');
   }
 
   // توحيد معالجة الاستجابة والأخطاء

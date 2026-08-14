@@ -13,16 +13,21 @@ const { TOPUP_STATUS, PAYMENT_METHOD } = require('./constants');
  * ملاحظة: بيانات الحسابات هنا أمثلة — استبدلها بالبيانات الحقيقية أو
  * انقلها إلى متغيّرات البيئة قبل الإطلاق.
  */
+// اسم صاحب الحساب ورقم الجوّال الموحّد للتحويل اليدوي (المرحلة 1)
+const ACCOUNT_NAME = 'ابراهيم محمد عطا قنديل';
+const ACCOUNT_PHONE = '0593456405';
+
 const PAYMENT_METHODS = Object.freeze({
   [PAYMENT_METHOD.BANK_OF_PALESTINE]: {
     key: PAYMENT_METHOD.BANK_OF_PALESTINE,
     label: 'بنك فلسطين',
+    color: '#A6192E', // لون العلامة (أحمر بنك فلسطين) — يُستخدم في واجهة التطبيق
     // حاليًا يدوي (رفع إيصال)؛ يتحوّل إلى 'gateway' في المرحلة 2
     mode: 'manual',
     account: {
-      name: 'شركة يلا للتوصيل',
-      number: '0000-000000-00',
-      iban: 'PS00 0000 0000 0000 0000 0000 000',
+      name: ACCOUNT_NAME,
+      number: ACCOUNT_PHONE,
+      iban: 'PS94PALS045441409460993000000',
     },
     instructions:
       'حوّل المبلغ إلى حساب بنك فلسطين أعلاه، ثم ارفع صورة الإيصال ورقم العملية.',
@@ -30,16 +35,18 @@ const PAYMENT_METHODS = Object.freeze({
   [PAYMENT_METHOD.JAWWAL_PAY]: {
     key: PAYMENT_METHOD.JAWWAL_PAY,
     label: 'جوال باي',
+    color: '#00A651', // لون العلامة (أخضر جوال)
     mode: 'manual',
-    account: { name: 'شركة يلا للتوصيل', number: '0599-000000' },
+    account: { name: ACCOUNT_NAME, number: ACCOUNT_PHONE },
     instructions:
       'حوّل المبلغ عبر تطبيق جوال باي إلى الرقم أعلاه، ثم ارفع صورة الإيصال ورقم العملية.',
   },
   [PAYMENT_METHOD.PALPAY]: {
     key: PAYMENT_METHOD.PALPAY,
     label: 'بال باي',
+    color: '#0072BC', // لون العلامة (أزرق بال باي)
     mode: 'manual',
-    account: { name: 'شركة يلا للتوصيل', number: '0000-0000' },
+    account: { name: ACCOUNT_NAME, number: ACCOUNT_PHONE },
     instructions:
       'حوّل المبلغ عبر بال باي إلى الحساب أعلاه، ثم ارفع صورة الإيصال ورقم العملية.',
   },

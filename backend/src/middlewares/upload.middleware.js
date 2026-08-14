@@ -18,12 +18,17 @@ const storage = multer.diskStorage({
   },
 });
 
-// نقبل الصور فقط، بحدّ حجم معقول للإيصالات
+// نقبل الصور فقط، بحدّ حجم معقول للإيصالات.
+// نتحقّق عبر نوع المحتوى (mimetype) أو امتداد الملفّ — لأنّ بعض العملاء
+// (مثل رفع Flutter) قد يرسلون الصورة بنوع application/octet-stream.
+const IMAGE_MIME = /^image\/(jpe?g|png|webp|heic|heif)$/i;
+const IMAGE_EXT = /\.(jpe?g|png|webp|heic|heif)$/i;
 const uploadReceipt = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
-    if (/^image\/(jpe?g|png|webp|heic|heif)$/.test(file.mimetype)) return cb(null, true);
+    const ok = IMAGE_MIME.test(file.mimetype) || IMAGE_EXT.test(file.originalname || '');
+    if (ok) return cb(null, true);
     cb(Object.assign(new Error('يُسمح برفع الصور فقط'), { statusCode: 400 }));
   },
 });
