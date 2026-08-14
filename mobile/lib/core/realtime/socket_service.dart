@@ -92,6 +92,10 @@ class SocketService {
   void onNotificationNew(void Function(Map<String, dynamic>) cb) =>
       _addListener('notification:new', cb);
 
+  // (للمستخدم) الاستماع لتحديث رصيد المحفظة لحظيًا (بعد موافقة الأدمن على الشحن)
+  void onWalletUpdated(void Function(Map<String, dynamic>) cb) =>
+      _addListener('wallet:updated', cb);
+
   // (للكابتن) بثّ الموقع الحالي أثناء التوصيل
   void sendLocation({required String orderId, required double lng, required double lat}) {
     _socket?.emit('captain:update_location', {'orderId': orderId, 'lng': lng, 'lat': lat});

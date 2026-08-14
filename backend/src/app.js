@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const env = require('./config/env');
@@ -13,6 +14,9 @@ const app = express();
 app.set('trust proxy', 1);               // نثق ببروكسي واحد أمامنا لقراءة req.ip الحقيقي
 app.use(cors({ origin: env.corsOrigin }));
 app.use(express.json({ limit: '100kb' })); // تحليل JSON بحدّ حجم يمنع الحمولات الضخمة
+
+// خدمة الملفّات المرفوعة إستاتيكيًّا (إيصالات شحن الرصيد — المرحلة 1)
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // حدّ معدّل عام سخيّ لكل الـ API (طبقة حماية أساسية ضدّ الإساءة)
 app.use('/api', rateLimit({ windowMs: 60_000, max: 300 }));

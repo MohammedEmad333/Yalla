@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Captain = require('../models/Captain');
 const statsService = require('../services/stats.service');
 const orderService = require('../services/order.service');
+const walletService = require('../services/wallet.service');
 const { ROLES } = require('../utils/constants');
 
 // مؤشّرات الأداء للوحة التحكّم
@@ -99,6 +100,52 @@ async function settleCaptain(req, res, next) {
   }
 }
 
+// ── محفظة المستخدم وشحن الرصيد (المرحلة 1: مراجعة يدوية) ──────────
+
+// قائمة طلبات الشحن (?status=pending|approved|rejected|all)
+async function listTopups(req, res, next) {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const skip = parseInt(req.query.skip, 10) || 0;
+    const items = await walletService.listTopups({ status: req.query.status, limit, skip });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// الموافقة على طلب شحن → إضافة الرصيد تلقائيًّا لمحفظة المستخدم
+async function approveTopup(req, res, next) {
+  try {
+    const { note } = req.body || {};
+    const result = await walletService.approveTopup(req.auth.id, req.params.txId, note);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// رفض طلب شحن (بلا إضافة رصيد)
+async function rejectTopup(req, res, next) {
+  try {
+    const { reason } = req.body || {};
+    const result = await walletService.rejectTopup(req.auth.id, req.params.txId, reason);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// عرض محفظة مستخدم معيّن + آخر حركاته
+async function userWallet(req, res, next) {
+  try {
+    const data = await walletService.getUserWalletForAdmin(req.params.userId);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getStats,
   listUsers,
@@ -107,4 +154,8 @@ module.exports = {
   setCaptainApproval,
   captainWallet,
   settleCaptain,
+  listTopups,
+  approveTopup,
+  rejectTopup,
+  userWallet,
 };

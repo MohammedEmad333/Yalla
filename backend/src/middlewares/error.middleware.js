@@ -11,10 +11,13 @@ function notFound(req, res, next) {
 // eslint-disable-next-line no-unused-vars
 function errorHandler(err, req, res, next) {
   logger.error(err.message);
-  const status = err.statusCode || 500;
-  res.status(status).json({
-    message: err.message || 'خطأ داخلي في الخادم',
-  });
+  // أخطاء رفع الملفّات (multer) — مثل تجاوز الحجم — أخطاء إدخال من المستخدم (400)
+  const isUpload = err.name === 'MulterError';
+  const status = err.statusCode || (isUpload ? 400 : 500);
+  const message = isUpload
+    ? (err.code === 'LIMIT_FILE_SIZE' ? 'حجم الصورة كبير جدًّا (الحدّ 5 ميجابايت)' : err.message)
+    : err.message || 'خطأ داخلي في الخادم';
+  res.status(status).json({ message });
 }
 
 module.exports = { notFound, errorHandler };

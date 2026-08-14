@@ -63,6 +63,26 @@ class ApiClient {
     return _handle(res);
   }
 
+  // رفع متعدّد الأجزاء (multipart) — لإرسال حقول نصّية مع ملفّ (صورة إيصال).
+  // نمرّر التوكن يدويًّا لأنّ http.MultipartRequest لا يستخدم _headers.
+  Future<dynamic> postMultipart(
+    String path, {
+    required Map<String, String> fields,
+    String? filePath,
+    String fileField = 'file',
+  }) async {
+    final req = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'));
+    final token = await _tokenStorage.read();
+    if (token != null) req.headers['Authorization'] = 'Bearer $token';
+    req.fields.addAll(fields);
+    if (filePath != null && filePath.isNotEmpty) {
+      req.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+    }
+    final streamed = await req.send();
+    final res = await http.Response.fromStream(streamed);
+    return _handle(res);
+  }
+
   // توحيد معالجة الاستجابة والأخطاء
   dynamic _handle(http.Response res) {
     final data = res.body.isNotEmpty ? jsonDecode(res.body) : null;

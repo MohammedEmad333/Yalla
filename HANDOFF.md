@@ -65,6 +65,7 @@ There is a `curl`/PowerShell snippet earlier in the history to create captain+us
 - **Assignment:** manual, **auto-assign nearest** (2dsphere `$near`), **reject → reassign** excluding rejecters, **accept-timeout → reassign** (worker). Shared `returnToPoolAndReassign`.
 - **Status machine** with validated transitions; **cancellation** (user/admin/captain, pre-pickup).
 - **Ratings & reviews** (moving average, distribution), **captain earnings** + **COD wallet** (commission/net/owed + admin settlement).
+- **User wallet & digital top-up** (`docs/05-wallet-topup.md`): `Wallet` + `WalletTransaction` models, **Strategy Pattern** payment layer (`services/payment/`: `ManualReceiptUploadStrategy` now + `JawwalPay`/`BankOfPalestine` gateway stubs for Phase 2), atomic idempotent approve/reject that credits balance, receipt image upload (multer → `/uploads`), user routes `/wallet*`, admin routes `/admin/wallet/topups*`. Adding a real gateway later = register a strategy, no wallet-logic changes.
 - **Notifications:** FCM push (config-driven, safe no-op without creds) + **in-app** notifications feed.
 - **Admin APIs:** live dashboard data, users/captains management, **order search/filter+pagination**, **CSV export**, **stats/KPIs**.
 - **Realtime:** Socket.io rooms (admins / captain:<id> / user:<id> / order:<id>).
@@ -73,7 +74,7 @@ There is a `curl`/PowerShell snippet earlier in the history to create captain+us
 
 **Admin** (`admin/`, React + Vite): login gate, live dashboard (manual + ⚡auto assign), users/captains management (+ approve, wallet/settle, reviews), order search + CSV export, stats page. Nav in `App.jsx`.
 
-**Mobile** (`mobile/`, Flutter): unified single login (login/register toggle), user home (create order / my orders / notifications / profile), captain home (active order / earnings / notifications / profile), reactive auth via `ValueNotifier<AuthSession?>` in `AuthRepository`, in-memory-cached `TokenStorage`, `SocketService`, `ApiClient` (host via `AppConfig`/`--dart-define`).
+**Mobile** (`mobile/`, Flutter): unified single login (login/register toggle), user home (create order / my orders / **wallet** / notifications / profile), captain home (active order / earnings / notifications / profile), reactive auth via `ValueNotifier<AuthSession?>` in `AuthRepository`, in-memory-cached `TokenStorage`, `SocketService`, `ApiClient` (host via `AppConfig`/`--dart-define`). Wallet screens under `features/wallet/` (top-up via `image_picker` + multipart upload; live balance via `wallet:updated` socket event).
 
 **Deploy/CI:** `docker-compose.yml` (mongo + api + admin), `.github/workflows/ci.yml` (unit + integration + admin build), `docs/01..03` (data architecture, realtime flow, deployment).
 
