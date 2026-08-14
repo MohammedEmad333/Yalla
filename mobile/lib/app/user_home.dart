@@ -6,6 +6,7 @@ import '../core/network/api_client.dart';
 import '../core/realtime/socket_service.dart';
 import '../features/user/create_order_screen.dart';
 import '../features/user/my_orders_screen.dart';
+import '../features/wallet/presentation/wallet_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import 'profile_screen.dart';
 
@@ -40,6 +41,7 @@ class _UserHomeState extends State<UserHome> {
     final pages = [
       CreateOrderScreen(api: widget.api),
       MyOrdersScreen(api: widget.api),
+      WalletScreen(api: widget.api, socket: widget.socket),
       NotificationsScreen(api: widget.api, socket: widget.socket),
       ProfileScreen(onLogout: widget.onLogout),
     ];
@@ -52,6 +54,7 @@ class _UserHomeState extends State<UserHome> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.add_location_alt), label: 'طلب'),
           NavigationDestination(icon: Icon(Icons.receipt_long), label: 'طلباتي'),
+          NavigationDestination(icon: Icon(Icons.account_balance_wallet), label: 'المحفظة'),
           NavigationDestination(icon: Icon(Icons.notifications), label: 'الإشعارات'),
           NavigationDestination(icon: Icon(Icons.person), label: 'حسابي'),
         ],

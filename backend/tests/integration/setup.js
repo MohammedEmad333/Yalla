@@ -32,7 +32,11 @@ async function connect() {
       mongod = await MongoMemoryServer.create();
       uri = mongod.getUri();
     }
-    await mongoose.connect(uri);
+    // مُشغّل node --test يشغّل ملفّات الاختبار بالتوازي في عمليات منفصلة، وقد
+    // تتشارك جميعها نفس TEST_MONGO_URI في CI. لذا نعزل كل عملية في قاعدة بيانات
+    // خاصّة بها (اسم فريد لكل عملية) حتى لا يمسح clearDb لملفٍّ بيانات ملفٍّ آخر.
+    const dbName = `yalla_test_${process.pid}_${Date.now()}`;
+    await mongoose.connect(uri, { dbName });
     state.dbReady = true;
   } catch (err) {
     // بيئة بلا قاعدة بيانات — نتخطّى اختبارات التكامل بهدوء
@@ -43,6 +47,8 @@ async function connect() {
 }
 
 async function disconnect() {
+  // نُسقط قاعدة البيانات المؤقّتة الخاصّة بهذه العملية حتى لا تتراكم في CI
+  if (state.dbReady) await mongoose.connection.dropDatabase().catch(() => {});
   await mongoose.disconnect().catch(() => {});
   if (mongod) await mongod.stop();
 }

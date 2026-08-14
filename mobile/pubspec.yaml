@@ -18,6 +18,9 @@ dependencies:
   http: ^1.2.0
   flutter_secure_storage: ^9.2.2
 
+  # اختيار صورة الإيصال من المعرض/الكاميرا (شحن الرصيد — المرحلة 1)
+  image_picker: ^1.1.2
+
   # اللحظي والموقع
   socket_io_client: ^2.0.3+1
   geolocator: ^11.0.0

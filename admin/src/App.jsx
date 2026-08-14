@@ -9,10 +9,12 @@ import LiveDashboard from './pages/LiveDashboard';
 import UsersManagement from './pages/UsersManagement';
 import StatsPage from './pages/StatsPage';
 import OrdersPage from './pages/OrdersPage';
+import WalletTopups from './pages/WalletTopups';
 
 const TABS = [
   { key: 'dashboard', label: 'اللوحة اللحظية' },
   { key: 'orders', label: 'بحث الطلبات' },
+  { key: 'wallet', label: 'شحن الرصيد' },
   { key: 'users', label: 'إدارة المستخدمين' },
   { key: 'stats', label: 'الإحصائيات' },
 ];
@@ -55,6 +57,7 @@ function Gate() {
 
       {page === 'dashboard' && <LiveDashboard />}
       {page === 'orders' && <OrdersPage />}
+      {page === 'wallet' && <WalletTopups />}
       {page === 'users' && <UsersManagement />}
       {page === 'stats' && <StatsPage />}
     </div>

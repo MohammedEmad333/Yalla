@@ -23,4 +23,10 @@ router.patch('/captains/:captainId/approve', ctrl.setCaptainApproval);
 router.get('/captains/:captainId/wallet', ctrl.captainWallet);
 router.post('/captains/:captainId/settle', ctrl.settleCaptain);
 
+// شحن رصيد المستخدمين — مراجعة الطلبات المعلّقة والموافقة/الرفض
+router.get('/wallet/topups', ctrl.listTopups);
+router.post('/wallet/topups/:txId/approve', ctrl.approveTopup);
+router.post('/wallet/topups/:txId/reject', ctrl.rejectTopup);
+router.get('/users/:userId/wallet', ctrl.userWallet);
+
 module.exports = router;

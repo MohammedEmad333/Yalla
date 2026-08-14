@@ -57,6 +57,7 @@ function buildOpenApiSpec() {
       { name: 'Orders', description: 'الطلبات ودورة حياتها' },
       { name: 'Captains', description: 'الكباتن والأرباح والمحفظة' },
       { name: 'Admin', description: 'الإدارة والإحصائيات' },
+      { name: 'Wallet', description: 'محفظة المستخدم وشحن الرصيد' },
       { name: 'Notifications', description: 'رموز أجهزة FCM' },
     ],
     paths: {
@@ -149,6 +150,60 @@ function buildOpenApiSpec() {
       '/admin/captains/{captainId}/settle': {
         post: op({ summary: 'تسوية عمولة', tags: ['Admin'], roles: ['admin'], params: ['captainId'],
           body: { amount: num } }),
+      },
+      '/admin/wallet/topups': {
+        get: op({ summary: 'طلبات شحن الرصيد (?status=pending|approved|rejected|all)',
+          tags: ['Admin'], roles: ['admin'] }),
+      },
+      '/admin/wallet/topups/{txId}/approve': {
+        post: op({ summary: 'الموافقة على شحن (يضيف الرصيد)', tags: ['Admin'], roles: ['admin'],
+          params: ['txId'], body: { note: str } }),
+      },
+      '/admin/wallet/topups/{txId}/reject': {
+        post: op({ summary: 'رفض شحن', tags: ['Admin'], roles: ['admin'], params: ['txId'],
+          body: { reason: str } }),
+      },
+      '/admin/users/{userId}/wallet': {
+        get: op({ summary: 'محفظة مستخدم + حركاته', tags: ['Admin'], roles: ['admin'], params: ['userId'] }),
+      },
+
+      // ── Wallet (User) ──
+      '/wallet': { get: op({ summary: 'رصيد محفظتي', tags: ['Wallet'], roles: ['user'] }) },
+      '/wallet/methods': {
+        get: op({ summary: 'طرق الشحن المتاحة وتعليماتها', tags: ['Wallet'], roles: ['user'] }),
+      },
+      '/wallet/transactions': {
+        get: op({ summary: 'سجلّ حركات محفظتي', tags: ['Wallet'], roles: ['user'] }),
+      },
+      '/wallet/topup': {
+        post: {
+          summary: 'طلب شحن رصيد يدوي (رفع إيصال) (user)',
+          tags: ['Wallet'],
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'multipart/form-data': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    method: str,
+                    amount: num,
+                    referenceNumber: str,
+                    senderName: str,
+                    receipt: { type: 'string', format: 'binary' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'نجاح' },
+            201: { description: 'أُنشئ طلب الشحن (قيد المراجعة)' },
+            400: { description: 'مدخلات غير صالحة' },
+            401: { description: 'غير مصادَق' },
+          },
+        },
       },
 
       // ── Notifications ──
