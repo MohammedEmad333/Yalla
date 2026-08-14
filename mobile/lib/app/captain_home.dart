@@ -6,6 +6,7 @@ import '../core/network/api_client.dart';
 import '../core/realtime/socket_service.dart';
 import '../features/captain/active_order_screen.dart';
 import '../features/captain/earnings_screen.dart';
+import '../features/captain/wallet_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import 'profile_screen.dart';
 
@@ -39,8 +40,9 @@ class _CaptainHomeState extends State<CaptainHome> {
     final pages = [
       ActiveOrderScreen(api: widget.api, socket: widget.socket),
       EarningsScreen(api: widget.api, socket: widget.socket),
+      CaptainWalletScreen(api: widget.api, socket: widget.socket),
       NotificationsScreen(api: widget.api, socket: widget.socket),
-      ProfileScreen(onLogout: widget.onLogout),
+      ProfileScreen(api: widget.api, onLogout: widget.onLogout),
     ];
 
     return Scaffold(
@@ -50,7 +52,8 @@ class _CaptainHomeState extends State<CaptainHome> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.local_shipping), label: 'الطلب'),
-          NavigationDestination(icon: Icon(Icons.account_balance_wallet), label: 'أرباحي'),
+          NavigationDestination(icon: Icon(Icons.trending_up), label: 'أرباحي'),
+          NavigationDestination(icon: Icon(Icons.account_balance_wallet), label: 'محفظتي'),
           NavigationDestination(icon: Icon(Icons.notifications), label: 'الإشعارات'),
           NavigationDestination(icon: Icon(Icons.person), label: 'حسابي'),
         ],
