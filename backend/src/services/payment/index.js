@@ -41,6 +41,7 @@ function getAvailableMethods() {
   return Object.values(PAYMENT_METHODS).map((m) => ({
     key: m.key,
     label: m.label,
+    color: m.color,
     mode: m.mode,
     account: m.account,
     instructions: m.instructions,

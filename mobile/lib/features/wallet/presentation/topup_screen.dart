@@ -158,7 +158,24 @@ class _TopupScreenState extends State<TopupScreen> {
     );
   }
 
-  // اختيار الطريقة عبر رقائق قابلة للتحديد
+  // لون علامة كل طريقة (يأتي من الخادم كـ #RRGGBB) مع لون احتياطي
+  Color _methodColor(Map method) {
+    final hex = method['color'];
+    if (hex is String && hex.startsWith('#') && hex.length == 7) {
+      return Color(int.parse('FF${hex.substring(1)}', radix: 16));
+    }
+    return YallaColors.primary;
+  }
+
+  // أيقونة كل طريقة: بنك للبنك، محفظة للمحافظ
+  IconData _methodIcon(String? key) => switch (key) {
+        'bank_of_palestine' => Icons.account_balance,
+        'jawwal_pay' => Icons.account_balance_wallet,
+        'palpay' => Icons.account_balance_wallet,
+        _ => Icons.payments_outlined,
+      };
+
+  // اختيار الطريقة عبر رقائق ملوّنة بلون كل بنك/محفظة مع أيقونته
   Widget _methodSelector() {
     return Wrap(
       spacing: 8,
@@ -166,44 +183,66 @@ class _TopupScreenState extends State<TopupScreen> {
       children: _methods.map((m) {
         final method = Map<String, dynamic>.from(m as Map);
         final selected = _selected?['key'] == method['key'];
+        final color = _methodColor(method);
         return ChoiceChip(
+          showCheckmark: false,
+          avatar: Icon(_methodIcon(method['key'] as String?),
+              size: 18, color: selected ? Colors.white : color),
           label: Text(method['label'] as String? ?? ''),
           selected: selected,
+          selectedColor: color,
+          backgroundColor: color.withValues(alpha: 0.12),
+          side: BorderSide(color: color.withValues(alpha: selected ? 1 : 0.35)),
+          labelStyle: TextStyle(
+            color: selected ? Colors.white : color,
+            fontWeight: FontWeight.w700,
+          ),
           onSelected: (_) => setState(() => _selected = method),
         );
       }).toList(),
     );
   }
 
-  // بطاقة تعليمات التحويل + بيانات الحساب للطريقة المختارة
+  // بطاقة تعليمات التحويل + بيانات الحساب — بلون البنك/المحفظة المختار
   Widget _instructionsCard() {
     final account = _selected!['account'] as Map? ?? {};
+    final color = _methodColor(_selected!);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: YallaColors.secondaryContainer,
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Icon(_methodIcon(_selected!['key'] as String?), size: 20, color: color),
+              const SizedBox(width: 8),
+              Text(_selected!['label'] as String? ?? '',
+                  style: TextStyle(fontWeight: FontWeight.w800, color: color, fontSize: 16)),
+            ],
+          ),
+          const SizedBox(height: 10),
           Text(_selected!['instructions'] as String? ?? '',
-              style: const TextStyle(color: YallaColors.onSecondaryContainer, height: 1.5)),
-          const Divider(height: 20),
-          if (account['name'] != null) _accountRow('الاسم', account['name'].toString()),
-          if (account['number'] != null) _accountRow('الحساب/الرقم', account['number'].toString()),
-          if (account['iban'] != null) _accountRow('IBAN', account['iban'].toString()),
+              style: const TextStyle(color: YallaColors.onSurface, height: 1.5)),
+          Divider(height: 20, color: color.withValues(alpha: 0.25)),
+          if (account['name'] != null) _accountRow('الاسم', account['name'].toString(), color),
+          if (account['number'] != null) _accountRow('الحساب/الرقم', account['number'].toString(), color),
+          if (account['iban'] != null) _accountRow('IBAN', account['iban'].toString(), color),
         ],
       ),
     );
   }
 
-  Widget _accountRow(String label, String value) => Padding(
+  Widget _accountRow(String label, String value, Color color) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(
           children: [
-            Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w700, color: YallaColors.secondaryDeep)),
-            Expanded(child: Text(value, style: const TextStyle(color: YallaColors.onSecondaryContainer))),
+            Text('$label: ', style: TextStyle(fontWeight: FontWeight.w700, color: color)),
+            Expanded(child: SelectableText(value, style: const TextStyle(color: YallaColors.onSurface))),
           ],
         ),
       );
