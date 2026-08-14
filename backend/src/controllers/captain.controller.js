@@ -3,6 +3,7 @@
 const Captain = require('../models/Captain');
 const io = require('../sockets/io');
 const orderService = require('../services/order.service');
+const captainWalletService = require('../services/captainWallet.service');
 const { CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 // تبديل حالة الكابتن (online/offline) عبر REST — بديل لحدث السوكت
@@ -81,4 +82,50 @@ async function reviews(req, res, next) {
   }
 }
 
-module.exports = { toggleStatus, myOrders, myEarnings, myWallet, reviews };
+// ── محفظة أرباح الكابتن وطلبات السحب (Card 19) ──────────────────
+
+// رصيد الكابتن القابل للسحب (الأرباح − المسحوب − المعلّق)
+async function myBalance(req, res, next) {
+  try {
+    const balance = await captainWalletService.getBalance(req.auth.id);
+    res.json(balance);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// سجلّ طلبات سحب الكابتن
+async function myWithdrawals(req, res, next) {
+  try {
+    const items = await captainWalletService.listWithdrawals(req.auth.id);
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// الكابتن يطلب سحب أموال (المبلغ + طريقة السحب + رقم الجوال)
+async function requestWithdrawal(req, res, next) {
+  try {
+    const { amount, method, phone } = req.body;
+    const withdrawal = await captainWalletService.requestWithdrawal(req.auth.id, {
+      amount,
+      method,
+      phone,
+    });
+    res.status(201).json(withdrawal);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  toggleStatus,
+  myOrders,
+  myEarnings,
+  myWallet,
+  reviews,
+  myBalance,
+  myWithdrawals,
+  requestWithdrawal,
+};

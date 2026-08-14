@@ -15,6 +15,9 @@ const captainSchema = new mongoose.Schema(
     vehicleType: { type: String, enum: ['bicycle', 'motorcycle'], default: 'motorcycle' },
     vehiclePlate: { type: String, trim: true },
 
+    // الصورة الشخصية لصفحة "حسابي" (Card 17)
+    avatarUrl: { type: String, default: '' },
+
     // حالة التوفّر — يتحكّم بها الكابتن من التطبيق
     status: {
       type: String,

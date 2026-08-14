@@ -15,6 +15,11 @@ router.get('/me/orders', authorize(ROLES.CAPTAIN), ctrl.myOrders);
 router.get('/me/earnings', authorize(ROLES.CAPTAIN), ctrl.myEarnings);
 router.get('/me/wallet', authorize(ROLES.CAPTAIN), ctrl.myWallet);
 
+// الكابتن: محفظة الأرباح القابلة للسحب وطلبات السحب (Card 19)
+router.get('/me/balance', authorize(ROLES.CAPTAIN), ctrl.myBalance);
+router.get('/me/withdrawals', authorize(ROLES.CAPTAIN), ctrl.myWithdrawals);
+router.post('/me/withdrawals', authorize(ROLES.CAPTAIN), ctrl.requestWithdrawal);
+
 // مراجعات كابتن — متاحة لأي حساب مصادَق عليه (مستخدم/كابتن/أدمن)
 router.get('/:id/reviews', ctrl.reviews);
 

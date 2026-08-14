@@ -23,6 +23,10 @@ router.patch('/captains/:captainId/approve', ctrl.setCaptainApproval);
 router.get('/captains/:captainId/wallet', ctrl.captainWallet);
 router.post('/captains/:captainId/settle', ctrl.settleCaptain);
 
+// طلبات سحب أرباح الكباتن (Card 19): عرض + تنفيذ "تم التحويل"/رفض
+router.get('/withdrawals', ctrl.listWithdrawals);
+router.patch('/withdrawals/:withdrawalId', ctrl.processWithdrawal);
+
 // شحن رصيد المستخدمين — مراجعة الطلبات المعلّقة والموافقة/الرفض
 router.get('/wallet/topups', ctrl.listTopups);
 router.post('/wallet/topups/:txId/approve', ctrl.approveTopup);

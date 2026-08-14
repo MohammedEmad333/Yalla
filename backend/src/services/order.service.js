@@ -8,6 +8,7 @@ const env = require('../config/env');
 const logger = require('../utils/logger');
 const pricing = require('./pricing.service');
 const notifications = require('./notification.service');
+const chat = require('./chat.service');
 const User = require('../models/User');
 const { addRating } = require('../utils/rating');
 const { canUserCancel, canCaptainReject } = require('../utils/orderRules');
@@ -18,6 +19,8 @@ const { computeSettlement, summarizeWallet } = require('../utils/wallet');
 const { estimateEtaMinutes } = require('../utils/eta');
 const { validateScheduledAt, isDue } = require('../utils/schedule');
 const { normalizeIdempotencyKey } = require('../utils/idempotency');
+const { normalizeLocation } = require('../utils/address');
+const { generateDeliveryCode, verifyDeliveryCode } = require('../utils/deliveryCode');
 const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 /**
@@ -43,10 +46,15 @@ async function createOrder(userId, payload, idempotencyKey) {
     if (existing) return existing;
   }
 
+  // تطبيع مواقع الاستلام/التسليم: نحفظ الحقول المُفصّلة (الحي/الشارع/التفاصيل/الملاحظة)
+  // ونركّب عنوانًا موحّدًا `address` إن لم يُرسله العميل (Card 21).
+  const pickup = normalizeLocation(payload.pickup);
+  const dropoff = normalizeLocation(payload.dropoff);
+
   // نحسب المسافة والسعر والزمن في الخادم (مصدر الحقيقة) بدل الثقة بقيم العميل.
   const { distanceKm, price } = pricing.quote(
-    payload.pickup.location.coordinates,
-    payload.dropoff.location.coordinates,
+    pickup.location.coordinates,
+    dropoff.location.coordinates,
     payload.vehicleType
   );
   const etaMinutes = estimateEtaMinutes(distanceKm, payload.vehicleType);
@@ -56,16 +64,20 @@ async function createOrder(userId, payload, idempotencyKey) {
   if (scheduleError) throw Object.assign(new Error(scheduleError), { statusCode: 400 });
   const scheduledAt = payload.scheduledAt ? new Date(payload.scheduledAt) : null;
 
+  // رمز تسليم الطلب (Card 20) — يُعطى لصاحب الطلب لتأكيد الاستلام لاحقًا.
+  const deliveryCode = generateDeliveryCode();
+
   let order;
   try {
     order = await Order.create({
       user: userId,
-      pickup: payload.pickup,
-      dropoff: payload.dropoff,
+      pickup,
+      dropoff,
       packageNote: payload.packageNote,
       etaMinutes,
       price,
       distanceKm,
+      deliveryCode,
       scheduledAt,
       idempotencyKey: key || undefined,
       status: ORDER_STATUS.PENDING,
@@ -85,6 +97,16 @@ async function createOrder(userId, payload, idempotencyKey) {
     action: 'ORDER_CREATED',
     toStatus: ORDER_STATUS.PENDING,
   });
+
+  // إشعار صاحب الطلب برمز التسليم (Card 20): داخل التطبيق + Push (آمن بلا FCM).
+  const codePayload = notifications.deliveryCodePayload(order, deliveryCode);
+  notifications.createInApp(userId, 'user', codePayload);
+  User.findById(userId)
+    .select('deviceTokens')
+    .then((u) => {
+      if (u?.deviceTokens?.length) return notifications.sendToTokens(u.deviceTokens, codePayload);
+    })
+    .catch((e) => logger.warn('تعذّر إرسال رمز التسليم للمستخدم:', e.message));
 
   // نُحمّل بيانات صاحب الطلب لتظهر لوحة الأدمن اسمه فورًا (Card: اسم صاحب الطلب)
   await order.populate('user', 'name lastName phone');
@@ -311,8 +333,9 @@ async function pushOrderStatusToUser(order) {
   }
 }
 
-async function updateOrderStatus(captainId, orderId, nextStatus, reason = '') {
-  const order = await Order.findById(orderId);
+async function updateOrderStatus(captainId, orderId, nextStatus, reason = '', deliveryCode = '') {
+  // نطلب رمز التسليم صراحةً (select:false) لأنّنا قد نحتاجه للتحقّق عند التسليم.
+  const order = await Order.findById(orderId).select('+deliveryCode');
   if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
   if (String(order.captain) !== String(captainId)) {
     throw Object.assign(new Error('هذا الطلب غير مُسنَد إليك'), { statusCode: 403 });
@@ -324,6 +347,16 @@ async function updateOrderStatus(captainId, orderId, nextStatus, reason = '') {
       new Error(`انتقال غير مسموح: ${order.status} -> ${nextStatus}`),
       { statusCode: 400 }
     );
+  }
+
+  // تأكيد التسليم برمز صاحب الطلب (Card 20): لا يُقبل "تم التسليم" إلا برمز صحيح.
+  if (nextStatus === ORDER_STATUS.DELIVERED) {
+    if (!verifyDeliveryCode(order.deliveryCode, deliveryCode)) {
+      throw Object.assign(
+        new Error('رمز التسليم غير صحيح — اطلبه من صاحب الطلب'),
+        { statusCode: 400 }
+      );
+    }
   }
 
   const from = order.status;
@@ -345,9 +378,10 @@ async function updateOrderStatus(captainId, orderId, nextStatus, reason = '') {
   }
   await order.save();
 
-  // عند التسليم أو الإلغاء: حرّر الكابتن ليصبح متاحًا مجددًا
+  // عند التسليم أو الإلغاء: حرّر الكابتن ليصبح متاحًا مجددًا + احذف رسائل الدردشة (Card 18)
   if (nextStatus === ORDER_STATUS.DELIVERED || nextStatus === ORDER_STATUS.CANCELLED) {
     await releaseCaptain(captainId);
+    chat.purgeOrderMessages(order._id); // بلا انتظار — لا يعيق تدفّق الحالة
   }
 
   await writeLog({
@@ -370,12 +404,13 @@ async function updateOrderStatus(captainId, orderId, nextStatus, reason = '') {
  * تحريره، ثم إعادة الإسناد التلقائي لأقرب كابتن آخر. يُستخدم من الرفض اليدوي
  * ومن انتهاء مهلة القبول.
  */
-async function returnToPoolAndReassign(order, captainId, { actorRole, action }) {
+async function returnToPoolAndReassign(order, captainId, { actorRole, action, reason = '' }) {
   const from = order.status;
   order.status = ORDER_STATUS.PENDING;
   order.captain = null;
   order.timeline.assignedAt = null;
   order.timeline.acceptedAt = null;
+  if (reason) order.cancelReason = reason; // ملاحظة سبب الرفض (Card 24)
   if (captainId && !order.rejectedBy.map(String).includes(String(captainId))) {
     order.rejectedBy.push(captainId);
   }
@@ -389,6 +424,7 @@ async function returnToPoolAndReassign(order, captainId, { actorRole, action }) 
     action,
     fromStatus: from,
     toStatus: ORDER_STATUS.PENDING,
+    meta: reason ? { reason } : {},
   });
 
   // يعود للأدمن كطلب معلّق + إعلام المستخدم (باسم صاحب الطلب)
@@ -416,9 +452,13 @@ async function returnToPoolAndReassign(order, captainId, { actorRole, action }) 
 }
 
 /**
- * رفض الكابتن للطلب (قبل الاستلام): يعيده للمجمّع ويُعاد إسناده لكابتن آخر.
+ * رفض الكابتن للطلب (قبل الاستلام): يسجّل ملاحظة سبب الرفض، يعيد الطلب للمجمّع
+ * ويُعاد إسناده لكابتن آخر، ثم يجعل الكابتن الرافض "غير متصل" (Card 24).
+ * @param {string} captainId
+ * @param {string} orderId
+ * @param {string} reason  ملاحظة سبب الرفض (مطلوبة من واجهة الكابتن)
  */
-async function rejectOrder(captainId, orderId) {
+async function rejectOrder(captainId, orderId, reason = '') {
   const order = await Order.findById(orderId);
   if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
   if (String(order.captain) !== String(captainId)) {
@@ -428,10 +468,21 @@ async function rejectOrder(captainId, orderId) {
     throw Object.assign(new Error('لا يمكن رفض الطلب في حالته الحالية'), { statusCode: 400 });
   }
 
-  return returnToPoolAndReassign(order, captainId, {
+  const result = await returnToPoolAndReassign(order, captainId, {
     actorRole: 'captain',
     action: 'ORDER_REJECTED',
+    reason: (reason || '').toString().trim(),
   });
+
+  // بعد الرفض: الكابتن يصبح غير متصل (Card 24). نتجاوز إعادة تعيينه online
+  // التي تمّت داخل returnToPoolAndReassign، ونُعلم الأدمن ليختفي من المتاحين.
+  await Captain.findByIdAndUpdate(captainId, { status: CAPTAIN_STATUS.OFFLINE });
+  io.get().to(ROOMS.admins()).emit(EVENTS.CAPTAIN_STATUS_CHANGED, {
+    captainId,
+    status: CAPTAIN_STATUS.OFFLINE,
+  });
+
+  return result;
 }
 
 /**
@@ -489,6 +540,7 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
   await order.save();
 
   await releaseCaptain(captainId); // تحرير الكابتن إن كان مُسنَدًا
+  chat.purgeOrderMessages(order._id); // حذف رسائل الدردشة بعد الإلغاء (Card 18)
 
   await writeLog({
     order: order._id,

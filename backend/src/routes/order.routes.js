@@ -51,6 +51,10 @@ router.patch('/:orderId/auto-assign', authorize(ROLES.ADMIN), ctrl.autoAssign);
 router.patch('/:orderId/status', authorize(ROLES.CAPTAIN), ctrl.updateStatus);
 router.patch('/:orderId/reject', authorize(ROLES.CAPTAIN), ctrl.rejectOrder);
 
+// دردشة الطلب بين صاحب الطلب والكابتن خلال التوصيل (Card 18)
+router.get('/:orderId/messages', authorize(ROLES.USER, ROLES.CAPTAIN, ROLES.ADMIN), ctrl.listMessages);
+router.post('/:orderId/messages', authorize(ROLES.USER, ROLES.CAPTAIN), ctrl.sendMessage);
+
 // أي طرف مصرّح له (المالك/الكابتن المُسنَد/الأدمن) يجلب طلبًا للتتبّع
 // التحقّق الدقيق من الملكيّة يتمّ داخل طبقة الخدمة
 router.get('/:orderId', ctrl.getOrder);

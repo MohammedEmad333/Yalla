@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 const User = require('../models/User');
 const Captain = require('../models/Captain');
+const { avatarUrlFor } = require('../middlewares/upload.middleware');
 const { ROLES } = require('../utils/constants');
 
 // توليد توكن JWT يحمل المعرّف والدور
@@ -109,16 +110,19 @@ async function registerCaptain(req, res, next) {
   }
 }
 
-// جلب بيانات الحساب الحالي من التوكن — يُستخدم لاستعادة الجلسة عند فتح التطبيق
+// جلب بيانات الحساب الحالي من التوكن — يُستخدم لاستعادة الجلسة عند فتح التطبيق.
+// يشمل بيانات صفحة "حسابي" (Card 17): الصورة الشخصية، البريد، المدينة...
 async function me(req, res, next) {
   try {
     const { id, role } = req.auth;
     if (role === ROLES.CAPTAIN) {
-      const captain = await Captain.findById(id).select('name phone status vehicleType activeOrder');
+      const captain = await Captain.findById(id).select(
+        'name phone status vehicleType vehiclePlate avatarUrl activeOrder rating'
+      );
       if (!captain) return res.status(404).json({ message: 'الحساب غير موجود' });
       return res.json({ role, captain });
     }
-    const user = await User.findById(id).select('name lastName phone email role');
+    const user = await User.findById(id).select('name lastName phone email city avatarUrl role');
     if (!user) return res.status(404).json({ message: 'الحساب غير موجود' });
     res.json({ role: user.role, user });
   } catch (err) {
@@ -126,4 +130,65 @@ async function me(req, res, next) {
   }
 }
 
-module.exports = { registerUser, loginUser, loginCaptain, registerCaptain, me };
+// تحديث بيانات الحساب الحالي (Card 17): يقبل حقولًا مختارة فقط حسب الدور.
+async function updateProfile(req, res, next) {
+  try {
+    const { id, role } = req.auth;
+    if (role === ROLES.CAPTAIN) {
+      const allowed = pick(req.body, ['name', 'vehiclePlate']);
+      const captain = await Captain.findByIdAndUpdate(id, allowed, {
+        new: true,
+        runValidators: true,
+      }).select('name phone status vehicleType vehiclePlate avatarUrl rating');
+      if (!captain) return res.status(404).json({ message: 'الحساب غير موجود' });
+      return res.json({ role, captain });
+    }
+
+    const allowed = pick(req.body, ['name', 'lastName', 'email', 'city']);
+    const user = await User.findByIdAndUpdate(id, allowed, {
+      new: true,
+      runValidators: true,
+    }).select('name lastName phone email city avatarUrl role');
+    if (!user) return res.status(404).json({ message: 'الحساب غير موجود' });
+    res.json({ role: user.role, user });
+  } catch (err) {
+    // بريد مكرّر (فهرس فريد) → رسالة واضحة بدل خطأ 500
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'البريد الإلكتروني مستخدَم بالفعل' });
+    }
+    next(err);
+  }
+}
+
+// رفع/تحديث الصورة الشخصية (Card 17) — الملفّ في req.file عبر multer.
+async function uploadAvatar(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'أرفق صورة' });
+    const url = avatarUrlFor(req.file.filename);
+    const { id, role } = req.auth;
+    const Model = role === ROLES.CAPTAIN ? Captain : User;
+    await Model.findByIdAndUpdate(id, { avatarUrl: url });
+    res.json({ ok: true, avatarUrl: url });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// اختيار مجموعة مفاتيح مسموح بها فقط من جسم الطلب (يتجاهل الفارغ/غير المُرسَل)
+function pick(obj = {}, keys = []) {
+  const out = {};
+  for (const k of keys) {
+    if (obj[k] !== undefined && obj[k] !== null) out[k] = obj[k];
+  }
+  return out;
+}
+
+module.exports = {
+  registerUser,
+  loginUser,
+  loginCaptain,
+  registerCaptain,
+  me,
+  updateProfile,
+  uploadAvatar,
+};

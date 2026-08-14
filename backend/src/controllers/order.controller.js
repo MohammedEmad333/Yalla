@@ -1,6 +1,7 @@
 'use strict';
 
 const orderService = require('../services/order.service');
+const chatService = require('../services/chat.service');
 const { toCsv } = require('../utils/csv');
 const { buildTimeline } = require('../utils/timeline');
 const { estimateEtaMinutes } = require('../utils/eta');
@@ -66,18 +67,25 @@ async function autoAssign(req, res, next) {
 async function updateStatus(req, res, next) {
   try {
     const { orderId } = req.params;
-    const { status, reason } = req.body;
-    const order = await orderService.updateOrderStatus(req.auth.id, orderId, status, reason);
+    const { status, reason, deliveryCode } = req.body;
+    const order = await orderService.updateOrderStatus(
+      req.auth.id,
+      orderId,
+      status,
+      reason,
+      deliveryCode
+    );
     res.json(order);
   } catch (err) {
     next(err);
   }
 }
 
-// الكابتن يرفض الطلب المُسنَد (يعيده للمجمّع ويُعاد إسناده)
+// الكابتن يرفض الطلب المُسنَد مع ملاحظة سبب الرفض (يعيده للمجمّع ويُعاد إسناده) — Card 24
 async function rejectOrder(req, res, next) {
   try {
-    const order = await orderService.rejectOrder(req.auth.id, req.params.orderId);
+    const { reason } = req.body || {};
+    const order = await orderService.rejectOrder(req.auth.id, req.params.orderId, reason);
     res.json(order);
   } catch (err) {
     next(err);
@@ -200,6 +208,33 @@ async function getOrder(req, res, next) {
   }
 }
 
+// دردشة الطلب (Card 18): إرسال رسالة وجلب سجلّ الرسائل — لأطراف الطلب فقط
+async function sendMessage(req, res, next) {
+  try {
+    const { text } = req.body || {};
+    const message = await chatService.sendMessage(
+      req.params.orderId,
+      { id: req.auth.id, role: req.auth.role },
+      text
+    );
+    res.status(201).json(message);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listMessages(req, res, next) {
+  try {
+    const items = await chatService.listMessages(req.params.orderId, {
+      id: req.auth.id,
+      role: req.auth.role,
+    });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getQuote,
   createOrder,
@@ -215,4 +250,6 @@ module.exports = {
   getOrder,
   getMyOrders,
   rateOrder,
+  sendMessage,
+  listMessages,
 };

@@ -5,6 +5,7 @@ const Captain = require('../models/Captain');
 const statsService = require('../services/stats.service');
 const orderService = require('../services/order.service');
 const walletService = require('../services/wallet.service');
+const captainWalletService = require('../services/captainWallet.service');
 const { ROLES } = require('../utils/constants');
 
 // مؤشّرات الأداء للوحة التحكّم
@@ -146,6 +147,37 @@ async function userWallet(req, res, next) {
   }
 }
 
+// ── طلبات سحب أرباح الكباتن (Card 19) ────────────────────────────
+
+// قائمة طلبات السحب (?status=pending|done|rejected)
+async function listWithdrawals(req, res, next) {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const items = await captainWalletService.listAllWithdrawals({
+      status: req.query.status,
+      limit,
+    });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// تنفيذ طلب سحب: "تم التحويل" (done) أو "رفض" (rejected)
+async function processWithdrawal(req, res, next) {
+  try {
+    const { action, note } = req.body || {};
+    const result = await captainWalletService.processWithdrawal(
+      req.params.withdrawalId,
+      action,
+      note
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getStats,
   listUsers,
@@ -158,4 +190,6 @@ module.exports = {
   approveTopup,
   rejectTopup,
   userWallet,
+  listWithdrawals,
+  processWithdrawal,
 };

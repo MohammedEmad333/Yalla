@@ -45,3 +45,21 @@ test('quote: يُرجع مسافة وسعر وعملة صحيحة', () => {
   assert.ok(q.price >= pricing.TARIFF.minFare);
   assert.equal(q.currency, 'ILS');
 });
+
+// نموذج التسعير المطلوب (Card 23): "كيلو ونص مسافة سعر عشرة شيكل"
+test('calculatePrice: مسافة ١.٥ كم = ١٠ ₪ بالضبط (لكلا نوعَي المركبة)', () => {
+  assert.equal(pricing.calculatePrice(1.5, 'motorcycle'), 10);
+  assert.equal(pricing.calculatePrice(1.5, 'bicycle'), 10);
+});
+
+test('calculatePrice: أقلّ من كيلو ونص لا يزيد عن السعر الأساسي (١٠ ₪)', () => {
+  assert.equal(pricing.calculatePrice(0.5, 'motorcycle'), 10);
+  assert.equal(pricing.calculatePrice(1.0, 'bicycle'), 10);
+});
+
+test('calculatePrice: كل كيلومتر إضافي بعد كيلو ونص يُحسب بالتعرفة', () => {
+  // درّاجة: ٢.٥ كم = ١٠ + (١ × ٥) = ١٥ ₪
+  assert.equal(pricing.calculatePrice(2.5, 'bicycle'), 15);
+  // موتوسيكل: ٢.٥ كم = ١٠ + (١ × ٥ × ١.١٥) = ١٥.٧٥ ≈ ١٦ ₪
+  assert.equal(pricing.calculatePrice(2.5, 'motorcycle'), 16);
+});

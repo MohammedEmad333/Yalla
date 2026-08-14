@@ -98,13 +98,23 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
   Future<void> _advance(String next) async {
     final id = _order?['_id'];
     if (id == null) return;
+
+    // Card 20: عند "تم التسليم" نطلب رمز التسليم من صاحب الطلب لتأكيد الاستلام
+    String? deliveryCode;
+    if (next == 'delivered') {
+      deliveryCode = await _askDeliveryCode();
+      if (deliveryCode == null) return; // ألغى الكابتن الإدخال
+    }
+
     setState(() => _busy = true);
     try {
-      final updated = await widget.api.patch('/orders/$id/status', {'status': next});
+      final body = {'status': next};
+      if (deliveryCode != null) body['deliveryCode'] = deliveryCode;
+      final updated = await widget.api.patch('/orders/$id/status', body);
       setState(() => _order = next == 'delivered' ? null : Map<String, dynamic>.from(updated));
       if (next == 'delivered') _snack('تم تسليم الطلب ✓');
     } on ApiException catch (e) {
-      _snack(e.message);
+      _snack(e.message); // يشمل "رمز التسليم غير صحيح"
     } catch (_) {
       _snack('تعذّر تحديث الحالة');
     } finally {
@@ -112,28 +122,56 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     }
   }
 
-  // رفض الطلب (قبل الاستلام) — يعيده للنظام ليُسنَد لكابتن آخر
-  Future<void> _reject() async {
-    final id = _order?['_id'];
-    if (id == null) return;
-    final confirm = await showDialog<bool>(
+  // نافذة إدخال رمز التسليم (Card 20)
+  Future<String?> _askDeliveryCode() {
+    final controller = TextEditingController();
+    return showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('رفض الطلب'),
-        content: const Text('سيُعاد الطلب للنظام لإسناده لكابتن آخر. متأكّد؟'),
+        title: const Text('رمز التسليم'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('اطلب من صاحب الطلب رمز التسليم (٤ أرقام) وأدخله لتأكيد التسليم.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              textAlign: TextAlign.center,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: '••••', counterText: ''),
+            ),
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('تراجع')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('رفض')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('تراجع')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('تأكيد التسليم'),
+          ),
         ],
       ),
     );
-    if (confirm != true) return;
+  }
+
+  // رفض الطلب (قبل الاستلام) — يعيده للنظام ليُسنَد لكابتن آخر.
+  // Card 24: يكتب الكابتن ملاحظة لسبب الرفض، وبعد الرفض يصبح "غير متصل".
+  Future<void> _reject() async {
+    final id = _order?['_id'];
+    if (id == null) return;
+    final reason = await _askRejectReason();
+    if (reason == null) return; // تراجع
 
     setState(() => _busy = true);
     try {
-      await widget.api.patch('/orders/$id/reject', {});
-      setState(() => _order = null);
-      _snack('تم رفض الطلب — بانتظار طلب جديد');
+      await widget.api.patch('/orders/$id/reject', {'reason': reason});
+      // أصبح الكابتن غير متصل تلقائيًا على الخادم — نعكس ذلك في الواجهة
+      setState(() {
+        _order = null;
+        _isOnline = false;
+      });
+      _snack('تم رفض الطلب — أصبحت غير متصل');
     } on ApiException catch (e) {
       _snack(e.message);
     } catch (_) {
@@ -141,6 +179,45 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  // نافذة كتابة سبب الرفض (Card 24) — مطلوبة قبل تأكيد الرفض
+  Future<String?> _askRejectReason() {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('سبب رفض الطلب'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('اكتب سبب الرفض. سيُعاد الطلب للنظام وستصبح غير متصل.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              maxLines: 3,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'مثال: بعيد عن موقعي / انشغلت بطلب آخر',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('تراجع')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: YallaColors.error),
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isEmpty) return; // السبب مطلوب
+              Navigator.pop(context, text);
+            },
+            child: const Text('تأكيد الرفض'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _snack(String msg) {
@@ -238,10 +315,13 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         order['user'] is Map ? Map<String, dynamic>.from(order['user']) : null;
     final String senderName = _senderName(sender);
     final String senderPhone = (sender?['phone'] ?? '').toString();
-    final String pickup = (order['pickup']?['address'] ?? '—').toString();
-    final String dropoff = (order['dropoff']?['address'] ?? '—').toString();
+    final Map<String, dynamic>? pickupLoc =
+        order['pickup'] is Map ? Map<String, dynamic>.from(order['pickup']) : null;
+    final Map<String, dynamic>? dropoffLoc =
+        order['dropoff'] is Map ? Map<String, dynamic>.from(order['dropoff']) : null;
     final String note = (order['packageNote'] ?? '').toString();
     final String price = '${order['price'] ?? 0} ₪';
+    final String distance = '${order['distanceKm'] ?? 0} كم';
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -280,11 +360,16 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
             dense: true,
           ),
 
-        // تفاصيل الطلب الحقيقية (نقطتا الاستلام والتسليم)
-        _detailTile(Icons.store, 'الاستلام', pickup),
-        _detailTile(Icons.flag, 'التسليم', dropoff),
-        if (note.isNotEmpty) _detailTile(Icons.note, 'ملاحظة', note),
-        _detailTile(Icons.payments, 'قيمة التوصيل', price),
+        // تفاصيل نقطتَي الاستلام والتسليم مع الحقول المُفصّلة (Card 21 + 25)
+        _detailTile(Icons.store, 'الاستلام', _addressDetail(pickupLoc)),
+        _detailTile(Icons.flag, 'التسليم', _addressDetail(dropoffLoc)),
+        if (note.isNotEmpty) _detailTile(Icons.inventory_2_outlined, 'وصف الشحنة', note),
+        Row(
+          children: [
+            Expanded(child: _detailTile(Icons.payments, 'قيمة التوصيل', price)),
+            Expanded(child: _detailTile(Icons.route, 'المسافة', distance)),
+          ],
+        ),
 
         const SizedBox(height: 24),
 
@@ -320,11 +405,34 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     );
   }
 
+  // بناء نصّ العنوان المُفصّل من الحقول: الحي ← الشارع ← التفاصيل ← الملاحظة (Card 21/25).
+  // يعود للعنوان الموحّد `address` إن لم تتوفّر الحقول المُفصّلة (توافق مع الطلبات القديمة).
+  String _addressDetail(Map<String, dynamic>? loc) {
+    if (loc == null) return '—';
+    final lines = <String>[];
+    void add(String label, dynamic value) {
+      final v = (value ?? '').toString().trim();
+      if (v.isNotEmpty) lines.add('$label: $v');
+    }
+
+    add('الحي', loc['neighborhood']);
+    add('الشارع', loc['street']);
+    add('التفاصيل', loc['details']);
+    add('ملاحظة', loc['note']);
+
+    if (lines.isEmpty) {
+      final address = (loc['address'] ?? '—').toString();
+      return address.isEmpty ? '—' : address;
+    }
+    return lines.join('\n');
+  }
+
   // عنصر عرض تفصيلة واحدة
   Widget _detailTile(IconData icon, String label, String value) => ListTile(
         leading: Icon(icon),
         title: Text(label),
         subtitle: Text(value),
+        isThreeLine: value.contains('\n'),
         dense: true,
       );
 }
