@@ -31,9 +31,11 @@ dependencies:
   # لإضافة خريطة مضمّنة داخل التطبيق لاحقًا: أضف google_maps_flutter + مفتاح Google Maps.
   url_launcher: ^6.2.5
 
-  # ملاحظة: إشعارات FCM أُزيلت من الإعداد الافتراضي لتسهيل أوّل تشغيل.
-  # لإعادتها: أضف firebase_core و firebase_messaging وأعد ملفّ push_service.dart،
-  # ثم شغّل `flutterfire configure`.
+  # إشعارات FCM (Card 22) — تصل حتى والتطبيق مغلق.
+  # التهيئة عبر lib/firebase_options.dart (تُولَّد بـ `flutterfire configure`)،
+  # والكود آمن: إن لم يُولَّد الملف بعد تبقى الإشعارات معطّلة دون كسر التطبيق.
+  firebase_core: ^3.6.0
+  firebase_messaging: ^15.1.3
 
 dev_dependencies:
   flutter_test:

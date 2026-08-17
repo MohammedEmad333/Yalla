@@ -82,10 +82,18 @@ flutter run
 > لإضافة خريطة **مضمّنة** داخل التطبيق لاحقًا: أعِد `google_maps_flutter` مع مفتاح
 > Google Maps في نفس الملفّ.
 
-## الإشعارات (مُزالة افتراضيًا لتسهيل التشغيل)
-**إشعارات FCM**: تتطلّب إعداد Firebase (`flutterfire configure`). لإعادتها أضِف
-`firebase_core`/`firebase_messaging` وأعِد `push_service.dart`. الإشعارات الداخلية
-(in-app) تعمل حاليًا وتصل **لحظيًا** عبر السوكت دون Firebase.
+## الإشعارات المنبثقة (FCM) — مُدمجة (Card 22)
+كود الإشعارات مُدمج بالفعل (`core/push/push_service.dart` + التهيئة في `main.dart`).
+الخطوة الوحيدة المتبقّية لتفعيلها: توليد إعدادات مشروعك بتشغيل — من مجلّد `mobile/`:
+
+```bash
+dart pub global activate flutterfire_cli
+flutterfire configure --project=yalla-c751d
+```
+
+هذا يستبدل `lib/firebase_options.dart` المؤقّت بقيم مشروعك الحقيقية. قبل تشغيله يبقى
+التطبيق يعمل بأمان مع تعطيل الإشعارات فقط. تفاصيل كاملة في `docs/07-firebase-fcm.md`.
+الإشعارات الداخلية (in-app) تعمل عبر السوكت بلا Firebase.
 
 > السماح بـ HTTP: للاتصال بالـ Backend عبر `http` من جهاز حقيقي، أضِف
 > `android:usesCleartextTraffic="true"` إلى وسم `<application>` في AndroidManifest.
