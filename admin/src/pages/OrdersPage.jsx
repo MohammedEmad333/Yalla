@@ -91,7 +91,10 @@ export default function OrdersPage() {
                 <td>{o.pickup?.address}</td>
                 <td>{o.dropoff?.address}</td>
                 <td>{o.captain?.name || '—'}</td>
-                <td style={{ fontWeight: 600 }}>{o.price} ₪</td>
+                {/* Card 28: بعد التسليم نعرض السعر الحقيقي (finalPrice) لا التقريبي */}
+                <td style={{ fontWeight: 600 }}>
+                  {(o.status === 'delivered' && Number(o.finalPrice) > 0 ? o.finalPrice : o.price)} ₪
+                </td>
               </tr>
             ))}
             {data.items.length === 0 && (

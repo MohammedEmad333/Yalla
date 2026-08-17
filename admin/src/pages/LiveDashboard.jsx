@@ -20,10 +20,116 @@ const STATUS_AR = {
   cancelled: 'ملغى',
 };
 
+// تنسيق وقت مختصر (يوم/شهر ساعة:دقيقة) لعرض المخطط الزمني
+const fmtTime = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const two = (n) => String(n).padStart(2, '0');
+  return `${two(d.getDate())}/${two(d.getMonth() + 1)} ${two(d.getHours())}:${two(d.getMinutes())}`;
+};
+
+// بناء أسطر العنوان المُفصّل (الحي/الشارع/التفاصيل/الملاحظة) لنقطة استلام أو تسليم
+const addressLines = (loc) => {
+  if (!loc) return [];
+  const parts = [
+    ['الحي', loc.neighborhood],
+    ['الشارع', loc.street],
+    ['التفاصيل', loc.details],
+    ['ملاحظة', loc.note],
+  ].filter(([, v]) => v && String(v).trim());
+  if (parts.length === 0 && loc.address) return [['العنوان', loc.address]];
+  return parts;
+};
+
+// لوحة كل تفاصيل الطلب (Card 29): تُعرض عند طلب الأدمن، وتضمّ الأسعار والمسافة
+// والزمن ووصف الشحنة والعناوين المُفصّلة والمخطط الزمني وسبب الإلغاء إن وُجد.
+function OrderDetails({ order: o }) {
+  const finalPrice = Number(o.finalPrice) || 0;
+  const timeline = o.timeline || {};
+  const steps = [
+    ['أُنشئ', o.createdAt],
+    ['أُسنِد', timeline.assignedAt],
+    ['قُبِل', timeline.acceptedAt],
+    ['استُلم', timeline.pickedUpAt],
+    ['سُلّم', timeline.deliveredAt],
+    ['أُلغي', timeline.cancelledAt],
+  ].filter(([, t]) => t);
+
+  const money = (v) => `${Number(v) || 0} ₪`;
+
+  return (
+    <div style={styles.details}>
+      {/* الأرقام: الأسعار والمسافة والزمن */}
+      <div style={styles.detailGrid}>
+        <Detail label="السعر التقريبي" value={money(o.price)} />
+        {finalPrice > 0 && <Detail label="السعر النهائي" value={money(finalPrice)} />}
+        {(Number(o.commission) || 0) > 0 && <Detail label="عمولة الشركة" value={money(o.commission)} />}
+        {(Number(o.captainNet) || 0) > 0 && <Detail label="صافي الكابتن" value={money(o.captainNet)} />}
+        <Detail label="المسافة" value={`${o.distanceKm ?? 0} كم`} />
+        <Detail label="الزمن التقديري" value={`${o.etaMinutes ?? 0} دقيقة`} />
+      </div>
+
+      {o.packageNote && <p style={styles.line}>📦 <b>وصف الشحنة:</b> {o.packageNote}</p>}
+
+      {/* العناوين المُفصّلة لنقطتَي الاستلام والتسليم */}
+      <AddressBlock title="📍 تفاصيل الاستلام" loc={o.pickup} />
+      <AddressBlock title="🏁 تفاصيل التسليم" loc={o.dropoff} />
+
+      {/* المخطط الزمني */}
+      {steps.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <b style={styles.detailHead}>المخطط الزمني</b>
+          {steps.map(([label, t]) => (
+            <p key={label} style={styles.timelineRow}>
+              <span>{label}</span>
+              <span style={styles.timelineTime}>{fmtTime(t)}</span>
+            </p>
+          ))}
+        </div>
+      )}
+
+      {o.status === 'cancelled' && o.cancelReason && (
+        <p style={styles.line}>🚫 <b>سبب الإلغاء:</b> {o.cancelReason}</p>
+      )}
+    </div>
+  );
+}
+
+// سطر «تسمية: قيمة» داخل شبكة الأرقام
+function Detail({ label, value }) {
+  return (
+    <div style={styles.detailCell}>
+      <span style={styles.detailLabel}>{label}</span>
+      <span style={styles.detailValue}>{value}</span>
+    </div>
+  );
+}
+
+// كتلة عنوان مُفصّل (الحي/الشارع/التفاصيل/الملاحظة + جهة الاتصال إن وُجدت)
+function AddressBlock({ title, loc }) {
+  const lines = addressLines(loc);
+  if (lines.length === 0) return null;
+  return (
+    <div style={{ marginTop: 8 }}>
+      <b style={styles.detailHead}>{title}</b>
+      {lines.map(([label, value]) => (
+        <p key={label} style={styles.line}><b>{label}:</b> {value}</p>
+      ))}
+      {(loc?.contactName || loc?.contactPhone) && (
+        <p style={styles.line}>
+          <b>جهة الاتصال:</b> {[loc.contactName, loc.contactPhone].filter(Boolean).join(' · ')}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function LiveDashboard() {
   const [orders, setOrders] = useState([]);       // الطلبات النشطة
   const [captains, setCaptains] = useState([]);    // الكباتن المتاحون
   const [selected, setSelected] = useState({});    // {orderId: captainId} للإسناد
+  const [expanded, setExpanded] = useState({});    // {orderId: bool} عرض كل التفاصيل (Card 29)
   const token = localStorage.getItem('token');     // توكن الأدمن
 
   // إنشاء اتصال السوكت مرة واحدة (مع تمرير التوكن في المصادقة)
@@ -158,7 +264,22 @@ export default function LiveDashboard() {
               )}
               <p style={styles.line}>📍 <b>استلام:</b> {o.pickup?.address}</p>
               <p style={styles.line}>🏁 <b>تسليم:</b> {o.dropoff?.address}</p>
-              {o.captain && <p style={styles.line}>🧑‍✈️ <b>الكابتن:</b> {o.captain?.name}</p>}
+              {o.captain && (
+                <p style={styles.line}>
+                  🧑‍✈️ <b>الكابتن:</b> {o.captain?.name}
+                  {o.captain?.phone ? ` · ${o.captain.phone}` : ''}
+                </p>
+              )}
+
+              {/* زرّ إظهار/إخفاء كل تفاصيل الطلب (Card 29) */}
+              <button
+                onClick={() => setExpanded((p) => ({ ...p, [o._id]: !p[o._id] }))}
+                style={styles.detailsToggle}
+              >
+                {expanded[o._id] ? '▲ إخفاء التفاصيل' : '▼ عرض كل التفاصيل'}
+              </button>
+
+              {expanded[o._id] && <OrderDetails order={o} />}
 
               {/* الإسناد متاح فقط للطلبات في حالة الانتظار */}
               {o.status === 'pending' && (
@@ -268,6 +389,47 @@ const styles = {
     fontWeight: 600,
   }),
   line: { margin: '4px 0', fontSize: 14, color: theme.color.onSurfaceVariant },
+  // زرّ إظهار/إخفاء التفاصيل (Card 29)
+  detailsToggle: {
+    marginTop: 10,
+    background: 'transparent',
+    color: theme.color.primary,
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 600,
+  },
+  // لوحة كل التفاصيل (Card 29)
+  details: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTop: `1px dashed ${theme.color.outlineStrong}`,
+  },
+  detailGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+    gap: 8,
+    marginBottom: 8,
+  },
+  detailCell: {
+    display: 'flex',
+    flexDirection: 'column',
+    background: theme.color.secondarySoft,
+    borderRadius: theme.radius.sm,
+    padding: '6px 10px',
+  },
+  detailLabel: { color: theme.color.muted, fontSize: 12 },
+  detailValue: { color: theme.color.onSurface, fontSize: 15, fontWeight: 700 },
+  detailHead: { display: 'block', fontSize: 13, color: theme.color.onSurface, margin: '2px 0 4px' },
+  timelineRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    margin: '2px 0',
+    fontSize: 13,
+    color: theme.color.onSurfaceVariant,
+  },
+  timelineTime: { color: theme.color.muted },
   assignRow: { display: 'flex', gap: 8, marginTop: 14 },
   select: { flex: 1, padding: 10, borderRadius: theme.radius.sm, border: `1px solid ${theme.color.outlineStrong}` },
   btn: {

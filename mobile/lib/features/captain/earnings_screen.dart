@@ -134,14 +134,22 @@ class _EarningsScreenState extends State<EarningsScreen> {
   // عنصر طلب في السجلّ
   Widget _orderTile(Map<String, dynamic> o) {
     final delivered = o['status'] == 'delivered';
+    // Card 28: بعد التسليم نعرض السعر الحقيقي (finalPrice) لا التقريبي (price).
+    final num shown = delivered ? _effectivePrice(o) : (o['price'] as num? ?? 0);
     return Card(
       child: ListTile(
         leading: Icon(delivered ? Icons.check_circle : Icons.info,
             color: delivered ? Colors.green : Colors.grey),
         title: Text('${o['dropoff']?['address'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(o['status'] ?? ''),
-        trailing: Text('${o['price'] ?? 0} ₪', style: const TextStyle(fontWeight: FontWeight.bold)),
+        trailing: Text('$shown ₪', style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
+  }
+
+  // السعر الفعلي للطلب المُسلَّم: الحقيقي إن وُجد، وإلا التقريبي (توافق مع القديم).
+  num _effectivePrice(Map<String, dynamic> o) {
+    final num finalPrice = o['finalPrice'] as num? ?? 0;
+    return finalPrice > 0 ? finalPrice : (o['price'] as num? ?? 0);
   }
 }

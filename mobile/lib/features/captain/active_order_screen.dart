@@ -129,10 +129,12 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     }
   }
 
-  // نافذة إدخال السعر الحقيقي عند التسليم (Card 27) — يجب ألّا يتجاوز السعر التقريبي.
-  // نُضيف نسبة الكابتن (٨٠٪) إلى محفظته عند تأكيد التسليم.
+  // نافذة إدخال السعر الحقيقي عند التسليم (Card 27 + 31).
+  // Card 31: تبدأ الخانة فارغة ولا نُظهر السعر التقريبي للكابتن، فيُدخل السعر
+  // الحقيقي بنفسه. يبقى التحقّق «ألّا يتجاوز التقريبي» قائمًا دون كشف قيمته
+  // (والخادم يفرضه أيضًا). نُضيف نسبة الكابتن (٨٠٪) إلى محفظته عند التأكيد.
   Future<num?> _askFinalPrice(num approx) {
-    final controller = TextEditingController(text: approx > 0 ? '$approx' : '');
+    final controller = TextEditingController(); // Card 31: تبدأ فارغة
     String? error;
     return showDialog<num>(
       context: context,
@@ -142,7 +144,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('حدّد السعر الحقيقي. لا يمكن أن يتجاوز السعر التقريبي (${approx.round()} ₪).'),
+              const Text('أدخل السعر الحقيقي للتوصيل الذي تحصّلت عليه من صاحب الطلب.'),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
@@ -150,6 +152,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                 textAlign: TextAlign.center,
                 autofocus: true,
                 decoration: InputDecoration(
+                  hintText: 'أدخل السعر',
                   suffixText: '₪',
                   errorText: error,
                   border: const OutlineInputBorder(),
@@ -166,8 +169,9 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                   setLocal(() => error = 'أدخل سعرًا صحيحًا');
                   return;
                 }
-                if (v > approx) {
-                  setLocal(() => error = 'لا يتجاوز السعر التقريبي (${approx.round()} ₪)');
+                // Card 31: نمنع تجاوز التقريبي دون إظهار قيمته للكابتن.
+                if (approx > 0 && v > approx) {
+                  setLocal(() => error = 'السعر الحقيقي يجب ألّا يتجاوز السعر التقريبي للطلب');
                   return;
                 }
                 Navigator.pop(context, v);
@@ -390,8 +394,14 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     final Map<String, dynamic>? dropoffLoc =
         order['dropoff'] is Map ? Map<String, dynamic>.from(order['dropoff']) : null;
     final String note = (order['packageNote'] ?? '').toString();
-    final String price = '${order['price'] ?? 0} ₪';
+    // Card 30: قيمة التوصيل — الحقيقية بعد التسليم، والتقريبية قبله.
+    final num finalPrice = order['finalPrice'] as num? ?? 0;
+    final num priceValue =
+        (status == 'delivered' && finalPrice > 0) ? finalPrice : (order['price'] as num? ?? 0);
+    final String priceLabel = status == 'delivered' ? 'السعر النهائي' : 'قيمة التوصيل';
+    final String price = '$priceValue ₪';
     final String distance = '${order['distanceKm'] ?? 0} كم';
+    final num etaMin = order['etaMinutes'] as num? ?? 0;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -434,16 +444,15 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         _detailTile(Icons.store, 'الاستلام', _addressDetail(pickupLoc)),
         _detailTile(Icons.flag, 'التسليم', _addressDetail(dropoffLoc)),
         if (note.isNotEmpty) _detailTile(Icons.inventory_2_outlined, 'وصف الشحنة', note),
-        Row(
-          children: [
-            Expanded(child: _detailTile(Icons.payments, 'قيمة التوصيل', price)),
-            Expanded(child: _detailTile(Icons.route, 'المسافة', distance)),
-          ],
-        ),
+        // Card 30: قيمة التوصيل والمسافة والزمن التقديري — بطاقات كاملة العرض
+        // (بدل صفّ Expanded/ListTile الهشّ) لضمان ظهورها دائمًا في لوحة الكابتن.
+        _detailTile(Icons.payments, priceLabel, price),
+        _detailTile(Icons.route, 'المسافة', distance),
+        if (etaMin > 0) _detailTile(Icons.schedule, 'الزمن التقديري', '${etaMin.round()} دقيقة'),
 
         const SizedBox(height: 24),
 
-        // زر فتح الملاحة عبر خرائط جوجل (نحو الاستلام قبل الاستلام، والتسليم بعده)
+        // زر فتح الملاحة عبر خرائط جوجل (نحو الاستلام قبل الاستلام، والتسليم بعده) — Card 30
         OutlinedButton.icon(
           onPressed: _openNavigation,
           icon: const Icon(Icons.navigation),

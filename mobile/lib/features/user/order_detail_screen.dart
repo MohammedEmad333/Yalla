@@ -37,6 +37,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
   }
 
+  // Card 28: السعر المعروض — الحقيقي (finalPrice) بعد التسليم، وإلا التقريبي.
+  num _shownPrice() {
+    final num finalPrice = _order!['finalPrice'] as num? ?? 0;
+    final delivered = _order!['status'] == 'delivered';
+    return (delivered && finalPrice > 0) ? finalPrice : (_order!['price'] as num? ?? 0);
+  }
+
+  // تسمية حقل السعر: «السعر» تقريبي قبل التسليم، و«السعر النهائي» بعده.
+  String _priceLabel() =>
+      _order!['status'] == 'delivered' ? 'السعر النهائي' : 'السعر التقريبي';
+
   // تنسيق مبسّط للتاريخ/الوقت (HH:mm)
   String _fmt(String? iso) {
     if (iso == null) return '';
@@ -67,7 +78,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             _row('رقم الطلب', '#${(_order!['_id'] as String).substring(_order!['_id'].length - 5)}'),
                             _row('الاستلام', _order!['pickup']?['address'] ?? ''),
                             _row('التسليم', _order!['dropoff']?['address'] ?? ''),
-                            _row('السعر', '${_order!['price']} ₪'),
+                            // Card 28: بعد التسليم نعرض السعر الحقيقي المدفوع لا التقريبي.
+                            _row(_priceLabel(), '${_shownPrice()} ₪'),
                             if (_order!['captain'] != null)
                               _row('الكابتن', _order!['captain']?['name'] ?? ''),
                           ],
