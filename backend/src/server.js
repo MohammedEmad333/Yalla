@@ -8,6 +8,7 @@ const app = require('./app');
 const connectDB = require('./config/db');
 const registerSocketHandlers = require('./sockets/order.socket');
 const { startScheduler } = require('./services/scheduler.service');
+const notifications = require('./services/notification.service');
 const logger = require('./utils/logger');
 
 // نقطة الإقلاع: نربط Express + Socket.io على خادم HTTP واحد
@@ -25,6 +26,11 @@ async function bootstrap() {
 
   // 4) تشغيل مُشغّل الطلبات المجدولة (يفعّل المستحقّ دوريًا)
   startScheduler({ intervalMs: 60_000 });
+
+  // فحص حالة إشعارات FCM عند الإقلاع (Card 22): يطبع ✅ إن كان المفتاح صالحًا،
+  // أو تحذيرًا إن كان مفقودًا/غير صالح — لتأكيد ضبط FCM_CREDENTIALS_JSON دون
+  // انتظار أوّل إرسال (الذي يتوقّف مبكّرًا إن لم توجد رموز أجهزة مسجّلة بعد).
+  notifications.isEnabled();
 
   // 5) بدء الاستماع
   server.listen(env.port, () => {

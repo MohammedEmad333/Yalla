@@ -7,6 +7,7 @@ import 'core/theme/app_theme.dart';
 import 'core/network/api_client.dart';
 import 'core/realtime/socket_service.dart';
 import 'core/storage/token_storage.dart';
+import 'core/push/push_service.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'app/user_home.dart';
@@ -17,8 +18,24 @@ final tokenStorage = TokenStorage();
 final apiClient = ApiClient(tokenStorage);
 final socketService = SocketService(tokenStorage);
 final authRepository = AuthRepository(apiClient, tokenStorage);
+final pushService = PushService(apiClient);
 
-void main() => runApp(const YallaApp());
+// تسجيل الخروج مع إلغاء رمز الإشعارات أولًا (قبل مسح التوكن ليمرّ الطلب مصادَقًا).
+Future<void> handleLogout() async {
+  await pushService.unregister();
+  await authRepository.logout();
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // تهيئة إشعارات FCM (آمنة: لا تُعطّل الإقلاع إن لم يُهيّأ Firebase بعد) — Card 22
+  await PushService.initialize();
+  // عند توفّر جلسة (دخول/استعادة) نسجّل رمز الجهاز في الخادم لاستقبال الإشعارات
+  authRepository.session.addListener(() {
+    if (authRepository.session.value != null) pushService.registerAfterLogin();
+  });
+  runApp(const YallaApp());
+}
 
 class YallaApp extends StatelessWidget {
   const YallaApp({super.key});
@@ -69,10 +86,10 @@ class _AuthGateState extends State<AuthGate> {
           return LoginScreen(authRepository: authRepository);
         }
         if (session.role == 'captain') {
-          return CaptainHome(api: apiClient, socket: socketService, onLogout: authRepository.logout);
+          return CaptainHome(api: apiClient, socket: socketService, onLogout: handleLogout);
         }
         // مستخدم أو أدمن (الأدمن يستخدم لوحة الويب، لكن نعرض له واجهة المستخدم هنا)
-        return UserHome(api: apiClient, socket: socketService, onLogout: authRepository.logout);
+        return UserHome(api: apiClient, socket: socketService, onLogout: handleLogout);
       },
     );
   }
