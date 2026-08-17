@@ -15,6 +15,7 @@ const { connect, disconnect, clearDb, state } = require('./setup');
 const User = require('../../src/models/User');
 const Captain = require('../../src/models/Captain');
 const orderService = require('../../src/services/order.service');
+const walletService = require('../../src/services/wallet.service');
 const { ORDER_STATUS, CAPTAIN_STATUS } = require('../../src/utils/constants');
 
 // إحداثيات اختبار [lng, lat]
@@ -35,7 +36,10 @@ beforeEach(clearDb);
 async function makeUser() {
   const u = new User({ name: 'مستخدم', phone: `u${Date.now()}${Math.random()}` });
   await u.setPassword('secret1');
-  return u.save();
+  await u.save();
+  // Card 27: نموّل محفظة المستخدم حتى تكفي للسعر التقريبي عند إنشاء الطلبات
+  await walletService.creditWallet(u._id, 100000);
+  return u;
 }
 async function makeCaptain(coords = PICKUP, extra = {}) {
   const c = new Captain({
@@ -100,15 +104,47 @@ test('انتقالات الحالة: accepted → picked_up → delivered تحر
 
   await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.ACCEPTED);
   await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.PICKED_UP);
-  // Card 20: التسليم يتطلّب رمز صاحب الطلب
+  // Card 20 + 27: التسليم يتطلّب رمز صاحب الطلب + السعر الحقيقي (≤ التقريبي)
   const delivered = await orderService.updateOrderStatus(
-    captain._id, order._id, ORDER_STATUS.DELIVERED, '', order.deliveryCode
+    captain._id, order._id, ORDER_STATUS.DELIVERED, '', order.deliveryCode, order.price
   );
 
   assert.equal(delivered.status, ORDER_STATUS.DELIVERED);
+  // Card 27: السعر الحقيقي محفوظ ونسبة الكابتن ٨٠٪
+  assert.equal(delivered.finalPrice, order.price);
+  assert.equal(delivered.captainNet, Math.round(order.price * 0.8));
   const freshCaptain = await Captain.findById(captain._id);
   assert.equal(freshCaptain.status, CAPTAIN_STATUS.ONLINE, 'يعود متاحًا بعد التسليم');
   assert.equal(freshCaptain.activeOrder, null);
+});
+
+test('التسليم: السعر الحقيقي أعلى من التقريبي مرفوض (Card 27)', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const [user, captain, admin] = [await makeUser(), await makeCaptain(), await makeUser()];
+  const order = await orderService.createOrder(user._id, orderPayload());
+  await orderService.assignOrder(admin._id, order._id, captain._id);
+  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.ACCEPTED);
+  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.PICKED_UP);
+
+  await assert.rejects(
+    () => orderService.updateOrderStatus(
+      captain._id, order._id, ORDER_STATUS.DELIVERED, '', order.deliveryCode, order.price + 50
+    ),
+    /يجب ألّا يتجاوز/
+  );
+});
+
+test('إنشاء الطلب: يُرفض إن لم يكفِ رصيد المحفظة (Card 27)', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  // مستخدم بلا رصيد (نُنشئه يدويًّا بلا تمويل)
+  const poor = new User({ name: 'فقير', phone: `p${Date.now()}${Math.random()}` });
+  await poor.setPassword('secret1');
+  await poor.save();
+
+  await assert.rejects(
+    () => orderService.createOrder(poor._id, orderPayload()),
+    /لا يكفي|اشحن محفظتك/
+  );
 });
 
 test('انتقال غير مسموح: pending → delivered مرفوض', async (t) => {
@@ -209,7 +245,7 @@ test('التقييم: يحدّث متوسّط الكابتن ويمنع التك
   await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.ACCEPTED);
   await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.PICKED_UP);
   await orderService.updateOrderStatus(
-    captain._id, order._id, ORDER_STATUS.DELIVERED, '', order.deliveryCode
+    captain._id, order._id, ORDER_STATUS.DELIVERED, '', order.deliveryCode, order.price
   );
 
   await orderService.rateOrder(user._id, order._id, 4);

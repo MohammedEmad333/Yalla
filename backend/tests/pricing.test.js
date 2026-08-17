@@ -23,43 +23,37 @@ test('haversineKm: التحرير ← الجيزة ضمن النطاق المت�
 });
 
 test('calculatePrice: يحترم الحدّ الأدنى للأجرة لمسافة صغيرة', () => {
-  const price = pricing.calculatePrice(0.1, 'motorcycle');
+  const price = pricing.calculatePrice(0.001);
   assert.ok(price >= pricing.TARIFF.minFare);
 });
 
 test('calculatePrice: يزيد السعر بزيادة المسافة', () => {
-  const near = pricing.calculatePrice(2, 'motorcycle');
-  const far = pricing.calculatePrice(10, 'motorcycle');
+  const near = pricing.calculatePrice(2);
+  const far = pricing.calculatePrice(10);
   assert.ok(far > near);
 });
 
-test('calculatePrice: الموتوسيكل أغلى من الدرّاجة لنفس المسافة', () => {
-  const bike = pricing.calculatePrice(8, 'bicycle');
-  const moto = pricing.calculatePrice(8, 'motorcycle');
-  assert.ok(moto >= bike);
-});
-
 test('quote: يُرجع مسافة وسعر وعملة صحيحة', () => {
-  const q = pricing.quote(TAHRIR, GIZA, 'motorcycle');
+  const q = pricing.quote(TAHRIR, GIZA);
   assert.ok(q.distanceKm > 0);
   assert.ok(q.price >= pricing.TARIFF.minFare);
   assert.equal(q.currency, 'ILS');
 });
 
-// نموذج التسعير المطلوب (Card 23): "كيلو ونص مسافة سعر عشرة شيكل"
-test('calculatePrice: مسافة ١.٥ كم = ١٠ ₪ بالضبط (لكلا نوعَي المركبة)', () => {
-  assert.equal(pricing.calculatePrice(1.5, 'motorcycle'), 10);
-  assert.equal(pricing.calculatePrice(1.5, 'bicycle'), 10);
+// نموذج التسعير المطلوب (Card 27): "سعر المية وستين متر = ١ شيكل"
+test('calculatePrice: كل ١٦٠ مترًا = ١ شيكل', () => {
+  // ١٦٠ مترًا = ٠.١٦ كم → ١ ₪ (لكنّ الحدّ الأدنى ٣ ₪ يرفعه)
+  assert.equal(pricing.calculatePrice(0.16), pricing.TARIFF.minFare);
+  // ١٦٠٠ مترًا = ١.٦ كم → ١٦٠٠ ÷ ١٦٠ = ١٠ ₪
+  assert.equal(pricing.calculatePrice(1.6), 10);
+  // ٣٢٠٠ مترًا = ٣.٢ كم → ٢٠ ₪
+  assert.equal(pricing.calculatePrice(3.2), 20);
 });
 
-test('calculatePrice: أقلّ من كيلو ونص لا يزيد عن السعر الأساسي (١٠ ₪)', () => {
-  assert.equal(pricing.calculatePrice(0.5, 'motorcycle'), 10);
-  assert.equal(pricing.calculatePrice(1.0, 'bicycle'), 10);
+test('calculatePrice: المسافة الصفرية (داخل الحي نفسه) = الحدّ الأدنى', () => {
+  assert.equal(pricing.calculatePrice(0), pricing.TARIFF.minFare);
 });
 
-test('calculatePrice: كل كيلومتر إضافي بعد كيلو ونص يُحسب بالتعرفة', () => {
-  // درّاجة: ٢.٥ كم = ١٠ + (١ × ٥) = ١٥ ₪
-  assert.equal(pricing.calculatePrice(2.5, 'bicycle'), 15);
-  // موتوسيكل: ٢.٥ كم = ١٠ + (١ × ٥ × ١.١٥) = ١٥.٧٥ ≈ ١٦ ₪
-  assert.equal(pricing.calculatePrice(2.5, 'motorcycle'), 16);
+test('METERS_PER_SHEKEL = ١٦٠', () => {
+  assert.equal(pricing.METERS_PER_SHEKEL, 160);
 });

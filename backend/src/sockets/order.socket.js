@@ -86,11 +86,11 @@ function registerSocketHandlers(io) {
     });
 
     // ── الكابتن يحدّث حالة الطلب عبر السوكت ────────────────────────
-    socket.on(EVENTS.ORDER_UPDATE_STATUS, async ({ orderId, status, reason, deliveryCode }, ack) => {
+    socket.on(EVENTS.ORDER_UPDATE_STATUS, async ({ orderId, status, reason, deliveryCode, finalPrice }, ack) => {
       try {
         if (role !== ROLES.CAPTAIN) throw new Error('غير مصرّح');
-        // نمرّر رمز التسليم للتحقّق عند "تم التسليم" (Card 20)
-        const order = await orderService.updateOrderStatus(id, orderId, status, reason, deliveryCode);
+        // نمرّر رمز التسليم + السعر الحقيقي للتحقّق عند "تم التسليم" (Card 20 + 27)
+        const order = await orderService.updateOrderStatus(id, orderId, status, reason, deliveryCode, finalPrice);
         ack?.({ ok: true, order });
       } catch (err) {
         ack?.({ ok: false, error: err.message });

@@ -67,6 +67,40 @@ async function debitWallet(userId, amount) {
   return wallet;
 }
 
+/**
+ * خصم قيمة طلب من محفظة المستخدم عند تأكيد التسليم (Card 27).
+ * ذرّي وآمن ضدّ الرصيد السالب، ويسجّل حركة خصم في دفتر الأستاذ ثم يبثّ الرصيد.
+ * @param {string} userId
+ * @param {number} amount   السعر الحقيقي (₪)
+ * @param {string} orderId  الطلب المرتبط (للتدقيق)
+ * @returns {Promise<number>} الرصيد بعد الخصم
+ */
+async function chargeForOrder(userId, amount, orderId) {
+  const value = Number(amount);
+  if (!(value > 0)) throw httpError('قيمة الخصم غير صالحة', 400);
+
+  const wallet = await debitWallet(userId, value); // يرمي "الرصيد غير كافٍ" إن لم يكفِ
+
+  // حركة خصم في دفتر الأستاذ (لا توقف التدفّق إن فشلت)
+  try {
+    await WalletTransaction.create({
+      user: userId,
+      wallet: wallet._id,
+      type: WALLET_TX_TYPE.ORDER_PAYMENT,
+      direction: WALLET_DIRECTION.DEBIT,
+      amount: value,
+      status: TOPUP_STATUS.APPROVED,
+      balanceAfter: wallet.balance,
+      gatewayResponse: { orderId: String(orderId) },
+    });
+  } catch (err) {
+    logger.warn('تعذّر تسجيل حركة خصم الطلب:', err.message);
+  }
+
+  broadcastBalance(userId, wallet.balance);
+  return wallet.balance;
+}
+
 /** بثّ الرصيد المحدّث لحظيًا لصاحب المحفظة. */
 function broadcastBalance(userId, balance) {
   try {
@@ -232,6 +266,8 @@ module.exports = {
   getWalletSummary,
   creditWallet,
   debitWallet,
+  chargeForOrder,
+  broadcastBalance,
   createTopupTransaction,
   listUserTransactions,
   listTopups,

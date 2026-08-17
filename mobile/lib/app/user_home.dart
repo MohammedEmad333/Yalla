@@ -40,7 +40,7 @@ class _UserHomeState extends State<UserHome> {
     // كل شاشة تحمل Scaffold خاصّتها؛ نبقيها حيّة عبر IndexedStack
     final pages = [
       CreateOrderScreen(api: widget.api),
-      MyOrdersScreen(api: widget.api),
+      MyOrdersScreen(api: widget.api, socket: widget.socket),
       WalletScreen(api: widget.api, socket: widget.socket),
       NotificationsScreen(api: widget.api, socket: widget.socket),
       ProfileScreen(api: widget.api, onLogout: widget.onLogout),
