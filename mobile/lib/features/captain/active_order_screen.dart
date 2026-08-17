@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/network/api_client.dart';
-import '../../core/maps/maps_service.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../chat/chat_screen.dart';
@@ -311,21 +310,6 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     if (!await launchUrl(uri)) _snack('تعذّر بدء الاتصال');
   }
 
-  // فتح خرائط جوجل للملاحة: قبل الاستلام → نقطة الاستلام، بعده → نقطة التسليم (Card 10)
-  Future<void> _openNavigation() async {
-    final order = _order;
-    if (order == null) return;
-    final status = order['status'] as String? ?? 'assigned';
-    final target = status == 'picked_up' ? order['dropoff'] : order['pickup'];
-    final point = MapsService.latLngFrom(target?['location']);
-    if (point == null) {
-      _snack('لا يوجد موقع صالح لهذه النقطة');
-      return;
-    }
-    final ok = await MapsService.navigateTo(point.lat, point.lng);
-    if (!ok) _snack('تعذّر فتح خرائط جوجل');
-  }
-
   // زرّ الإجراء التالي حسب حالة الطلب
   ({String label, String next, IconData icon})? _nextAction(String status) => switch (status) {
         'assigned' => (label: 'قبول الطلب', next: 'accepted', icon: Icons.check_circle),
@@ -394,14 +378,6 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     final Map<String, dynamic>? dropoffLoc =
         order['dropoff'] is Map ? Map<String, dynamic>.from(order['dropoff']) : null;
     final String note = (order['packageNote'] ?? '').toString();
-    // Card 30: قيمة التوصيل — الحقيقية بعد التسليم، والتقريبية قبله.
-    final num finalPrice = order['finalPrice'] as num? ?? 0;
-    final num priceValue =
-        (status == 'delivered' && finalPrice > 0) ? finalPrice : (order['price'] as num? ?? 0);
-    final String priceLabel = status == 'delivered' ? 'السعر النهائي' : 'قيمة التوصيل';
-    final String price = '$priceValue ₪';
-    final String distance = '${order['distanceKm'] ?? 0} كم';
-    final num etaMin = order['etaMinutes'] as num? ?? 0;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -444,21 +420,9 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         _detailTile(Icons.store, 'الاستلام', _addressDetail(pickupLoc)),
         _detailTile(Icons.flag, 'التسليم', _addressDetail(dropoffLoc)),
         if (note.isNotEmpty) _detailTile(Icons.inventory_2_outlined, 'وصف الشحنة', note),
-        // Card 30: قيمة التوصيل والمسافة والزمن التقديري — بطاقات كاملة العرض
-        // (بدل صفّ Expanded/ListTile الهشّ) لضمان ظهورها دائمًا في لوحة الكابتن.
-        _detailTile(Icons.payments, priceLabel, price),
-        _detailTile(Icons.route, 'المسافة', distance),
-        if (etaMin > 0) _detailTile(Icons.schedule, 'الزمن التقديري', '${etaMin.round()} دقيقة'),
+        // Card 30: لا تُعرض قيمة التوصيل ولا المسافة ولا زرّ الملاحة في لوحة الكابتن.
 
         const SizedBox(height: 24),
-
-        // زر فتح الملاحة عبر خرائط جوجل (نحو الاستلام قبل الاستلام، والتسليم بعده) — Card 30
-        OutlinedButton.icon(
-          onPressed: _openNavigation,
-          icon: const Icon(Icons.navigation),
-          label: Text(status == 'picked_up' ? 'الملاحة إلى التسليم' : 'الملاحة إلى الاستلام'),
-        ),
-        const SizedBox(height: 12),
 
         // زر الدردشة مع صاحب الطلب خلال التوصيل (Card 18)
         OutlinedButton.icon(
