@@ -20,14 +20,40 @@ const { ROLES, ROOMS, EVENTS } = require('../utils/constants');
 let messaging = null;      // مرجع firebase-admin messaging بعد التهيئة
 let initialized = false;   // هل جرت محاولة التهيئة؟
 
+/**
+ * قراءة مفتاح خدمة Firebase من أحد مصدرين (بحسب بيئة التشغيل):
+ *  1) FCM_CREDENTIALS_JSON — محتوى الـJSON كاملًا (الأنسب للاستضافة مثل Render).
+ *  2) FCM_CREDENTIALS_PATH — مسار ملفّ محلّي (الأنسب للتطوير المحلّي).
+ * @returns {object|null} كائن مفتاح الخدمة أو null إن لم يتوفّر.
+ */
+function loadServiceAccount() {
+  // (1) محتوى JSON مباشر من متغيّر البيئة
+  if (env.fcm.credentialsJson && env.fcm.credentialsJson.trim()) {
+    return JSON.parse(env.fcm.credentialsJson);
+  }
+  // (2) ملفّ على القرص
+  if (env.fcm.credentialsPath && fs.existsSync(env.fcm.credentialsPath)) {
+    return JSON.parse(fs.readFileSync(env.fcm.credentialsPath, 'utf8'));
+  }
+  return null;
+}
+
 // تهيئة كسولة لـ firebase-admin مرّة واحدة عند أوّل استخدام
 function ensureInit() {
   if (initialized) return;
   initialized = true;
 
+  let serviceAccount;
+  try {
+    serviceAccount = loadServiceAccount();
+  } catch (err) {
+    logger.error('تعذّرت قراءة مفتاح خدمة Firebase (JSON غير صالح) — الإشعارات معطّلة:', err.message);
+    return;
+  }
+
   // لا توجد بيانات اعتماد → نبقى في وضع no-op
-  if (!env.fcm.credentialsPath || !fs.existsSync(env.fcm.credentialsPath)) {
-    logger.warn('FCM غير مُهيّأ (لا يوجد ملف اعتماد) — الإشعارات معطّلة');
+  if (!serviceAccount) {
+    logger.warn('FCM غير مُهيّأ (لا يوجد مفتاح اعتماد) — الإشعارات معطّلة');
     return;
   }
 
@@ -35,7 +61,6 @@ function ensureInit() {
     // نحمّل الحزمة كسوليًا حتى لا تكون مطلوبة في بيئة بلا Firebase
     // eslint-disable-next-line global-require
     const admin = require('firebase-admin');
-    const serviceAccount = JSON.parse(fs.readFileSync(env.fcm.credentialsPath, 'utf8'));
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     messaging = admin.messaging();
     logger.info('✅ FCM مُهيّأ — الإشعارات مفعّلة');
