@@ -9,13 +9,16 @@ const logger = require('../utils/logger');
 const pricing = require('./pricing.service');
 const notifications = require('./notification.service');
 const chat = require('./chat.service');
+const walletService = require('./wallet.service');
+const captainWallet = require('./captainWallet.service');
+const { coordsForNeighborhood } = require('../utils/neighborhoods');
 const User = require('../models/User');
 const { addRating } = require('../utils/rating');
 const { canUserCancel, canCaptainReject } = require('../utils/orderRules');
 const { summarizeEarnings } = require('../utils/earnings');
 const { ratingDistribution } = require('../utils/reviews');
 const { buildOrderFilter, parsePagination } = require('../utils/orderQuery');
-const { computeSettlement, summarizeWallet } = require('../utils/wallet');
+const { summarizeWallet } = require('../utils/wallet');
 const { estimateEtaMinutes } = require('../utils/eta');
 const { validateScheduledAt, isDue } = require('../utils/schedule');
 const { normalizeIdempotencyKey } = require('../utils/idempotency');
@@ -29,9 +32,35 @@ const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/consta
  * (3) تبثّ الحدث اللحظي عبر Socket.io للأطراف المعنيّة.
  */
 
+// نسبة الكابتن من السعر الحقيقي (Card 27): ٨٠٪ للكابتن، والباقي عمولة الشركة.
+const CAPTAIN_SHARE = 0.8;
+
+function httpError(message, statusCode = 400) {
+  return Object.assign(new Error(message), { statusCode });
+}
+
 // تسجيل حدث في سجل الأحداث
 async function writeLog({ order, actorId, actorRole, action, fromStatus, toStatus, meta }) {
   await Log.create({ order, actorId, actorRole, action, fromStatus, toStatus, meta });
+}
+
+/**
+ * ضمان وجود إحداثيّات صالحة لموقع الطلب (Card 27): إن لم يُرسل العميل إحداثيّات
+ * (أو كانت صفريّة) نشتقّها من اسم الحي المختار من أحياء غزة. يبقى الموقع كما هو
+ * إن كانت إحداثيّاته صالحة مسبقًا (توافق مع الطلبات القديمة).
+ * @param {object} loc موقع مُطبّع (يحوي neighborhood و location.coordinates)
+ */
+function ensureCoordsFromNeighborhood(loc) {
+  const coords = loc?.location?.coordinates;
+  const hasValid =
+    Array.isArray(coords) && coords.length === 2 && (coords[0] !== 0 || coords[1] !== 0);
+  if (hasValid) return loc;
+
+  const fromHood = coordsForNeighborhood(loc?.neighborhood);
+  if (!fromHood) {
+    throw httpError('اختر حيًّا صالحًا من أحياء غزة لنقطتَي الاستلام والتسليم', 400);
+  }
+  return { ...loc, location: { type: 'Point', coordinates: fromHood } };
 }
 
 /**
@@ -48,16 +77,26 @@ async function createOrder(userId, payload, idempotencyKey) {
 
   // تطبيع مواقع الاستلام/التسليم: نحفظ الحقول المُفصّلة (الحي/الشارع/التفاصيل/الملاحظة)
   // ونركّب عنوانًا موحّدًا `address` إن لم يُرسله العميل (Card 21).
-  const pickup = normalizeLocation(payload.pickup);
-  const dropoff = normalizeLocation(payload.dropoff);
+  // ثم نشتقّ الإحداثيّات من الحي المختار إن لم تُرسَل (Card 27).
+  const pickup = ensureCoordsFromNeighborhood(normalizeLocation(payload.pickup));
+  const dropoff = ensureCoordsFromNeighborhood(normalizeLocation(payload.dropoff));
 
-  // نحسب المسافة والسعر والزمن في الخادم (مصدر الحقيقة) بدل الثقة بقيم العميل.
+  // نحسب المسافة والسعر التقريبي والزمن في الخادم (مصدر الحقيقة) بدل الثقة بقيم العميل.
   const { distanceKm, price } = pricing.quote(
     pickup.location.coordinates,
     dropoff.location.coordinates,
     payload.vehicleType
   );
   const etaMinutes = estimateEtaMinutes(distanceKm, payload.vehicleType);
+
+  // Card 27: يجب أن يغطّي رصيد محفظة المستخدم السعر التقريبي قبل إنشاء الطلب.
+  const { balance } = await walletService.getWalletSummary(userId);
+  if (balance < price) {
+    throw httpError(
+      `رصيد محفظتك (${balance} ₪) لا يكفي للسعر التقريبي (${price} ₪) — اشحن محفظتك أولًا`,
+      400
+    );
+  }
 
   // التحقّق من وقت الجدولة (اختياري)
   const scheduleError = validateScheduledAt(payload.scheduledAt);
@@ -333,30 +372,46 @@ async function pushOrderStatusToUser(order) {
   }
 }
 
-async function updateOrderStatus(captainId, orderId, nextStatus, reason = '', deliveryCode = '') {
+async function updateOrderStatus(
+  captainId,
+  orderId,
+  nextStatus,
+  reason = '',
+  deliveryCode = '',
+  finalPrice = null
+) {
   // نطلب رمز التسليم صراحةً (select:false) لأنّنا قد نحتاجه للتحقّق عند التسليم.
   const order = await Order.findById(orderId).select('+deliveryCode');
-  if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
+  if (!order) throw httpError('الطلب غير موجود', 404);
   if (String(order.captain) !== String(captainId)) {
-    throw Object.assign(new Error('هذا الطلب غير مُسنَد إليك'), { statusCode: 403 });
+    throw httpError('هذا الطلب غير مُسنَد إليك', 403);
   }
 
   const allowed = ALLOWED_TRANSITIONS[order.status] || [];
   if (!allowed.includes(nextStatus)) {
-    throw Object.assign(
-      new Error(`انتقال غير مسموح: ${order.status} -> ${nextStatus}`),
-      { statusCode: 400 }
-    );
+    throw httpError(`انتقال غير مسموح: ${order.status} -> ${nextStatus}`, 400);
   }
 
-  // تأكيد التسليم برمز صاحب الطلب (Card 20): لا يُقبل "تم التسليم" إلا برمز صحيح.
+  // Card 27: عند التسليم يحدّد الكابتن السعر الحقيقي (≤ السعر التقريبي) ثم يُدخل
+  // رمز التسليم لتأكيد الاستلام. نتحقّق من الاثنين قبل تنفيذ أي خصم.
+  let realPrice = 0;
   if (nextStatus === ORDER_STATUS.DELIVERED) {
-    if (!verifyDeliveryCode(order.deliveryCode, deliveryCode)) {
-      throw Object.assign(
-        new Error('رمز التسليم غير صحيح — اطلبه من صاحب الطلب'),
-        { statusCode: 400 }
+    realPrice = Number(finalPrice);
+    if (!(realPrice > 0)) {
+      throw httpError('أدخل السعر الحقيقي للتوصيل قبل تأكيد التسليم', 400);
+    }
+    if (realPrice > order.price) {
+      throw httpError(
+        `السعر الحقيقي (${realPrice} ₪) يجب ألّا يتجاوز السعر التقريبي (${order.price} ₪)`,
+        400
       );
     }
+    // تأكيد التسليم برمز صاحب الطلب (Card 20): لا يُقبل "تم التسليم" إلا برمز صحيح.
+    if (!verifyDeliveryCode(order.deliveryCode, deliveryCode)) {
+      throw httpError('رمز التسليم غير صحيح — اطلبه من صاحب الطلب', 400);
+    }
+    // خصم السعر الحقيقي من محفظة المستخدم (ذرّي؛ يرمي إن لم يكفِ الرصيد).
+    await walletService.chargeForOrder(order.user, realPrice, order._id);
   }
 
   const from = order.status;
@@ -367,10 +422,12 @@ async function updateOrderStatus(captainId, orderId, nextStatus, reason = '', de
   if (nextStatus === ORDER_STATUS.PICKED_UP) order.timeline.pickedUpAt = new Date();
   if (nextStatus === ORDER_STATUS.DELIVERED) {
     order.timeline.deliveredAt = new Date();
-    // حساب التسوية المالية (COD): عمولة الشركة وصافي الكابتن
-    const { commission, net } = computeSettlement(order.price, env.commissionRate);
-    order.commission = commission;
+    // Card 27: التسوية على أساس السعر الحقيقي — نسبة الكابتن ٨٠٪ تُضاف لمحفظته،
+    // والباقي عمولة الشركة. (نحفظ السعر الحقيقي على الطلب لدفتر الأرباح.)
+    order.finalPrice = realPrice;
+    const net = Math.round(realPrice * CAPTAIN_SHARE);
     order.captainNet = net;
+    order.commission = realPrice - net;
   }
   if (nextStatus === ORDER_STATUS.CANCELLED) {
     order.timeline.cancelledAt = new Date();
@@ -382,6 +439,16 @@ async function updateOrderStatus(captainId, orderId, nextStatus, reason = '', de
   if (nextStatus === ORDER_STATUS.DELIVERED || nextStatus === ORDER_STATUS.CANCELLED) {
     await releaseCaptain(captainId);
     chat.purgeOrderMessages(order._id); // بلا انتظار — لا يعيق تدفّق الحالة
+  }
+
+  // Card 27: بعد إضافة نسبة الكابتن لمحفظته، نبثّ رصيده المحدّث لحظيًا لتحديث شاشته.
+  if (nextStatus === ORDER_STATUS.DELIVERED) {
+    captainWallet
+      .getBalance(captainId)
+      .then((bal) => {
+        io.get().to(ROOMS.captain(String(captainId))).emit(EVENTS.CAPTAIN_WALLET_UPDATED, bal);
+      })
+      .catch((e) => logger.warn('تعذّر بثّ رصيد محفظة الكابتن بعد التسليم:', e.message));
   }
 
   await writeLog({

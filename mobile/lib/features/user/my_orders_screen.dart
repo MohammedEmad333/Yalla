@@ -1,15 +1,19 @@
 // شاشة "طلباتي" (تطبيق المستخدم) — سجلّ الطلبات بكل حالاتها.
-// تعرض السعر والحالة، وتتيح تقييم الكابتن للطلبات المسلّمة غير المقيّمة.
+// تعرض السعر والحالة، وتتيح تقييم الكابتن للطلبات المسلّمة غير المقيّمة،
+// وزرّ دردشة مع الكابتن للطلب الجاري توصيله (Card 26).
 
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../chat/chat_screen.dart';
 import 'rate_order_dialog.dart';
 
 class MyOrdersScreen extends StatefulWidget {
   final ApiClient api;
-  const MyOrdersScreen({super.key, required this.api});
+  final SocketService socket;
+  const MyOrdersScreen({super.key, required this.api, required this.socket});
 
   @override
   State<MyOrdersScreen> createState() => _MyOrdersScreenState();
@@ -47,6 +51,23 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     );
     if (done == true) _load();
   }
+
+  // فتح شاشة الدردشة مع الكابتن للطلب الجاري توصيله (Card 26)
+  void _openChat(String orderId) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ChatScreen(
+        orderId: orderId,
+        api: widget.api,
+        socket: widget.socket,
+        myRole: 'user',
+      ),
+    ));
+  }
+
+  // هل الطلب في مرحلة توصيل نشطة (يوجد كابتن ويمكن الدردشة معه)؟
+  bool _canChat(Map<String, dynamic> o) =>
+      const ['assigned', 'accepted', 'picked_up'].contains(o['status']) &&
+      o['captain'] != null;
 
   // نصّ ولون لكل حالة
   (String, Color) _statusMeta(String s) => switch (s) {
@@ -95,22 +116,30 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                               Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
                             ],
                           ),
-                          // زر تقييم للطلبات المسلّمة غير المقيّمة
-                          trailing: (delivered && !rated)
-                              ? TextButton.icon(
-                                  onPressed: () => _rate(o),
-                                  icon: const Icon(Icons.star_border),
-                                  label: const Text('قيّم'),
+                          // زر الدردشة للطلب الجاري توصيله (Card 26)،
+                          // أو زر التقييم/عرض النجوم للطلب المسلّم.
+                          trailing: _canChat(o)
+                              ? IconButton(
+                                  tooltip: 'الدردشة مع الكابتن',
+                                  icon: const Icon(Icons.chat_bubble_outline,
+                                      color: YallaColors.primary),
+                                  onPressed: () => _openChat(o['_id'] as String),
                                 )
-                              : rated
-                                  ? Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.star, size: 16, color: Colors.amber),
-                                        Text('${o['rating']['stars']}'),
-                                      ],
+                              : (delivered && !rated)
+                                  ? TextButton.icon(
+                                      onPressed: () => _rate(o),
+                                      icon: const Icon(Icons.star_border),
+                                      label: const Text('قيّم'),
                                     )
-                                  : null,
+                                  : rated
+                                      ? Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.star, size: 16, color: Colors.amber),
+                                            Text('${o['rating']['stars']}'),
+                                          ],
+                                        )
+                                      : null,
                         ),
                       );
                     },

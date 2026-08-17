@@ -100,17 +100,23 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     final id = _order?['_id'];
     if (id == null) return;
 
-    // Card 20: عند "تم التسليم" نطلب رمز التسليم من صاحب الطلب لتأكيد الاستلام
+    // عند "تم التسليم" (Card 27 + 20): يحدّد الكابتن السعر الحقيقي (≤ التقريبي)
+    // ثم يُدخل رمز التسليم من صاحب الطلب لتأكيد الاستلام.
     String? deliveryCode;
+    num? finalPrice;
     if (next == 'delivered') {
+      final approx = (_order?['price'] as num?) ?? 0;
+      finalPrice = await _askFinalPrice(approx);
+      if (finalPrice == null) return; // ألغى الكابتن
       deliveryCode = await _askDeliveryCode();
       if (deliveryCode == null) return; // ألغى الكابتن الإدخال
     }
 
     setState(() => _busy = true);
     try {
-      final body = {'status': next};
+      final Map<String, dynamic> body = {'status': next};
       if (deliveryCode != null) body['deliveryCode'] = deliveryCode;
+      if (finalPrice != null) body['finalPrice'] = finalPrice;
       final updated = await widget.api.patch('/orders/$id/status', body);
       setState(() => _order = next == 'delivered' ? null : Map<String, dynamic>.from(updated));
       if (next == 'delivered') _snack('تم تسليم الطلب ✓');
@@ -121,6 +127,57 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  // نافذة إدخال السعر الحقيقي عند التسليم (Card 27) — يجب ألّا يتجاوز السعر التقريبي.
+  // نُضيف نسبة الكابتن (٨٠٪) إلى محفظته عند تأكيد التسليم.
+  Future<num?> _askFinalPrice(num approx) {
+    final controller = TextEditingController(text: approx > 0 ? '$approx' : '');
+    String? error;
+    return showDialog<num>(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setLocal) => AlertDialog(
+          title: const Text('السعر الحقيقي للتوصيل'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('حدّد السعر الحقيقي. لا يمكن أن يتجاوز السعر التقريبي (${approx.round()} ₪).'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                textAlign: TextAlign.center,
+                autofocus: true,
+                decoration: InputDecoration(
+                  suffixText: '₪',
+                  errorText: error,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('تراجع')),
+            FilledButton(
+              onPressed: () {
+                final v = num.tryParse(controller.text.trim());
+                if (v == null || v <= 0) {
+                  setLocal(() => error = 'أدخل سعرًا صحيحًا');
+                  return;
+                }
+                if (v > approx) {
+                  setLocal(() => error = 'لا يتجاوز السعر التقريبي (${approx.round()} ₪)');
+                  return;
+                }
+                Navigator.pop(context, v);
+              },
+              child: const Text('متابعة'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // نافذة إدخال رمز التسليم (Card 20)

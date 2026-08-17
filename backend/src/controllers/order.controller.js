@@ -67,13 +67,14 @@ async function autoAssign(req, res, next) {
 async function updateStatus(req, res, next) {
   try {
     const { orderId } = req.params;
-    const { status, reason, deliveryCode } = req.body;
+    const { status, reason, deliveryCode, finalPrice } = req.body;
     const order = await orderService.updateOrderStatus(
       req.auth.id,
       orderId,
       status,
       reason,
-      deliveryCode
+      deliveryCode,
+      finalPrice
     );
     res.json(order);
   } catch (err) {

@@ -1,54 +1,44 @@
 // شاشة إنشاء طلب توصيل (تطبيق المستخدم) — نسخة بلا خريطة.
-// لكل نقطة (استلام/تسليم) يكتب المستخدم عنوانًا مُفصّلًا بالترتيب (Card 21):
-//   الحي ← الشارع ← العنوان بالتفاصيل ← الملاحظة.
-// ويختار المنطقة التقريبية فقط لتحديد الإحداثيات (لحساب المسافة وأقرب كابتن).
-// يمكن لاحقًا استبدال منتقي المنطقة بخريطة تفاعلية عبر google_maps_flutter.
+// لكل نقطة (استلام/تسليم) يختار المستخدم "الحي" من أحياء مدينة غزة (Card 27)،
+// ومنه تُشتقّ الإحداثيّات لحساب المسافة والسعر التقريبي (كل ١٦٠م = ١ شيكل)،
+// ثم يكمل العنوان: الشارع ← العنوان بالتفاصيل ← الملاحظة (Card 21).
+// ملاحظة: يجب أن يكفي رصيد المحفظة للسعر التقريبي قبل تأكيد الطلب (يتحقّق الخادم).
 
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/data/gaza_neighborhoods.dart';
 
-// مناطق تقريبية لتحديد الإحداثيات: الاسم -> [lng, lat]
-const Map<String, List<double>> _presetLocations = {
-  'وسط البلد، غزة': [34.4668, 31.5069],
-  'حي الرمال، غزة': [34.4400, 31.5300],
-  'حي الشجاعية، غزة': [34.4800, 31.5050],
-  'جباليا': [34.4830, 31.5280],
-  'خان يونس': [34.3060, 31.3400],
-  'رفح': [34.2500, 31.2870],
-};
-
-// حقول عنوان مُفصّلة لنقطة واحدة (استلام أو تسليم) — Card 21
+// حقول عنوان نقطة واحدة (استلام أو تسليم) — الحي أصبح منسدلًا (Card 27)
 class _AddressFields {
-  final neighborhood = TextEditingController(); // الحي
-  final street = TextEditingController();        // الشارع
-  final details = TextEditingController();       // العنوان بالتفاصيل
-  final note = TextEditingController();          // ملاحظة
+  String? neighborhood; // الحي (من أحياء غزة) — يحدّد الإحداثيّات
+  final street = TextEditingController(); // الشارع
+  final details = TextEditingController(); // العنوان بالتفاصيل
+  final note = TextEditingController(); // ملاحظة
 
-  // حمولة الموقع المُرسَلة للخادم (بلا الإحداثيات — تُضاف عند الإرسال)
-  Map<String, dynamic> toJson(List<double> coords) => {
-        'neighborhood': neighborhood.text.trim(),
+  // إحداثيّات النقطة مشتقّة من الحي المختار [lng, lat]
+  List<double>? get coords =>
+      neighborhood == null ? null : kGazaNeighborhoods[neighborhood];
+
+  // حمولة الموقع المُرسَلة للخادم
+  Map<String, dynamic> toJson() => {
+        'neighborhood': neighborhood ?? '',
         'street': street.text.trim(),
         'details': details.text.trim(),
         'note': note.text.trim(),
-        'location': {'type': 'Point', 'coordinates': coords},
+        if (coords != null) 'location': {'type': 'Point', 'coordinates': coords},
       };
 
-  // هل أدخل المستخدم أيّ جزء من العنوان؟ (الحد الأدنى للقبول)
-  bool get hasAny =>
-      neighborhood.text.trim().isNotEmpty ||
-      street.text.trim().isNotEmpty ||
-      details.text.trim().isNotEmpty;
+  bool get isValid => neighborhood != null;
 
   void clear() {
-    neighborhood.clear();
+    neighborhood = null;
     street.clear();
     details.clear();
     note.clear();
   }
 
   void dispose() {
-    neighborhood.dispose();
     street.dispose();
     details.dispose();
     note.dispose();
@@ -64,13 +54,8 @@ class CreateOrderScreen extends StatefulWidget {
 }
 
 class _CreateOrderScreenState extends State<CreateOrderScreen> {
-  // حقول العنوان المُفصّلة لكل نقطة
   final _pickup = _AddressFields();
   final _dropoff = _AddressFields();
-
-  // المنطقة التقريبية لكل نقطة (لتحديد الإحداثيات فقط)
-  String? _pickupName;
-  String? _dropoffName;
 
   final _noteController = TextEditingController(); // وصف الشحنة (منفصل عن ملاحظة العنوان)
   bool _submitting = false;
@@ -84,17 +69,16 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   num? _quoteEta;
   bool _loadingQuote = false;
 
-  List<double>? get _pickupCoords => _pickupName == null ? null : _presetLocations[_pickupName];
-  List<double>? get _dropoffCoords => _dropoffName == null ? null : _presetLocations[_dropoffName];
-
-  // جلب تسعيرة تقديرية عند اكتمال النقطتين
+  // جلب تسعيرة تقديرية عند اكتمال اختيار حيّ النقطتين
   Future<void> _refreshQuote() async {
-    if (_pickupCoords == null || _dropoffCoords == null) return;
+    final p = _pickup.coords;
+    final d = _dropoff.coords;
+    if (p == null || d == null) return;
     setState(() => _loadingQuote = true);
     try {
       final q = await widget.api.post('/orders/quote', {
-        'pickup': _pickupCoords,
-        'dropoff': _dropoffCoords,
+        'pickup': p,
+        'dropoff': d,
         'vehicleType': 'motorcycle',
       });
       setState(() {
@@ -128,23 +112,17 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   // إرسال الطلب للـ Backend
   Future<void> _submitOrder() async {
-    if (!_pickup.hasAny || !_dropoff.hasAny) {
+    if (!_pickup.isValid || !_dropoff.isValid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('أدخل عنوان الاستلام والتسليم (الحي/الشارع على الأقلّ)')),
-      );
-      return;
-    }
-    if (_pickupCoords == null || _dropoffCoords == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('اختر المنطقة التقريبية للاستلام والتسليم')),
+        const SnackBar(content: Text('اختر حي الاستلام وحي التسليم')),
       );
       return;
     }
     setState(() => _submitting = true);
     try {
       await widget.api.post('/orders', {
-        'pickup': _pickup.toJson(_pickupCoords!),
-        'dropoff': _dropoff.toJson(_dropoffCoords!),
+        'pickup': _pickup.toJson(),
+        'dropoff': _dropoff.toJson(),
         'packageNote': _noteController.text,
         if (_scheduledAt != null) 'scheduledAt': _scheduledAt!.toUtc().toIso8601String(),
       });
@@ -155,13 +133,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       setState(() {
         _pickup.clear();
         _dropoff.clear();
-        _pickupName = null;
-        _dropoffName = null;
         _noteController.clear();
         _scheduledAt = null;
         _quotePrice = _quoteDistance = _quoteEta = null;
       });
     } on ApiException catch (e) {
+      // يشمل رسالة "رصيد محفظتك لا يكفي للسعر التقريبي — اشحن محفظتك أولًا"
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -175,36 +152,16 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // نقطة الاستلام: عنوان مُفصّل + المنطقة التقريبية
+          // نقطة الاستلام: الحي (يحدّد الموقع) + بقيّة العنوان
           _sectionLabel('نقطة الاستلام', Icons.store),
           const SizedBox(height: 8),
           ..._addressInputs(_pickup),
-          const SizedBox(height: 8),
-          _locationPicker(
-            label: 'المنطقة التقريبية (لحساب المسافة)',
-            icon: Icons.map,
-            value: _pickupName,
-            onChanged: (v) {
-              setState(() => _pickupName = v);
-              _refreshQuote();
-            },
-          ),
           const SizedBox(height: 20),
 
-          // نقطة التسليم: عنوان مُفصّل + المنطقة التقريبية
+          // نقطة التسليم
           _sectionLabel('نقطة التسليم', Icons.flag),
           const SizedBox(height: 8),
           ..._addressInputs(_dropoff),
-          const SizedBox(height: 8),
-          _locationPicker(
-            label: 'المنطقة التقريبية (لحساب المسافة)',
-            icon: Icons.map,
-            value: _dropoffName,
-            onChanged: (v) {
-              setState(() => _dropoffName = v);
-              _refreshQuote();
-            },
-          ),
           const SizedBox(height: 20),
 
           _sectionLabel('الشحنة', Icons.inventory_2_outlined),
@@ -227,7 +184,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             onChanged: (on) => on ? _pickSchedule() : setState(() => _scheduledAt = null),
           ),
 
-          // بطاقة التسعيرة
+          // بطاقة التسعيرة التقريبية
           if (_loadingQuote || _quotePrice != null)
             Card(
               margin: const EdgeInsets.only(bottom: 12),
@@ -235,11 +192,13 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 leading: const Icon(Icons.payments),
                 title: _loadingQuote
                     ? const Text('جارٍ حساب السعر...')
-                    : Text('السعر التقديري: $_quotePrice ₪'),
+                    : Text('السعر التقريبي: $_quotePrice ₪'),
                 subtitle: _quoteDistance != null
                     ? Text('المسافة: ~$_quoteDistance كم'
-                        '${_quoteEta != null ? ' · الزمن المتوقّع: ~$_quoteEta دقيقة' : ''}')
+                        '${_quoteEta != null ? ' · الزمن المتوقّع: ~$_quoteEta دقيقة' : ''}'
+                        '\nالسعر النهائي يحدّده الكابتن عند التسليم (لا يتجاوز التقريبي)')
                     : null,
+                isThreeLine: _quoteDistance != null,
               ),
             ),
 
@@ -258,17 +217,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     );
   }
 
-  // حقول العنوان المُفصّلة بالترتيب المطلوب: الحي ← الشارع ← التفاصيل ← الملاحظة (Card 21)
+  // حقول عنوان نقطة: الحي (منسدل) ← الشارع ← التفاصيل ← الملاحظة
   List<Widget> _addressInputs(_AddressFields f) => [
-        TextField(
-          controller: f.neighborhood,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'الحي',
-            prefixIcon: Icon(Icons.location_city),
-            border: OutlineInputBorder(),
-          ),
-        ),
+        _neighborhoodPicker(f),
         const SizedBox(height: 8),
         TextField(
           controller: f.street,
@@ -301,6 +252,24 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         ),
       ];
 
+  // منتقي الحي من أحياء غزة (Card 27) — يحدّد الإحداثيّات ويُحدّث التسعيرة
+  Widget _neighborhoodPicker(_AddressFields f) => DropdownButtonFormField<String>(
+        value: f.neighborhood,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'الحي',
+          prefixIcon: Icon(Icons.location_city),
+          border: OutlineInputBorder(),
+        ),
+        items: gazaNeighborhoodNames
+            .map((name) => DropdownMenuItem(value: name, child: Text(name)))
+            .toList(),
+        onChanged: (v) {
+          setState(() => f.neighborhood = v);
+          _refreshQuote();
+        },
+      );
+
   // عنوان قسم (نقطة استلام/تسليم)
   Widget _sectionLabel(String text, IconData icon) => Row(
         children: [
@@ -309,28 +278,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ],
       );
-
-  // منتقي المنطقة التقريبية (لتحديد الإحداثيات)
-  Widget _locationPicker({
-    required String label,
-    required IconData icon,
-    required String? value,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: const OutlineInputBorder(),
-      ),
-      items: _presetLocations.keys
-          .map((name) => DropdownMenuItem(value: name, child: Text(name)))
-          .toList(),
-      onChanged: onChanged,
-    );
-  }
 
   @override
   void dispose() {
