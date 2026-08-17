@@ -53,6 +53,11 @@ services:
       - key: ACCEPT_TIMEOUT_SECONDS
         value: "60"
 
-      # إشعارات Firebase اختيارية — اتركها فارغة لتعطيلها
+      # إشعارات Firebase اختيارية.
+      # على الاستضافة: ألصق محتوى مفتاح الخدمة (Service Account JSON) كاملًا في
+      # FCM_CREDENTIALS_JSON كـ Secret من لوحة Render (لا تكتبه هنا). اتركه فارغًا لتعطيل الإشعارات.
+      - key: FCM_CREDENTIALS_JSON
+        sync: false
+      # بديل محلّي: مسار ملفّ المفتاح (يُستخدم إن لم يُضبط FCM_CREDENTIALS_JSON)
       - key: FCM_CREDENTIALS_PATH
         value: ""

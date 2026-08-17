@@ -137,7 +137,9 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget _txTile(dynamic tx) {
     final amount = tx['amount'] ?? 0;
     final status = tx['status'] as String? ?? 'pending';
-    final method = _methodLabel(tx['method'] as String?);
+    // Card 28: نصف الحركة حسب نوعها لا حسب طريقة الدفع فقط، حتى لا يظهر
+    // خصمُ قيمة طلبٍ على أنه «شحن رصيد».
+    final desc = _txDescription(tx['type'] as String?, tx['method'] as String?);
     final (label, color) = _statusMeta(status);
     final isCredit = (tx['direction'] as String?) == 'credit';
 
@@ -155,7 +157,7 @@ class _WalletScreenState extends State<WalletScreen> {
         ),
         title: Text('${isCredit ? '+' : '-'}$amount ₪',
             style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(method, style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+        subtitle: Text(desc, style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
@@ -179,10 +181,19 @@ class _WalletScreenState extends State<WalletScreen> {
         ),
       );
 
+  // وصف الحركة حسب نوعها (Card 28): خصم قيمة طلب لا يُعرض كـ«شحن رصيد».
+  String _txDescription(String? type, String? method) => switch (type) {
+        'order_payment' => 'دفع قيمة طلب',
+        'refund' => 'استرداد رصيد',
+        'adjustment' => 'تعديل رصيد',
+        // شحن رصيد: نعرض طريقة الدفع إن توفّرت
+        _ => _methodLabel(method),
+      };
+
   String _methodLabel(String? m) => switch (m) {
-        'bank_of_palestine' => 'بنك فلسطين',
-        'jawwal_pay' => 'جوال باي',
-        'palpay' => 'بال باي',
+        'bank_of_palestine' => 'شحن رصيد · بنك فلسطين',
+        'jawwal_pay' => 'شحن رصيد · جوال باي',
+        'palpay' => 'شحن رصيد · بال باي',
         _ => 'شحن رصيد',
       };
 

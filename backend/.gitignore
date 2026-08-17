@@ -5,3 +5,9 @@ node_modules/
 
 # ملفّات المستخدمين المرفوعة (إيصالات الشحن) — لا تُدرَج في المستودع
 uploads/
+
+# مفاتيح خدمة Firebase (Service Account / Admin SDK) — سرّية، لا تُرفع أبدًا
+secrets/
+*service-account*.json
+*firebase-adminsdk*.json
+fcm*.json

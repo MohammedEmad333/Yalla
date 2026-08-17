@@ -64,6 +64,14 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     ));
   }
 
+  // Card 28: السعر المعروض — الحقيقي (finalPrice) بعد التسليم، وإلا التقريبي.
+  num _shownPrice(Map<String, dynamic> o) {
+    final num finalPrice = o['finalPrice'] as num? ?? 0;
+    return (o['status'] == 'delivered' && finalPrice > 0)
+        ? finalPrice
+        : (o['price'] as num? ?? 0);
+  }
+
   // هل الطلب في مرحلة توصيل نشطة (يوجد كابتن ويمكن الدردشة معه)؟
   bool _canChat(Map<String, dynamic> o) =>
       const ['assigned', 'accepted', 'picked_up'].contains(o['status']) &&
@@ -106,8 +114,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                             backgroundColor: color.withValues(alpha: 0.15),
                             child: Icon(Icons.receipt_long, color: color),
                           ),
+                          // Card 28: بعد التسليم نعرض السعر الحقيقي (finalPrice) لا التقريبي.
                           title: Text('#${(o['_id'] as String).substring(o['_id'].length - 5)}'
-                              ' · ${o['price']} ₪'),
+                              ' · ${_shownPrice(o)} ₪'),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [

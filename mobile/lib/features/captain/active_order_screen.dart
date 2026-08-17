@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/network/api_client.dart';
-import '../../core/maps/maps_service.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../chat/chat_screen.dart';
@@ -129,10 +128,12 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     }
   }
 
-  // نافذة إدخال السعر الحقيقي عند التسليم (Card 27) — يجب ألّا يتجاوز السعر التقريبي.
-  // نُضيف نسبة الكابتن (٨٠٪) إلى محفظته عند تأكيد التسليم.
+  // نافذة إدخال السعر الحقيقي عند التسليم (Card 27 + 31).
+  // Card 31: تبدأ الخانة فارغة ولا نُظهر السعر التقريبي للكابتن، فيُدخل السعر
+  // الحقيقي بنفسه. يبقى التحقّق «ألّا يتجاوز التقريبي» قائمًا دون كشف قيمته
+  // (والخادم يفرضه أيضًا). نُضيف نسبة الكابتن (٨٠٪) إلى محفظته عند التأكيد.
   Future<num?> _askFinalPrice(num approx) {
-    final controller = TextEditingController(text: approx > 0 ? '$approx' : '');
+    final controller = TextEditingController(); // Card 31: تبدأ فارغة
     String? error;
     return showDialog<num>(
       context: context,
@@ -142,7 +143,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('حدّد السعر الحقيقي. لا يمكن أن يتجاوز السعر التقريبي (${approx.round()} ₪).'),
+              const Text('أدخل السعر الحقيقي للتوصيل الذي تحصّلت عليه من صاحب الطلب.'),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
@@ -150,6 +151,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                 textAlign: TextAlign.center,
                 autofocus: true,
                 decoration: InputDecoration(
+                  hintText: 'أدخل السعر',
                   suffixText: '₪',
                   errorText: error,
                   border: const OutlineInputBorder(),
@@ -166,8 +168,9 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                   setLocal(() => error = 'أدخل سعرًا صحيحًا');
                   return;
                 }
-                if (v > approx) {
-                  setLocal(() => error = 'لا يتجاوز السعر التقريبي (${approx.round()} ₪)');
+                // Card 31: نمنع تجاوز التقريبي دون إظهار قيمته للكابتن.
+                if (approx > 0 && v > approx) {
+                  setLocal(() => error = 'السعر الحقيقي يجب ألّا يتجاوز السعر التقريبي للطلب');
                   return;
                 }
                 Navigator.pop(context, v);
@@ -307,21 +310,6 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     if (!await launchUrl(uri)) _snack('تعذّر بدء الاتصال');
   }
 
-  // فتح خرائط جوجل للملاحة: قبل الاستلام → نقطة الاستلام، بعده → نقطة التسليم (Card 10)
-  Future<void> _openNavigation() async {
-    final order = _order;
-    if (order == null) return;
-    final status = order['status'] as String? ?? 'assigned';
-    final target = status == 'picked_up' ? order['dropoff'] : order['pickup'];
-    final point = MapsService.latLngFrom(target?['location']);
-    if (point == null) {
-      _snack('لا يوجد موقع صالح لهذه النقطة');
-      return;
-    }
-    final ok = await MapsService.navigateTo(point.lat, point.lng);
-    if (!ok) _snack('تعذّر فتح خرائط جوجل');
-  }
-
   // زرّ الإجراء التالي حسب حالة الطلب
   ({String label, String next, IconData icon})? _nextAction(String status) => switch (status) {
         'assigned' => (label: 'قبول الطلب', next: 'accepted', icon: Icons.check_circle),
@@ -390,8 +378,6 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     final Map<String, dynamic>? dropoffLoc =
         order['dropoff'] is Map ? Map<String, dynamic>.from(order['dropoff']) : null;
     final String note = (order['packageNote'] ?? '').toString();
-    final String price = '${order['price'] ?? 0} ₪';
-    final String distance = '${order['distanceKm'] ?? 0} كم';
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -434,22 +420,9 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         _detailTile(Icons.store, 'الاستلام', _addressDetail(pickupLoc)),
         _detailTile(Icons.flag, 'التسليم', _addressDetail(dropoffLoc)),
         if (note.isNotEmpty) _detailTile(Icons.inventory_2_outlined, 'وصف الشحنة', note),
-        Row(
-          children: [
-            Expanded(child: _detailTile(Icons.payments, 'قيمة التوصيل', price)),
-            Expanded(child: _detailTile(Icons.route, 'المسافة', distance)),
-          ],
-        ),
+        // Card 30: لا تُعرض قيمة التوصيل ولا المسافة ولا زرّ الملاحة في لوحة الكابتن.
 
         const SizedBox(height: 24),
-
-        // زر فتح الملاحة عبر خرائط جوجل (نحو الاستلام قبل الاستلام، والتسليم بعده)
-        OutlinedButton.icon(
-          onPressed: _openNavigation,
-          icon: const Icon(Icons.navigation),
-          label: Text(status == 'picked_up' ? 'الملاحة إلى التسليم' : 'الملاحة إلى الاستلام'),
-        ),
-        const SizedBox(height: 12),
 
         // زر الدردشة مع صاحب الطلب خلال التوصيل (Card 18)
         OutlinedButton.icon(

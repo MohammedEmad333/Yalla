@@ -35,6 +35,19 @@ const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/consta
 // نسبة الكابتن من السعر الحقيقي (Card 27): ٨٠٪ للكابتن، والباقي عمولة الشركة.
 const CAPTAIN_SHARE = 0.8;
 
+/**
+ * السعر الفعلي المُعتمَد في السجلّات والأرباح (Card 28).
+ * بعد التسليم يعتمد المبلغ على السعر الحقيقي الذي أدخله الكابتن (finalPrice)
+ * وليس السعر التقريبي (price). نعود للسعر التقريبي فقط للطلبات القديمة التي
+ * سُلّمت قبل إضافة finalPrice (finalPrice = 0). هكذا لا يظهر «12» بينما الحقيقي «10».
+ * @param {{price?:number, finalPrice?:number}} order
+ * @returns {number}
+ */
+function effectivePrice(order) {
+  const final = Number(order?.finalPrice) || 0;
+  return final > 0 ? final : Number(order?.price) || 0;
+}
+
 function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
 }
@@ -812,12 +825,14 @@ async function getCaptainWallet(captainId) {
   const [captain, delivered] = await Promise.all([
     Captain.findById(captainId).select('name settledCommission'),
     Order.find({ captain: captainId, status: ORDER_STATUS.DELIVERED })
-      .select('price commission captainNet')
+      .select('price finalPrice commission captainNet')
       .lean(),
   ]);
   if (!captain) throw Object.assign(new Error('الكابتن غير موجود'), { statusCode: 404 });
 
-  const summary = summarizeWallet(delivered, captain.settledCommission);
+  // Card 28: إجمالي التحصيل يُحسب على السعر الحقيقي (finalPrice) لا التقريبي.
+  const rows = delivered.map((o) => ({ ...o, price: effectivePrice(o) }));
+  const summary = summarizeWallet(rows, captain.settledCommission);
   return { captain: { id: captain._id, name: captain.name }, ...summary, settled: captain.settledCommission };
 }
 
@@ -858,11 +873,12 @@ async function getCaptainEarnings(captainId) {
     captain: captainId,
     status: ORDER_STATUS.DELIVERED,
   })
-    .select('price timeline.deliveredAt')
+    .select('price finalPrice timeline.deliveredAt')
     .lean();
 
+  // Card 28: الأرباح تُحسب على السعر الحقيقي (finalPrice) لا التقريبي.
   return summarizeEarnings(
-    delivered.map((o) => ({ price: o.price, deliveredAt: o.timeline?.deliveredAt }))
+    delivered.map((o) => ({ price: effectivePrice(o), deliveredAt: o.timeline?.deliveredAt }))
   );
 }
 
