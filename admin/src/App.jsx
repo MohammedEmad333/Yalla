@@ -40,7 +40,7 @@ function Gate() {
     <div style={{ direction: 'rtl', minHeight: '100vh', background: theme.color.surface }}>
       <nav className="yl-nav" style={styles.nav}>
         <div style={styles.brandBlock}>
-          <span style={styles.logoMark}>🛵</span>
+          <img src="/logo.png" alt="Yalla" style={styles.logoMark} />
           <span style={styles.logo}>Yalla</span>
           <div style={styles.tabs}>
             {TABS.map((t) => (
@@ -98,7 +98,7 @@ const styles = {
     gap: 12,
   },
   brandBlock: { display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' },
-  logoMark: { fontSize: 22 },
+  logoMark: { width: 32, height: 32, borderRadius: 8, objectFit: 'cover', display: 'block' },
   logo: {
     fontSize: 22,
     fontWeight: 700,

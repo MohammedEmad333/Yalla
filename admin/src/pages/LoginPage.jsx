@@ -29,7 +29,7 @@ export default function LoginPage() {
     <div style={styles.wrap}>
       <form onSubmit={handleSubmit} style={styles.card}>
         <div style={styles.brand}>
-          <span style={{ fontSize: 30 }}>🛵</span>
+          <img src="/logo.png" alt="Yalla" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover' }} />
           <span style={styles.logo}>Yalla</span>
         </div>
         <h1 style={styles.title}>لوحة الأدمن</h1>
