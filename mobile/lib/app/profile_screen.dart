@@ -3,8 +3,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/config/app_config.dart';
+import '../core/config/company.dart';
 import '../core/network/api_client.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -102,6 +104,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // فتح واتس اب الشركة برابط wa.me (Card 43)
+  Future<void> _openWhatsapp() async {
+    final uri = Company.whatsappUri();
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      _snack('تعذّر فتح واتس اب');
+    }
+  }
+
   void _snack(String m) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
@@ -175,7 +185,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _infoTile(Icons.star, 'التقييم', '${_me['rating'] ?? '—'}'),
                   ],
 
-                  const SizedBox(height: 24),
+                  const Divider(height: 32),
+
+                  // تواصل عبر واتس اب الشركة (Card 43)
+                  ListTile(
+                    leading: const Icon(Icons.chat, color: Color(0xFF25D366)),
+                    title: const Text('تواصل عبر واتس اب'),
+                    subtitle: Text('+${Company.whatsappNumber}'),
+                    trailing: const Icon(Icons.open_in_new, size: 18),
+                    onTap: _openWhatsapp,
+                  ),
+
+                  const SizedBox(height: 12),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                     onPressed: widget.onLogout,

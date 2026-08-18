@@ -21,6 +21,10 @@ function startScheduler({ intervalMs = 60_000 } = {}) {
       // 2) إعادة إسناد الطلبات التي انتهت مهلة قبولها
       const reassigned = await orderService.expireStaleAssignments();
       if (reassigned > 0) logger.info(`⏰ أُعيد إسناد ${reassigned} طلب انتهت مهلته`);
+
+      // 3) تنبيه الأدمن بالطلبات المتأخّرة عن زمنها التقديري (Card 40)
+      const delayed = await orderService.warnDelayedOrders();
+      if (delayed > 0) logger.warn(`⏰ نُبّه الأدمن عن ${delayed} طلب متأخّر`);
     } catch (err) {
       logger.error('خطأ في المُشغّل الخلفي:', err.message);
     }

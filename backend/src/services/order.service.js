@@ -19,7 +19,7 @@ const { summarizeEarnings } = require('../utils/earnings');
 const { ratingDistribution } = require('../utils/reviews');
 const { buildOrderFilter, parsePagination } = require('../utils/orderQuery');
 const { summarizeWallet } = require('../utils/wallet');
-const { estimateEtaMinutes } = require('../utils/eta');
+const { estimateEtaMinutes, isOrderDelayed, deliveryDueAt } = require('../utils/eta');
 const { validateScheduledAt, isDue } = require('../utils/schedule');
 const { normalizeIdempotencyKey } = require('../utils/idempotency');
 const { normalizeLocation } = require('../utils/address');
@@ -292,8 +292,13 @@ async function assignOrder(adminId, orderId, captainId) {
 
   const captain = await Captain.findById(captainId);
   if (!captain) throw Object.assign(new Error('الكابتن غير موجود'), { statusCode: 404 });
-  if (captain.status !== CAPTAIN_STATUS.ONLINE) {
-    throw Object.assign(new Error('الكابتن غير متاح حاليًا'), { statusCode: 400 });
+  if (!captain.isApproved) {
+    throw Object.assign(new Error('الكابتن غير معتمَد'), { statusCode: 400 });
+  }
+  // Card 34: يستطيع الأدمن الإسناد لكابتن غير متصل (offline) لإيقاظه عبر الإشعار،
+  // لكن لا نسمح بالإسناد لكابتن مشغول بطلب آخر حاليًا (busy/activeOrder).
+  if (captain.status === CAPTAIN_STATUS.BUSY || captain.activeOrder) {
+    throw Object.assign(new Error('الكابتن مشغول بطلب آخر حاليًا'), { statusCode: 400 });
   }
 
   return commitAssignment(order, captain, { actorId: adminId, actorRole: 'admin' });
@@ -590,6 +595,55 @@ async function expireStaleAssignments(now = new Date()) {
 }
 
 /**
+ * Card 40: تنبيه الأدمن بأي طلب قيد التوصيل تجاوز زمنه التقديري (مع مهلة سماح).
+ * يُبثّ حدث ORDER_DELAYED للأدمن ويُسجَّل في السجلّ مرّة واحدة (delayWarnedAt)
+ * لمنع تكرار التنبيه. يُستدعى دوريًا من المُشغّل الخلفي.
+ * @returns {Promise<number>} عدد الطلبات التي نُبّه عنها في هذه الدورة
+ */
+async function warnDelayedOrders(now = new Date()) {
+  const inProgress = await Order.find({
+    status: { $in: [ORDER_STATUS.ACCEPTED, ORDER_STATUS.PICKED_UP] },
+    etaMinutes: { $gt: 0 },
+    delayWarnedAt: null,
+  }).populate('user', 'name phone').populate('captain', 'name phone');
+
+  let warned = 0;
+  for (const order of inProgress) {
+    if (!isOrderDelayed(order, now)) continue;
+
+    order.delayWarnedAt = now;
+    await order.save();
+    warned += 1;
+
+    await writeLog({
+      order: order._id,
+      actorRole: 'system',
+      action: 'ORDER_DELAYED',
+      meta: { etaMinutes: order.etaMinutes, dueAt: deliveryDueAt(order) },
+    });
+
+    try {
+      io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_DELAYED, {
+        orderId: String(order._id),
+        status: order.status,
+        etaMinutes: order.etaMinutes,
+        dueAt: deliveryDueAt(order),
+        captain: order.captain
+          ? { id: String(order.captain._id), name: order.captain.name, phone: order.captain.phone }
+          : null,
+        user: order.user
+          ? { id: String(order.user._id), name: order.user.name, phone: order.user.phone }
+          : null,
+        message: 'الطلب تجاوز زمنه التقديري — يُرجى مراجعة الكابتن',
+      });
+    } catch (_) {
+      // السوكت غير مهيّأ (اختبارات) — نتجاهل بأمان
+    }
+  }
+  return warned;
+}
+
+/**
  * إلغاء الطلب من قِبل المستخدم (صاحب الطلب) أو الأدمن.
  * يُسمح قبل الاستلام فقط (pending/assigned/accepted)، ويحرّر الكابتن إن وُجد.
  */
@@ -714,6 +768,21 @@ async function getAvailableCaptains() {
   return Captain.find({ status: CAPTAIN_STATUS.ONLINE, isApproved: true }).select(
     'name phone vehicleType currentLocation rating'
   );
+}
+
+// جلب كل الكباتن المعتمَدين (متصلين وغير متصلين) مع علامة الحالة — لقائمة الإسناد
+// في لوحة الأدمن (Card 34 + Card 35). الكابتن المشغول (busy) غير قابل للإسناد.
+async function getAssignableCaptains() {
+  const captains = await Captain.find({ isApproved: true })
+    .select('name phone vehicleType currentLocation rating status activeOrder')
+    .sort({ status: 1, name: 1 }) // busy/offline/online مرتّبة نصيًا؛ الترتيب النهائي في الواجهة
+    .lean();
+  return captains.map((c) => ({
+    ...c,
+    // متاح للإسناد إن لم يكن مشغولًا بطلب نشط (سواء online أو offline)
+    assignable: c.status !== CAPTAIN_STATUS.BUSY && !c.activeOrder,
+    online: c.status === CAPTAIN_STATUS.ONLINE,
+  }));
 }
 
 // جلب طلب واحد للتتبّع — مع التحقّق من صلاحية الوصول (صاحب الطلب/الكابتن المُسنَد/الأدمن)
@@ -932,11 +1001,13 @@ module.exports = {
   updateOrderStatus,
   rejectOrder,
   expireStaleAssignments,
+  warnDelayedOrders,
   cancelOrder,
   getActiveOrders,
   listOrders,
   getOrdersForExport,
   getAvailableCaptains,
+  getAssignableCaptains,
   getOrderForTracking,
   getMyOrders,
   getCaptainOrders,

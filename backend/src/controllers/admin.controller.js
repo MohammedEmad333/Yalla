@@ -6,6 +6,9 @@ const statsService = require('../services/stats.service');
 const orderService = require('../services/order.service');
 const walletService = require('../services/wallet.service');
 const captainWalletService = require('../services/captainWallet.service');
+const adminService = require('../services/admin.service');
+const chatService = require('../services/chat.service');
+const { toCsv } = require('../utils/csv');
 const { ROLES } = require('../utils/constants');
 
 // مؤشّرات الأداء للوحة التحكّم
@@ -59,6 +62,46 @@ async function listCaptains(req, res, next) {
       .select('name phone vehicleType status isApproved rating ratingsCount createdAt')
       .sort({ createdAt: -1 });
     res.json(captains);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 41: قائمة الزبائن بكامل التفاصيل (رقم/اسم/عنوان/رصيد/تاريخ الانضمام)
+async function listCustomersDetailed(req, res, next) {
+  try {
+    const items = await adminService.listCustomers({ q: req.query.q });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 37 + Card 41: قائمة الكباتن بكامل التفاصيل (بما فيها الرصيد القابل للسحب)
+async function listCaptainsDetailed(req, res, next) {
+  try {
+    const items = await adminService.listCaptainsDetailed();
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 38: حذف زبون نهائيًا
+async function deleteUser(req, res, next) {
+  try {
+    const result = await adminService.deleteUser(req.params.userId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 38: حذف كابتن نهائيًا
+async function deleteCaptain(req, res, next) {
+  try {
+    const result = await adminService.deleteCaptain(req.params.captainId);
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -178,10 +221,79 @@ async function processWithdrawal(req, res, next) {
   }
 }
 
+// ── مراقبة الأدمن للمحادثات (Card 32 + Card 45) ──────────────────
+
+// Card 45: قائمة المحادثات الجارية بين الزبائن والكباتن
+async function listChats(req, res, next) {
+  try {
+    const items = await chatService.listActiveChats({ limit: parseInt(req.query.limit, 10) || 50 });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 32: عرض رسائل محادثة طلب معيّن (تشمل المؤرشفة)
+async function getChatMessages(req, res, next) {
+  try {
+    const items = await chatService.listMessagesForAdmin(req.params.orderId);
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 32: مشاركة الأدمن في المحادثة (تظهر بأيقونة أدمن خاصّة لدى الطرفين)
+async function sendChatMessage(req, res, next) {
+  try {
+    const { text } = req.body || {};
+    const message = await chatService.sendMessage(
+      req.params.orderId,
+      { id: req.auth.id, role: ROLES.ADMIN },
+      text
+    );
+    res.status(201).json(message);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 32: تصدير محادثة طلب بصيغة CSV (متاح حتى بعد انتهاء المحادثة/أرشفتها)
+async function exportChat(req, res, next) {
+  try {
+    const messages = await chatService.listMessagesForAdmin(req.params.orderId);
+    const roleAr = { user: 'صاحب الطلب', captain: 'الكابتن', admin: 'الأدمن' };
+    const rows = messages.map((m) => ({
+      time: m.createdAt ? new Date(m.createdAt).toISOString() : '',
+      sender: roleAr[m.senderRole] || m.senderRole,
+      text: m.text,
+    }));
+    const columns = [
+      { key: 'time', header: 'الوقت' },
+      { key: 'sender', header: 'المُرسِل' },
+      { key: 'text', header: 'الرسالة' },
+    ];
+    const csv = '﻿' + toCsv(rows, columns);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="chat-${req.params.orderId}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getStats,
   listUsers,
   setUserActive,
+  listChats,
+  getChatMessages,
+  sendChatMessage,
+  exportChat,
+  listCustomersDetailed,
+  listCaptainsDetailed,
+  deleteUser,
+  deleteCaptain,
   listCaptains,
   setCaptainApproval,
   captainWallet,

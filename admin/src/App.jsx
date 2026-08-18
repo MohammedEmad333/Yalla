@@ -10,11 +10,17 @@ import UsersManagement from './pages/UsersManagement';
 import StatsPage from './pages/StatsPage';
 import OrdersPage from './pages/OrdersPage';
 import WalletTopups from './pages/WalletTopups';
+import Withdrawals from './pages/Withdrawals';
+import Chats from './pages/Chats';
+import Support from './pages/Support';
 
 const TABS = [
   { key: 'dashboard', label: 'اللوحة اللحظية' },
   { key: 'orders', label: 'بحث الطلبات' },
+  { key: 'chats', label: 'المحادثات' },
+  { key: 'support', label: 'الدعم' },
   { key: 'wallet', label: 'شحن الرصيد' },
+  { key: 'withdrawals', label: 'سحب الكباتن' },
   { key: 'users', label: 'إدارة المستخدمين' },
   { key: 'stats', label: 'الإحصائيات' },
 ];
@@ -34,7 +40,7 @@ function Gate() {
     <div style={{ direction: 'rtl', minHeight: '100vh', background: theme.color.surface }}>
       <nav className="yl-nav" style={styles.nav}>
         <div style={styles.brandBlock}>
-          <span style={styles.logoMark}>🛵</span>
+          <img src="/logo.png" alt="Yalla" style={styles.logoMark} />
           <span style={styles.logo}>Yalla</span>
           <div style={styles.tabs}>
             {TABS.map((t) => (
@@ -57,7 +63,10 @@ function Gate() {
 
       {page === 'dashboard' && <LiveDashboard />}
       {page === 'orders' && <OrdersPage />}
+      {page === 'chats' && <Chats />}
+      {page === 'support' && <Support />}
       {page === 'wallet' && <WalletTopups />}
+      {page === 'withdrawals' && <Withdrawals />}
       {page === 'users' && <UsersManagement />}
       {page === 'stats' && <StatsPage />}
     </div>
@@ -89,7 +98,7 @@ const styles = {
     gap: 12,
   },
   brandBlock: { display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' },
-  logoMark: { fontSize: 22 },
+  logoMark: { width: 32, height: 32, borderRadius: 8, objectFit: 'cover', display: 'block' },
   logo: {
     fontSize: 22,
     fontWeight: 700,

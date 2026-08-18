@@ -127,10 +127,14 @@ function AddressBlock({ title, loc }) {
 
 export default function LiveDashboard() {
   const [orders, setOrders] = useState([]);       // الطلبات النشطة
-  const [captains, setCaptains] = useState([]);    // الكباتن المتاحون
+  const [captains, setCaptains] = useState([]);    // كل الكباتن المعتمَدين مع حالتهم
   const [selected, setSelected] = useState({});    // {orderId: captainId} للإسناد
   const [expanded, setExpanded] = useState({});    // {orderId: bool} عرض كل التفاصيل (Card 29)
+  const [delayed, setDelayed] = useState({});      // {orderId: warning} الطلبات المتأخّرة (Card 40)
   const token = localStorage.getItem('token');     // توكن الأدمن
+
+  // عدد الكباتن المتصلين (لعرضه في الترويسة)
+  const onlineCount = captains.filter((c) => c.online).length;
 
   // إنشاء اتصال السوكت مرة واحدة (مع تمرير التوكن في المصادقة)
   const socket = useMemo(
@@ -144,9 +148,10 @@ export default function LiveDashboard() {
 
     const loadOrders = () =>
       fetch(`${API}/api/orders/active`, { headers }).then((r) => r.json()).then(setOrders);
-    // نعيد جلب قائمة المتاحين من الخادم بدل التخمين — تعكس حالة online/busy الحقيقية
+    // Card 34/35: نجلب كل الكباتن المعتمَدين (متصلين وغير متصلين) مع علامة الحالة،
+    // ليتمكّن الأدمن من الإسناد لكابتن غير متصل ورؤية تمييز واضح لحالته.
     const loadCaptains = () =>
-      fetch(`${API}/api/orders/available-captains`, { headers }).then((r) => r.json()).then(setCaptains);
+      fetch(`${API}/api/orders/assignable-captains`, { headers }).then((r) => r.json()).then(setCaptains);
 
     loadOrders();
     loadCaptains();
@@ -174,6 +179,12 @@ export default function LiveDashboard() {
     // أبسط وأصحّ من التعديل اليدوي: يُظهر الكابتن فور اتصاله دون تحديث الصفحة.
     socket.on('captain:status_changed', () => {
       loadCaptains();
+    });
+
+    // Card 40: طلب تجاوز زمنه التقديري -> نُبرزه في اللوحة لمراجعة الكابتن.
+    socket.on('order:delayed', (payload) => {
+      if (!payload?.orderId) return;
+      setDelayed((prev) => ({ ...prev, [payload.orderId]: payload }));
     });
 
     return () => socket.disconnect(); // تنظيف عند مغادرة الصفحة
@@ -229,9 +240,26 @@ export default function LiveDashboard() {
           <p style={styles.subtitle}>متابعة الطلبات النشطة وإسناد الكباتن في الوقت الفعلي</p>
         </div>
         <span style={styles.badge}>
-          <span style={styles.pulse} /> الكباتن المتاحون: {captains.length}
+          <span style={styles.pulse} /> المتصلون: {onlineCount} / {captains.length}
         </span>
       </header>
+
+      {/* Card 40: تنبيه الطلبات المتأخّرة عن زمنها التقديري */}
+      {Object.keys(delayed).length > 0 && (
+        <div style={styles.delayBanner}>
+          <b>⚠️ طلبات متأخّرة عن زمنها التقديري ({Object.keys(delayed).length})</b>
+          <span style={{ fontSize: 13 }}> — يُرجى مراجعة الكابتن المسؤول عن كل طلب.</span>
+          {Object.values(delayed).map((d) => (
+            <div key={d.orderId} style={styles.delayItem}>
+              #{d.orderId?.slice(-5)}
+              {d.captain?.name ? ` · الكابتن: ${d.captain.name}${d.captain.phone ? ` (${d.captain.phone})` : ''}` : ''}
+              <button style={styles.delayDismiss} onClick={() => setDelayed((p) => {
+                const n = { ...p }; delete n[d.orderId]; return n;
+              })}>تجاهل</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="yl-dashboard-grid" style={styles.grid}>
         {/* عمود الطلبات النشطة */}
@@ -247,6 +275,8 @@ export default function LiveDashboard() {
                   <span style={styles.status(orderStatusColor(o.status))}>
                     {STATUS_AR[o.status] || o.status}
                   </span>
+                  {/* Card 40: علامة تأخّر الطلب */}
+                  {delayed[o._id] && <span style={styles.delayTag} title="تجاوز الزمن التقديري">⏱️ متأخّر</span>}
                   {/* إلغاء متاح قبل الاستلام فقط */}
                   {['pending', 'assigned', 'accepted'].includes(o.status) && (
                     <button onClick={() => cancelOrder(o._id)} style={styles.cancelBtn} title="إلغاء الطلب">
@@ -290,9 +320,11 @@ export default function LiveDashboard() {
                     style={styles.select}
                   >
                     <option value="">— اختر كابتن —</option>
-                    {captains.map((c) => (
+                    {/* Card 34/35: يُسمح بإسناد كابتن غير متصل (يُوقَظ بالإشعار)؛ المشغول مستبعَد */}
+                    {captains.filter((c) => c.assignable).map((c) => (
                       <option key={c._id} value={c._id}>
-                        {c.name} ({c.vehicleType})
+                        {c.online ? '🟢' : '⚪'} {c.name} ({c.vehicleType === 'bicycle' ? 'دراجة' : 'موتوسيكل'})
+                        {c.online ? '' : ' — غير متصل'}
                       </option>
                     ))}
                   </select>
@@ -307,19 +339,25 @@ export default function LiveDashboard() {
           ))}
         </section>
 
-        {/* عمود الكباتن المتاحين */}
+        {/* عمود الكباتن — كلّهم مع علامة تمييز الحالة (Card 35) */}
         <aside style={styles.col}>
-          <h2 style={styles.colTitle}>الكباتن المتاحون</h2>
-          {captains.length === 0 && <p style={styles.empty}>لا يوجد كباتن متصلون</p>}
-          {captains.map((c) => (
-            <div key={c._id} style={styles.captainCard}>
-              <span style={styles.dot} />
-              <div>
-                <strong>{c.name}</strong>
-                <div style={styles.captainMeta}>{c.vehicleType} · ⭐ {c.rating}</div>
+          <h2 style={styles.colTitle}>الكباتن ({captains.length})</h2>
+          {captains.length === 0 && <p style={styles.empty}>لا يوجد كباتن معتمَدون</p>}
+          {captains.map((c) => {
+            const dotColor = c.busy ? '#f59e0b' : c.online ? theme.color.success : '#94a3b8';
+            const label = c.busy ? 'مشغول' : c.online ? 'متصل' : 'غير متصل';
+            return (
+              <div key={c._id} style={styles.captainCard}>
+                <span style={{ ...styles.dot, background: dotColor, boxShadow: `0 0 0 3px ${dotColor}22` }} />
+                <div>
+                  <strong>{c.name}</strong>
+                  <div style={styles.captainMeta}>
+                    {c.vehicleType === 'bicycle' ? 'دراجة' : 'موتوسيكل'} · ⭐ {c.rating} · {label}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </aside>
       </div>
     </div>
@@ -350,6 +388,40 @@ const styles = {
     whiteSpace: 'nowrap',
   },
   pulse: { width: 8, height: 8, borderRadius: '50%', background: theme.color.secondary, boxShadow: `0 0 0 3px ${theme.color.secondary}33` },
+  // Card 40: بانر تنبيه الطلبات المتأخّرة
+  delayBanner: {
+    background: '#fef3c7',
+    border: '1px solid #f59e0b',
+    color: '#92400e',
+    borderRadius: theme.radius.md,
+    padding: '12px 16px',
+    marginBottom: 20,
+  },
+  delayItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+    fontSize: 13,
+  },
+  delayDismiss: {
+    background: 'transparent',
+    border: '1px solid #92400e',
+    color: '#92400e',
+    borderRadius: theme.radius.pill,
+    padding: '2px 10px',
+    cursor: 'pointer',
+    fontSize: 12,
+    marginInlineStart: 'auto',
+  },
+  delayTag: {
+    background: '#f59e0b',
+    color: '#fff',
+    padding: '3px 10px',
+    borderRadius: theme.radius.pill,
+    fontSize: 12,
+    fontWeight: 600,
+  },
   grid: { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 },
   col: { display: 'flex', flexDirection: 'column', gap: 12 },
   colTitle: { fontSize: 18, margin: '0 0 4px' },

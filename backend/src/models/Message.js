@@ -13,8 +13,13 @@ const messageSchema = new mongoose.Schema(
       index: true,
     },
     senderId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    senderRole: { type: String, enum: ['user', 'captain'], required: true },
+    // يشمل 'admin' لمشاركة الأدمن في المحادثة بأيقونة خاصة (Card 32)
+    senderRole: { type: String, enum: ['user', 'captain', 'admin'], required: true },
     text: { type: String, required: true, trim: true },
+
+    // بعد انتهاء المحادثة (تسليم/إلغاء) تُؤرشَف بدل الحذف النهائي: يفقد الطرفان
+    // الوصول إليها بينما يحتفظ الأدمن بها للمراقبة والتصدير CSV (Card 32).
+    archived: { type: Boolean, default: false, index: true },
   },
   { timestamps: true } // createdAt = وقت الرسالة
 );

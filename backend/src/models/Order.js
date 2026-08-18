@@ -82,6 +82,9 @@ const orderSchema = new mongoose.Schema(
 
     cancelReason: { type: String, default: '' },
 
+    // وقت تنبيه الأدمن بتأخّر الطلب عن زمنه التقديري (Card 40) — يمنع تكرار التنبيه
+    delayWarnedAt: { type: Date, default: null },
+
     // مفتاح منع التكرار — يضمن أنّ إعادة إرسال الطلب لا تُنشئ نسخة ثانية
     idempotencyKey: { type: String, default: undefined },
 

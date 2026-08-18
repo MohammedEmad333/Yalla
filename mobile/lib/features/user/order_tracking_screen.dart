@@ -3,11 +3,14 @@
 // حالة الطلب وموقع الكابتن لحظيًا (يُعرَض كإحداثيات + مؤشّر حيّ).
 // (يمكن لاحقًا إضافة خريطة عبر google_maps_flutter + مفتاح Google Maps.)
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/maps/maps_service.dart';
 import '../../core/realtime/socket_service.dart';
+import '../../core/theme/app_theme.dart';
 import '../chat/chat_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
@@ -35,11 +38,49 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   String _status = 'pending';
   String _captainName = '';
 
+  // ساعة موقّت الوصول التقديري (Card 39)
+  int _etaMinutes = 0;         // الزمن التقديري للتوصيل (دقائق)
+  DateTime? _etaStart;         // لحظة بدء العدّ (قبول الكابتن أو الإسناد أو الإنشاء)
+  Timer? _ticker;             // مؤقّت يحدّث العدّ التنازلي كل ثانية
+
   @override
   void initState() {
     super.initState();
     _loadInitial();
     _subscribeRealtime();
+    // تحديث العدّ التنازلي كل ثانية أثناء التوصيل
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _showEta) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  // الحالات التي يُعرَض فيها الموقّت (الطلب قيد التوصيل)
+  bool get _inTransit => ['assigned', 'accepted', 'picked_up'].contains(_status);
+  bool get _showEta => _inTransit && _etaMinutes > 0 && _etaStart != null;
+
+  // لحظة الوصول التقديرية
+  DateTime? get _etaDeadline =>
+      _etaStart == null ? null : _etaStart!.add(Duration(minutes: _etaMinutes));
+
+  // الوقت المتبقّي حتى الوصول التقديري (قد يكون سالبًا إن تأخّر)
+  Duration get _remaining =>
+      _etaDeadline == null ? Duration.zero : _etaDeadline!.difference(DateTime.now());
+
+  // هل تأخّر الطلب عن وقته التقديري؟ (Card 39: تحذير قد لا يصل في الوقت)
+  bool get _isLate => _showEta && _remaining.isNegative;
+
+  // تحديد لحظة بدء العدّ من المخطط الزمني للطلب
+  DateTime? _resolveEtaStart(Map<String, dynamic> data) {
+    final tl = data['timeline'];
+    final candidate = (tl?['acceptedAt'] ?? tl?['assignedAt'] ?? data['createdAt'])?.toString();
+    if (candidate == null || candidate.isEmpty) return null;
+    return DateTime.tryParse(candidate)?.toLocal();
   }
 
   Future<void> _loadInitial() async {
@@ -50,6 +91,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         _dropoff = data['dropoff']?['address'] ?? '';
         _status = data['status'] ?? 'pending';
         _captainName = data['captain']?['name'] ?? '';
+        _etaMinutes = (data['etaMinutes'] as num?)?.toInt() ?? 0;
+        _etaStart = _resolveEtaStart(Map<String, dynamic>.from(data as Map));
         final cap = data['captain']?['currentLocation']?['coordinates'];
         if (cap != null) {
           _captainLng = (cap[0] as num).toDouble();
@@ -77,7 +120,14 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     // تحديث حالة الطلب
     widget.socket.onOrderStatusUpdated((data) {
       if (data['_id'] != widget.orderId) return;
-      setState(() => _status = data['status'] ?? _status);
+      setState(() {
+        _status = data['status'] ?? _status;
+        // عند قبول الكابتن نُثبّت بداية العدّ من لحظة القبول لدقّة أعلى
+        final start = _resolveEtaStart(Map<String, dynamic>.from(data as Map));
+        if (start != null) _etaStart = start;
+        final eta = (data['etaMinutes'] as num?)?.toInt();
+        if (eta != null && eta > 0) _etaMinutes = eta;
+      });
     });
   }
 
@@ -161,6 +211,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           ),
           const SizedBox(height: 12),
 
+          // ساعة موقّت الوصول التقديري + تحذير التأخّر (Card 39)
+          if (_showEta) _etaCard(),
+
           _tile(Icons.store, 'الاستلام', _pickup),
           _tile(Icons.flag, 'التسليم', _dropoff),
           if (_captainName.isNotEmpty) _tile(Icons.person, 'الكابتن', _captainName),
@@ -198,6 +251,69 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  // بطاقة موقّت الوصول التقديري (Card 39): عدّ تنازلي حيّ + تحذير عند التأخّر
+  Widget _etaCard() {
+    final late = _isLate;
+    // عند التأخّر نعرض مقدار التأخّر، وإلّا الوقت المتبقّي
+    final d = _remaining.abs();
+    final mm = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final ss = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final hh = d.inHours;
+    final clock = hh > 0 ? '$hh:${mm}:$ss' : '$mm:$ss';
+    final deadline = _etaDeadline!;
+    final arriveAt =
+        '${deadline.hour.toString().padLeft(2, '0')}:${deadline.minute.toString().padLeft(2, '0')}';
+
+    return Card(
+      color: late ? const Color(0xFFFEF3C7) : Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: late ? const Color(0xFFF59E0B) : YallaColors.outline),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(late ? Icons.warning_amber : Icons.timer,
+                    color: late ? const Color(0xFF92400E) : YallaColors.primary),
+                const SizedBox(width: 10),
+                Text(
+                  late ? 'تأخّر عن الوقت المتوقّع' : 'الوصول المتوقّع خلال',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: late ? const Color(0xFF92400E) : YallaColors.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              late ? 'مضى $clock على الوقت المتوقّع' : clock,
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                color: late ? const Color(0xFF92400E) : YallaColors.primary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text('الوقت التقديري للوصول: $arriveAt',
+                style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+            if (late) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'قد لا يصل الطلب في الوقت المتوقّع — يمكنك مراسلة الكابتن للاطمئنان.',
+                style: TextStyle(color: Color(0xFF92400E), fontSize: 13),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
