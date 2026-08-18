@@ -63,7 +63,7 @@ jobs:
           cp android/app/src/main/AndroidManifest.xml "$RUNNER_TEMP/AndroidManifest.xml"
           cp android/app/src/main/res/xml/network_security_config.xml "$RUNNER_TEMP/nsc.xml"
           rm -rf android
-          flutter create --platforms=android --org com.yalla --project-name yalla .
+          flutter create --platforms=android --org com.mohammedemad333 --project-name yalla .
           cp "$RUNNER_TEMP/AndroidManifest.xml" android/app/src/main/AndroidManifest.xml
           mkdir -p android/app/src/main/res/xml
           cp "$RUNNER_TEMP/nsc.xml" android/app/src/main/res/xml/network_security_config.xml

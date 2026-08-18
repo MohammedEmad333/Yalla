@@ -62,7 +62,7 @@ base64 -w0 yalla-upload.jks > yalla-upload.b64   # على macOS: base64 -i yalla
 
 - [ ] حساب مطوّر Google Play (رسم 25$ لمرة واحدة).
 - [ ] تفعيل **Play App Signing** (مُوصى به — يحمي من فقدان مفتاح الرفع).
-- [ ] **applicationId** ثابت: `com.yalla.yalla` (لا يمكن تغييره بعد النشر).
+- [ ] **applicationId** ثابت: `com.mohammedemad333.yalla` (لا يمكن تغييره بعد النشر).
 - [ ] **رابط سياسة الخصوصية** — منشورة تلقائيًا على GitHub Pages عبر workflow
       «Deploy Privacy Policy (Pages)»: <https://mohammedemad333.github.io/Yalla/>
       (المصدر: [`privacy-policy.md`](privacy-policy.md) و`site/index.html`). ضع
