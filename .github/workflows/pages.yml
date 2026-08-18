@@ -1,0 +1,48 @@
+name: Deploy Privacy Policy (Pages)
+
+# ينشر صفحة سياسة الخصوصية (site/) على GitHub Pages.
+# الرابط الناتج: https://mohammedemad333.github.io/Yalla/
+# يعمل تلقائيًا عند تعديل الصفحة، أو يدويًا من تبويب Actions.
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# صلاحيات مطلوبة لنشر Pages عبر Actions
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# نسمح بنشر واحد في كل مرّة (نُلغي الأقدم إن بدأ نشر جديد)
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # يُهيّئ Pages ويُفعّلها تلقائيًا إن لم تكن مُفعّلة (enablement)
+      - name: تهيئة Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      # نرفع محتوى مجلّد site/ فقط كأثر للنشر
+      - name: رفع محتوى الموقع
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: النشر على GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
