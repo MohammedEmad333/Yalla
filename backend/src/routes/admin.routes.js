@@ -13,11 +13,15 @@ router.get('/stats', ctrl.getStats);
 
 // إدارة المستخدمين
 router.get('/users', ctrl.listUsers);
+router.get('/customers', ctrl.listCustomersDetailed); // Card 41: تفاصيل كاملة للزبائن
 router.patch('/users/:userId/active', ctrl.setUserActive);
+router.delete('/users/:userId', ctrl.deleteUser); // Card 38: حذف نهائي
 
 // إدارة الكباتن
 router.get('/captains', ctrl.listCaptains);
+router.get('/captains/detailed', ctrl.listCaptainsDetailed); // Card 37: جدول كامل للكباتن
 router.patch('/captains/:captainId/approve', ctrl.setCaptainApproval);
+router.delete('/captains/:captainId', ctrl.deleteCaptain); // Card 38: حذف نهائي
 
 // محفظة الكابتن وتسوية العمولة (COD)
 router.get('/captains/:captainId/wallet', ctrl.captainWallet);

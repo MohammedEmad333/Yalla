@@ -167,6 +167,16 @@ async function getAvailableCaptains(req, res, next) {
   }
 }
 
+// الأدمن يجلب كل الكباتن المعتمَدين مع علامة الحالة (online/offline) للإسناد (Card 34/35)
+async function getAssignableCaptains(req, res, next) {
+  try {
+    const captains = await orderService.getAssignableCaptains();
+    res.json(captains);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // المستخدم يجلب سجلّ طلباته
 async function getMyOrders(req, res, next) {
   try {
@@ -248,6 +258,7 @@ module.exports = {
   listOrders,
   exportOrders,
   getAvailableCaptains,
+  getAssignableCaptains,
   getOrder,
   getMyOrders,
   rateOrder,

@@ -101,6 +101,9 @@ const EVENTS = Object.freeze({
   WITHDRAWAL_REQUESTED: 'withdrawal:requested',     // طلب سحب جديد يُبثّ للأدمن (Card 19)
   CHAT_MESSAGE: 'chat:message',   // رسالة دردشة جديدة على طلب (Card 18)
   CHAT_CLEARED: 'chat:cleared',   // حُذفت رسائل الطلب (بعد التسليم/الإلغاء)
+  ORDER_DELAYED: 'order:delayed', // طلب تجاوز زمنه التقديري — تحذير للأدمن (Card 40)
+  CAPTAIN_DELETED: 'captain:deleted', // حُذف كابتن نهائيًا (Card 38)
+  USER_DELETED: 'user:deleted',       // حُذف زبون نهائيًا (Card 38)
   // من العملاء -> الخادم
   CAPTAIN_TOGGLE_STATUS: 'captain:toggle_status',
   CAPTAIN_UPDATE_LOCATION: 'captain:update_location',

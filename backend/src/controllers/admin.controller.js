@@ -6,6 +6,7 @@ const statsService = require('../services/stats.service');
 const orderService = require('../services/order.service');
 const walletService = require('../services/wallet.service');
 const captainWalletService = require('../services/captainWallet.service');
+const adminService = require('../services/admin.service');
 const { ROLES } = require('../utils/constants');
 
 // مؤشّرات الأداء للوحة التحكّم
@@ -59,6 +60,46 @@ async function listCaptains(req, res, next) {
       .select('name phone vehicleType status isApproved rating ratingsCount createdAt')
       .sort({ createdAt: -1 });
     res.json(captains);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 41: قائمة الزبائن بكامل التفاصيل (رقم/اسم/عنوان/رصيد/تاريخ الانضمام)
+async function listCustomersDetailed(req, res, next) {
+  try {
+    const items = await adminService.listCustomers({ q: req.query.q });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 37 + Card 41: قائمة الكباتن بكامل التفاصيل (بما فيها الرصيد القابل للسحب)
+async function listCaptainsDetailed(req, res, next) {
+  try {
+    const items = await adminService.listCaptainsDetailed();
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 38: حذف زبون نهائيًا
+async function deleteUser(req, res, next) {
+  try {
+    const result = await adminService.deleteUser(req.params.userId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 38: حذف كابتن نهائيًا
+async function deleteCaptain(req, res, next) {
+  try {
+    const result = await adminService.deleteCaptain(req.params.captainId);
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -182,6 +223,10 @@ module.exports = {
   getStats,
   listUsers,
   setUserActive,
+  listCustomersDetailed,
+  listCaptainsDetailed,
+  deleteUser,
+  deleteCaptain,
   listCaptains,
   setCaptainApproval,
   captainWallet,
