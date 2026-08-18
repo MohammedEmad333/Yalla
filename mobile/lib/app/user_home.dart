@@ -8,6 +8,7 @@ import '../features/user/create_order_screen.dart';
 import '../features/user/my_orders_screen.dart';
 import '../features/wallet/presentation/wallet_screen.dart';
 import '../features/notifications/notifications_screen.dart';
+import '../features/support/support_screen.dart';
 import 'profile_screen.dart';
 
 class UserHome extends StatefulWidget {
@@ -43,6 +44,7 @@ class _UserHomeState extends State<UserHome> {
       MyOrdersScreen(api: widget.api, socket: widget.socket),
       WalletScreen(api: widget.api, socket: widget.socket),
       NotificationsScreen(api: widget.api, socket: widget.socket),
+      SupportScreen(api: widget.api, socket: widget.socket),
       ProfileScreen(api: widget.api, onLogout: widget.onLogout),
     ];
 
@@ -56,6 +58,7 @@ class _UserHomeState extends State<UserHome> {
           NavigationDestination(icon: Icon(Icons.receipt_long), label: 'طلباتي'),
           NavigationDestination(icon: Icon(Icons.account_balance_wallet), label: 'المحفظة'),
           NavigationDestination(icon: Icon(Icons.notifications), label: 'الإشعارات'),
+          NavigationDestination(icon: Icon(Icons.support_agent), label: 'الدعم'),
           NavigationDestination(icon: Icon(Icons.person), label: 'حسابي'),
         ],
       ),

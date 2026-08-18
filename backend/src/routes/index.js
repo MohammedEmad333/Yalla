@@ -14,6 +14,7 @@ router.use('/auth', require('./auth.routes'));
 router.use('/orders', require('./order.routes'));
 router.use('/captains', require('./captain.routes'));
 router.use('/wallet', require('./wallet.routes'));
+router.use('/support', require('./support.routes'));
 router.use('/admin', require('./admin.routes'));
 router.use('/notifications', require('./notification.routes'));
 

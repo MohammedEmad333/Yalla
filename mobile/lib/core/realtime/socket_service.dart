@@ -110,6 +110,10 @@ class SocketService {
   void sendChatMessage(String orderId, String text) =>
       _socket?.emit('chat:message', {'orderId': orderId, 'text': text});
 
+  // التواصل المباشر مع الأدمن (Card 44/46): استقبال رسالة دعم جديدة لحظيًا
+  void onSupportMessage(void Function(Map<String, dynamic>) cb) =>
+      _addListener('support:message', cb);
+
   // (للكابتن) بثّ الموقع الحالي أثناء التوصيل
   void sendLocation({required String orderId, required double lng, required double lat}) {
     _socket?.emit('captain:update_location', {'orderId': orderId, 'lng': lng, 'lat': lat});

@@ -2,6 +2,7 @@
 
 const router = require('express').Router();
 const ctrl = require('../controllers/admin.controller');
+const support = require('../controllers/support.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { ROLES } = require('../utils/constants');
 
@@ -36,6 +37,11 @@ router.get('/chats', ctrl.listChats);
 router.get('/chats/:orderId/messages', ctrl.getChatMessages);
 router.post('/chats/:orderId/messages', ctrl.sendChatMessage);
 router.get('/chats/:orderId/export', ctrl.exportChat);
+
+// التواصل المباشر بين الزبائن والأدمن (Card 46)
+router.get('/support', support.listThreads);
+router.get('/support/:userId/messages', support.threadMessages);
+router.post('/support/:userId/messages', support.reply);
 
 // شحن رصيد المستخدمين — مراجعة الطلبات المعلّقة والموافقة/الرفض
 router.get('/wallet/topups', ctrl.listTopups);

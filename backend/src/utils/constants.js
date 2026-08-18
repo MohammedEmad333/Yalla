@@ -104,6 +104,7 @@ const EVENTS = Object.freeze({
   ORDER_DELAYED: 'order:delayed', // طلب تجاوز زمنه التقديري — تحذير للأدمن (Card 40)
   CAPTAIN_DELETED: 'captain:deleted', // حُذف كابتن نهائيًا (Card 38)
   USER_DELETED: 'user:deleted',       // حُذف زبون نهائيًا (Card 38)
+  SUPPORT_MESSAGE: 'support:message', // رسالة دعم بين الزبون والأدمن (Card 44/46)
   // من العملاء -> الخادم
   CAPTAIN_TOGGLE_STATUS: 'captain:toggle_status',
   CAPTAIN_UPDATE_LOCATION: 'captain:update_location',
