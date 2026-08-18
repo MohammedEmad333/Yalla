@@ -31,6 +31,12 @@ router.post('/captains/:captainId/settle', ctrl.settleCaptain);
 router.get('/withdrawals', ctrl.listWithdrawals);
 router.patch('/withdrawals/:withdrawalId', ctrl.processWithdrawal);
 
+// مراقبة المحادثات بين الزبائن والكباتن (Card 32 + Card 45)
+router.get('/chats', ctrl.listChats);
+router.get('/chats/:orderId/messages', ctrl.getChatMessages);
+router.post('/chats/:orderId/messages', ctrl.sendChatMessage);
+router.get('/chats/:orderId/export', ctrl.exportChat);
+
 // شحن رصيد المستخدمين — مراجعة الطلبات المعلّقة والموافقة/الرفض
 router.get('/wallet/topups', ctrl.listTopups);
 router.post('/wallet/topups/:txId/approve', ctrl.approveTopup);

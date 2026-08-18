@@ -48,7 +48,8 @@ async function sendMessage(orderId, sender, text) {
   const invalid = validateMessage(text);
   if (invalid) throw httpError(invalid, 400);
 
-  const senderRole = sender.role === ROLES.CAPTAIN ? 'captain' : 'user';
+  const senderRole =
+    sender.role === ROLES.CAPTAIN ? 'captain' : sender.role === ROLES.ADMIN ? 'admin' : 'user';
   const message = await Message.create({
     order: orderId,
     senderId: sender.id,
@@ -79,13 +80,17 @@ async function notifyOtherParty(order, senderRole, message) {
     data: { type: 'CHAT_MESSAGE', orderId: String(order._id) },
   };
 
-  if (senderRole === 'captain') {
-    // المُرسِل كابتن → المستلِم صاحب الطلب
+  // المُرسِل كابتن → صاحب الطلب فقط | المُرسِل صاحب الطلب → الكابتن فقط |
+  // المُرسِل أدمن (Card 32) → الطرفان معًا.
+  const notifyUser = senderRole !== 'user';
+  const notifyCaptain = senderRole !== 'captain' && order.captain;
+
+  if (notifyUser) {
     notifications.createInApp(order.user, 'user', payload);
     const user = await User.findById(order.user).select('deviceTokens');
     if (user?.deviceTokens?.length) await notifications.sendToTokens(user.deviceTokens, payload);
-  } else if (order.captain) {
-    // المُرسِل صاحب الطلب → المستلِم الكابتن
+  }
+  if (notifyCaptain) {
     notifications.createInApp(order.captain, 'captain', payload);
     const captain = await Captain.findById(order.captain).select('deviceTokens');
     if (captain?.deviceTokens?.length) {
@@ -97,27 +102,95 @@ async function notifyOtherParty(order, senderRole, message) {
 /** قائمة رسائل الطلب (الأقدم أولًا) — لأطراف الطلب فقط. */
 async function listMessages(orderId, requester, { limit = 100 } = {}) {
   await loadOrderForParticipant(orderId, requester.id, requester.role);
-  return Message.find({ order: orderId }).sort({ createdAt: 1 }).limit(limit).lean();
+  // الأدمن يرى كل الرسائل (بما فيها المؤرشفة)؛ الطرفان يريان غير المؤرشفة فقط.
+  const filter = { order: orderId };
+  if (requester.role !== ROLES.ADMIN) filter.archived = { $ne: true };
+  return Message.find(filter).sort({ createdAt: 1 }).limit(limit).lean();
 }
 
 /**
- * حذف كل رسائل الطلب — يُستدعى عند التسليم أو الإلغاء (Card 18).
+ * أرشفة كل رسائل الطلب — يُستدعى عند التسليم أو الإلغاء (Card 18 + Card 32).
+ * يفقد الطرفان (المستخدم/الكابتن) الوصول إليها فورًا (خصوصيّة)، بينما تبقى
+ * محفوظة للأدمن للمراقبة وتصدير CSV بعد انتهاء المحادثة.
  * آمن: لا يرمي أخطاءً تُوقف تدفّق تغيير حالة الطلب.
- * @returns {Promise<number>} عدد الرسائل المحذوفة
+ * @returns {Promise<number>} عدد الرسائل المؤرشَفة
  */
 async function purgeOrderMessages(orderId) {
   try {
-    const res = await Message.deleteMany({ order: orderId });
+    const res = await Message.updateMany(
+      { order: orderId, archived: { $ne: true } },
+      { $set: { archived: true } }
+    );
     try {
       io.get().to(ROOMS.order(String(orderId))).emit(EVENTS.CHAT_CLEARED, { orderId: String(orderId) });
     } catch (_) {
       // السوكت غير مهيّأ — نتجاهل
     }
-    return res.deletedCount || 0;
+    return res.modifiedCount || 0;
   } catch (err) {
-    logger.warn('تعذّر حذف رسائل الطلب:', err.message);
+    logger.warn('تعذّر أرشفة رسائل الطلب:', err.message);
     return 0;
   }
 }
 
-module.exports = { sendMessage, listMessages, purgeOrderMessages };
+// ── مراقبة الأدمن للمحادثات (Card 32 + Card 45) ──────────────────
+
+/**
+ * Card 45: قائمة المحادثات الجارية (طلبات نشطة تحمل رسائل غير مؤرشفة)
+ * ليدخل إليها الأدمن بسهولة — مع آخر رسالة وعدد الرسائل وطرفَي المحادثة.
+ */
+async function listActiveChats({ limit = 50 } = {}) {
+  const agg = await Message.aggregate([
+    { $match: { archived: { $ne: true } } },
+    { $sort: { createdAt: 1 } },
+    {
+      $group: {
+        _id: '$order',
+        count: { $sum: 1 },
+        lastText: { $last: '$text' },
+        lastAt: { $last: '$createdAt' },
+        lastSender: { $last: '$senderRole' },
+      },
+    },
+    { $sort: { lastAt: -1 } },
+    { $limit: limit },
+  ]);
+  if (!agg.length) return [];
+
+  const orderIds = agg.map((a) => a._id);
+  const orders = await Order.find({ _id: { $in: orderIds } })
+    .select('status user captain')
+    .populate('user', 'name lastName phone')
+    .populate('captain', 'name phone')
+    .lean();
+  const byId = new Map(orders.map((o) => [String(o._id), o]));
+
+  return agg.map((a) => {
+    const o = byId.get(String(a._id)) || {};
+    return {
+      orderId: String(a._id),
+      status: o.status || 'unknown',
+      user: o.user
+        ? { name: [o.user.name, o.user.lastName].filter(Boolean).join(' '), phone: o.user.phone }
+        : null,
+      captain: o.captain ? { name: o.captain.name, phone: o.captain.phone } : null,
+      messages: a.count,
+      lastText: a.lastText,
+      lastAt: a.lastAt,
+      lastSender: a.lastSender,
+    };
+  });
+}
+
+/** رسائل طلب معيّن للأدمن (تشمل المؤرشفة) — للمراقبة والتصدير. */
+async function listMessagesForAdmin(orderId, { limit = 500 } = {}) {
+  return Message.find({ order: orderId }).sort({ createdAt: 1 }).limit(limit).lean();
+}
+
+module.exports = {
+  sendMessage,
+  listMessages,
+  purgeOrderMessages,
+  listActiveChats,
+  listMessagesForAdmin,
+};

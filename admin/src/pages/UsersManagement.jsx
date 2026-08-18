@@ -1,19 +1,42 @@
 // صفحة إدارة المستخدمين والكباتن (لوحة الأدمن)
-// تبويبان: العملاء (تفعيل/تعطيل) والكباتن (اعتماد + إضافة كابتن جديد).
+// تبويبان: الزبائن (تفعيل/تعطيل + حذف نهائي) والكباتن (اعتماد + إضافة + حذف نهائي).
+// Card 37: جدول كامل بالكباتن المسجّلين.  Card 38: حذف نهائي.  Card 41: تفاصيل كاملة
+// (رقم/اسم/عنوان/رصيد متوفّر/تاريخ الانضمام) مع علامة تمييز حالة الكابتن (Card 35).
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { theme } from '../theme';
+
+// تنسيق تاريخ الانضمام بالعربية
+function fmtDate(d) {
+  if (!d) return '—';
+  try {
+    return new Date(d).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch {
+    return '—';
+  }
+}
+
+// شارة حالة الكابتن (online / offline / busy) — Card 35
+function StatusBadge({ status }) {
+  const map = {
+    online: { bg: '#16a34a', label: '🟢 متصل' },
+    busy: { bg: '#f59e0b', label: '🟠 مشغول' },
+    offline: { bg: '#94a3b8', label: '⚪ غير متصل' },
+  };
+  const s = map[status] || map.offline;
+  return <span style={styles.pill(s.bg)}>{s.label}</span>;
+}
 
 export default function UsersManagement() {
   const [tab, setTab] = useState('users'); // users | captains
   return (
     <div className="yl-page" style={styles.page}>
       <h1 style={{ margin: '0 0 4px' }}>إدارة المستخدمين</h1>
-      <p style={styles.subtitle}>العملاء والكباتن — التفعيل والاعتماد والمحافظ</p>
+      <p style={styles.subtitle}>الزبائن والكباتن — التفعيل والاعتماد والمحافظ والحذف النهائي</p>
 
       <div style={styles.tabs}>
-        <button style={styles.tab(tab === 'users')} onClick={() => setTab('users')}>العملاء</button>
+        <button style={styles.tab(tab === 'users')} onClick={() => setTab('users')}>الزبائن</button>
         <button style={styles.tab(tab === 'captains')} onClick={() => setTab('captains')}>الكباتن</button>
       </div>
       {tab === 'users' ? <UsersTab /> : <CaptainsTab />}
@@ -21,18 +44,30 @@ export default function UsersManagement() {
   );
 }
 
-// ── تبويب العملاء ──────────────────────────────────────────────
+// ── تبويب الزبائن (Card 41) ────────────────────────────────────
 function UsersTab() {
   const [users, setUsers] = useState([]);
   const [q, setQ] = useState('');
 
-  const load = () => api.get(`/admin/users${q ? `?q=${encodeURIComponent(q)}` : ''}`).then(setUsers);
+  const load = () =>
+    api.get(`/admin/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`).then(setUsers);
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // تبديل تفعيل المستخدم
+  // تبديل تفعيل الزبون
   async function toggle(u) {
-    const updated = await api.patch(`/admin/users/${u._id}/active`, { isActive: !u.isActive });
-    setUsers((prev) => prev.map((x) => (x._id === u._id ? { ...x, isActive: updated.isActive } : x)));
+    const updated = await api.patch(`/admin/users/${u.id}/active`, { isActive: !u.isActive });
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, isActive: updated.isActive } : x)));
+  }
+
+  // حذف نهائي للزبون (Card 38)
+  async function remove(u) {
+    if (!window.confirm(`حذف الزبون "${u.name}" نهائيًا من الذاكرة؟ لا يمكن التراجع.`)) return;
+    try {
+      await api.del(`/admin/users/${u.id}`);
+      setUsers((prev) => prev.filter((x) => x.id !== u.id));
+    } catch (err) {
+      alert(err.message);
+    }
   }
 
   return (
@@ -51,28 +86,37 @@ function UsersTab() {
       <div className="yl-table-wrap">
         <table style={styles.table}>
           <thead>
-            <tr><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>إجراء</th></tr>
+            <tr>
+              <th>الاسم</th><th>الهاتف</th><th>العنوان</th><th>الرصيد المتوفّر</th>
+              <th>تاريخ الانضمام</th><th>الحالة</th><th>إجراء</th>
+            </tr>
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u._id}>
+              <tr key={u.id}>
                 <td>{u.name}</td>
                 <td>{u.phone}</td>
+                <td>{u.address || '—'}</td>
+                <td><b>{u.balance} ₪</b></td>
+                <td>{fmtDate(u.createdAt)}</td>
                 <td>
                   <span style={styles.pill(u.isActive ? '#16a34a' : '#dc2626')}>
                     {u.isActive ? 'مفعّل' : 'معطّل'}
                   </span>
                 </td>
                 <td>
-                  <button
-                    style={styles.btn2(u.isActive ? '#dc2626' : '#16a34a')}
-                    onClick={() => toggle(u)}
-                  >
+                  <button style={styles.btn2(u.isActive ? '#dc2626' : '#16a34a')} onClick={() => toggle(u)}>
                     {u.isActive ? 'تعطيل' : 'تفعيل'}
+                  </button>
+                  <button style={{ ...styles.btn2('#991b1b'), marginInlineStart: 6 }} onClick={() => remove(u)}>
+                    حذف نهائي
                   </button>
                 </td>
               </tr>
             ))}
+            {users.length === 0 && (
+              <tr><td colSpan={7} style={{ textAlign: 'center', color: theme.color.muted }}>لا يوجد زبائن</td></tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -80,19 +124,19 @@ function UsersTab() {
   );
 }
 
-// ── تبويب الكباتن ──────────────────────────────────────────────
+// ── تبويب الكباتن (Card 37) ────────────────────────────────────
 function CaptainsTab() {
   const [captains, setCaptains] = useState([]);
   const [form, setForm] = useState({ name: '', phone: '', password: '', vehicleType: 'motorcycle' });
   const [reviews, setReviews] = useState(null); // مراجعات الكابتن المعروض حاليًا
   const [wallet, setWallet] = useState(null);   // محفظة الكابتن المعروض حاليًا
 
-  const load = () => api.get('/admin/captains').then(setCaptains);
+  const load = () => api.get('/admin/captains/detailed').then(setCaptains);
   useEffect(() => { load(); }, []);
 
   // جلب محفظة كابتن (COD)
   async function showWallet(c) {
-    const data = await api.get(`/admin/captains/${c._id}/wallet`);
+    const data = await api.get(`/admin/captains/${c.id}/wallet`);
     setWallet(data);
   }
 
@@ -100,18 +144,29 @@ function CaptainsTab() {
   async function settle(captainId, owed) {
     if (owed <= 0) return;
     await api.post(`/admin/captains/${captainId}/settle`, { amount: owed });
-    showWallet({ _id: captainId }); // إعادة تحميل المحفظة
+    showWallet({ id: captainId }); // إعادة تحميل المحفظة
   }
 
   // اعتماد/إلغاء اعتماد كابتن
   async function toggleApprove(c) {
-    const updated = await api.patch(`/admin/captains/${c._id}/approve`, { isApproved: !c.isApproved });
-    setCaptains((prev) => prev.map((x) => (x._id === c._id ? { ...x, isApproved: updated.isApproved } : x)));
+    const updated = await api.patch(`/admin/captains/${c.id}/approve`, { isApproved: !c.isApproved });
+    setCaptains((prev) => prev.map((x) => (x.id === c.id ? { ...x, isApproved: updated.isApproved } : x)));
+  }
+
+  // حذف نهائي للكابتن (Card 38)
+  async function remove(c) {
+    if (!window.confirm(`حذف الكابتن "${c.name}" نهائيًا من الذاكرة؟ لا يمكن التراجع.`)) return;
+    try {
+      await api.del(`/admin/captains/${c.id}`);
+      setCaptains((prev) => prev.filter((x) => x.id !== c.id));
+    } catch (err) {
+      alert(err.message);
+    }
   }
 
   // جلب مراجعات كابتن وعرضها في لوحة أسفل الجدول
   async function showReviews(c) {
-    const data = await api.get(`/captains/${c._id}/reviews`);
+    const data = await api.get(`/captains/${c.id}/reviews`);
     setReviews(data);
   }
 
@@ -148,26 +203,29 @@ function CaptainsTab() {
       <div className="yl-table-wrap">
         <table style={styles.table}>
           <thead>
-            <tr><th>الاسم</th><th>الهاتف</th><th>المركبة</th><th>التقييم</th><th>الاعتماد</th><th>إجراء</th></tr>
+            <tr>
+              <th>الاسم</th><th>الهاتف</th><th>المركبة</th><th>الحالة</th><th>التقييم</th>
+              <th>الرصيد المتوفّر</th><th>تاريخ الانضمام</th><th>الاعتماد</th><th>إجراء</th>
+            </tr>
           </thead>
           <tbody>
             {captains.map((c) => (
-              <tr key={c._id}>
+              <tr key={c.id}>
                 <td>{c.name}</td>
                 <td>{c.phone}</td>
-                <td>{c.vehicleType}</td>
+                <td>{c.vehicleType === 'bicycle' ? 'دراجة' : 'موتوسيكل'}{c.vehiclePlate ? ` · ${c.vehiclePlate}` : ''}</td>
+                <td><StatusBadge status={c.status} /></td>
                 <td>⭐ {c.rating} ({c.ratingsCount})</td>
+                <td><b>{c.balance} ₪</b></td>
+                <td>{fmtDate(c.createdAt)}</td>
                 <td>
                   <span style={styles.pill(c.isApproved ? '#16a34a' : '#f59e0b')}>
                     {c.isApproved ? 'معتمَد' : 'قيد المراجعة'}
                   </span>
                 </td>
-                <td>
-                  <button
-                    style={styles.btn2(c.isApproved ? '#f59e0b' : '#16a34a')}
-                    onClick={() => toggleApprove(c)}
-                  >
-                    {c.isApproved ? 'إلغاء الاعتماد' : 'اعتماد'}
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <button style={styles.btn2(c.isApproved ? '#f59e0b' : '#16a34a')} onClick={() => toggleApprove(c)}>
+                    {c.isApproved ? 'إلغاء' : 'اعتماد'}
                   </button>
                   <button style={{ ...styles.btn2('#334155'), marginInlineStart: 6 }} onClick={() => showReviews(c)}>
                     المراجعات
@@ -175,9 +233,15 @@ function CaptainsTab() {
                   <button style={{ ...styles.btn2('#059669'), marginInlineStart: 6 }} onClick={() => showWallet(c)}>
                     المحفظة
                   </button>
+                  <button style={{ ...styles.btn2('#991b1b'), marginInlineStart: 6 }} onClick={() => remove(c)}>
+                    حذف
+                  </button>
                 </td>
               </tr>
             ))}
+            {captains.length === 0 && (
+              <tr><td colSpan={9} style={{ textAlign: 'center', color: theme.color.muted }}>لا يوجد كباتن مسجّلون</td></tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -247,7 +311,7 @@ function CaptainsTab() {
 }
 
 const styles = {
-  page: { direction: 'rtl', fontFamily: theme.font, padding: 32, maxWidth: 1200, margin: '0 auto' },
+  page: { direction: 'rtl', fontFamily: theme.font, padding: 32, maxWidth: 1280, margin: '0 auto' },
   subtitle: { color: theme.color.muted, margin: '0 0 16px', fontSize: 14 },
   tabs: { display: 'flex', gap: 8, marginBottom: 16 },
   tab: (active) => ({
