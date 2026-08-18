@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>سياسة الخصوصية — Yalla (يلا)</title>
+  <meta name="description" content="سياسة خصوصية تطبيق Yalla (يلا) للتوصيل اللحظي — كيف نجمع بياناتك ونستخدمها ونحميها." />
+  <style>
+    :root {
+      --brand: #FF6B00;
+      --ink: #1a1a1a;
+      --muted: #5a5a5a;
+      --line: #e8e8e8;
+      --bg: #ffffff;
+      --soft: #fff7f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f4f5f7;
+      color: var(--ink);
+      font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", "Cairo", system-ui, sans-serif;
+      line-height: 1.85;
+      font-size: 17px;
+    }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 0 18px 64px; }
+    header.hero {
+      background: linear-gradient(135deg, var(--brand), #ff9245);
+      color: #fff;
+      padding: 40px 18px 34px;
+      text-align: center;
+    }
+    header.hero .brand {
+      font-size: 30px; font-weight: 800; letter-spacing: .5px; margin: 0 0 6px;
+    }
+    header.hero h1 { margin: 0; font-size: 22px; font-weight: 600; opacity: .96; }
+    .card {
+      background: var(--bg);
+      margin-top: -22px;
+      border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.08);
+      padding: 30px 26px;
+    }
+    .updated {
+      display: inline-block; background: var(--soft); color: var(--brand);
+      border: 1px solid #ffd9bd; border-radius: 999px;
+      padding: 4px 14px; font-size: 14px; font-weight: 600; margin-bottom: 18px;
+    }
+    h2 {
+      font-size: 20px; margin: 34px 0 12px; padding-top: 8px;
+      border-top: 1px solid var(--line); color: var(--brand);
+    }
+    h2:first-of-type { border-top: none; }
+    p { margin: 10px 0; }
+    ul { margin: 10px 0; padding-inline-start: 22px; }
+    li { margin: 6px 0; }
+    strong { color: #000; }
+    .note {
+      background: var(--soft); border-inline-start: 4px solid var(--brand);
+      padding: 12px 16px; border-radius: 8px; margin: 16px 0;
+    }
+    .table-scroll { overflow-x: auto; margin: 14px 0; }
+    table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 15.5px; }
+    th, td { text-align: right; padding: 10px 12px; border: 1px solid var(--line); vertical-align: top; }
+    thead th { background: var(--soft); color: var(--brand); font-weight: 700; }
+    tbody tr:nth-child(even) { background: #fafafa; }
+    a { color: var(--brand); }
+    footer {
+      text-align: center; color: var(--muted); font-size: 14px; margin-top: 30px;
+    }
+    @media (max-width: 480px) { body { font-size: 16px; } .card { padding: 22px 16px; } }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="brand">Yalla · يلا 🛵</div>
+    <h1>سياسة الخصوصية</h1>
+  </header>
+
+  <div class="wrap">
+    <main class="card">
+      <span class="updated">آخر تحديث: 18 أغسطس 2026</span>
+
+      <p>
+        يوضّح هذا المستند كيف يجمع تطبيق <strong>Yalla (يلا)</strong> («التطبيق») —
+        الذي تديره <strong>Yalla (يلا)</strong> («نحن») — بياناتك ويستخدمها ويحميها.
+        باستخدامك التطبيق فإنك توافق على الممارسات الموضّحة أدناه.
+      </p>
+
+      <h2>1) البيانات التي نجمعها</h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>الفئة</th><th>البيانات</th><th>الغرض</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>بيانات الحساب</strong></td><td>الاسم، رقم الهاتف</td><td>إنشاء الحساب، تسجيل الدخول، وتحديد الدور (مستخدم/كابتن)</td></tr>
+            <tr><td><strong>بيانات الموقع</strong></td><td>الموقع الجغرافي الدقيق (GPS)</td><td>تحديد نقاط الاستلام/التسليم، وتتبّع الكابتن لحظيًا أثناء تنفيذ الطلب</td></tr>
+            <tr><td><strong>بيانات الطلبات</strong></td><td>العناوين، تفاصيل الطلب، الحالة، التقييمات</td><td>تنفيذ خدمة التوصيل وعرض سجلّ الطلبات</td></tr>
+            <tr><td><strong>الصور</strong></td><td>صور إيصالات شحن الرصيد (اختيارية)</td><td>التحقّق من عمليات شحن المحفظة</td></tr>
+            <tr><td><strong>بيانات المحفظة</strong></td><td>الرصيد، الأرباح، المعاملات</td><td>إدارة الدفع الداخلي وأرباح الكباتن</td></tr>
+            <tr><td><strong>مُعرّف الإشعارات</strong></td><td>رمز جهاز Firebase (FCM token)</td><td>إرسال إشعارات الطلبات والتحديثات</td></tr>
+            <tr><td><strong>بيانات تقنية</strong></td><td>نوع الجهاز، إصدار النظام، سجلّات الأخطاء</td><td>تشغيل الخدمة وتحسين الاستقرار</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>نجمع <strong>الموقع الدقيق</strong> لأن جوهر الخدمة توصيل لحظي يعتمد على تحديد المواقع والملاحة.</p>
+      <ul>
+        <li>للمستخدم: يُستخدم لتحديد نقطتي الاستلام والتسليم.</li>
+        <li>للكابتن: يُبثّ الموقع أثناء وجود طلب نشط لعرضه للمستخدم وللإدارة.</li>
+      </ul>
+      <div class="note"><strong>لا نجمع الموقع في الخلفية</strong> خارج سياق طلب نشط ما لم يُصرَّح بذلك صراحةً.</div>
+
+      <h2>2) كيف نستخدم بياناتك</h2>
+      <ul>
+        <li>تشغيل خدمة التوصيل ومطابقة الطلبات بالكباتن.</li>
+        <li>عرض المواقع والملاحة عبر خرائط Google.</li>
+        <li>إرسال إشعارات حالة الطلب.</li>
+        <li>منع الاحتيال ومعالجة عمليات شحن الرصيد.</li>
+        <li>تحسين أداء التطبيق وحلّ الأعطال.</li>
+      </ul>
+      <div class="note"><strong>لا نبيع بياناتك الشخصية لأي طرف ثالث.</strong></div>
+
+      <h2>3) مشاركة البيانات مع أطراف ثالثة</h2>
+      <p>نشارك الحدّ الأدنى الضروري فقط مع مزوّدي الخدمات التاليين:</p>
+      <ul>
+        <li><strong>Google Maps</strong> — لعرض المواقع والملاحة (تُفتح عبر روابط خرائط Google).</li>
+        <li><strong>Firebase Cloud Messaging (Google)</strong> — لإرسال الإشعارات.</li>
+        <li>مزوّد الاستضافة السحابية <strong>Render</strong> وقاعدة البيانات <strong>MongoDB Atlas</strong> — لتخزين ومعالجة بيانات الخدمة.</li>
+      </ul>
+      <p>بين المستخدم والكابتن: يُعرض رقم هاتف الطرف الآخر والموقع أثناء تنفيذ الطلب فقط، بغرض إتمام التوصيل.</p>
+
+      <h2>4) الاحتفاظ بالبيانات</h2>
+      <p>نحتفظ ببياناتك طوال بقاء حسابك نشطًا وبالقدر اللازم لتقديم الخدمة والامتثال للالتزامات القانونية. عند حذف الحساب تُحذف بياناتك الشخصية أو تُجهَّل خلال مدة معقولة.</p>
+
+      <h2>5) أمان البيانات</h2>
+      <ul>
+        <li>الاتصال بخوادمنا يتمّ عبر <strong>HTTPS</strong> المشفّر.</li>
+        <li>تُخزَّن رموز الدخول على الجهاز في مخزن آمن (Secure Storage).</li>
+        <li>نطبّق ضوابط وصول على الخوادم لحماية بياناتك.</li>
+      </ul>
+
+      <h2>6) حقوقك</h2>
+      <p>لك الحقّ في:</p>
+      <ul>
+        <li>الوصول إلى بياناتك أو تصحيحها.</li>
+        <li>طلب حذف حسابك وبياناتك.</li>
+        <li>سحب أذونات الموقع أو الإشعارات من إعدادات نظام هاتفك في أي وقت (قد يؤثّر ذلك على عمل بعض الميزات).</li>
+      </ul>
+      <p>لطلب الحذف أو ممارسة أي حقّ، تواصل معنا عبر البريد أدناه.</p>
+
+      <h2>7) خصوصية الأطفال</h2>
+      <p>التطبيق غير موجَّه للأطفال دون 13 عامًا، ولا نجمع بياناتهم عن قصد.</p>
+
+      <h2>8) تغييرات على هذه السياسة</h2>
+      <p>قد نُحدّث هذه السياسة من حين لآخر. سيُحدَّث تاريخ «آخر تحديث» أعلاه، وننشر أي تغييرات جوهرية داخل التطبيق أو على هذه الصفحة.</p>
+
+      <h2>9) التواصل</h2>
+      <p>لأي استفسار حول الخصوصية أو طلبات البيانات:</p>
+      <ul>
+        <li><strong>البريد الإلكتروني:</strong> <a href="mailto:mohammedelrefy28@gmail.com">mohammedelrefy28@gmail.com</a></li>
+        <li><strong>الجهة:</strong> Yalla (يلا)</li>
+      </ul>
+    </main>
+
+    <footer>© 2026 Yalla (يلا) — جميع الحقوق محفوظة.</footer>
+  </div>
+</body>
+</html>
