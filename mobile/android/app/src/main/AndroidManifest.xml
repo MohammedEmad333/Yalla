@@ -11,8 +11,10 @@
         android:label="Yalla"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
-        <!-- android:usesCleartextTraffic: للسماح بالاتصال بالـ Backend عبر http من جهاز حقيقي -->
+        android:networkSecurityConfig="@xml/network_security_config">
+        <!-- أمان الشبكة: HTTPS فقط في الإنتاج، وHTTP مسموح للتطوير المحلّي فقط
+             (10.0.2.2/localhost) — راجع res/xml/network_security_config.xml.
+             هذا يستبدل usesCleartextTraffic=true العامّ المطلوب رفضه في Google Play. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

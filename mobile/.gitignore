@@ -32,3 +32,12 @@ build/
 # مخرجات البناء (APK/AAB)
 *.apk
 *.aab
+
+# مفاتيح التوقيع — لا تُرفع أبدًا إلى المستودع (تُحقَن في CI عبر الأسرار)
+*.jks
+*.keystore
+/android/app/upload-keystore.jks
+
+# ملفّات بايثون المؤقّتة
+__pycache__/
+*.pyc

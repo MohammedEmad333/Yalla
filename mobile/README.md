@@ -22,10 +22,12 @@ cp /tmp/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
 ```
 > لو عدّل `pubspec.yaml` استعده من git: `git checkout pubspec.yaml`.
 >
-> **بناء APK جاهز عبر GitHub:** لا حاجة لتوليد المنصّات يدويًا — شغّل
-> workflow **«Build Mobile APK»** من تبويب Actions (أو يُبنى تلقائيًا عند تعديل
-> `mobile/`)، وحمّل ملفّ `yalla-apk` من مخرجات التشغيل. يمرّر عنوان الخادم عبر
-> مُدخَل `API_ORIGIN` (افتراضيًا الخادم السحابي).
+> **بناء حزمة جاهزة عبر GitHub:** لا حاجة لتوليد المنصّات يدويًا — شغّل
+> workflow **«Build Mobile Release»** من تبويب Actions (أو يُبنى تلقائيًا عند تعديل
+> `mobile/`). حمّل **`yalla-aab`** (`app-release.aab`) للنشر على Google Play، أو
+> **`yalla-apk`** للتثبيت المباشر والاختبار. يمرّر عنوان الخادم عبر مُدخَل
+> `API_ORIGIN` (افتراضيًا الخادم السحابي). لبناء AAB موقّع وخطوات النشر راجع
+> [`../docs/08-google-play-release.md`](../docs/08-google-play-release.md).
 
 ### 3) ضبط عنوان الـ Backend (بلا تعديل كود)
 العنوان يُمرَّر عبر `--dart-define=API_HOST=...` (انظر `lib/core/config/app_config.dart`):
@@ -95,8 +97,10 @@ flutterfire configure --project=yalla-c751d
 التطبيق يعمل بأمان مع تعطيل الإشعارات فقط. تفاصيل كاملة في `docs/07-firebase-fcm.md`.
 الإشعارات الداخلية (in-app) تعمل عبر السوكت بلا Firebase.
 
-> السماح بـ HTTP: للاتصال بالـ Backend عبر `http` من جهاز حقيقي، أضِف
-> `android:usesCleartextTraffic="true"` إلى وسم `<application>` في AndroidManifest.
+> أمان الشبكة: الإنتاج يستخدم **HTTPS فقط** عبر
+> `res/xml/network_security_config.xml` (مطلوب لسياسة Google Play). الـ `http`
+> مسموح للتطوير المحلّي فقط (`10.0.2.2`/`localhost`/`127.0.0.1`). للاتصال بخادم
+> `http` على IP آخر أثناء التطوير أضِف نطاقه إلى نفس الملفّ، أو استخدم خادم HTTPS.
 
 ## البنية
 ```
