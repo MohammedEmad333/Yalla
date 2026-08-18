@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  إعداد أمان الشبكة لـ Yalla.
+  الإنتاج: HTTPS فقط (cleartext ممنوع) — مطلوب لسياسة Google Play وأكثر أمانًا.
+  التطوير: نسمح بـ HTTP فقط لعناوين المحاكي/المحلّي (10.0.2.2 / localhost / 127.0.0.1)
+  حتى يعمل الاتصال بالـ Backend المحلّي أثناء التطوير دون فتح cleartext عالميًا.
+-->
+<network-security-config>
+    <!-- الافتراضي لكل النطاقات: لا cleartext إطلاقًا (HTTPS إلزامي) -->
+    <base-config cleartextTrafficPermitted="false" />
+
+    <!-- استثناء التطوير المحلّي فقط -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

@@ -1,7 +1,16 @@
-name: Build Mobile APK
+name: Build Mobile Release
 
-# بناء ملفّ APK لتطبيق يلا (المستخدم/الكابتن) على GitHub.
-# يُشغّل يدويًا (workflow_dispatch) أو تلقائيًا عند تغيّر ملفّات mobile/.
+# بناء حزم Yalla للنشر:
+#   • AAB موقّع للإصدار (app-release.aab) — الحزمة المطلوبة لرفعها على Google Play.
+#   • APK موقّع (app-release.apk) — للتثبيت المباشر والاختبار على الأجهزة.
+#
+# التوقيع: يتطلّب أسرار المستودع التالية (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64  — ملفّ keystore (.jks) مُرمَّز base64
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+# راجع docs/08-google-play-release.md لخطوات توليد الـ keystore وإضافة الأسرار.
+# بلا هذه الأسرار: يُبنى APK موقّع بمفتاح debug للاختبار فقط (غير صالح للنشر).
 on:
   workflow_dispatch:
     inputs:
@@ -16,7 +25,7 @@ on:
       - '.github/workflows/mobile-apk.yml'
 
 jobs:
-  build-apk:
+  build-release:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -31,7 +40,8 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # تثبيت Flutter (قناة stable) مع تخزين مؤقت لتسريع البناء
+      # تثبيت Flutter (قناة stable) مع تخزين مؤقت لتسريع البناء.
+      # stable الحديثة تستهدف compile/target SDK ≥ 35 (مطلوب لـ Google Play).
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -46,14 +56,17 @@ jobs:
           echo "سيُبنى التطبيق للاتصال بـ: $ORIGIN"
 
       # مجلّد android/ لا يُحفظ كاملًا في الريبو (يُولَّد عبر flutter create).
-      # نحفظ ملفّ المانيفست الخاصّ بنا (اسم Yalla + الصلاحيات + queries)، نُعيد
-      # توليد سقالة Android كاملة، ثم نُعيد المانيفست فوق المولّد.
-      - name: توليد سقالة Android مع الحفاظ على المانيفست
+      # نحفظ ملفّاتنا المتتبَّعة (المانيفست + إعداد أمان الشبكة)، نُعيد توليد
+      # سقالة Android كاملة، ثم نُعيد ملفّاتنا فوق المولّد.
+      - name: توليد سقالة Android مع الحفاظ على ملفّاتنا
         run: |
           cp android/app/src/main/AndroidManifest.xml "$RUNNER_TEMP/AndroidManifest.xml"
+          cp android/app/src/main/res/xml/network_security_config.xml "$RUNNER_TEMP/nsc.xml"
           rm -rf android
           flutter create --platforms=android --org com.yalla --project-name yalla .
           cp "$RUNNER_TEMP/AndroidManifest.xml" android/app/src/main/AndroidManifest.xml
+          mkdir -p android/app/src/main/res/xml
+          cp "$RUNNER_TEMP/nsc.xml" android/app/src/main/res/xml/network_security_config.xml
 
       - name: تثبيت التبعيات
         run: flutter pub get
@@ -62,11 +75,51 @@ jobs:
       - name: توليد أيقونة التطبيق
         run: dart run flutter_launcher_icons || echo "تخطّي توليد الأيقونة"
 
-      # بناء APK للإصدار (موقّع بمفتاح debug تلقائيًا فيكون قابلًا للتثبيت مباشرة)
+      # تجهيز توقيع الإصدار إن توفّرت الأسرار
+      - name: تجهيز توقيع الإصدار
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::لا توجد أسرار keystore — سيُبنى APK موقّع بمفتاح debug للاختبار فقط (غير صالح للنشر على Google Play). أضِف الأسرار لبناء AAB موقّع."
+            exit 0
+          fi
+          KEYSTORE_PATH="$PWD/android/app/upload-keystore.jks"
+          echo "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=$KEYSTORE_PATH
+          EOF
+          python3 tool/inject_signing.py
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+          echo "تمّ تجهيز توقيع الإصدار."
+
+      # بناء AAB موقّع للإصدار (حزمة Google Play) — فقط عند توفّر التوقيع
+      - name: بناء App Bundle (AAB) موقّع
+        if: steps.signing.outputs.signed == 'true'
+        run: flutter build appbundle --release --dart-define=API_ORIGIN=$API_ORIGIN
+
+      # بناء APK (موقّع بمفتاح الإصدار إن توفّر، وإلّا بمفتاح debug للاختبار)
       - name: بناء APK
         run: flutter build apk --release --dart-define=API_ORIGIN=$API_ORIGIN
 
-      # رفع الـ APK كأثر (artifact) يمكن تنزيله من صفحة التشغيل
+      # رفع الـ AAB (للنشر على Google Play)
+      - name: رفع الـ AAB
+        if: steps.signing.outputs.signed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: yalla-aab
+          path: mobile/build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      # رفع الـ APK (للتثبيت المباشر/الاختبار)
       - name: رفع الـ APK
         uses: actions/upload-artifact@v4
         with:
