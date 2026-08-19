@@ -1,8 +1,8 @@
 # إجابات نموذج Data Safety — Google Play (تطبيق Yalla)
 
 جاهزة للنسخ في **Play Console → App content → Data safety**. الأسماء بالإنجليزية كما
-تظهر في النموذج. مبنيّة على ما يجمعه التطبيق فعليًا (موقع، اسم/هاتف، صور إيصالات،
-محفظة، رمز إشعارات FCM).
+تظهر في النموذج. مبنيّة على ما يجمعه التطبيق فعليًا (موقع، اسم/هاتف/بريد اختياري،
+عناوين، رسائل داخل التطبيق، صور إيصالات، محفظة، رمز إشعارات FCM).
 
 > ملاحظة عن «المشاركة» (Sharing): Google تَعُدّ «المشاركة» نقلَ البيانات إلى **طرف
 > ثالث**. مزوّدونا (Firebase/Google، Render، MongoDB Atlas) يُعالجون البيانات
@@ -41,6 +41,11 @@
 - Purposes: **App functionality**، **Account management**
 - (يُعرض رقم الطرف الآخر للمستخدم/الكابتن أثناء الطلب لإتمام التوصيل فقط.)
 
+### Personal info — Email address
+- Collected: **Yes** · Shared: **No** · **Optional**
+- Purposes: **App functionality**، **Account management**
+- (حقل بريد اختياري يضيفه المستخدم/يعدّله من شاشة الملف الشخصي — `email` في `User.js`.)
+
 ### Personal info — Address
 - Collected: **Yes** · Shared: **No** · Required
 - Purposes: **App functionality**
@@ -56,6 +61,12 @@
 - Purposes: **App functionality**
 - (رصيد المحفظة، المعاملات، وأرباح الكابتن — دفع داخلي، بلا معالجة بطاقات داخل التطبيق.)
 
+### Messages — Other in-app messages
+- Collected: **Yes** · Shared: **No** · Required
+- Purposes: **App functionality**
+- (دردشة الطلب بين المستخدم والكابتن `Message.js`، ودردشة الدعم بين المستخدم
+  والإدارة `SupportMessage.js` — يُخزَّن نصّ الرسائل على الخادم لإتمام التواصل حول الطلب.)
+
 ### Photos and videos — Photos
 - Collected: **Yes** · Shared: **No** · **Optional**
 - Purposes: **App functionality**
@@ -70,9 +81,9 @@
 
 ## 3) أنواع لا نجمعها — اترك خانتها Not collected
 
-- Approximate location · Email address · Race/ethnicity · Political/religious beliefs
+- Approximate location · Race/ethnicity · Political/religious beliefs
   · Sexual orientation · Other personal info
-- Health and fitness · Messages (SMS/email/in-app content) · Audio · Music
+- Health and fitness · Emails · SMS or MMS · Audio · Music
 - Files and docs · Calendar · Contacts · Web browsing history
 - Payment info / Credit score (لا تُجمع بيانات بطاقات داخل التطبيق)
 
