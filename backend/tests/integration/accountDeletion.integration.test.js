@@ -53,7 +53,13 @@ test('حذف الزبون ذاتيًا يمحو الحساب وبياناته ا
   if (!state.dbReady) return t.skip('لا قاعدة بيانات');
   const user = await makeUser();
   await walletService.creditWallet(user._id, 50);
-  await Notification.create({ recipient: user._id, title: 'مرحبًا', body: 'أهلًا' });
+  await Notification.create({
+    recipient: user._id,
+    recipientRole: 'user',
+    type: 'ORDER_STATUS',
+    title: 'مرحبًا',
+    body: 'أهلًا',
+  });
   await SupportMessage.create({ user: user._id, senderRole: 'user', text: 'استفسار' });
 
   const res = await adminService.deleteUser(user._id, ROLES.USER);
