@@ -104,6 +104,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // حذف الحساب نهائيًا (متطلّب Google Play) — بتأكيد صريح من المستخدم.
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حذف الحساب'),
+        content: const Text(
+          'سيؤدّي هذا إلى حذف حسابك وبياناتك المرتبطة به نهائيًا (المحفظة، '
+          'الإشعارات، ورسائل الدعم). لا يمكن التراجع عن هذا الإجراء.\n\n'
+          'لا يمكن الحذف أثناء وجود طلب نشط قيد التنفيذ.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('حذف نهائيًا'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _saving = true);
+    try {
+      await widget.api.delete('/auth/me');
+      _snack('تم حذف حسابك');
+      widget.onLogout(); // يمسح الجلسة ويعيد لصفحة الدخول
+    } on ApiException catch (e) {
+      // مثال: 409 عند وجود طلب نشط
+      if (mounted) setState(() => _saving = false);
+      _snack(e.message);
+    }
+  }
+
   // فتح واتس اب الشركة برابط wa.me (Card 43)
   Future<void> _openWhatsapp() async {
     final uri = Company.whatsappUri();
@@ -202,6 +237,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: widget.onLogout,
                     icon: const Icon(Icons.logout),
                     label: const Text('تسجيل الخروج'),
+                  ),
+
+                  const SizedBox(height: 8),
+                  // حذف الحساب نهائيًا (متطلّب Google Play)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    onPressed: _saving ? null : _deleteAccount,
+                    icon: const Icon(Icons.delete_forever),
+                    label: const Text('حذف الحساب'),
                   ),
                 ],
               ),

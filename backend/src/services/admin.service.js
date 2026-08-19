@@ -7,6 +7,7 @@ const Wallet = require('../models/Wallet');
 const WalletTransaction = require('../models/WalletTransaction');
 const CaptainWithdrawal = require('../models/CaptainWithdrawal');
 const Notification = require('../models/Notification');
+const SupportMessage = require('../models/SupportMessage');
 const Order = require('../models/Order');
 const Log = require('../models/Log');
 const io = require('../sockets/io');
@@ -122,8 +123,10 @@ async function listCaptainsDetailed() {
 /**
  * Card 38: حذف زبون نهائيًا من الذاكرة مع بياناته المرتبطة.
  * يُمنع الحذف إن كان لديه طلب نشط (غير منتهٍ) لتفادي فقدان طلب جارٍ.
+ * @param {string} userId
+ * @param {'admin'|'user'} actorRole  من نفّذ الحذف — أدمن أو الزبون نفسه (حذف ذاتي).
  */
-async function deleteUser(userId) {
+async function deleteUser(userId, actorRole = 'admin') {
   if (!mongoose.Types.ObjectId.isValid(userId)) throw httpError('معرّف غير صالح', 400);
   const user = await User.findById(userId).select('name role');
   if (!user) throw httpError('المستخدم غير موجود', 404);
@@ -134,18 +137,19 @@ async function deleteUser(userId) {
     throw httpError('لا يمكن حذف الزبون: لديه طلب نشط قيد التنفيذ', 409);
   }
 
-  // حذف البيانات المرتبطة (المحفظة، حركاتها، الإشعارات) ثم الحساب
+  // حذف البيانات المرتبطة (المحفظة، حركاتها، الإشعارات، رسائل الدعم) ثم الحساب
   await Promise.all([
     Wallet.deleteMany({ user: userId }),
     WalletTransaction.deleteMany({ user: userId }),
     Notification.deleteMany({ recipient: userId }),
+    SupportMessage.deleteMany({ user: userId }),
   ]);
   await User.deleteOne({ _id: userId });
 
   await Log.create({
-    actorRole: 'admin',
+    actorRole,
     action: 'USER_DELETED',
-    meta: { userId: String(userId), name: user.name },
+    meta: { userId: String(userId), name: user.name, self: actorRole === 'user' },
   });
 
   try {
@@ -160,8 +164,10 @@ async function deleteUser(userId) {
 /**
  * Card 38: حذف كابتن نهائيًا من الذاكرة مع بياناته المرتبطة.
  * يُمنع الحذف إن كان مشغولًا بطلب نشط.
+ * @param {string} captainId
+ * @param {'admin'|'captain'} actorRole  من نفّذ الحذف — أدمن أو الكابتن نفسه (حذف ذاتي).
  */
-async function deleteCaptain(captainId) {
+async function deleteCaptain(captainId, actorRole = 'admin') {
   if (!mongoose.Types.ObjectId.isValid(captainId)) throw httpError('معرّف غير صالح', 400);
   const captain = await Captain.findById(captainId).select('name activeOrder');
   if (!captain) throw httpError('الكابتن غير موجود', 404);
@@ -181,9 +187,9 @@ async function deleteCaptain(captainId) {
   await Captain.deleteOne({ _id: captainId });
 
   await Log.create({
-    actorRole: 'admin',
+    actorRole,
     action: 'CAPTAIN_DELETED',
-    meta: { captainId: String(captainId), name: captain.name },
+    meta: { captainId: String(captainId), name: captain.name, self: actorRole === 'captain' },
   });
 
   try {

@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 const User = require('../models/User');
 const Captain = require('../models/Captain');
+const adminService = require('../services/admin.service');
 const { avatarUrlFor } = require('../middlewares/upload.middleware');
 const { ROLES } = require('../utils/constants');
 
@@ -174,6 +175,26 @@ async function uploadAvatar(req, res, next) {
   }
 }
 
+// حذف الحساب الحالي وبياناته المرتبطة نهائيًا — بطلب المستخدم نفسه (Google Play:
+// متطلّب حذف الحساب داخل التطبيق). يُعيد استخدام منطق الحذف الآمن (يمنع الحذف
+// أثناء طلب نشط) ويسجّل الفاعل كـ "user"/"captain" للتمييز عن حذف الأدمن.
+async function deleteOwnAccount(req, res, next) {
+  try {
+    const { id, role } = req.auth;
+    if (role === ROLES.ADMIN) {
+      return res.status(403).json({ message: 'لا يمكن حذف حساب أدمن من التطبيق' });
+    }
+    if (role === ROLES.CAPTAIN) {
+      await adminService.deleteCaptain(id, ROLES.CAPTAIN);
+    } else {
+      await adminService.deleteUser(id, ROLES.USER);
+    }
+    res.json({ deleted: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // اختيار مجموعة مفاتيح مسموح بها فقط من جسم الطلب (يتجاهل الفارغ/غير المُرسَل)
 function pick(obj = {}, keys = []) {
   const out = {};
@@ -191,4 +212,5 @@ module.exports = {
   me,
   updateProfile,
   uploadAvatar,
+  deleteOwnAccount,
 };
