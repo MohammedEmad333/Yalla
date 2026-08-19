@@ -425,7 +425,11 @@ async function updateOrderStatus(
       );
     }
     // تأكيد التسليم برمز صاحب الطلب (Card 20): لا يُقبل "تم التسليم" إلا برمز صحيح.
-    if (!verifyDeliveryCode(order.deliveryCode, deliveryCode)) {
+    // استثناء الطلبات القديمة: الطلبات المُنشأة قبل ميزة رمز التسليم لا تملك رمزًا
+    // مخزّنًا (deliveryCode فارغ)، فكان يتعذّر إغلاقها وتبقى عالقة في "جار التوصيل".
+    // نتخطّى التحقّق لهذه الطلبات فقط — أمّا الطلبات الجديدة فتُولّد رمزًا دائمًا عند
+    // الإنشاء، فيبقى التحقّق ساريًا عليها بالكامل.
+    if (order.deliveryCode && !verifyDeliveryCode(order.deliveryCode, deliveryCode)) {
       throw httpError('رمز التسليم غير صحيح — اطلبه من صاحب الطلب', 400);
     }
     // خصم السعر الحقيقي من محفظة المستخدم (ذرّي؛ يرمي إن لم يكفِ الرصيد).
@@ -703,6 +707,48 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
   }
   broadcastOrderUpdate(order);
 
+  return order;
+}
+
+// الأدمن يُغلق طلبًا عالقًا إداريًّا (يضعه "تم التسليم") — لتصفية الطلبات القديمة
+// التي لا يمكن إغلاقها عبر التدفّق العادي (مثلًا طلبات ما قبل ميزة رمز التسليم،
+// أو كابتن لم يعد نشطًا). إغلاق إداريّ فقط: بلا خصم من محفظة المستخدم وبلا صرف
+// نسبة للكابتن (تُسوّى نقدًا خارج النظام)، مع تسجيل الإجراء في سجلّ التدقيق.
+const FORCE_COMPLETABLE = [
+  ORDER_STATUS.ASSIGNED,
+  ORDER_STATUS.ACCEPTED,
+  ORDER_STATUS.PICKED_UP,
+];
+
+async function forceCompleteByAdmin(orderId, { actorId } = {}) {
+  const order = await Order.findById(orderId);
+  if (!order) throw httpError('الطلب غير موجود', 404);
+  if (!FORCE_COMPLETABLE.includes(order.status)) {
+    throw httpError(`لا يمكن إغلاق طلب في حالته الحالية (${order.status})`, 400);
+  }
+
+  const from = order.status;
+  const captainId = order.captain;
+
+  order.status = ORDER_STATUS.DELIVERED;
+  order.timeline.deliveredAt = new Date();
+  await order.save();
+
+  await releaseCaptain(captainId); // تحرير الكابتن إن كان مُسنَدًا
+  chat.purgeOrderMessages(order._id); // حذف رسائل الدردشة بعد الإغلاق (Card 18)
+
+  await writeLog({
+    order: order._id,
+    actorId,
+    actorRole: 'admin',
+    action: 'ORDER_FORCE_COMPLETED',
+    fromStatus: from,
+    toStatus: ORDER_STATUS.DELIVERED,
+    meta: { note: 'إغلاق إداريّ لطلب عالق (بلا تسوية مالية)' },
+  });
+
+  broadcastOrderUpdate(order);
+  pushOrderStatusToUser(order); // إشعار المستخدم بتغيّر الحالة (بلا انتظار)
   return order;
 }
 
@@ -1003,6 +1049,7 @@ module.exports = {
   expireStaleAssignments,
   warnDelayedOrders,
   cancelOrder,
+  forceCompleteByAdmin,
   getActiveOrders,
   listOrders,
   getOrdersForExport,

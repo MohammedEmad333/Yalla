@@ -47,6 +47,8 @@ router.get('/available-captains', authorize(ROLES.ADMIN), ctrl.getAvailableCapta
 router.get('/assignable-captains', authorize(ROLES.ADMIN), ctrl.getAssignableCaptains);
 router.patch('/:orderId/assign', authorize(ROLES.ADMIN), validateBody(assignSchema), ctrl.assignOrder);
 router.patch('/:orderId/auto-assign', authorize(ROLES.ADMIN), ctrl.autoAssign);
+// الأدمن: إغلاق طلب عالق إداريًّا (تم التسليم) — لتصفية الطلبات القديمة
+router.patch('/:orderId/force-complete', authorize(ROLES.ADMIN), ctrl.forceComplete);
 
 // الكابتن: تحديث حالة الطلب + رفض الطلب (إعادة إسناد)
 router.patch('/:orderId/status', authorize(ROLES.CAPTAIN), ctrl.updateStatus);

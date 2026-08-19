@@ -12,7 +12,7 @@ Node.js أو Socket.io أو MongoDB — أي أنها غير صالحة لتشغ
 |---------|------------------|------------------|
 | قاعدة البيانات (MongoDB) | **MongoDB Atlas** | 512MB مجانًا (M0) |
 | الـ Backend (Express + Socket.io) | **Render** | خدمة Web مجانية |
-| لوحة الأدمن (React) | **Netlify** أو **Vercel** | مجانية بسخاء |
+| لوحة الأدمن (React) | **Vercel** (مُوصى به) أو **Netlify** | مجانية بسخاء |
 | النطاق | **InfinityFree** (`gazalook.great-site.net`) | مجاني |
 
 ```
@@ -97,12 +97,38 @@ MONGO_URI="mongodb+srv://...atlas..." npm run seed:admin "المدير" 01000000
 
 ---
 
-## الخطوة 3 — لوحة الأدمن على Netlify (أو Vercel)
+## الخطوة 3 — لوحة الأدمن على Vercel (أو Netlify)
 
 لوحة الأدمن هي React/Vite تُبنى إلى ملفّات ثابتة — تُستضاف مجانًا. الكود في مجلد
 `admin/`، والإعدادات جاهزة (`admin/netlify.toml` و`admin/vercel.json`).
 
-### خيار أ — Netlify (مُوصى به)
+### خيار أ — Vercel (مُوصى به)
+
+Vercel هو الأنسب هنا: الطبقة المجانية (Hobby) سخيّة ولا تُنفد فيها "حصّة/رصيد
+البناء" كما قد يحدث على Netlify، والنشر يتجدّد تلقائيًا مع كل `git push`، والإعداد
+جاهز في `admin/vercel.json`.
+
+1. <https://vercel.com> → سجّل الدخول بحساب GitHub → **Add New… → Project**.
+2. اختر مستودع `MohammedEmad333/Yalla` واضغط **Import**.
+3. اضبط **Root Directory** = `admin` (مهم — التطبيق في مجلّد فرعي؛ اضغط *Edit*
+   بجانب Root Directory واختر `admin`). سيكتشف Vercel إطار **Vite** تلقائيًا،
+   وأمر البناء ومجلّد الإخراج (`dist`) مضبوطان في `vercel.json`.
+4. وسّع **Environment Variables** وأضِف قبل النشر:
+   - `VITE_API_URL` = `https://yalla-api-z6t0.onrender.com` (عنوان Render من الخطوة 2)
+
+   > يُقرأ هذا المتغيّر **وقت البناء**، فأي تغيير له يتطلّب **Redeploy** (Deployments
+   > → آخر نشر → ⋯ → Redeploy).
+5. اضغط **Deploy**. ستحصل على عنوان مثل `https://yalla-admin.vercel.app`.
+6. ارجع إلى Render → خدمة `yalla-api` → **Environment** واضبط `CORS_ORIGIN` على
+   عنوان Vercel بالضبط (بدون `/` في النهاية)، ثم احفظ ليُعاد النشر.
+
+> 💡 هذا يحلّ مشكلة "لا أستطيع نشر آخر التغييرات على Netlify": انشر على Vercel مرّة
+> واحدة، وبعدها كل دفعة إلى GitHub تُنشَر تلقائيًا دون الحاجة لأي رصيد على Netlify.
+
+### خيار ب — Netlify (بديل)
+
+> ⚠️ إن كان رصيد/حصّة البناء على حساب Netlify قد نفد (فلا تُنشَر التغييرات
+> الجديدة)، استخدم Vercel أعلاه، أو أنشئ الموقع على حساب/فريق Netlify آخر برصيد جديد.
 
 1. أنشئ حسابًا على <https://netlify.com> واربطه بـ GitHub.
 2. **Add new site → Import an existing project** → اختر مستودع Yalla.
@@ -110,18 +136,11 @@ MONGO_URI="mongodb+srv://...atlas..." npm run seed:admin "المدير" 01000000
    - **Base directory:** `admin`
    - (الأمر ومجلّد النشر مضبوطان في `netlify.toml`: `npm run build` → `dist`)
 4. قبل النشر، من **Site settings → Environment variables** أضِف:
-   - `VITE_API_URL` = `https://yalla-api.onrender.com` (عنوان Render من الخطوة 2)
+   - `VITE_API_URL` = `https://yalla-api-z6t0.onrender.com` (عنوان Render من الخطوة 2)
 
    > يُقرأ هذا المتغيّر **وقت البناء**، فأي تغيير له يتطلّب **Redeploy**.
 5. انشر. ستحصل على عنوان مثل `https://gazalook-admin.netlify.app`.
 6. ارجع إلى Render واضبط `CORS_ORIGIN` على هذا العنوان بالضبط (بدون `/` في النهاية).
-
-### خيار ب — Vercel
-
-1. <https://vercel.com> → **Add New → Project** → استورد مستودع Yalla.
-2. اضبط **Root Directory** = `admin` (مهم — التطبيق في مجلّد فرعي).
-3. أضِف متغيّر البيئة `VITE_API_URL` = عنوان Render.
-4. انشر، ثم اضبط `CORS_ORIGIN` على Render لعنوان Vercel الناتج.
 
 ---
 
@@ -160,5 +179,6 @@ Vercel) عبر DNS. الطريقة تعتمد على ما يسمح به Infinity
 |-------|----------------|------|
 | فشل CORS في المتصفّح | `CORS_ORIGIN` ≠ عنوان اللوحة | طابِق العنوان تمامًا (بدون `/` أخير) وأعِد النشر |
 | اللوحة تتصل بـ localhost | `VITE_API_URL` غير مضبوط وقت البناء | اضبطه ثم **Redeploy** |
+| تعذّر نشر آخر التغييرات على Netlify | نفاد رصيد/حصّة البناء على الحساب | انشر على **Vercel** (خيار أ)، أو استخدم حساب/فريق Netlify آخر |
 | أول طلب بطيء جدًّا | نوم الطبقة المجانية على Render | طبيعي؛ رقِّ الخطة أو استخدم ping دوري |
 | فشل اتصال Mongo | Network Access في Atlas | أضِف `0.0.0.0/0` |
