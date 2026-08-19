@@ -44,6 +44,8 @@ const updateProfileSchema = {
 router.get('/me', authenticate, ctrl.me);
 router.patch('/me', authenticate, validateBody(updateProfileSchema), ctrl.updateProfile);
 router.post('/me/avatar', authenticate, uploadAvatar.single('avatar'), ctrl.uploadAvatar);
+// حذف الحساب ذاتيًا (متطلّب Google Play) — المستخدم يحذف حسابه وبياناته المرتبطة
+router.delete('/me', authenticate, ctrl.deleteOwnAccount);
 router.post(
   '/captain/register',
   authenticate,

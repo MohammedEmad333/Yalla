@@ -78,7 +78,10 @@ function buildOpenApiSpec() {
         post: op({ summary: 'إنشاء كابتن', tags: ['Auth'], roles: ['admin'],
           body: { name: str, phone: str, password: str, vehicleType: str } }),
       },
-      '/auth/me': { get: op({ summary: 'الجلسة الحالية', tags: ['Auth'] }) },
+      '/auth/me': {
+        get: op({ summary: 'الجلسة الحالية', tags: ['Auth'] }),
+        delete: op({ summary: 'حذف الحساب الحالي وبياناته', tags: ['Auth'] }),
+      },
 
       // ── Orders ──
       '/orders/quote': {
