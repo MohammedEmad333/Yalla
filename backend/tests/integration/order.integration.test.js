@@ -153,6 +153,35 @@ test('التسليم: الطلبات القديمة بلا رمز تسليم ت�
   assert.equal(delivered.status, ORDER_STATUS.DELIVERED);
 });
 
+test('الأدمن: إغلاق طلب عالق إداريًّا يضعه delivered ويحرّر الكابتن', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const [user, captain, admin] = [await makeUser(), await makeCaptain(), await makeUser()];
+  const order = await orderService.createOrder(user._id, orderPayload());
+  await orderService.assignOrder(admin._id, order._id, captain._id);
+  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.ACCEPTED);
+  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.PICKED_UP);
+
+  const closed = await orderService.forceCompleteByAdmin(order._id, { actorId: admin._id });
+  assert.equal(closed.status, ORDER_STATUS.DELIVERED);
+  assert.ok(closed.timeline.deliveredAt, 'يختم وقت التسليم');
+  // لا تسوية مالية في الإغلاق الإداريّ
+  assert.equal(closed.captainNet, 0);
+  // الكابتن يعود متاحًا
+  const freshCaptain = await Captain.findById(captain._id);
+  assert.equal(freshCaptain.status, CAPTAIN_STATUS.ONLINE);
+  assert.equal(freshCaptain.activeOrder, null);
+});
+
+test('الأدمن: لا يمكن إغلاق طلب في حالة غير قابلة (pending)', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const user = await makeUser();
+  const order = await orderService.createOrder(user._id, orderPayload());
+  await assert.rejects(
+    () => orderService.forceCompleteByAdmin(order._id, { actorId: user._id }),
+    /لا يمكن إغلاق طلب/
+  );
+});
+
 test('إنشاء الطلب: يُرفض إن لم يكفِ رصيد المحفظة (Card 27)', async (t) => {
   if (!state.dbReady) return t.skip('لا قاعدة بيانات');
   // مستخدم بلا رصيد (نُنشئه يدويًّا بلا تمويل)

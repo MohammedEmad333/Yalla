@@ -109,6 +109,17 @@ async function cancelOrder(req, res, next) {
   }
 }
 
+// الأدمن يُغلق طلبًا عالقًا إداريًّا (تم التسليم) — لتصفية الطلبات القديمة العالقة
+async function forceComplete(req, res, next) {
+  try {
+    const { orderId } = req.params;
+    const order = await orderService.forceCompleteByAdmin(orderId, { actorId: req.auth.id });
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // الأدمن يجلب الطلبات النشطة للوحة التحكّم
 async function getActiveOrders(req, res, next) {
   try {
@@ -254,6 +265,7 @@ module.exports = {
   updateStatus,
   rejectOrder,
   cancelOrder,
+  forceComplete,
   getActiveOrders,
   listOrders,
   exportOrders,

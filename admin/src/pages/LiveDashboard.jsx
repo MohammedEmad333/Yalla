@@ -232,6 +232,27 @@ export default function LiveDashboard() {
     // النجاح يصل عبر حدث order:status_updated فيُزال من القائمة تلقائيًا
   }
 
+  // إغلاق طلب عالق إداريًّا (تم التسليم) — لتصفية الطلبات القديمة التي تعذّر
+  // إغلاقها عبر التدفّق العادي (مثل طلبات ما قبل ميزة رمز التسليم). إغلاق إداريّ
+  // فقط بلا تسوية مالية؛ الخادم يحرّر الكابتن المُسنَد فيعود متاحًا.
+  async function forceComplete(orderId) {
+    if (!window.confirm(
+      'إغلاق الطلب إداريًّا كـ«تم التسليم»؟\n\n' +
+      'يُستخدم للطلبات القديمة العالقة فقط. لا تُخصَم أي مبالغ من المحفظة ولا تُصرَف ' +
+      'نسبة للكابتن (تُسوّى نقدًا). سيتحرّر الكابتن المُسنَد إن وُجد ويعود متاحًا.'
+    )) return;
+
+    const res = await fetch(`${API}/api/orders/${orderId}/force-complete`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      return alert(data?.message || 'تعذّر إغلاق الطلب');
+    }
+    // النجاح يصل عبر حدث order:status_updated فيُزال من القائمة تلقائيًا
+  }
+
   return (
     <div className="yl-page" style={styles.page}>
       <header style={styles.header}>
@@ -281,6 +302,13 @@ export default function LiveDashboard() {
                   {['pending', 'assigned', 'accepted'].includes(o.status) && (
                     <button onClick={() => cancelOrder(o._id)} style={styles.cancelBtn} title="إلغاء الطلب">
                       ✕ إلغاء
+                    </button>
+                  )}
+                  {/* إغلاق إداريّ للطلبات العالقة (بعد الإسناد وقبل التسليم) — مفيد
+                      للطلبات القديمة التي لا تملك رمز تسليم فيتعذّر إغلاقها عاديًّا */}
+                  {['assigned', 'accepted', 'picked_up'].includes(o.status) && (
+                    <button onClick={() => forceComplete(o._id)} style={styles.completeBtn} title="إغلاق الطلب إداريًّا (تم التسليم)">
+                      ✓ إغلاق
                     </button>
                   )}
                 </div>
@@ -447,6 +475,16 @@ const styles = {
     background: 'transparent',
     color: theme.color.error,
     border: `1px solid ${theme.color.error}`,
+    padding: '4px 10px',
+    borderRadius: theme.radius.pill,
+    cursor: 'pointer',
+    fontSize: 12,
+  },
+  // إغلاق إداريّ للطلبات العالقة (تم التسليم) — أخضر ليتمايز عن الإلغاء الأحمر
+  completeBtn: {
+    background: 'transparent',
+    color: theme.color.success,
+    border: `1px solid ${theme.color.success}`,
     padding: '4px 10px',
     borderRadius: theme.radius.pill,
     cursor: 'pointer',
