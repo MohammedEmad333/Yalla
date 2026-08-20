@@ -14,7 +14,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/mobile"
 
 echo "▶ بناء Flutter web بعنوان: $API_ORIGIN"
-flutter build web --release --dart-define=API_ORIGIN="$API_ORIGIN"
+# --no-web-resources-cdn: خدمة canvaskit/محرّك الويب محليًّا بدل CDN خارجي (gstatic)
+flutter build web --release --no-web-resources-cdn --dart-define=API_ORIGIN="$API_ORIGIN"
 
 echo "▶ نسخ الناتج إلى web-app/"
 rm -rf "$ROOT/web-app"
