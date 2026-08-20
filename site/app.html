@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>يلا · Yalla — حمّل التطبيق</title>
+  <meta name="description" content="تطبيق يلا للتوصيل اللحظي — حمّله من Google Play أو افتحه كتطبيق ويب على الآيفون." />
+
+  <!-- أيقونات وهوية PWA (Card 53) -->
+  <link rel="icon" type="image/png" href="icon-192.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#FF6B00" />
+
+  <!-- دعم "أضف إلى الشاشة الرئيسية" على iOS ليفتح كتطبيق مستقلّ -->
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Yalla" />
+
+  <style>
+    :root {
+      --brand: #FF6B00;
+      --brand2: #ff9245;
+      --ink: #1a1a1a;
+      --muted: #5a5a5a;
+      --line: #e8e8e8;
+      --bg: #ffffff;
+      --soft: #fff7f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f4f5f7;
+      color: var(--ink);
+      font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", "Cairo", system-ui, sans-serif;
+      line-height: 1.8;
+      font-size: 17px;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 18px 56px; }
+    header.hero {
+      background: linear-gradient(135deg, var(--brand), var(--brand2));
+      color: #fff;
+      padding: 40px 18px 30px;
+      text-align: center;
+    }
+    header.hero img.logo {
+      width: 104px; height: 104px; border-radius: 24px;
+      background: #fff; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    }
+    header.hero .brand { font-size: 30px; font-weight: 800; margin: 14px 0 4px; }
+    header.hero p { margin: 0; font-size: 17px; opacity: .96; }
+
+    .card {
+      background: var(--bg);
+      margin-top: -20px;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.08);
+      padding: 26px 22px;
+    }
+    /* زرّ التحميل من Google Play — في الأعلى وبارز (Card 53) */
+    .cta-primary {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%;
+      background: #111; color: #fff; text-decoration: none;
+      padding: 15px 18px; border-radius: 14px;
+      font-size: 18px; font-weight: 700;
+      box-shadow: 0 6px 18px rgba(0,0,0,.18);
+    }
+    .cta-primary:active { transform: translateY(1px); }
+    .cta-primary .gp { font-size: 22px; }
+    .cta-sub { text-align: center; color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+
+    .divider { display: flex; align-items: center; gap: 12px; color: var(--muted); margin: 24px 0; }
+    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+    h2 { font-size: 19px; margin: 0 0 10px; color: var(--brand); }
+    .webapp-box {
+      background: var(--soft); border: 1px solid #ffd9bd; border-radius: 14px; padding: 18px 16px;
+    }
+    .btn-install {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--brand); color: #fff; border: none; cursor: pointer;
+      padding: 12px 18px; border-radius: 12px; font-size: 16px; font-weight: 700;
+      margin-top: 6px;
+    }
+    .btn-install[disabled] { opacity: .55; cursor: default; }
+    ol.steps { margin: 12px 0 0; padding-inline-start: 20px; }
+    ol.steps li { margin: 6px 0; }
+    .ios-only, .android-hint { display: none; }
+
+    .contact {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #25D366; color: #fff; text-decoration: none;
+      padding: 11px 16px; border-radius: 12px; font-weight: 700; font-size: 15px;
+      margin-top: 14px;
+    }
+    footer { text-align: center; color: var(--muted); font-size: 14px; margin-top: 24px; }
+    footer a { color: var(--brand); }
+    @media (max-width: 480px) { body { font-size: 16px; } .card { padding: 20px 16px; } }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <img class="logo" src="icon-192.png" alt="شعار يلا" />
+    <div class="brand">Yalla · يلا 🛵</div>
+    <p>توصيلك اللحظي — بضغطة واحدة</p>
+  </header>
+
+  <div class="wrap">
+    <main class="card">
+      <!-- Card 53: زرّ التحميل من Google Play في الأعلى -->
+      <a class="cta-primary" id="playBtn"
+         href="https://play.google.com/apps/testing/com.mohammedemad333.yalla"
+         target="_blank" rel="noopener">
+        <span class="gp">▶</span> حمّل التطبيق من Google Play
+      </a>
+      <p class="cta-sub">لأجهزة أندرويد — عبر نسخة الاختبار الحالية.</p>
+
+      <div class="divider">أو</div>
+
+      <!-- Card 53: فتح التطبيق كتطبيق ويب (خصوصًا للآيفون) -->
+      <section class="webapp-box">
+        <h2>📱 افتح يلا كتطبيق ويب</h2>
+        <p id="webIntro">
+          لا يتوفّر Google Play على الآيفون — يمكنك تثبيت يلا على شاشتك الرئيسية
+          ليفتح كتطبيق مستقلّ بملء الشاشة.
+        </p>
+
+        <!-- زرّ التثبيت (أندرويد/كروم): يظهر عند توفّر حدث التثبيت -->
+        <button class="btn-install" id="installBtn" disabled>➕ تثبيت التطبيق</button>
+
+        <!-- تعليمات iOS: أضف إلى الشاشة الرئيسية -->
+        <ol class="steps ios-only" id="iosSteps">
+          <li>اضغط زرّ المشاركة <strong>􀈂 (Share)</strong> في شريط Safari بالأسفل.</li>
+          <li>اختر <strong>«إضافة إلى الشاشة الرئيسية» (Add to Home Screen)</strong>.</li>
+          <li>اضغط <strong>«إضافة»</strong> — ستظهر أيقونة يلا على شاشتك ويفتح كتطبيق.</li>
+        </ol>
+        <p class="android-hint" id="androidHint">
+          على أندرويد/كروم: افتح قائمة المتصفّح ⋮ ثم اختر <strong>«تثبيت التطبيق»</strong> أو
+          <strong>«إضافة إلى الشاشة الرئيسية»</strong>.
+        </p>
+      </section>
+
+      <a class="contact"
+         href="https://wa.me/970593456405?text=%D9%85%D8%B1%D8%AD%D8%A8%D9%8B%D8%A7%D8%8C%20%D8%A3%D8%AD%D8%AA%D8%A7%D8%AC%20%D9%85%D8%B3%D8%A7%D8%B9%D8%AF%D8%A9%20%D8%A8%D8%AE%D8%B5%D9%88%D8%B5%20%D8%AA%D8%B7%D8%A8%D9%8A%D9%82%20%D9%8A%D9%84%D8%A7"
+         target="_blank" rel="noopener">💬 تواصل معنا عبر واتساب</a>
+
+      <footer>
+        © 2026 Yalla (يلا) ·
+        <a href="index.html">سياسة الخصوصية</a> ·
+        <a href="delete-account.html">حذف الحساب</a>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    // اكتشاف iOS لعرض تعليمات "أضف إلى الشاشة الرئيسية"
+    (function () {
+      var ua = window.navigator.userAgent || '';
+      var isIOS = /iPad|iPhone|iPod/.test(ua) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS
+      var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true;
+
+      if (isStandalone) {
+        // التطبيق مثبّت ويعمل كتطبيق مستقلّ — نُخفي دعوة التثبيت
+        var box = document.getElementById('webIntro');
+        if (box) box.textContent = 'أنت تستخدم يلا كتطبيق ويب مثبّت — أهلًا بك! 🎉';
+      }
+
+      if (isIOS) {
+        document.getElementById('iosSteps').style.display = 'block';
+      } else {
+        document.getElementById('androidHint').style.display = 'block';
+      }
+    })();
+
+    // زرّ التثبيت على المتصفّحات الداعمة (Android/Chrome/Edge)
+    var deferredPrompt = null;
+    var installBtn = document.getElementById('installBtn');
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.disabled = false;
+    });
+    installBtn.addEventListener('click', function () {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.finally(function () {
+        deferredPrompt = null;
+        installBtn.disabled = true;
+      });
+    });
+
+    // تسجيل Service Worker لجعلها تطبيق ويب قابلًا للتثبيت
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>

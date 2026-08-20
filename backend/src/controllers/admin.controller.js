@@ -273,7 +273,8 @@ async function exportChat(req, res, next) {
       { key: 'sender', header: 'المُرسِل' },
       { key: 'text', header: 'الرسالة' },
     ];
-    const csv = '﻿' + toCsv(rows, columns);
+    // BOM + سطر sep=, ليحترم Excel الفاصلة في كل اللغات + CRLF لتوافق أفضل
+    const csv = '﻿' + 'sep=,\r\n' + toCsv(rows, columns).replace(/\n/g, '\r\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="chat-${req.params.orderId}.csv"`);
     res.send(csv);

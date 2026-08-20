@@ -20,6 +20,13 @@ const STATUS_AR = {
   cancelled: 'ملغى',
 };
 
+// Card 52: هل الطلب مجدول لوقت لاحق لم يحن بعد؟ (يُميَّز عن الطلب الفوري ولا يُسنَد قبل موعده)
+const isScheduledPending = (o) =>
+  o?.status === 'pending' &&
+  o?.scheduledAt &&
+  !o?.scheduledActivated &&
+  new Date(o.scheduledAt).getTime() > Date.now();
+
 // تنسيق وقت مختصر (يوم/شهر ساعة:دقيقة) لعرض المخطط الزمني
 const fmtTime = (iso) => {
   if (!iso) return '';
@@ -69,6 +76,14 @@ function OrderDetails({ order: o }) {
         <Detail label="المسافة" value={`${o.distanceKm ?? 0} كم`} />
         <Detail label="الزمن التقديري" value={`${o.etaMinutes ?? 0} دقيقة`} />
       </div>
+
+      {/* Card 52: موعد الطلب المجدول (إن وُجد) */}
+      {o.scheduledAt && (
+        <p style={styles.line}>
+          🕒 <b>مجدول للتنفيذ:</b> {fmtTime(o.scheduledAt)}
+          {o.scheduledActivated ? ' (حان موعده)' : ''}
+        </p>
+      )}
 
       {o.packageNote && <p style={styles.line}>📦 <b>وصف الشحنة:</b> {o.packageNote}</p>}
 
@@ -296,6 +311,12 @@ export default function LiveDashboard() {
                   <span style={styles.status(orderStatusColor(o.status))}>
                     {STATUS_AR[o.status] || o.status}
                   </span>
+                  {/* Card 52: علامة الطلب المجدول لوقت لاحق مع موعده */}
+                  {isScheduledPending(o) && (
+                    <span style={styles.scheduledTag} title="طلب مجدول لوقت لاحق">
+                      🕒 مجدول · {fmtTime(o.scheduledAt)}
+                    </span>
+                  )}
                   {/* Card 40: علامة تأخّر الطلب */}
                   {delayed[o._id] && <span style={styles.delayTag} title="تجاوز الزمن التقديري">⏱️ متأخّر</span>}
                   {/* إلغاء متاح قبل الاستلام فقط */}
@@ -339,8 +360,15 @@ export default function LiveDashboard() {
 
               {expanded[o._id] && <OrderDetails order={o} />}
 
-              {/* الإسناد متاح فقط للطلبات في حالة الانتظار */}
-              {o.status === 'pending' && (
+              {/* Card 52: الطلب المجدول لوقت لاحق لا يُسنَد قبل موعده — نُظهر ملاحظة بدل أدوات الإسناد */}
+              {isScheduledPending(o) && (
+                <p style={styles.scheduledNote}>
+                  🕒 هذا الطلب مجدول للتنفيذ في {fmtTime(o.scheduledAt)} — ستُتاح أدوات الإسناد تلقائيًا عند حلول موعده.
+                </p>
+              )}
+
+              {/* الإسناد متاح فقط للطلبات في حالة الانتظار (وغير المجدولة مستقبلًا) */}
+              {o.status === 'pending' && !isScheduledPending(o) && (
                 <div style={styles.assignRow}>
                   <select
                     value={selected[o._id] || ''}
@@ -449,6 +477,25 @@ const styles = {
     borderRadius: theme.radius.pill,
     fontSize: 12,
     fontWeight: 600,
+  },
+  // Card 52: علامة الطلب المجدول
+  scheduledTag: {
+    background: '#6366f1',
+    color: '#fff',
+    padding: '3px 10px',
+    borderRadius: theme.radius.pill,
+    fontSize: 12,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+  },
+  scheduledNote: {
+    marginTop: 12,
+    background: '#eef2ff',
+    border: '1px solid #6366f1',
+    color: '#3730a3',
+    borderRadius: theme.radius.md,
+    padding: '10px 12px',
+    fontSize: 13,
   },
   grid: { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 },
   col: { display: 'flex', flexDirection: 'column', gap: 12 },

@@ -1,0 +1,17 @@
+{
+  "name": "Yalla · يلا",
+  "short_name": "Yalla",
+  "description": "تطبيق يلا للتوصيل اللحظي — اطلب توصيلتك بسهولة.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./app.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#FF6B00",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

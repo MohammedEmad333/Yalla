@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/util/names.dart';
 import '../chat/chat_screen.dart';
 import 'rate_order_dialog.dart';
 
@@ -53,13 +54,17 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   }
 
   // فتح شاشة الدردشة مع الكابتن للطلب الجاري توصيله (Card 26)
-  void _openChat(String orderId) {
+  // Card 51: نمرّر اسم الكابتن (يُعرض الاسم الأول فقط) ورقمه للاتصال المباشر.
+  void _openChat(Map<String, dynamic> o) {
+    final captain = o['captain'] as Map<String, dynamic>?;
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => ChatScreen(
-        orderId: orderId,
+        orderId: o['_id'] as String,
         api: widget.api,
         socket: widget.socket,
         myRole: 'user',
+        peerName: captain?['name'] as String?,
+        peerPhone: captain?['phone'] as String?,
       ),
     ));
   }
@@ -122,6 +127,11 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                             children: [
                               Text('${o['pickup']?['address']} ← ${o['dropoff']?['address']}',
                                   maxLines: 1, overflow: TextOverflow.ellipsis),
+                              // Card 48: اسم الكابتن لكل طلب مُسنَد (الاسم الأول فقط — Card 51)
+                              if (o['captain'] != null &&
+                                  firstName(o['captain']?['name']).isNotEmpty)
+                                Text('الكابتن: ${firstName(o['captain']?['name'])}',
+                                    style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
                               Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
                             ],
                           ),
@@ -132,7 +142,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                                   tooltip: 'الدردشة مع الكابتن',
                                   icon: const Icon(Icons.chat_bubble_outline,
                                       color: YallaColors.primary),
-                                  onPressed: () => _openChat(o['_id'] as String),
+                                  onPressed: () => _openChat(o),
                                 )
                               : (delivered && !rated)
                                   ? TextButton.icon(
