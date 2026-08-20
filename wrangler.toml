@@ -1,20 +1,18 @@
-# إعداد Cloudflare لتطبيق يلا الويب (PWA) — البطاقة 53
-# يُنشر كـ Worker يخدم ملفات ثابتة (Static Assets) من مجلد site/.
+# إعداد Cloudflare لتطبيق يلا الويب — البطاقة 53
+# يُنشر كـ Worker يخدم ملفات ثابتة (Static Assets).
 # https://developers.cloudflare.com/workers/static-assets/
 #
-# الموقع ثابت بحت (HTML + PNG + manifest + service worker) داخل مجلد site/.
-# لا يوجد سكربت Worker ولا خطوة build — كلاودفلير يخدم الملفات كما هي.
+# محتوى web-app/ هو ناتج بناء Flutter للويب (flutter build web).
+# لإعادة البناء بعد أي تعديل على تطبيق mobile/، شغّل: tool/build-web.sh
 #
 # النشر:
-#   - من لوحة كلاودفلير (Workers & Pages → Import repository):
-#       Build command : (فارغ)
-#       Deploy command: npx wrangler deploy
-#   - أو من سطر الأوامر:
-#       npx wrangler login
-#       npx wrangler deploy
+#   - تلقائيًا عبر ربط GitHub (Deploy command: npx wrangler deploy)
+#   - أو يدويًا:  npx wrangler deploy
 
 name = "yalla"
 compatibility_date = "2026-08-20"
 
 [assets]
-directory = "./site"
+directory = "./web-app"
+# تطبيق صفحة واحدة (SPA): أي مسار غير موجود يرجع index.html ليقوده توجيه Flutter
+not_found_handling = "single-page-application"
