@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <base href="/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="تطبيق يلا للتوصيل اللحظي — اطلب توصيلتك بسهولة.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Yalla">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <meta name="theme-color" content="#FF6B00">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>يلا · Yalla</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body { margin: 0; height: 100%; background: #f4f5f7; }
+    /* شاشة تحميل أوّليّة تظهر قبل إقلاع Flutter */
+    #splash {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 18px;
+      background: linear-gradient(135deg, #FF6B00, #ff9245);
+      color: #fff;
+      font-family: "Segoe UI", Tahoma, system-ui, sans-serif;
+      transition: opacity .4s ease;
+    }
+    #splash img { width: 104px; height: 104px; border-radius: 24px; background: #fff; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+    #splash .brand { font-size: 26px; font-weight: 800; }
+    #splash .ring { width: 34px; height: 34px; border: 4px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .splash-hidden { opacity: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="splash">
+    <img src="icons/Icon-192.png" alt="شعار يلا" />
+    <div class="brand">Yalla · يلا 🛵</div>
+    <div class="ring"></div>
+  </div>
+
+  <script>
+    // إخفاء شاشة التحميل بمجرّد أن يرسم Flutter أول إطار.
+    window.addEventListener('flutter-first-frame', function () {
+      var s = document.getElementById('splash');
+      if (s) { s.classList.add('splash-hidden'); setTimeout(function () { s.remove(); }, 400); }
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

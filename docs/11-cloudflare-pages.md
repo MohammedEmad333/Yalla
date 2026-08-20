@@ -1,74 +1,78 @@
-# نشر تطبيق الويب على Cloudflare (Workers + Static Assets)
+# نشر تطبيق الويب على Cloudflare (Flutter Web)
 
-تطبيق يلا الويب (PWA) موقع **ثابت** داخل مجلد [`site/`](../site) — لا يحتاج أي خطوة
-بناء (build). كل المسارات نسبية والـService Worker يُسجَّل من الجذر.
+الرابط على Cloudflare يفتح **تطبيق يلا نفسه كنسخة ويب** — ناتج بناء Flutter
+(`flutter build web`) لتطبيق `mobile/`. يُنشر كـ **Worker يخدم ملفات ثابتة
+(Static Assets)** من مجلد [`web-app/`](../web-app).
 
-كلاودفلير دمجت Pages داخل Workers، والطريقة الحديثة هي **Worker يخدم ملفات ثابتة
-(Static Assets)**. ملف [`wrangler.toml`](../wrangler.toml) في جذر المستودع مضبوط لذلك:
-
-```toml
-name = "yalla"
-compatibility_date = "2026-08-20"
-
-[assets]
-directory = "./site"
-```
-
-يوجد طريقتان: عبر ربط GitHub (نشر تلقائي، مُوصى به) أو عبر سطر الأوامر.
+> ملاحظة: مجلد [`site/`](../site) القديم كان مجرد صفحة هبوط/تعريف (زر Google Play +
+> سياسة خصوصية)، ولم يعد هو جذر النشر. يبقى في المستودع كمرجع لسياسة الخصوصية.
 
 ---
 
-## الطريقة 1 — ربط GitHub (نشر تلقائي عند كل push)
+## كيف يعمل
 
-1. ادخل [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** →
-   **Create** → **Import a repository** → اختر مستودع `Yalla`.
-2. في شاشة **Set up your application** اضبط:
+1. `web-app/` يحتوي ناتج بناء Flutter للويب (مُلتزَم في Git).
+2. [`wrangler.toml`](../wrangler.toml) يوجّه Cloudflare لخدمة `web-app/`:
 
-   | الحقل | القيمة |
-   |---|---|
-   | **Project name** | `yalla` |
-   | **Build command** | *(اتركه فارغًا)* |
-   | **Deploy command** | `npx wrangler deploy` |
+   ```toml
+   name = "yalla"
+   compatibility_date = "2026-08-20"
 
-3. اضغط **Deploy**. خلال ثوانٍ تحصل على رابط مثل
-   `https://yalla.<account>.workers.dev`.
-4. أي `git push` لاحق على الفرع الافتراضي يُعيد النشر تلقائيًا.
+   [assets]
+   directory = "./web-app"
+   not_found_handling = "single-page-application"
+   ```
 
-> **مهم:** اسم المشروع في اللوحة يجب أن يطابق `name = "yalla"` في `wrangler.toml`،
-> وإلا سيفشل أمر النشر أو يُنشئ Worker باسم مختلف.
+3. عند كل `git push`، مشروع Cloudflare المربوط بـ GitHub ينفّذ `npx wrangler deploy`
+   فيرفع محتوى `web-app/` — **بدون الحاجة لتثبيت Flutter على Cloudflare**، لأن
+   البناء يتم مسبقًا ويُلتزَم في المستودع.
 
-## الطريقة 2 — سطر الأوامر (Wrangler)
+عنوان الـ backend يُثبَّت وقت البناء عبر `--dart-define=API_ORIGIN=...` ويشير إلى
+خدمة Render (`https://yalla-api-z6t0.onrender.com`).
+
+---
+
+## إعادة البناء بعد أي تعديل على التطبيق
+
+أي تغيير في كود `mobile/` يتطلّب إعادة بناء الويب والتزام الناتج:
 
 ```bash
-npx wrangler login
-npx wrangler deploy
+tool/build-web.sh            # يبني وينسخ إلى web-app/
+git add web-app && git commit -m "rebuild web" && git push
 ```
 
-يقرأ `wrangler.toml` تلقائيًا ويخدم محتوى `site/` كأصول ثابتة.
+Cloudflare ينشر تلقائيًا بعد الـ push.
+
+> يحتاج الجهاز الذي يبني إلى Flutter SDK مثبّتًا. لتثبيت عنوان backend مختلف:
+> `API_ORIGIN=https://my-api.example tool/build-web.sh`.
 
 ---
 
 ## بعد النشر — مهم ⚠️
 
-الرابط الناتج يجب أن يُسمح له بالوصول إلى الـbackend عبر CORS:
+رابط Cloudflare (مثل `https://yalla.<account>.workers.dev`) يجب أن يُسمح له بالوصول
+إلى الـ backend عبر CORS:
 
-- على **Render** (خدمة `yalla-api`) عدّل متغيّر البيئة `CORS_ORIGIN` وضع فيه رابط
-  كلاودفلير، مثل `https://yalla.<account>.workers.dev` (أو نطاقك المخصّص).
+- على **Render** (خدمة `yalla-api`) أضِف رابط Cloudflare إلى `CORS_ORIGIN` مع رابط
+  لوحة الأدمن، مفصولين بفاصلة (الـ backend يدعم عدّة روابط الآن). مثال:
+
+  ```
+  https://gazalook-admin.netlify.app,https://yalla.<account>.workers.dev
+  ```
+
 - راجع [`04-cloud-deployment.md`](04-cloud-deployment.md) لتفاصيل متغيّرات Render.
 
-## ملاحظات PWA
+بدون هذا، سيفشل تسجيل الدخول واتصال Socket من نسخة الويب.
 
-- **HTTPS**: يوفّره كلاودفلير تلقائيًا — شرط أساسي لعمل الـService Worker وتثبيت التطبيق.
-- **مسار الـSW**: بما أن محتوى `site/` يُخدَم من الجذر، فإن `sw.js` يُخدَم من `/sw.js`
-  ونطاق تحكّمه يشمل كل الصفحات — لا حاجة لأي تعديل.
-- **الترويسات**: ملف [`site/_headers`](../site/_headers) مدعوم في Workers Static Assets،
-  ويمنع تخزين `sw.js` و`manifest.webmanifest` في الكاش حتى تصل التحديثات فورًا.
+---
 
 ## الملفات ذات الصلة
 
 | الملف | الغرض |
 |---|---|
-| [`site/_headers`](../site/_headers) | ترويسات الكاش والأمان ونوع المحتوى |
+| [`web-app/`](../web-app) | ناتج بناء Flutter للويب (يُنشر كما هو) |
+| [`web-app/_headers`](../web-app/_headers) | ترويسات الكاش/الأمان على Cloudflare |
 | [`wrangler.toml`](../wrangler.toml) | إعداد النشر (Workers + Static Assets) |
-| [`site/manifest.webmanifest`](../site/manifest.webmanifest) | بيان الـPWA |
-| [`site/sw.js`](../site/sw.js) | الـService Worker |
+| [`tool/build-web.sh`](../tool/build-web.sh) | إعادة بناء الويب ونسخه إلى `web-app/` |
+| [`mobile/web/`](../mobile/web) | ملفات منصّة الويب المصدرية (index/manifest/أيقونات) |
+| [`mobile/lib/core/config/app_config.dart`](../mobile/lib/core/config/app_config.dart) | مصدر عنوان الـ API (`API_ORIGIN`) |
