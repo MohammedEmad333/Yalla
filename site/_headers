@@ -1,0 +1,25 @@
+# قواعد ترويسات HTTP لـ Cloudflare Pages — تطبيق يلا الويب (PWA)
+# https://developers.cloudflare.com/pages/configuration/headers/
+
+# لا تخزّن الـService Worker في الكاش حتى تصل التحديثات فورًا للمستخدمين
+/sw.js
+  Cache-Control: no-cache
+
+# نوع المحتوى الصحيح لملف الـmanifest (لضمان تثبيت PWA على كل المتصفحات)
+/manifest.webmanifest
+  Content-Type: application/manifest+json
+  Cache-Control: no-cache
+
+# الأيقونات والشعارات — كاش طويل (ملفات ثابتة لا تتغيّر كثيرًا)
+/icon-192.png
+  Cache-Control: public, max-age=604800
+/icon-512.png
+  Cache-Control: public, max-age=604800
+/logo.png
+  Cache-Control: public, max-age=604800
+
+# ترويسات أمان عامة لكل الصفحات
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
