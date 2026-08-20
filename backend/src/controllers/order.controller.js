@@ -157,8 +157,10 @@ async function exportOrders(req, res, next) {
       { key: 'distanceKm', header: 'المسافة (كم)' },
       { key: 'price', header: 'السعر' },
     ];
-    // BOM لضمان عرض العربية بشكل صحيح في Excel
-    const csv = '﻿' + toCsv(rows, columns);
+    // BOM لعرض العربية بشكل صحيح + سطر sep=, ليحترم Excel الفاصلة في كل اللغات
+    // (Excel العربي/الأوروبي يستخدم الفاصلة المنقوطة افتراضيًا فتظهر كل البيانات في عمود واحد)
+    // ونستخدم CRLF لتوافق أفضل مع Excel.
+    const csv = '﻿' + 'sep=,\r\n' + toCsv(rows, columns).replace(/\n/g, '\r\n');
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="orders-${Date.now()}.csv"`);

@@ -60,7 +60,8 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icon/yalla_icon.png"
   min_sdk_android: 21
-  # أيقونة تكيّفية (Android 8+): خلفية برتقالية بعلامة الاسكوتر البيضاء
-  adaptive_icon_background: "#F2F1F0"
+  # أيقونة تكيّفية (Android 8+): نفس أيقونة Google Play (علامة الاسكوتر) على خلفية بيضاء
+  # لتطابق الأيقونة الخارجية للتطبيق مع أيقونة المتجر (Card 49).
+  adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon/yalla_icon_foreground.png"
   remove_alpha_ios: true

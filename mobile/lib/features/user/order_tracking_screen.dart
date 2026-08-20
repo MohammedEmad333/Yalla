@@ -11,6 +11,7 @@ import '../../core/network/api_client.dart';
 import '../../core/maps/maps_service.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/util/names.dart';
 import '../chat/chat_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
@@ -37,6 +38,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   DateTime? _lastUpdate;
   String _status = 'pending';
   String _captainName = '';
+  String _captainPhone = ''; // Card 51: للاتصال المباشر من شاشة الدردشة
 
   // ساعة موقّت الوصول التقديري (Card 39)
   int _etaMinutes = 0;         // الزمن التقديري للتوصيل (دقائق)
@@ -91,6 +93,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         _dropoff = data['dropoff']?['address'] ?? '';
         _status = data['status'] ?? 'pending';
         _captainName = data['captain']?['name'] ?? '';
+        _captainPhone = data['captain']?['phone'] ?? '';
         _etaMinutes = (data['etaMinutes'] as num?)?.toInt() ?? 0;
         _etaStart = _resolveEtaStart(Map<String, dynamic>.from(data as Map));
         final cap = data['captain']?['currentLocation']?['coordinates'];
@@ -172,6 +175,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         api: widget.api,
         socket: widget.socket,
         myRole: 'user',
+        peerName: _captainName,
+        peerPhone: _captainPhone,
       ),
     ));
   }
@@ -216,7 +221,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
           _tile(Icons.store, 'الاستلام', _pickup),
           _tile(Icons.flag, 'التسليم', _dropoff),
-          if (_captainName.isNotEmpty) _tile(Icons.person, 'الكابتن', _captainName),
+          // Card 51: نعرض الاسم الأول فقط للكابتن
+          if (_captainName.isNotEmpty) _tile(Icons.person, 'الكابتن', firstName(_captainName)),
 
           // موقع الكابتن اللحظي (كإحداثيات + مؤشّر تحديث حيّ) + فتحه على خرائط جوجل
           if (_captainLat != null)
@@ -233,7 +239,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   onPressed: () => MapsService.showLocation(
                     _captainLat!,
                     _captainLng!,
-                    label: _captainName.isNotEmpty ? 'الكابتن $_captainName' : 'الكابتن',
+                    label: _captainName.isNotEmpty ? 'الكابتن ${firstName(_captainName)}' : 'الكابتن',
                   ),
                 ),
               ),

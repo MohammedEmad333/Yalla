@@ -63,6 +63,17 @@ const orderSchema = new mongoose.Schema(
     // الكباتن الذين رفضوا الطلب — يُستبعدون عند إعادة الإسناد التلقائي
     rejectedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Captain' }],
 
+    // سجلّ رفض الطلب لكلّ كابتن مع سبب الرفض ووقته (Card 47) — يبقى الطلب ظاهرًا
+    // في صفحة طلبات الكابتن الرافض كـ"مرفوض" مع إمكانية عرض سبب الرفض.
+    rejections: [
+      {
+        captain: { type: mongoose.Schema.Types.ObjectId, ref: 'Captain' },
+        reason: { type: String, default: '' },
+        at: { type: Date, default: Date.now },
+        _id: false,
+      },
+    ],
+
     // حالة الطلب — محور المنطق اللحظي
     status: {
       type: String,

@@ -3,10 +3,12 @@
 // تحمّل السجلّ عبر REST ثم تستقبل الرسائل الجديدة لحظيًا عبر السوكت.
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/util/names.dart';
 
 class ChatScreen extends StatefulWidget {
   final String orderId;
@@ -15,12 +17,18 @@ class ChatScreen extends StatefulWidget {
   // دور المستخدم الحالي ('user' أو 'captain') لتمييز فقاعات رسائلي
   final String myRole;
 
+  // Card 51: اسم الطرف الآخر (الكامل — نعرض الاسم الأول فقط) ورقم هاتفه للاتصال المباشر.
+  final String? peerName;
+  final String? peerPhone;
+
   const ChatScreen({
     super.key,
     required this.orderId,
     required this.api,
     required this.socket,
     required this.myRole,
+    this.peerName,
+    this.peerPhone,
   });
 
   @override
@@ -115,10 +123,35 @@ class _ChatScreenState extends State<ChatScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
   }
 
+  // Card 51: اتصال هاتفي مباشر بالطرف الآخر عبر تطبيق الهاتف (رصيد الهاتف، لا داخل التطبيق).
+  Future<void> _callPeer() async {
+    final phone = (widget.peerPhone ?? '').trim();
+    if (phone.isEmpty) {
+      _snack('رقم الهاتف غير متاح');
+      return;
+    }
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (!await launchUrl(uri)) _snack('تعذّر بدء الاتصال');
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Card 51: نعرض الاسم الأول فقط للطرف الآخر (خصوصية).
+    final peerFirst = firstName(widget.peerName);
+    final title = peerFirst.isEmpty ? 'الدردشة' : 'الدردشة مع $peerFirst';
+    final canCall = (widget.peerPhone ?? '').trim().isNotEmpty;
     return Scaffold(
-      appBar: AppBar(title: const Text('الدردشة')),
+      appBar: AppBar(
+        title: Text(title),
+        actions: [
+          if (canCall)
+            IconButton(
+              tooltip: 'اتصال هاتفي',
+              icon: const Icon(Icons.call),
+              onPressed: _callPeer,
+            ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(

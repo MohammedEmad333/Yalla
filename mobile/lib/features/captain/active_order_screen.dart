@@ -287,13 +287,16 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
   }
 
   // فتح شاشة الدردشة مع صاحب الطلب (Card 18)
-  void _openChat(String orderId) {
+  // Card 51: نمرّر اسم العميل (يُعرض الاسم الأول فقط) ورقمه للاتصال المباشر.
+  void _openChat(String orderId, {String? peerName, String? peerPhone}) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => ChatScreen(
         orderId: orderId,
         api: widget.api,
         socket: widget.socket,
         myRole: 'captain',
+        peerName: peerName,
+        peerPhone: peerPhone,
       ),
     ));
   }
@@ -426,7 +429,8 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
 
         // زر الدردشة مع صاحب الطلب خلال التوصيل (Card 18)
         OutlinedButton.icon(
-          onPressed: () => _openChat(order['_id'] as String),
+          onPressed: () => _openChat(order['_id'] as String,
+              peerName: senderName, peerPhone: senderPhone),
           icon: const Icon(Icons.chat_bubble_outline),
           label: const Text('الدردشة مع صاحب الطلب'),
         ),

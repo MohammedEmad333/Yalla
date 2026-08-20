@@ -281,6 +281,14 @@ async function loadAssignableOrder(orderId) {
   if (order.status !== ORDER_STATUS.PENDING) {
     throw Object.assign(new Error('لا يمكن إسناد طلب ليس في حالة الانتظار'), { statusCode: 400 });
   }
+  // Card 52: الطلب المجدول لوقت لاحق لا يُسنَد قبل حلول وقته — يبقى مجدولًا حتى
+  // يفعّله المُشغّل الخلفي (scheduledActivated) أو يحين وقته فعليًا.
+  if (order.scheduledAt && !order.scheduledActivated && !isDue(order.scheduledAt)) {
+    throw Object.assign(
+      new Error('هذا الطلب مجدول لوقت لاحق — لا يمكن إسناده قبل حلول موعده'),
+      { statusCode: 400 }
+    );
+  }
   return order;
 }
 
@@ -502,6 +510,10 @@ async function returnToPoolAndReassign(order, captainId, { actorRole, action, re
   if (reason) order.cancelReason = reason; // ملاحظة سبب الرفض (Card 24)
   if (captainId && !order.rejectedBy.map(String).includes(String(captainId))) {
     order.rejectedBy.push(captainId);
+  }
+  // Card 47: نُسجّل الرفض لهذا الكابتن مع السبب ليبقى ظاهرًا في صفحة طلباته كـ"مرفوض".
+  if (captainId && !order.rejections.some((r) => String(r.captain) === String(captainId))) {
+    order.rejections.push({ captain: captainId, reason, at: new Date() });
   }
   await order.save();
 
@@ -859,11 +871,29 @@ async function getMyOrders(userId, { limit = 20, skip = 0 } = {}) {
 // سجلّ طلبات الكابتن (المُسنَدة إليه) — مرتّبة من الأحدث.
 // نُحمّل الاسم الكامل (name + lastName) والهاتف لعرض تفاصيل صاحب الطلب في شاشة الكابتن.
 async function getCaptainOrders(captainId, { limit = 20, skip = 0 } = {}) {
-  return Order.find({ captain: captainId })
+  // Card 47: نضمّ الطلبات المُسنَدة حاليًا للكابتن + الطلبات التي رفضها سابقًا،
+  // لتبقى الأخيرة ظاهرة في صفحة طلباته كـ"مرفوض" مع سبب الرفض.
+  const orders = await Order.find({
+    $or: [{ captain: captainId }, { 'rejections.captain': captainId }],
+  })
     .populate('user', 'name lastName phone')
     .sort({ createdAt: -1 })
     .skip(skip)
-    .limit(limit);
+    .limit(limit)
+    .lean();
+
+  return orders.map((o) => {
+    const mine = (o.rejections || []).find((r) => String(r.captain) === String(captainId));
+    const rejectedByMe = !!mine && String(o.captain) !== String(captainId);
+    // لا نُسرّب سجلّ رفض بقية الكباتن لهذا الكابتن
+    const { rejections, ...rest } = o;
+    return {
+      ...rest,
+      rejectedByMe,
+      rejectReason: rejectedByMe ? (mine.reason || '') : undefined,
+      rejectedAt: rejectedByMe ? mine.at : undefined,
+    };
+  });
 }
 
 /**

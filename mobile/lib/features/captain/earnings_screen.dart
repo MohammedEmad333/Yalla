@@ -133,9 +133,29 @@ class _EarningsScreenState extends State<EarningsScreen> {
 
   // عنصر طلب في السجلّ
   Widget _orderTile(Map<String, dynamic> o) {
+    // Card 47: الطلب الذي رفضه الكابتن يظهر كـ"مرفوض" مع زرّ لعرض سبب الرفض.
+    final rejectedByMe = o['rejectedByMe'] == true;
     final delivered = o['status'] == 'delivered';
     // Card 28: بعد التسليم نعرض السعر الحقيقي (finalPrice) لا التقريبي (price).
     final num shown = delivered ? _effectivePrice(o) : (o['price'] as num? ?? 0);
+
+    if (rejectedByMe) {
+      final reason = (o['rejectReason'] ?? '').toString();
+      return Card(
+        child: ListTile(
+          leading: const Icon(Icons.cancel, color: Colors.red),
+          title: Text('${o['dropoff']?['address'] ?? ''}',
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: const Text('مرفوض', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          trailing: TextButton.icon(
+            icon: const Icon(Icons.info_outline, size: 18),
+            label: const Text('سبب الرفض'),
+            onPressed: () => _showRejectReason(reason),
+          ),
+        ),
+      );
+    }
+
     return Card(
       child: ListTile(
         leading: Icon(delivered ? Icons.check_circle : Icons.info,
@@ -143,6 +163,20 @@ class _EarningsScreenState extends State<EarningsScreen> {
         title: Text('${o['dropoff']?['address'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(o['status'] ?? ''),
         trailing: Text('$shown ₪', style: const TextStyle(fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  // Card 47: عرض سبب رفض الطلب في نافذة منبثقة
+  void _showRejectReason(String reason) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('سبب الرفض'),
+        content: Text(reason.trim().isEmpty ? 'لم يُذكر سبب' : reason),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+        ],
       ),
     );
   }

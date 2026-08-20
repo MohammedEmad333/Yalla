@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/util/names.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final ApiClient api;
@@ -80,8 +81,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             _row('التسليم', _order!['dropoff']?['address'] ?? ''),
                             // Card 28: بعد التسليم نعرض السعر الحقيقي المدفوع لا التقريبي.
                             _row(_priceLabel(), '${_shownPrice()} ₪'),
+                            // Card 48/51: اسم الكابتن (الاسم الأول فقط للعميل)
                             if (_order!['captain'] != null)
-                              _row('الكابتن', _order!['captain']?['name'] ?? ''),
+                              _row('الكابتن', firstName(_order!['captain']?['name'])),
                           ],
                         ),
                       ),
