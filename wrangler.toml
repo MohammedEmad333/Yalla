@@ -1,16 +1,20 @@
-# إعداد Cloudflare Pages لتطبيق يلا الويب (PWA) — البطاقة 53
-# https://developers.cloudflare.com/pages/functions/wrangler-configuration/
+# إعداد Cloudflare لتطبيق يلا الويب (PWA) — البطاقة 53
+# يُنشر كـ Worker يخدم ملفات ثابتة (Static Assets) من مجلد site/.
+# https://developers.cloudflare.com/workers/static-assets/
 #
 # الموقع ثابت بحت (HTML + PNG + manifest + service worker) داخل مجلد site/.
-# لا يوجد خطوة build — نرفع محتوى المجلد كما هو.
+# لا يوجد سكربت Worker ولا خطوة build — كلاودفلير يخدم الملفات كما هي.
 #
-# النشر عبر CLI:
-#   npm i -g wrangler        # أو: npx wrangler ...
-#   wrangler login
-#   wrangler pages deploy    # يقرأ pages_build_output_dir أدناه تلقائيًا
-#
-# أول مرّة سيسألك wrangler عن اسم المشروع — استخدم "yalla-app".
+# النشر:
+#   - من لوحة كلاودفلير (Workers & Pages → Import repository):
+#       Build command : (فارغ)
+#       Deploy command: npx wrangler deploy
+#   - أو من سطر الأوامر:
+#       npx wrangler login
+#       npx wrangler deploy
 
-name = "yalla-app"
-pages_build_output_dir = "site"
+name = "yalla"
 compatibility_date = "2026-08-20"
+
+[assets]
+directory = "./site"
