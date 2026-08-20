@@ -1,0 +1,20 @@
+# إعداد Cloudflare لتطبيق يلا الويب (PWA) — البطاقة 53
+# يُنشر كـ Worker يخدم ملفات ثابتة (Static Assets) من مجلد site/.
+# https://developers.cloudflare.com/workers/static-assets/
+#
+# الموقع ثابت بحت (HTML + PNG + manifest + service worker) داخل مجلد site/.
+# لا يوجد سكربت Worker ولا خطوة build — كلاودفلير يخدم الملفات كما هي.
+#
+# النشر:
+#   - من لوحة كلاودفلير (Workers & Pages → Import repository):
+#       Build command : (فارغ)
+#       Deploy command: npx wrangler deploy
+#   - أو من سطر الأوامر:
+#       npx wrangler login
+#       npx wrangler deploy
+
+name = "yalla"
+compatibility_date = "2026-08-20"
+
+[assets]
+directory = "./site"
