@@ -8,7 +8,7 @@ const walletService = require('../services/wallet.service');
 const captainWalletService = require('../services/captainWallet.service');
 const adminService = require('../services/admin.service');
 const chatService = require('../services/chat.service');
-const { csvForExcel } = require('../utils/csv');
+const { excelUnicodeBuffer } = require('../utils/csv');
 const { ROLES } = require('../utils/constants');
 
 // مؤشّرات الأداء للوحة التحكّم
@@ -273,11 +273,11 @@ async function exportChat(req, res, next) {
       { key: 'sender', header: 'المُرسِل' },
       { key: 'text', header: 'الرسالة' },
     ];
-    // ملفّ CSV بترميز UTF-8 مع BOM لتظهر العربية سليمة في Excel (Card 58)
-    const csv = csvForExcel(rows, columns);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    // ملفّ بترميز UTF-16LE + فاصل جدولة: عربية سليمة وأعمدة منفصلة في Excel (Card 58)
+    const buffer = excelUnicodeBuffer(rows, columns);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-16le');
     res.setHeader('Content-Disposition', `attachment; filename="chat-${req.params.orderId}.csv"`);
-    res.send(csv);
+    res.send(buffer);
   } catch (err) {
     next(err);
   }
