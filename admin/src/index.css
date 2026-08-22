@@ -142,23 +142,20 @@ tbody tr:hover {
   .yl-two-col {
     grid-template-columns: 1fr !important;
   }
-  /* التبويبات: صفّ مستقلّ بعرض كامل قابل للتمرير أفقيًا بدل تكديس أسطر تدفع
-     المحتوى للأسفل أو تجاوز عرض الشاشة (flex-basis:100% يُنزلها تحت الشعار). */
+  /* التبويبات: صفّ مستقلّ بعرض كامل (flex-basis:100% يُنزلها تحت الشعار) يلتفّ
+     على عدّة أسطر فتظهر كل التبويبات دون تمرير أو إخفاء. */
   .yl-tabs {
     flex-basis: 100% !important;
     max-width: 100%;
-    flex-wrap: nowrap !important;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-  }
-  .yl-tabs::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap !important;
+    justify-content: flex-start;
+    gap: 6px !important;
   }
   .yl-tabs button {
     white-space: nowrap;
     flex: 0 0 auto;
+    padding: 7px 14px !important;
+    font-size: 13px !important;
   }
 }
 
