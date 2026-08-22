@@ -126,6 +126,14 @@ tbody tr:hover {
   -webkit-overflow-scrolling: touch;
 }
 
+/* صفّ أزرار الإجراءات داخل الجداول (يلتفّ عند الضيق) */
+.yl-btnrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
 /* أجهزة لوحية وجوّالات كبيرة: نُقلّل الحشو ونجعل لوحة الأدمن عمودًا واحدًا */
 @media (max-width: 820px) {
   .yl-page {
@@ -171,6 +179,72 @@ tbody tr:hover {
   }
   h1 {
     font-size: 22px;
+  }
+
+  /* Card 6: الجداول العريضة (yl-rtable) تتحوّل إلى بطاقات مكدّسة على الجوّال —
+     كل صفّ بطاقة مستقلّة وكل خليّة سطر "عنوان: قيمة" بدل التمرير الأفقي المزعج. */
+  .yl-rtable {
+    box-shadow: none;
+    background: transparent;
+  }
+  .yl-rtable thead {
+    display: none;
+  }
+  .yl-rtable,
+  .yl-rtable tbody,
+  .yl-rtable tr,
+  .yl-rtable td {
+    display: block;
+    width: 100%;
+  }
+  .yl-rtable tr {
+    background: var(--card);
+    border: 1px solid var(--outline);
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    margin-bottom: 12px;
+    padding: 4px 14px;
+  }
+  .yl-rtable tr:hover {
+    background: var(--card);
+  }
+  .yl-rtable td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    padding: 10px 0;
+    border-bottom: 1px solid #f2efec;
+  }
+  .yl-rtable td:last-child {
+    border-bottom: none;
+  }
+  /* عنوان العمود يُعرض من data-label قبل القيمة */
+  .yl-rtable td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--on-surface-variant);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  /* خليّة الإجراءات: العنوان أعلى، والأزرار تحته تلتفّ بعرض كامل */
+  .yl-rtable td.yl-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .yl-rtable td.yl-actions::before {
+    margin-bottom: 2px;
+  }
+  .yl-rtable td.yl-actions .yl-btnrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .yl-rtable td.yl-actions .yl-btnrow button {
+    margin: 0 !important;
+    flex: 1 1 auto;
   }
   /* شريط التنقّل: حشو أقلّ على الجوّالات الصغيرة (التبويبات تُمرَّر أفقيًا من ≤820) */
   .yl-nav {

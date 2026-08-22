@@ -9,6 +9,7 @@ import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/util/names.dart';
 import '../chat/chat_screen.dart';
+import 'order_detail_screen.dart';
 import 'rate_order_dialog.dart';
 
 class MyOrdersScreen extends StatefulWidget {
@@ -51,6 +52,15 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       builder: (_) => RateOrderDialog(api: widget.api, orderId: order['_id']),
     );
     if (done == true) _load();
+  }
+
+  // Card 2: فتح تفاصيل الطلب عند الضغط عليه (المكان، اسم الكابتن، رمز التسليم، الحالة).
+  // نعيد التحميل بعد العودة لعكس أي تغيّر في الحالة.
+  Future<void> _openDetail(Map<String, dynamic> o) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => OrderDetailScreen(api: widget.api, orderId: o['_id'] as String),
+    ));
+    if (mounted) _load();
   }
 
   // فتح شاشة الدردشة مع الكابتن للطلب الجاري توصيله (Card 26)
@@ -115,6 +125,8 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
 
                       return Card(
                         child: ListTile(
+                          // Card 2: الضغط على الطلب يفتح صفحة تفاصيله الكاملة.
+                          onTap: () => _openDetail(o),
                           leading: CircleAvatar(
                             backgroundColor: color.withValues(alpha: 0.15),
                             child: Icon(Icons.receipt_long, color: color),

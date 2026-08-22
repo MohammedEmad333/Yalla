@@ -868,7 +868,10 @@ async function getAssignableCaptains() {
 
 // جلب طلب واحد للتتبّع — مع التحقّق من صلاحية الوصول (صاحب الطلب/الكابتن المُسنَد/الأدمن)
 async function getOrderForTracking(orderId, requesterId, requesterRole) {
+  // Card 2: نضمّ رمز التسليم ليتمكّن صاحب الطلب من رؤيته في صفحة تفاصيل الطلب.
+  // (يُحذف لاحقًا من ردّ الكابتن في المتحكّم — الكابتن يتحقّق منه ولا يراه.)
   const order = await Order.findById(orderId)
+    .select('+deliveryCode')
     .populate('captain', 'name phone vehicleType currentLocation status')
     .populate('user', 'name phone');
   if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });

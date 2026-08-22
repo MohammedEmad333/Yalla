@@ -84,7 +84,8 @@ function UsersTab() {
       </div>
 
       <div className="yl-table-wrap">
-        <table style={styles.table}>
+        {/* Card 6: yl-rtable يحوّل الجدول إلى بطاقات مكدّسة على الجوّال */}
+        <table className="yl-rtable" style={styles.table}>
           <thead>
             <tr>
               <th>الاسم</th><th>الهاتف</th><th>العنوان</th><th>الرصيد المتوفّر</th>
@@ -94,23 +95,25 @@ function UsersTab() {
           <tbody>
             {users.map((u) => (
               <tr key={u.id}>
-                <td>{u.name}</td>
-                <td>{u.phone}</td>
-                <td>{u.address || '—'}</td>
-                <td><b>{u.balance} ₪</b></td>
-                <td>{fmtDate(u.createdAt)}</td>
-                <td>
+                <td data-label="الاسم">{u.name}</td>
+                <td data-label="الهاتف">{u.phone}</td>
+                <td data-label="العنوان">{u.address || '—'}</td>
+                <td data-label="الرصيد المتوفّر"><b>{u.balance} ₪</b></td>
+                <td data-label="تاريخ الانضمام">{fmtDate(u.createdAt)}</td>
+                <td data-label="الحالة">
                   <span style={styles.pill(u.isActive ? '#16a34a' : '#dc2626')}>
                     {u.isActive ? 'مفعّل' : 'معطّل'}
                   </span>
                 </td>
-                <td>
-                  <button style={styles.btn2(u.isActive ? '#dc2626' : '#16a34a')} onClick={() => toggle(u)}>
-                    {u.isActive ? 'تعطيل' : 'تفعيل'}
-                  </button>
-                  <button style={{ ...styles.btn2('#991b1b'), marginInlineStart: 6 }} onClick={() => remove(u)}>
-                    حذف نهائي
-                  </button>
+                <td data-label="إجراء" className="yl-actions">
+                  <div className="yl-btnrow">
+                    <button style={styles.btn2(u.isActive ? '#dc2626' : '#16a34a')} onClick={() => toggle(u)}>
+                      {u.isActive ? 'تعطيل' : 'تفعيل'}
+                    </button>
+                    <button style={styles.btn2('#991b1b')} onClick={() => remove(u)}>
+                      حذف نهائي
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -201,7 +204,8 @@ function CaptainsTab() {
       </form>
 
       <div className="yl-table-wrap">
-        <table style={styles.table}>
+        {/* Card 6: yl-rtable يحوّل الجدول إلى بطاقات مكدّسة على الجوّال */}
+        <table className="yl-rtable" style={styles.table}>
           <thead>
             <tr>
               <th>الاسم</th><th>الهاتف</th><th>المركبة</th><th>الحالة</th><th>التقييم</th>
@@ -211,31 +215,33 @@ function CaptainsTab() {
           <tbody>
             {captains.map((c) => (
               <tr key={c.id}>
-                <td>{c.name}</td>
-                <td>{c.phone}</td>
-                <td>{c.vehicleType === 'bicycle' ? 'دراجة' : 'موتوسيكل'}{c.vehiclePlate ? ` · ${c.vehiclePlate}` : ''}</td>
-                <td><StatusBadge status={c.status} /></td>
-                <td>⭐ {c.rating} ({c.ratingsCount})</td>
-                <td><b>{c.balance} ₪</b></td>
-                <td>{fmtDate(c.createdAt)}</td>
-                <td>
+                <td data-label="الاسم">{c.name}</td>
+                <td data-label="الهاتف">{c.phone}</td>
+                <td data-label="المركبة">{c.vehicleType === 'bicycle' ? 'دراجة' : 'موتوسيكل'}{c.vehiclePlate ? ` · ${c.vehiclePlate}` : ''}</td>
+                <td data-label="الحالة"><StatusBadge status={c.status} /></td>
+                <td data-label="التقييم">⭐ {c.rating} ({c.ratingsCount})</td>
+                <td data-label="الرصيد المتوفّر"><b>{c.balance} ₪</b></td>
+                <td data-label="تاريخ الانضمام">{fmtDate(c.createdAt)}</td>
+                <td data-label="الاعتماد">
                   <span style={styles.pill(c.isApproved ? '#16a34a' : '#f59e0b')}>
                     {c.isApproved ? 'معتمَد' : 'قيد المراجعة'}
                   </span>
                 </td>
-                <td style={{ whiteSpace: 'nowrap' }}>
-                  <button style={styles.btn2(c.isApproved ? '#f59e0b' : '#16a34a')} onClick={() => toggleApprove(c)}>
-                    {c.isApproved ? 'إلغاء' : 'اعتماد'}
-                  </button>
-                  <button style={{ ...styles.btn2('#334155'), marginInlineStart: 6 }} onClick={() => showReviews(c)}>
-                    المراجعات
-                  </button>
-                  <button style={{ ...styles.btn2('#059669'), marginInlineStart: 6 }} onClick={() => showWallet(c)}>
-                    المحفظة
-                  </button>
-                  <button style={{ ...styles.btn2('#991b1b'), marginInlineStart: 6 }} onClick={() => remove(c)}>
-                    حذف
-                  </button>
+                <td data-label="إجراء" className="yl-actions">
+                  <div className="yl-btnrow">
+                    <button style={styles.btn2(c.isApproved ? '#f59e0b' : '#16a34a')} onClick={() => toggleApprove(c)}>
+                      {c.isApproved ? 'إلغاء' : 'اعتماد'}
+                    </button>
+                    <button style={styles.btn2('#334155')} onClick={() => showReviews(c)}>
+                      المراجعات
+                    </button>
+                    <button style={styles.btn2('#059669')} onClick={() => showWallet(c)}>
+                      المحفظة
+                    </button>
+                    <button style={styles.btn2('#991b1b')} onClick={() => remove(c)}>
+                      حذف
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
