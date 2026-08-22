@@ -123,9 +123,28 @@ async function listThreads({ limit = 100 } = {}) {
 async function adminThread(userId) {
   const [messages] = await Promise.all([
     listMessages(userId),
-    SupportMessage.updateMany({ user: userId, senderRole: 'user', read: false }, { $set: { read: true } }),
+    // Card 56: نضبط readAt عند القراءة ليبدأ عدّاد الحذف التلقائي (بعد يوم).
+    SupportMessage.updateMany(
+      { user: userId, senderRole: 'user', read: false },
+      { $set: { read: true, readAt: new Date() } }
+    ),
   ]);
   return messages;
+}
+
+/**
+ * Card 56: حذف رسالة دعم نهائيًا (إجراء أدمن). يُبثّ حدث حذف ليختفي من كل اللوحات.
+ * @param {string} messageId
+ */
+async function deleteMessage(messageId) {
+  if (!mongoose.Types.ObjectId.isValid(messageId)) throw httpError('معرّف غير صالح', 400);
+  const message = await SupportMessage.findByIdAndDelete(messageId);
+  if (!message) throw httpError('الرسالة غير موجودة', 404);
+
+  const payload = { deletedId: String(message._id), user: String(message.user) };
+  emitDeleted(ROOMS.user(String(message.user)), payload);
+  emitDeleted(ROOMS.admins(), payload);
+  return { deleted: true, id: String(message._id) };
 }
 
 // بثّ رسالة لغرفة محدّدة بأمان (يتجاهل غياب السوكت في الاختبارات)
@@ -137,4 +156,13 @@ function emit(room, message) {
   }
 }
 
-module.exports = { listMessages, userSend, adminReply, listThreads, adminThread };
+// بثّ حدث حذف رسالة دعم لغرفة محدّدة بأمان (Card 56)
+function emitDeleted(room, payload) {
+  try {
+    io.get().to(room).emit(EVENTS.SUPPORT_MESSAGE_DELETED, payload);
+  } catch (_) {
+    /* السوكت غير مهيّأ */
+  }
+}
+
+module.exports = { listMessages, userSend, adminReply, listThreads, adminThread, deleteMessage };

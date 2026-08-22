@@ -135,6 +135,10 @@ tbody tr:hover {
   .yl-dashboard-grid {
     grid-template-columns: 1fr !important;
   }
+  /* صفحات المحادثات/الدعم: قائمة السلاسل فوق نافذة المحادثة بدل عمودين */
+  .yl-two-col {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* جوّالات صغيرة: خطّ أصغر وحشو أقل في الجداول لتفادي التمرير الزائد */
@@ -149,6 +153,26 @@ tbody tr:hover {
   }
   h1 {
     font-size: 22px;
+  }
+  /* شريط التنقّل: يلتفّ عناصره ويتوزّع بعرض كامل على الجوال */
+  .yl-nav {
+    padding: 8px 12px !important;
+  }
+  /* التبويبات: تمرير أفقي بدل تكديس أسطر كثيرة تدفع المحتوى للأسفل */
+  .yl-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .yl-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .yl-tabs button {
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
 }
 

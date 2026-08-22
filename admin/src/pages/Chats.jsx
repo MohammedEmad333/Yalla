@@ -102,7 +102,7 @@ export default function Chats() {
       <h1 style={{ margin: '0 0 4px' }}>محادثات الطلبات</h1>
       <p style={styles.subtitle}>متابعة المحادثات الجارية بين الزبائن والكباتن والمشاركة فيها وتصديرها</p>
 
-      <div style={styles.grid}>
+      <div className="yl-two-col" style={styles.grid}>
         {/* قائمة المحادثات (Card 45) */}
         <aside style={styles.list}>
           <div style={styles.listHead}>
