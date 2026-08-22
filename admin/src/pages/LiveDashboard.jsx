@@ -620,8 +620,9 @@ const styles = {
     color: theme.color.onSurfaceVariant,
   },
   timelineTime: { color: theme.color.muted },
-  assignRow: { display: 'flex', gap: 8, marginTop: 14 },
-  select: { flex: 1, padding: 10, borderRadius: theme.radius.sm, border: `1px solid ${theme.color.outlineStrong}` },
+  // Card 6: يلتفّ على الجوّال فلا يُقصّ زرّ "تلقائي" خارج الشاشة
+  assignRow: { display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' },
+  select: { flex: '1 1 160px', minWidth: 0, padding: 10, borderRadius: theme.radius.sm, border: `1px solid ${theme.color.outlineStrong}` },
   btn: {
     background: theme.color.primary,
     color: theme.color.onPrimary,
