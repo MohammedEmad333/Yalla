@@ -14,13 +14,16 @@
   Cache-Control: no-cache
   Content-Type: application/manifest+json
 
-# أصول Flutter الثقيلة (canvaskit والكود) — كاش طويل، تتغيّر مع كل بناء
+# كود التطبيق: اسم ثابت (main.dart.js) يتغيّر مع كل بناء — لا نخزّنه بكاش طويل
+# وإلّا بقي المستخدم على نسخة قديمة أيامًا. no-cache = تحقّق دائمًا (ETag/304).
+/main.dart.js
+  Cache-Control: no-cache
+
+# أصول Flutter الثقيلة — canvaskit يحمل نسخة في مساره فيُخزَّن للأبد؛ الأصول أقصر
 /canvaskit/*
   Cache-Control: public, max-age=31536000, immutable
 /assets/*
-  Cache-Control: public, max-age=604800
-/main.dart.js
-  Cache-Control: public, max-age=604800
+  Cache-Control: public, max-age=86400
 
 # ترويسات أمان عامة
 /*
