@@ -225,7 +225,11 @@ async function getOrder(req, res, next) {
       req.auth.role
     );
     // نُرفق خطوات الخطّ الزمني المحسوبة مع بيانات الطلب
-    res.json({ ...order.toObject(), timelineSteps: buildTimeline(order) });
+    const payload = { ...order.toObject(), timelineSteps: buildTimeline(order) };
+    // Card 2: رمز التسليم يظهر لصاحب الطلب (والأدمن) فقط — يُحذف من ردّ الكابتن
+    // الذي يتحقّق منه عند التسليم ولا يجب أن يراه مسبقًا.
+    if (req.auth.role === 'captain') delete payload.deliveryCode;
+    res.json(payload);
   } catch (err) {
     next(err);
   }

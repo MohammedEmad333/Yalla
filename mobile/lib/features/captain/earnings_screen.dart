@@ -84,6 +84,15 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       _statCard('عدد التوصيلات', '${_earnings?['count'] ?? 0}', Colors.teal),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  // Card 4: المبلغ الصافي (بعد خصم عمولة الشركة) مع عمولة محسومة للسياق.
+                  Row(
+                    children: [
+                      _statCard('الصافي', '${_wallet?['net'] ?? 0} ₪', Colors.green.shade700),
+                      const SizedBox(width: 12),
+                      _statCard('العمولة', '${_wallet?['commission'] ?? 0} ₪', Colors.orange.shade800),
+                    ],
+                  ),
 
                   // بطاقة المستحقّ للشركة (COD) — تظهر إن كان هناك مستحقّ
                   if ((_wallet?['owed'] ?? 0) > 0)

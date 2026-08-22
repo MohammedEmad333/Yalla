@@ -49,6 +49,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   String _priceLabel() =>
       _order!['status'] == 'delivered' ? 'السعر النهائي' : 'السعر التقريبي';
 
+  // Card 2: نصّ حالة الطلب بالعربية.
+  String _statusLabel(String s) => switch (s) {
+        'pending' => 'بانتظار كابتن',
+        'assigned' => 'تم التعيين',
+        'accepted' => 'في الطريق',
+        'picked_up' => 'جارٍ التوصيل',
+        'delivered' => 'تم التسليم',
+        'cancelled' => 'ملغى',
+        _ => s,
+      };
+
   // تنسيق مبسّط للتاريخ/الوقت (HH:mm)
   String _fmt(String? iso) {
     if (iso == null) return '';
@@ -77,6 +88,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _row('رقم الطلب', '#${(_order!['_id'] as String).substring(_order!['_id'].length - 5)}'),
+                            // Card 2: حالة الطلب
+                            _row('الحالة', _statusLabel(_order!['status'] ?? '')),
                             _row('الاستلام', _order!['pickup']?['address'] ?? ''),
                             _row('التسليم', _order!['dropoff']?['address'] ?? ''),
                             // Card 28: بعد التسليم نعرض السعر الحقيقي المدفوع لا التقريبي.
@@ -84,6 +97,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             // Card 48/51: اسم الكابتن (الاسم الأول فقط للعميل)
                             if (_order!['captain'] != null)
                               _row('الكابتن', firstName(_order!['captain']?['name'])),
+                            // Card 2: رمز التسليم — يعطيه صاحب الطلب للكابتن عند الاستلام
+                            // (لا يظهر بعد تسليم الطلب).
+                            if ((_order!['deliveryCode'] ?? '').toString().isNotEmpty &&
+                                _order!['status'] != 'delivered' &&
+                                _order!['status'] != 'cancelled')
+                              _row('رمز التسليم', _order!['deliveryCode'].toString()),
                           ],
                         ),
                       ),
