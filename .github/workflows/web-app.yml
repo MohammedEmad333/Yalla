@@ -1,0 +1,86 @@
+name: Build & Deploy Web App
+
+# يبني نسخة الويب من تطبيق Yalla (Flutter web) تلقائيًا ويحدّث مجلّد web-app/
+# ثمّ يدفع الناتج إلى نفس الفرع — فينشره Cloudflare تلقائيًا عبر ربط GitHub.
+#
+# لماذا؟ محتوى web-app/ مُجمَّع مسبقًا (main.dart.js)، فأي تعديل على mobile/ لا يظهر
+# على الويب إلا بعد إعادة بناء. هذا الـ Workflow يقوم بذلك بدل البناء اليدوي.
+#
+# النشر التلقائي:
+#   • إن كان مستودعك مربوطًا بـ Cloudflare Pages/Workers عبر GitHub، فدفع web-app/
+#     يكفي لبدء النشر تلقائيًا.
+#   • بديلًا (اختياري): أضِف السرّين CLOUDFLARE_API_TOKEN و CLOUDFLARE_ACCOUNT_ID
+#     ليُنفَّذ `wrangler deploy` مباشرةً من هذا الـ Workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      api_origin:
+        description: 'عنوان الـ Backend الذي يتصل به تطبيق الويب (API_ORIGIN)'
+        required: false
+        default: 'https://yalla-api-z6t0.onrender.com'
+  push:
+    branches: ['**']
+    # نبني فقط عند تغيّر مصدر التطبيق أو أداة البناء — لا عند تغيّر web-app/ نفسه
+    # (حتى لا يُعيد الـ Workflow تشغيل نفسه بعد دفعه للناتج).
+    paths:
+      - 'mobile/**'
+      - 'tool/build-web.sh'
+      - 'tool/web-app-headers'
+      - '.github/workflows/web-app.yml'
+
+# صلاحية الكتابة مطلوبة لدفع الناتج (web-app/) إلى الفرع
+permissions:
+  contents: write
+
+# نسمح ببناء واحد لكل فرع في كل مرّة
+concurrency:
+  group: web-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # نرفع أسرار Cloudflare لمستوى الوظيفة ليتمكّن شرط الخطوة من فحص توفّرها
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # تثبيت Flutter (قناة stable) مع تخزين مؤقت لتسريع البناء
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # تحديد عنوان الخادم: مُدخَل التشغيل اليدوي أو الافتراضي السحابي
+      - name: تحديد API_ORIGIN
+        run: |
+          ORIGIN="${{ github.event.inputs.api_origin }}"
+          if [ -z "$ORIGIN" ]; then ORIGIN="https://yalla-api-z6t0.onrender.com"; fi
+          echo "API_ORIGIN=$ORIGIN" >> "$GITHUB_ENV"
+          echo "سيُبنى تطبيق الويب للاتصال بـ: $ORIGIN"
+
+      # بناء Flutter web ونسخ الناتج إلى web-app/ (نستخدم السكربت الموجود)
+      - name: بناء تطبيق الويب
+        run: |
+          chmod +x tool/build-web.sh
+          tool/build-web.sh
+
+      # دفع الناتج إلى نفس الفرع إن تغيّر (لا شيء يُدفَع إن كان مطابقًا)
+      - name: تحديث web-app/ في المستودع
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web-app
+          if git diff --cached --quiet; then
+            echo "لا تغييرات في web-app/ — تخطّي الدفع."
+          else
+            git commit -m "بناء تطبيق الويب تلقائيًا (CI) [skip ci]"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      # نشر مباشر على Cloudflare (اختياري) — يُنفَّذ فقط عند توفّر أسرار Cloudflare
+      - name: نشر على Cloudflare (اختياري)
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
+        run: npx --yes wrangler deploy
