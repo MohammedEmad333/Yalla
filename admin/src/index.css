@@ -21,6 +21,9 @@ html,
 body {
   margin: 0;
   padding: 0;
+  width: 100%;
+  /* يمنع أي تمرير/تمدّد أفقي عرضيّ يدفع التخطيط على الجوال */
+  overflow-x: hidden;
 }
 
 body {
@@ -139,6 +142,24 @@ tbody tr:hover {
   .yl-two-col {
     grid-template-columns: 1fr !important;
   }
+  /* التبويبات: صفّ مستقلّ بعرض كامل قابل للتمرير أفقيًا بدل تكديس أسطر تدفع
+     المحتوى للأسفل أو تجاوز عرض الشاشة (flex-basis:100% يُنزلها تحت الشعار). */
+  .yl-tabs {
+    flex-basis: 100% !important;
+    max-width: 100%;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .yl-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .yl-tabs button {
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
 }
 
 /* جوّالات صغيرة: خطّ أصغر وحشو أقل في الجداول لتفادي التمرير الزائد */
@@ -154,25 +175,9 @@ tbody tr:hover {
   h1 {
     font-size: 22px;
   }
-  /* شريط التنقّل: يلتفّ عناصره ويتوزّع بعرض كامل على الجوال */
+  /* شريط التنقّل: حشو أقلّ على الجوّالات الصغيرة (التبويبات تُمرَّر أفقيًا من ≤820) */
   .yl-nav {
     padding: 8px 12px !important;
-  }
-  /* التبويبات: تمرير أفقي بدل تكديس أسطر كثيرة تدفع المحتوى للأسفل */
-  .yl-tabs {
-    flex-wrap: nowrap !important;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    max-width: 100%;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-  }
-  .yl-tabs::-webkit-scrollbar {
-    display: none;
-  }
-  .yl-tabs button {
-    white-space: nowrap;
-    flex: 0 0 auto;
   }
 }
 

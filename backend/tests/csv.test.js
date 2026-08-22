@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { toCsv, escapeCell, csvForExcel, UTF8_BOM } = require('../src/utils/csv');
+const { toCsv, escapeCell, csvForExcel, UTF8_BOM, excelUnicodeBuffer } = require('../src/utils/csv');
 
 test('escapeCell: القيم البسيطة بلا تغيير', () => {
   assert.equal(escapeCell('hello'), 'hello');
@@ -64,4 +64,24 @@ test('csvForExcel: نهايات أسطر CRLF ومحتوى مطابق لـ toCsv
   const cols = [{ key: 'a', header: 'A' }];
   const out = csvForExcel(rows, cols);
   assert.equal(out, UTF8_BOM + 'A\r\n1\r\n2');
+});
+
+// Card 58: تصدير Excel موثوق للعربية والأعمدة على كل اللغات — UTF-16LE + TAB.
+test('excelUnicodeBuffer: يبدأ ببايتات BOM لـ UTF-16LE (FF FE)', () => {
+  const buf = excelUnicodeBuffer([{ a: '1' }], [{ key: 'a', header: 'A' }]);
+  assert.ok(Buffer.isBuffer(buf), 'يُرجع Buffer');
+  assert.equal(buf[0], 0xff);
+  assert.equal(buf[1], 0xfe);
+});
+
+test('excelUnicodeBuffer: يفصل الأعمدة بجدولة ويحافظ على العربية', () => {
+  const buf = excelUnicodeBuffer(
+    [{ id: '1', name: 'أحمد' }],
+    [{ key: 'id', header: 'المعرّف' }, { key: 'name', header: 'الاسم' }]
+  );
+  const text = buf.toString('utf16le');
+  assert.equal(text[0], UTF8_BOM); // BOM في المقدّمة
+  assert.ok(text.includes('المعرّف\tالاسم'), 'ترويسة مفصولة بجدولة');
+  assert.ok(text.includes('1\tأحمد'), 'صفّ مفصول بجدولة والعربية سليمة');
+  assert.ok(text.includes('\r\n'), 'أسطر CRLF');
 });

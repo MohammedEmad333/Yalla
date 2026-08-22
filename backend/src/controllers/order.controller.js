@@ -2,7 +2,7 @@
 
 const orderService = require('../services/order.service');
 const chatService = require('../services/chat.service');
-const { csvForExcel } = require('../utils/csv');
+const { excelUnicodeBuffer } = require('../utils/csv');
 const { buildTimeline } = require('../utils/timeline');
 const { estimateEtaMinutes } = require('../utils/eta');
 
@@ -157,12 +157,13 @@ async function exportOrders(req, res, next) {
       { key: 'distanceKm', header: 'المسافة (كم)' },
       { key: 'price', header: 'السعر' },
     ];
-    // ملفّ CSV بترميز UTF-8 مع BOM لتظهر العربية سليمة في Excel (Card 58)
-    const csv = csvForExcel(rows, columns);
+    // ملفّ بترميز UTF-16LE + فاصل جدولة: عربية سليمة وأعمدة منفصلة في Excel
+    // على كل اللغات (Card 58)
+    const buffer = excelUnicodeBuffer(rows, columns);
 
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-16le');
     res.setHeader('Content-Disposition', `attachment; filename="orders-${Date.now()}.csv"`);
-    res.send(csv);
+    res.send(buffer);
   } catch (err) {
     next(err);
   }
