@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { toCsv, escapeCell } = require('../src/utils/csv');
+const { toCsv, escapeCell, csvForExcel, UTF8_BOM } = require('../src/utils/csv');
 
 test('escapeCell: القيم البسيطة بلا تغيير', () => {
   assert.equal(escapeCell('hello'), 'hello');
@@ -47,4 +47,21 @@ test('toCsv: يهرب القيم التي تحوي فواصل', () => {
 
 test('toCsv: صفوف فارغة → الترويسة فقط', () => {
   assert.equal(toCsv([], [{ key: 'a', header: 'A' }]), 'A');
+});
+
+// Card 58: ملفّ Excel — BOM في المقدّمة، نهايات أسطر CRLF، وبلا سطر sep= الذي
+// يكسر ترميز UTF-8 في Excel (كان يجعل العربية تظهر مشوّهة ط§ظ„…).
+test('csvForExcel: يبدأ بـ BOM ولا يحوي سطر sep=', () => {
+  const rows = [{ id: '1', name: 'أحمد' }];
+  const cols = [{ key: 'id', header: 'المعرّف' }, { key: 'name', header: 'الاسم' }];
+  const out = csvForExcel(rows, cols);
+  assert.equal(out[0], UTF8_BOM, 'يبدأ بـ BOM');
+  assert.ok(!out.includes('sep='), 'لا يحوي سطر sep=');
+});
+
+test('csvForExcel: نهايات أسطر CRLF ومحتوى مطابق لـ toCsv', () => {
+  const rows = [{ a: '1' }, { a: '2' }];
+  const cols = [{ key: 'a', header: 'A' }];
+  const out = csvForExcel(rows, cols);
+  assert.equal(out, UTF8_BOM + 'A\r\n1\r\n2');
 });
