@@ -46,8 +46,57 @@ class YallaApp extends StatelessWidget {
       title: 'Yalla',
       debugShowCheckedModeBanner: false,
       theme: buildYallaTheme(),
-      builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
+      // فرض RTL + غلاف متجاوب يجعل التطبيق مناسبًا لكل الشاشات (Card 60):
+      // على الشاشات العريضة (ويب/سطح المكتب) يُعرض المحتوى في عمود بعرض جوال
+      // موسَّط بدل التمدّد على كامل العرض، وعلى الجوّالات يبقى بكامل العرض.
+      builder: (context, child) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: ResponsiveWebShell(child: child!),
+      ),
       home: const AuthGate(),
+    );
+  }
+}
+
+/// غلاف متجاوب لكل الشاشات (Card 60).
+///
+/// التطبيق مصمَّم أساسًا للجوّال؛ عند تشغيله على الويب أو نافذة عريضة يتمدّد
+/// المحتوى بشكل غير مريح. هذا الغلاف يحصر العرض في عمود بعرض جوّال (٥٠٠ بكسل)
+/// موسَّط فوق خلفية داكنة عندما يكون عرض النافذة أكبر من عتبة معيّنة، ويترك
+/// الجوّالات الحقيقية بكامل العرض دون أي تغيير.
+class ResponsiveWebShell extends StatelessWidget {
+  final Widget child;
+  const ResponsiveWebShell({super.key, required this.child});
+
+  // أقصى عرض للمحتوى على الشاشات العريضة (بعرض جوّال مريح)
+  static const double _maxContentWidth = 500;
+  // بدءًا من هذا العرض نُفعّل التوسيط (أجهزة لوحية/سطح المكتب)
+  static const double _wideBreakpoint = 600;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // شاشة ضيّقة (جوّال) → المحتوى بكامل العرض كما هو
+        if (constraints.maxWidth <= _wideBreakpoint) return child;
+
+        // شاشة عريضة → عمود موسَّط بعرض جوّال فوق خلفية داكنة
+        return ColoredBox(
+          color: const Color(0xFF11131A),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: _maxContentWidth,
+                minHeight: constraints.maxHeight,
+                maxHeight: constraints.maxHeight,
+              ),
+              // Material يضمن خلفية وسطحًا صحيحين للعمود المحصور
+              child: Material(color: Theme.of(context).scaffoldBackgroundColor, child: child),
+            ),
+          ),
+        );
+      },
     );
   }
 }

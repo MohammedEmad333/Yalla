@@ -38,6 +38,11 @@ export default function Support() {
       if (m.user === activeRef.current) setMessages((prev) => [...prev, m]);
       loadThreads();
     });
+    // Card 56: حُذفت رسالة نهائيًا -> أزِلها من العرض وحدّث القائمة
+    socket.on('support:message_deleted', (p) => {
+      setMessages((prev) => prev.filter((m) => m._id !== p.deletedId));
+      loadThreads();
+    });
     return () => socket.disconnect();
   }, [socket]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -73,14 +78,35 @@ export default function Support() {
     }
   }
 
+  // Card 56: حذف رسالة نهائيًا (بعد تأكيد). الحذف يبثّه الخادم فتُزال من كل اللوحات.
+  async function deleteMessage(id) {
+    if (!window.confirm('حذف هذه الرسالة نهائيًا؟ لا يمكن التراجع.')) return;
+    try {
+      const res = await fetch(`${API}/api/admin/support/messages/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        throw new Error(d?.message || 'تعذّر الحذف');
+      }
+      setMessages((prev) => prev.filter((m) => m._id !== id));
+      loadThreads();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
   const activeThread = threads.find((t) => t.userId === active);
 
   return (
     <div className="yl-page" style={styles.page}>
       <h1 style={{ margin: '0 0 4px' }}>الدعم والتواصل</h1>
-      <p style={styles.subtitle}>التواصل المباشر بين الزبائن والإدارة والردّ على استفساراتهم</p>
+      <p style={styles.subtitle}>
+        التواصل المباشر بين الزبائن والإدارة والردّ على استفساراتهم — تُحذف الرسائل المقروءة تلقائيًا بعد يوم، ويمكنك حذف أي رسالة نهائيًا.
+      </p>
 
-      <div style={styles.grid}>
+      <div className="yl-two-col" style={styles.grid}>
         <aside style={styles.list}>
           <div style={styles.listHead}>
             المحادثات ({threads.length})
@@ -117,7 +143,10 @@ export default function Support() {
                     <div key={m._id} style={styles.msgRow(me)}>
                       <div style={styles.bubble(me)}>
                         <div>{m.text}</div>
-                        <div style={styles.msgTime}>{me ? '🛡️ الإدارة' : '👤 الزبون'} · {fmtTime(m.createdAt)}</div>
+                        <div style={styles.bubbleFoot}>
+                          <span style={styles.msgTime}>{me ? '🛡️ الإدارة' : '👤 الزبون'} · {fmtTime(m.createdAt)}</span>
+                          <button style={styles.delBtn} title="حذف الرسالة نهائيًا" onClick={() => deleteMessage(m._id)}>🗑</button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -180,6 +209,11 @@ const styles = {
     padding: '8px 12px', maxWidth: '75%', border: `1px solid ${theme.color.outline}`,
   }),
   msgTime: { fontSize: 10, color: theme.color.muted, marginTop: 2, textAlign: 'left' },
+  bubbleFoot: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 2 },
+  delBtn: {
+    background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 13,
+    opacity: 0.6, padding: 0, lineHeight: 1,
+  },
   composer: { display: 'flex', gap: 8, padding: 16, borderTop: `1px solid ${theme.color.outline}` },
   input: { flex: 1, padding: '10px 14px', borderRadius: theme.radius.pill, border: `1px solid ${theme.color.outlineStrong}` },
   sendBtn: {

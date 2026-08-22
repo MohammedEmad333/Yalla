@@ -599,13 +599,34 @@ async function expireStaleAssignments(now = new Date()) {
   const stale = await Order.find({
     status: ORDER_STATUS.ASSIGNED,
     'timeline.assignedAt': { $ne: null, $lte: cutoff },
-  });
+  }).populate('captain', 'name phone');
 
   for (const order of stale) {
-    await returnToPoolAndReassign(order, order.captain, {
+    // نلتقط بيانات الكابتن قبل إلغاء الإسناد (returnToPool يصفّر order.captain)
+    const timedOutCaptain = order.captain
+      ? { id: String(order.captain._id), name: order.captain.name, phone: order.captain.phone }
+      : null;
+    const captainId = order.captain?._id || order.captain;
+
+    await returnToPoolAndReassign(order, captainId, {
       actorRole: 'system',
       action: 'ORDER_ASSIGN_TIMEOUT',
     });
+
+    // Card 54: تنبيه الأدمن بأن الكابتن لم يقبل الطلب خلال المهلة، وأنّ الطلب
+    // عاد بلا كابتن مُسنَد. يُبثّ لغرفة الأدمن ليظهر فورًا في اللوحة.
+    try {
+      io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_ASSIGN_TIMEOUT, {
+        orderId: String(order._id),
+        captain: timedOutCaptain,
+        timeoutSeconds: env.acceptTimeoutSeconds,
+        message: timedOutCaptain
+          ? `لم يقبل الكابتن ${timedOutCaptain.name} الطلب خلال ${Math.round(env.acceptTimeoutSeconds / 60)} دقائق — عاد الطلب بلا كابتن مُسنَد`
+          : 'لم يُقبَل الطلب خلال المهلة — عاد الطلب بلا كابتن مُسنَد',
+      });
+    } catch (_) {
+      // السوكت غير مهيّأ (اختبارات) — نتجاهل بأمان
+    }
   }
   return stale.length;
 }
@@ -784,6 +805,8 @@ async function listOrders(rawQuery = {}) {
     Order.find(filter)
       .populate('user', 'name phone')
       .populate('captain', 'name phone status')
+      // Card 47: نُحضِر أسماء الكباتن الذين رفضوا الطلب لعرض سبب الرفض في لوحة الأدمن
+      .populate('rejections.captain', 'name phone')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit),

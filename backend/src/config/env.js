@@ -32,8 +32,8 @@ const env = {
   autoAssign: process.env.AUTO_ASSIGN === 'true',
   // نسبة عمولة الشركة من قيمة كل توصيلة (0.2 = 20%)
   commissionRate: parseFloat(process.env.COMMISSION_RATE) || 0.2,
-  // مهلة قبول الكابتن للطلب المُسنَد قبل إعادة إسناده (ثوانٍ)
-  acceptTimeoutSeconds: parseInt(process.env.ACCEPT_TIMEOUT_SECONDS, 10) || 60,
+  // مهلة قبول الكابتن للطلب المُسنَد قبل إلغاء الإسناد وإعادته (ثوانٍ) — ٣ دقائق (Card 54)
+  acceptTimeoutSeconds: parseInt(process.env.ACCEPT_TIMEOUT_SECONDS, 10) || 180,
   // إعدادات إشعارات Firebase (اختيارية — إن غابت تُعطَّل الإشعارات).
   // على الاستضافة (Render وغيرها) الأسهل وضع محتوى مفتاح الخدمة كاملًا في
   // متغيّر FCM_CREDENTIALS_JSON؛ محليًّا يمكن استخدام مسار ملف FCM_CREDENTIALS_PATH.

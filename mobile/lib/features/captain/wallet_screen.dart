@@ -217,14 +217,28 @@ class _WithdrawFormState extends State<_WithdrawForm> {
   String _method = 'jawwal_pay';
   bool _submitting = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // تحديث تنبيه تجاوز الرصيد لحظيًا أثناء الكتابة (Card 59)
+    _amount.addListener(() => setState(() {}));
+  }
+
+  // هل المبلغ المُدخَل يتجاوز الرصيد المتاح؟ (Card 59)
+  bool get _exceedsBalance {
+    final amount = num.tryParse(_amount.text.trim());
+    return amount != null && amount > widget.available;
+  }
+
   Future<void> _submit() async {
     final amount = num.tryParse(_amount.text.trim());
     if (amount == null || amount < 10) {
       _snack('الحدّ الأدنى للسحب ١٠ ₪');
       return;
     }
+    // Card 59: تنبيه واضح بأنّ المبلغ المطلوب أكبر من الرصيد الفعلي في المحفظة
     if (amount > widget.available) {
-      _snack('المبلغ يتجاوز الرصيد المتاح (${widget.available} ₪)');
+      await _showExceedsAlert(amount);
       return;
     }
     if (_phone.text.trim().length < 6) {
@@ -252,6 +266,25 @@ class _WithdrawFormState extends State<_WithdrawForm> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
   }
 
+  // Card 59: نافذة تنبيه بارزة عند طلب سحب أكبر من الرصيد الموجود في المحفظة
+  Future<void> _showExceedsAlert(num amount) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, color: YallaColors.error, size: 36),
+        title: const Text('رصيدك غير كافٍ'),
+        content: Text(
+          'المبلغ المطلوب ($amount ₪) أكبر من رصيدك المتاح للسحب '
+          '(${widget.available} ₪).\n\nلا يمكنك سحب أكثر مما تملك في محفظتك.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('حسنًا')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -271,10 +304,14 @@ class _WithdrawFormState extends State<_WithdrawForm> {
           TextField(
             controller: _amount,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'المبلغ (₪)',
-              prefixIcon: Icon(Icons.payments),
-              border: OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.payments),
+              border: const OutlineInputBorder(),
+              // تنبيه لحظي أسفل الحقل عند تجاوز الرصيد (Card 59)
+              errorText: _exceedsBalance
+                  ? 'المبلغ أكبر من رصيدك المتاح (${widget.available} ₪)'
+                  : null,
             ),
           ),
           const SizedBox(height: 12),

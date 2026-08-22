@@ -42,7 +42,7 @@ function Gate() {
         <div style={styles.brandBlock}>
           <img src="/logo.png" alt="Yalla" style={styles.logoMark} />
           <span style={styles.logo}>Yalla</span>
-          <div style={styles.tabs}>
+          <div className="yl-tabs" style={styles.tabs}>
             {TABS.map((t) => (
               <button key={t.key} style={styles.link(page === t.key)} onClick={() => setPage(t.key)}>
                 {t.label}

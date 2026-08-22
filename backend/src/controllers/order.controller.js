@@ -2,7 +2,7 @@
 
 const orderService = require('../services/order.service');
 const chatService = require('../services/chat.service');
-const { toCsv } = require('../utils/csv');
+const { csvForExcel } = require('../utils/csv');
 const { buildTimeline } = require('../utils/timeline');
 const { estimateEtaMinutes } = require('../utils/eta');
 
@@ -157,10 +157,8 @@ async function exportOrders(req, res, next) {
       { key: 'distanceKm', header: 'المسافة (كم)' },
       { key: 'price', header: 'السعر' },
     ];
-    // BOM لعرض العربية بشكل صحيح + سطر sep=, ليحترم Excel الفاصلة في كل اللغات
-    // (Excel العربي/الأوروبي يستخدم الفاصلة المنقوطة افتراضيًا فتظهر كل البيانات في عمود واحد)
-    // ونستخدم CRLF لتوافق أفضل مع Excel.
-    const csv = '﻿' + 'sep=,\r\n' + toCsv(rows, columns).replace(/\n/g, '\r\n');
+    // ملفّ CSV بترميز UTF-8 مع BOM لتظهر العربية سليمة في Excel (Card 58)
+    const csv = csvForExcel(rows, columns);
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="orders-${Date.now()}.csv"`);

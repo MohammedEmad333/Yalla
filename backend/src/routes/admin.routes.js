@@ -42,6 +42,7 @@ router.get('/chats/:orderId/export', ctrl.exportChat);
 router.get('/support', support.listThreads);
 router.get('/support/:userId/messages', support.threadMessages);
 router.post('/support/:userId/messages', support.reply);
+router.delete('/support/messages/:messageId', support.deleteMessage); // Card 56: حذف رسالة نهائيًا
 
 // شحن رصيد المستخدمين — مراجعة الطلبات المعلّقة والموافقة/الرفض
 router.get('/wallet/topups', ctrl.listTopups);

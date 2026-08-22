@@ -146,6 +146,7 @@ export default function LiveDashboard() {
   const [selected, setSelected] = useState({});    // {orderId: captainId} للإسناد
   const [expanded, setExpanded] = useState({});    // {orderId: bool} عرض كل التفاصيل (Card 29)
   const [delayed, setDelayed] = useState({});      // {orderId: warning} الطلبات المتأخّرة (Card 40)
+  const [timeouts, setTimeouts] = useState({});    // {orderId: info} طلبات لم يقبلها الكابتن خلال المهلة (Card 54)
   const token = localStorage.getItem('token');     // توكن الأدمن
 
   // عدد الكباتن المتصلين (لعرضه في الترويسة)
@@ -200,6 +201,12 @@ export default function LiveDashboard() {
     socket.on('order:delayed', (payload) => {
       if (!payload?.orderId) return;
       setDelayed((prev) => ({ ...prev, [payload.orderId]: payload }));
+    });
+
+    // Card 54: انتهت مهلة قبول الكابتن -> نُنبّه الأدمن بأنّ الطلب عاد بلا كابتن مُسنَد.
+    socket.on('order:assign_timeout', (payload) => {
+      if (!payload?.orderId) return;
+      setTimeouts((prev) => ({ ...prev, [payload.orderId]: payload }));
     });
 
     return () => socket.disconnect(); // تنظيف عند مغادرة الصفحة
@@ -279,6 +286,23 @@ export default function LiveDashboard() {
           <span style={styles.pulse} /> المتصلون: {onlineCount} / {captains.length}
         </span>
       </header>
+
+      {/* Card 54: تنبيه الطلبات التي لم يقبلها الكابتن خلال المهلة وعادت للمجمّع */}
+      {Object.keys(timeouts).length > 0 && (
+        <div style={styles.timeoutBanner}>
+          <b>⏳ طلبات لم يقبلها الكابتن خلال المهلة ({Object.keys(timeouts).length})</b>
+          <span style={{ fontSize: 13 }}> — عادت بلا كابتن مُسنَد، يُرجى إعادة إسنادها.</span>
+          {Object.values(timeouts).map((t) => (
+            <div key={t.orderId} style={styles.delayItem}>
+              #{t.orderId?.slice(-5)}
+              {t.captain?.name ? ` · الكابتن: ${t.captain.name}${t.captain.phone ? ` (${t.captain.phone})` : ''}` : ''}
+              <button style={styles.delayDismiss} onClick={() => setTimeouts((p) => {
+                const n = { ...p }; delete n[t.orderId]; return n;
+              })}>تجاهل</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Card 40: تنبيه الطلبات المتأخّرة عن زمنها التقديري */}
       {Object.keys(delayed).length > 0 && (
@@ -444,6 +468,15 @@ const styles = {
     whiteSpace: 'nowrap',
   },
   pulse: { width: 8, height: 8, borderRadius: '50%', background: theme.color.secondary, boxShadow: `0 0 0 3px ${theme.color.secondary}33` },
+  // Card 54: بانر تنبيه الطلبات التي انتهت مهلة قبولها
+  timeoutBanner: {
+    background: '#fee2e2',
+    border: '1px solid #ef4444',
+    color: '#991b1b',
+    borderRadius: theme.radius.md,
+    padding: '12px 16px',
+    marginBottom: 20,
+  },
   // Card 40: بانر تنبيه الطلبات المتأخّرة
   delayBanner: {
     background: '#fef3c7',

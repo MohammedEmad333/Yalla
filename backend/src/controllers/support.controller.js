@@ -56,4 +56,14 @@ async function reply(req, res, next) {
   }
 }
 
-module.exports = { myMessages, send, listThreads, threadMessages, reply };
+// الأدمن يحذف رسالة دعم نهائيًا (Card 56)
+async function deleteMessage(req, res, next) {
+  try {
+    const result = await supportService.deleteMessage(req.params.messageId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { myMessages, send, listThreads, threadMessages, reply, deleteMessage };

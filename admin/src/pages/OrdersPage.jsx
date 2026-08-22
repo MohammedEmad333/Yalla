@@ -10,11 +10,23 @@ const STATUS_AR = {
   picked_up: 'جارٍ التوصيل', delivered: 'مسلّم', cancelled: 'ملغى',
 };
 
+// تنسيق وقت مختصر لعرض وقت الرفض
+function fmtTime(d) {
+  if (!d) return '';
+  try {
+    return new Date(d).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
+  } catch {
+    return '';
+  }
+}
+
 export default function OrdersPage() {
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [data, setData] = useState({ items: [], total: 0, page: 1, pages: 1 });
+  // Card 47: الطلب المفتوح لعرض تفاصيل رفض الكباتن له (أو null)
+  const [rejectModal, setRejectModal] = useState(null);
 
   // بناء سلسلة الاستعلام وجلب الصفحة
   function load(targetPage = page) {
@@ -85,7 +97,15 @@ export default function OrdersPage() {
               <tr key={o._id}>
                 <td style={{ fontWeight: 600 }}>#{o._id.slice(-5)}</td>
                 <td>
-                  <span style={styles.pill(orderStatusColor(o.status))}>{STATUS_AR[o.status] || o.status}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                    <span style={styles.pill(orderStatusColor(o.status))}>{STATUS_AR[o.status] || o.status}</span>
+                    {/* Card 47: علامة رفض الكابتن مع زر لعرض السبب */}
+                    {o.rejections?.length > 0 && (
+                      <button style={styles.rejectBadge} onClick={() => setRejectModal(o)} title="عرض سبب الرفض">
+                        🚫 مرفوض ({o.rejections.length}) — عرض السبب
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td>{[o.user?.name, o.user?.lastName].filter(Boolean).join(' ') || '—'}</td>
                 <td>{o.pickup?.address}</td>
@@ -103,6 +123,32 @@ export default function OrdersPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Card 47: نافذة عرض أسباب رفض الكباتن للطلب */}
+      {rejectModal && (
+        <div style={styles.overlay} onClick={() => setRejectModal(null)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHead}>
+              <b>أسباب رفض الطلب #{rejectModal._id.slice(-5)}</b>
+              <button style={styles.modalClose} onClick={() => setRejectModal(null)}>✕</button>
+            </div>
+            <div style={styles.modalBody}>
+              {rejectModal.rejections.map((r, i) => (
+                <div key={i} style={styles.rejectRow}>
+                  <div style={{ fontWeight: 600 }}>
+                    🧑‍✈️ {r.captain?.name || 'كابتن'}
+                    {r.captain?.phone ? ` · ${r.captain.phone}` : ''}
+                  </div>
+                  <div style={styles.rejectReason}>
+                    {r.reason ? `السبب: ${r.reason}` : 'لم يُذكر سبب'}
+                  </div>
+                  {r.at && <div style={styles.rejectAt}>{fmtTime(r.at)}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ترقيم */}
       <div style={styles.pager}>
@@ -137,6 +183,41 @@ const styles = {
   },
   count: { color: theme.color.muted, fontSize: 14 },
   tableWrap: { overflowX: 'auto' },
+  // Card 47: زر علامة الرفض داخل خلية الحالة
+  rejectBadge: {
+    background: '#fee2e2',
+    color: '#991b1b',
+    border: '1px solid #ef4444',
+    borderRadius: theme.radius.pill,
+    padding: '2px 10px',
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  // Card 47: نافذة عرض أسباب الرفض
+  overlay: {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+    display: 'grid', placeItems: 'center', zIndex: 50, padding: 16,
+  },
+  modal: {
+    background: theme.color.card, borderRadius: theme.radius.lg, width: '100%',
+    maxWidth: 480, boxShadow: theme.shadow.float, direction: 'rtl',
+  },
+  modalHead: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '14px 18px', borderBottom: `1px solid ${theme.color.outline}`,
+  },
+  modalClose: {
+    background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: theme.color.muted,
+  },
+  modalBody: { padding: 18, display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '60vh', overflowY: 'auto' },
+  rejectRow: {
+    border: `1px solid ${theme.color.outline}`, borderRadius: theme.radius.md,
+    padding: 12, background: theme.color.surface,
+  },
+  rejectReason: { marginTop: 4, color: theme.color.onSurfaceVariant, fontSize: 14 },
+  rejectAt: { marginTop: 4, color: theme.color.muted, fontSize: 12 },
   pill: (bg) => ({
     background: bg,
     color: theme.color.onPrimary,

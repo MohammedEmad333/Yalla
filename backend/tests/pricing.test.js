@@ -40,20 +40,20 @@ test('quote: يُرجع مسافة وسعر وعملة صحيحة', () => {
   assert.equal(q.currency, 'ILS');
 });
 
-// نموذج التسعير المطلوب (Card 27): "سعر المية وستين متر = ١ شيكل"
-test('calculatePrice: كل ١٦٠ مترًا = ١ شيكل', () => {
-  // ١٦٠ مترًا = ٠.١٦ كم → ١ ₪ (لكنّ الحدّ الأدنى ٣ ₪ يرفعه)
-  assert.equal(pricing.calculatePrice(0.16), pricing.TARIFF.minFare);
-  // ١٦٠٠ مترًا = ١.٦ كم → ١٦٠٠ ÷ ١٦٠ = ١٠ ₪
-  assert.equal(pricing.calculatePrice(1.6), 10);
-  // ٣٢٠٠ مترًا = ٣.٢ كم → ٢٠ ₪
-  assert.equal(pricing.calculatePrice(3.2), 20);
+// نموذج التسعير المطلوب (Card 55): "سعر المئتين وخمسين مترًا = ١ شيكل"
+test('calculatePrice: كل ٢٥٠ مترًا = ١ شيكل', () => {
+  // ٢٥٠ مترًا = ٠.٢٥ كم → ١ ₪ (لكنّ الحدّ الأدنى ٣ ₪ يرفعه)
+  assert.equal(pricing.calculatePrice(0.25), pricing.TARIFF.minFare);
+  // ٢٥٠٠ مترًا = ٢.٥ كم → ٢٥٠٠ ÷ ٢٥٠ = ١٠ ₪
+  assert.equal(pricing.calculatePrice(2.5), 10);
+  // ٥٠٠٠ مترًا = ٥ كم → ٢٠ ₪
+  assert.equal(pricing.calculatePrice(5), 20);
 });
 
 test('calculatePrice: المسافة الصفرية (داخل الحي نفسه) = الحدّ الأدنى', () => {
   assert.equal(pricing.calculatePrice(0), pricing.TARIFF.minFare);
 });
 
-test('METERS_PER_SHEKEL = ١٦٠', () => {
-  assert.equal(pricing.METERS_PER_SHEKEL, 160);
+test('METERS_PER_SHEKEL = ٢٥٠', () => {
+  assert.equal(pricing.METERS_PER_SHEKEL, 250);
 });
