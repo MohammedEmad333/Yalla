@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/network/api_client.dart';
+import '../core/onboarding/onboarding.dart';
 import '../core/realtime/socket_service.dart';
 import '../features/user/create_order_screen.dart';
 import '../features/user/my_orders_screen.dart';
@@ -28,6 +29,10 @@ class _UserHomeState extends State<UserHome> {
   void initState() {
     super.initState();
     widget.socket.connect(); // اتصال لحظي لاستقبال تحديثات الطلبات
+    // Card 75: شرح تعريفي لمرة واحدة (وبعد كل تحديث للميزات الجديدة فقط)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) maybeShowOnboarding(context, 'user');
+    });
   }
 
   @override
