@@ -914,6 +914,56 @@ async function getActiveOrders() {
     .sort({ createdAt: -1 });
 }
 
+/**
+ * Card 74: تعديل الأدمن للسعر التقريبي (سقف الطلب) من لوحة التحكم.
+ * السعر التقريبي `price` هو السقف الذي لا يستطيع الكابتن تجاوزه عند إدخال السعر
+ * الحقيقي (يُطبَّق في updateOrderStatus). بعد التعديل يصبح هذا هو السقف الرسمي.
+ * يُسمح بالتعديل قبل التسليم/الإلغاء فقط، وبحدٍّ أدنى للأجرة، ويُبثّ التحديث لحظيًا
+ * للأدمن وصاحب الطلب والكابتن المُسنَد.
+ * @param {string} orderId
+ * @param {number} newPrice  السعر التقريبي الجديد (₪)
+ * @param {{actorId?:string}} ctx
+ */
+async function updateOrderPrice(orderId, newPrice, { actorId = null } = {}) {
+  const price = Math.round(Number(newPrice));
+  if (!Number.isFinite(price) || price < pricing.TARIFF.minFare) {
+    throw httpError(`السعر التقريبي يجب ألّا يقلّ عن ${pricing.TARIFF.minFare} ₪`, 400);
+  }
+
+  const order = await Order.findById(orderId).select('+deliveryCode');
+  if (!order) throw httpError('الطلب غير موجود', 404);
+  if ([ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED].includes(order.status)) {
+    throw httpError('لا يمكن تعديل سعر طلب منتهٍ', 400);
+  }
+
+  const from = order.price;
+  order.price = price;
+  await order.save();
+
+  await writeLog({
+    order: order._id,
+    actorId,
+    actorRole: 'admin',
+    action: 'PRICE_UPDATED',
+    meta: { from, to: price },
+  });
+
+  // نُعيد التحميل بالبيانات المرتبطة ونبثّ التحديث لكل الأطراف ليظهر السقف الجديد فورًا
+  await order.populate('user', 'name lastName phone');
+  await order.populate('captain', 'name phone status');
+  const io_ = io.get();
+  const userId = String(order.user?._id || order.user);
+  io_.to(ROOMS.admins()).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  io_.to(ROOMS.user(userId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  io_.to(ROOMS.order(String(order._id))).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  if (order.captain) {
+    const capId = String(order.captain?._id || order.captain);
+    io_.to(ROOMS.captain(capId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  }
+
+  return order;
+}
+
 // بحث/فلترة الطلبات مع ترقيم (للوحة الأدمن) — يعيد العناصر والإجمالي وعدد الصفحات
 async function listOrders(rawQuery = {}) {
   const filter = buildOrderFilter(rawQuery);
@@ -993,7 +1043,8 @@ async function getOrderForTracking(orderId, requesterId, requesterRole) {
   // (يُحذف لاحقًا من ردّ الكابتن في المتحكّم — الكابتن يتحقّق منه ولا يراه.)
   const order = await Order.findById(orderId)
     .select('+deliveryCode')
-    .populate('captain', 'name phone vehicleType currentLocation status')
+    // Card 77: نضمّ صورة الكابتن (avatarUrl) ليراها العميل ضمن تفاصيل طلبه
+    .populate('captain', 'name phone vehicleType currentLocation status avatarUrl')
     .populate('user', 'name phone');
   if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
 
@@ -1009,7 +1060,8 @@ async function getOrderForTracking(orderId, requesterId, requesterRole) {
 // سجلّ طلبات المستخدم (كل الحالات) — مرتّبة من الأحدث، مع ترقيم بسيط
 async function getMyOrders(userId, { limit = 20, skip = 0 } = {}) {
   return Order.find({ user: userId })
-    .populate('captain', 'name phone vehicleType rating')
+    // Card 77: صورة الكابتن تظهر للعميل في سجلّ طلباته
+    .populate('captain', 'name phone vehicleType rating avatarUrl')
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit);
@@ -1228,6 +1280,7 @@ module.exports = {
   warnDelayedOrders,
   cancelOrder,
   forceCompleteByAdmin,
+  updateOrderPrice,
   getActiveOrders,
   listOrders,
   getOrdersForExport,

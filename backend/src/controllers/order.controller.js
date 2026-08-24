@@ -130,6 +130,18 @@ async function forceComplete(req, res, next) {
   }
 }
 
+// الأدمن يعدّل السعر التقريبي (سقف الطلب) — Card 74
+async function updatePrice(req, res, next) {
+  try {
+    const { orderId } = req.params;
+    const { price } = req.body || {};
+    const order = await orderService.updateOrderPrice(orderId, price, { actorId: req.auth.id });
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // الأدمن يجلب الطلبات النشطة للوحة التحكّم
 async function getActiveOrders(req, res, next) {
   try {
@@ -282,6 +294,7 @@ module.exports = {
   rejectOrder,
   cancelOrder,
   forceComplete,
+  updatePrice,
   getActiveOrders,
   listOrders,
   exportOrders,

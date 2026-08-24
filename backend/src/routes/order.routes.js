@@ -60,6 +60,13 @@ router.patch('/:orderId/assign', authorize(ROLES.ADMIN), validateBody(assignSche
 router.patch('/:orderId/auto-assign', authorize(ROLES.ADMIN), ctrl.autoAssign);
 // الأدمن: إغلاق طلب عالق إداريًّا (تم التسليم) — لتصفية الطلبات القديمة
 router.patch('/:orderId/force-complete', authorize(ROLES.ADMIN), ctrl.forceComplete);
+// الأدمن: تعديل السعر التقريبي (سقف الطلب) — Card 74
+router.patch(
+  '/:orderId/price',
+  authorize(ROLES.ADMIN),
+  validateBody({ price: [V.required, V.number] }),
+  ctrl.updatePrice
+);
 
 // الكابتن: تحديث حالة الطلب + رفض الطلب (إعادة إسناد)
 router.patch('/:orderId/status', authorize(ROLES.CAPTAIN), ctrl.updateStatus);

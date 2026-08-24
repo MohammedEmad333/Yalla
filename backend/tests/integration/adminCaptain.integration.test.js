@@ -83,6 +83,25 @@ test('Card 73: طلبات الأدمن النشطة تتضمّن رمز التس
   assert.match(String(active[0].deliveryCode), /^\d{4}$/, 'رمز التسليم من 4 أرقام يظهر للأدمن');
 });
 
+test('Card 74: الأدمن يعدّل السعر التقريبي (السقف) للطلب', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const user = new User({ name: 'زبون', phone: `u${Date.now()}${Math.random()}` });
+  await user.setPassword('secret1');
+  await user.save();
+  await walletService.creditWallet(user._id, 100000);
+
+  const order = await orderService.createOrder(user._id, {
+    pickup: { address: 'الاستلام', location: { type: 'Point', coordinates: PICKUP } },
+    dropoff: { address: 'التسليم', location: { type: 'Point', coordinates: DROPOFF } },
+  });
+
+  const updated = await orderService.updateOrderPrice(order._id, order.price + 25);
+  assert.equal(updated.price, order.price + 25, 'السقف الجديد صار هو السعر التقريبي الرسمي');
+
+  // سعر أقلّ من الحدّ الأدنى يُرفض
+  await assert.rejects(() => orderService.updateOrderPrice(order._id, 1), /يقلّ عن/);
+});
+
 test('Card 76: تفاصيل الزبائن تتضمّن avatarUrl', async (t) => {
   if (!state.dbReady) return t.skip('لا قاعدة بيانات');
   const user = new User({
