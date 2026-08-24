@@ -142,6 +142,16 @@ async function updatePrice(req, res, next) {
   }
 }
 
+// الأدمن يرسل رمز التسليم إلى إشعارات الكابتن المُسنَد — Card 82
+async function sendCode(req, res, next) {
+  try {
+    const result = await orderService.sendDeliveryCodeToCaptain(req.params.orderId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // الأدمن يجلب الطلبات النشطة للوحة التحكّم
 async function getActiveOrders(req, res, next) {
   try {
@@ -295,6 +305,7 @@ module.exports = {
   cancelOrder,
   forceComplete,
   updatePrice,
+  sendCode,
   getActiveOrders,
   listOrders,
   exportOrders,

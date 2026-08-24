@@ -14,10 +14,12 @@ const Captain = require('../../src/models/Captain');
 const CaptainApplication = require('../../src/models/CaptainApplication');
 const User = require('../../src/models/User');
 const Order = require('../../src/models/Order');
+const Notification = require('../../src/models/Notification');
+const Wallet = require('../../src/models/Wallet');
 const adminService = require('../../src/services/admin.service');
 const orderService = require('../../src/services/order.service');
 const walletService = require('../../src/services/wallet.service');
-const { ORDER_STATUS } = require('../../src/utils/constants');
+const { ORDER_STATUS, CAPTAIN_STATUS } = require('../../src/utils/constants');
 
 const PICKUP = [31.2357, 30.0444];
 const DROPOFF = [31.2000, 30.0600];
@@ -210,6 +212,69 @@ test('Card 80: طلب الأدمن الخارجي يُنشئ حسابًا مؤق
   });
   const created = await User.findById(order.user).select('isExternal');
   assert.equal(created.isExternal, true, 'حساب الطلب الخارجي مؤقّت');
+});
+
+test('Card 81: adminCredit يضيف رصيدًا ويُسجّل حركة تعديل', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const ext = new User({ name: 'خارجي', phone: `x${Date.now()}`, isExternal: true });
+  await ext.setPassword('secret1');
+  await ext.save();
+
+  const balance = await walletService.adminCredit(ext._id, 30, { reason: 'external_topup' });
+  assert.equal(balance, 30, 'أُضيف الرصيد');
+
+  const wallet = await Wallet.findOne({ user: ext._id });
+  assert.equal(wallet.balance, 30);
+});
+
+test('Card 82: إرسال الرمز للكابتن يُنشئ إشعارًا يحمل الرمز وعلامة الأدمن', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const user = new User({ name: 'زبون', phone: `u${Date.now()}${Math.random()}` });
+  await user.setPassword('secret1');
+  await user.save();
+  const captain = await makeCaptain({ status: CAPTAIN_STATUS.ONLINE });
+  const order = await Order.create({
+    user: user._id,
+    captain: captain._id,
+    pickup: { address: 'الاستلام', location: { type: 'Point', coordinates: PICKUP } },
+    dropoff: { address: 'التسليم', location: { type: 'Point', coordinates: DROPOFF } },
+    price: 20,
+    deliveryCode: '4321',
+    status: ORDER_STATUS.ACCEPTED,
+  });
+
+  await orderService.sendDeliveryCodeToCaptain(order._id);
+
+  const notif = await Notification.findOne({ recipient: captain._id, 'data.type': 'DELIVERY_CODE' });
+  assert.ok(notif, 'أُنشئ إشعار للكابتن');
+  assert.equal(notif.data.code, '4321', 'الإشعار يحمل رمز التسليم');
+  assert.equal(notif.data.fromAdmin, true, 'موسوم كإشعار من الإدارة');
+});
+
+test('Card 83: بعد التسليم يصل الكابتن إشعار بإتمام التوصيل', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const admin = new User({ name: 'أدمن', phone: `ad${Date.now()}`, role: 'admin' });
+  await admin.setPassword('secret1');
+  await admin.save();
+  const user = new User({ name: 'زبون', phone: `u${Date.now()}${Math.random()}` });
+  await user.setPassword('secret1');
+  await user.save();
+  await walletService.creditWallet(user._id, 100000);
+  const captain = await makeCaptain({ status: CAPTAIN_STATUS.ONLINE });
+
+  const order = await orderService.createOrder(user._id, {
+    pickup: { address: 'الاستلام', location: { type: 'Point', coordinates: PICKUP } },
+    dropoff: { address: 'التسليم', location: { type: 'Point', coordinates: DROPOFF } },
+  });
+  await orderService.assignOrder(admin._id, order._id, captain._id);
+  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.ACCEPTED);
+  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.PICKED_UP);
+  await orderService.updateOrderStatus(
+    captain._id, order._id, ORDER_STATUS.DELIVERED, '', order.deliveryCode, order.price
+  );
+
+  const notif = await Notification.findOne({ recipient: captain._id, 'data.type': 'DELIVERY_DONE' });
+  assert.ok(notif, 'وصل الكابتن إشعار إتمام التوصيل');
 });
 
 test('Card 76: تفاصيل الزبائن تتضمّن avatarUrl', async (t) => {

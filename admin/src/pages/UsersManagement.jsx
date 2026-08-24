@@ -74,8 +74,9 @@ function UsersTab() {
     api.get(`/admin/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`).then(setUsers);
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // تبديل تفعيل الزبون
+  // تبديل تفعيل الزبون — Card 86: تنبيه تأكيد عند التعطيل
   async function toggle(u) {
+    if (u.isActive && !window.confirm(`هل أنت متأكد من تعطيل حساب "${u.name}"؟ لن يستطيع الدخول.`)) return;
     const updated = await api.patch(`/admin/users/${u.id}/active`, { isActive: !u.isActive });
     setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, isActive: updated.isActive } : x)));
   }
@@ -179,8 +180,9 @@ function CaptainsTab() {
     showWallet({ id: captainId }); // إعادة تحميل المحفظة
   }
 
-  // اعتماد/إلغاء اعتماد كابتن
+  // اعتماد/إلغاء اعتماد كابتن — Card 86: تنبيه تأكيد عند إلغاء الاعتماد (تعطيل)
   async function toggleApprove(c) {
+    if (c.isApproved && !window.confirm(`هل أنت متأكد من إلغاء اعتماد الكابتن "${c.name}"؟ لن يستقبل طلبات.`)) return;
     const updated = await api.patch(`/admin/captains/${c.id}/approve`, { isApproved: !c.isApproved });
     setCaptains((prev) => prev.map((x) => (x.id === c.id ? { ...x, isApproved: updated.isApproved } : x)));
   }

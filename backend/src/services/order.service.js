@@ -290,8 +290,18 @@ async function createOrderByAdmin(adminId, payload = {}) {
       .catch((e) => logger.warn('تعذّر إرسال رمز التسليم لصاحب الطلب:', e.message));
   }
 
+  // Card 81: تنبيه الأدمن لإضافة رصيد كافٍ للحساب الخارجي إن كان جديدًا (مؤقّتًا)،
+  // كي يكفي رصيده لدفع قيمة الطلب عند التسليم.
+  if (customer.isExternal) {
+    notifications.createInApp(adminId, 'admin', {
+      title: '💳 طلب خارجي — أضف رصيدًا',
+      body: `الطلب لحساب خارجي (${contactName}). أضف رصيدًا لا يقلّ عن ${price} ₪ لحسابه ليكفي لدفع الطلب.`,
+      data: { type: 'EXTERNAL_ORDER_TOPUP', userId: String(customer._id), suggested: price },
+    });
+  }
+
   // بثّ للأدمن ليظهر الطلب فورًا في لوحة الإسناد (كبقية الطلبات)
-  await order.populate('user', 'name lastName phone');
+  await order.populate('user', 'name lastName phone isExternal');
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
   io.get().to(ROOMS.user(customer._id.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
 
@@ -625,6 +635,13 @@ async function updateOrderStatus(
         io.get().to(ROOMS.captain(String(captainId))).emit(EVENTS.CAPTAIN_WALLET_UPDATED, bal);
       })
       .catch((e) => logger.warn('تعذّر بثّ رصيد محفظة الكابتن بعد التسليم:', e.message));
+
+    // Card 83: إشعار الكابتن بإتمام التوصيل وإضافة أرباحه، وتشجيعه على الاستمرار.
+    notifications.createInApp(captainId, 'captain', {
+      title: '✅ تم تأكيد التسليم',
+      body: `تم توصيل الطلب بنجاح وأُضيف ${order.captainNet} ₪ إلى محفظتك. تابع لاستقبال طلبات جديدة!`,
+      data: { type: 'DELIVERY_DONE', orderId: String(order._id), amount: order.captainNet },
+    });
   }
 
   await writeLog({
@@ -950,7 +967,8 @@ async function getActiveOrders() {
     status: { $in: [ORDER_STATUS.PENDING, ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED, ORDER_STATUS.PICKED_UP] },
   })
     .select('+deliveryCode')
-    .populate('user', 'name lastName phone')
+    // Card 81: نضمّ isExternal ليُظهر الأدمن زرّ إضافة الرصيد للحسابات الخارجية فقط
+    .populate('user', 'name lastName phone isExternal')
     .populate('captain', 'name phone status')
     .sort({ createdAt: -1 });
 }
@@ -1003,6 +1021,42 @@ async function updateOrderPrice(orderId, newPrice, { actorId = null } = {}) {
   }
 
   return order;
+}
+
+/**
+ * Card 82: الأدمن يرسل رمز التسليم إلى إشعارات الكابتن المُسنَد (بأيقونة الأدمن)
+ * ليعطيه إياه عند تعذّر حصوله عليه من صاحب الطلب (طلبات خارجية مثلًا).
+ * يظهر الإشعار لدى الكابتن مع علامة الأدمن ورسالة تطلب إدخال الرمز عند التسليم.
+ * @param {string} orderId
+ */
+async function sendDeliveryCodeToCaptain(orderId) {
+  const order = await Order.findById(orderId).select('+deliveryCode');
+  if (!order) throw httpError('الطلب غير موجود', 404);
+  if (!order.captain) throw httpError('لا يوجد كابتن مُسنَد لهذا الطلب', 400);
+  if (!order.deliveryCode) throw httpError('لا يوجد رمز تسليم لهذا الطلب', 400);
+
+  const payload = {
+    title: '🔑 رمز تسليم الطلب (من الإدارة)',
+    body: `رمز تسليم الطلب هو ${order.deliveryCode} — أدخله عند الضغط على "تم التسليم" لتأكيد الاستلام.`,
+    // fromAdmin: يُظهر أيقونة الأدمن بجانب الإشعار لدى الكابتن (Card 82)
+    data: {
+      type: 'DELIVERY_CODE',
+      orderId: String(order._id),
+      code: order.deliveryCode,
+      fromAdmin: true,
+    },
+  };
+  notifications.createInApp(order.captain, 'captain', payload);
+
+  // إشعار Push للكابتن إن كان له جهاز مسجّل
+  Captain.findById(order.captain)
+    .select('deviceTokens')
+    .then((cap) => {
+      if (cap?.deviceTokens?.length) return notifications.sendToTokens(cap.deviceTokens, payload);
+    })
+    .catch((e) => logger.warn('تعذّر إرسال رمز التسليم للكابتن:', e.message));
+
+  return { sent: true };
 }
 
 // بحث/فلترة الطلبات مع ترقيم (للوحة الأدمن) — يعيد العناصر والإجمالي وعدد الصفحات
@@ -1322,6 +1376,7 @@ module.exports = {
   cancelOrder,
   forceCompleteByAdmin,
   updateOrderPrice,
+  sendDeliveryCodeToCaptain,
   getActiveOrders,
   listOrders,
   getOrdersForExport,

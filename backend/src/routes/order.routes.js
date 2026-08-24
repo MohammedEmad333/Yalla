@@ -67,6 +67,8 @@ router.patch(
   validateBody({ price: [V.required, V.number] }),
   ctrl.updatePrice
 );
+// الأدمن: إرسال رمز التسليم إلى إشعارات الكابتن المُسنَد — Card 82
+router.post('/:orderId/send-code', authorize(ROLES.ADMIN), ctrl.sendCode);
 
 // الكابتن: تحديث حالة الطلب + رفض الطلب (إعادة إسناد)
 router.patch('/:orderId/status', authorize(ROLES.CAPTAIN), ctrl.updateStatus);

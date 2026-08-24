@@ -109,13 +109,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     itemBuilder: (_, i) {
                       final n = _items[i] as Map<String, dynamic>;
                       final unread = n['read'] != true;
+                      // Card 82: إشعار من الإدارة يُميَّز بأيقونة الأدمن
+                      final fromAdmin = (n['data'] is Map) && (n['data']['fromAdmin'] == true);
                       return Container(
                         color: unread ? Colors.blue.shade50 : null,
                         child: ListTile(
-                          leading: Icon(_iconFor(n['type'] ?? ''),
-                              color: unread ? Colors.blue : Colors.grey),
-                          title: Text(n['title'] ?? '',
-                              style: TextStyle(fontWeight: unread ? FontWeight.bold : FontWeight.normal)),
+                          leading: fromAdmin
+                              ? const CircleAvatar(
+                                  backgroundColor: Color(0xFF4F46E5),
+                                  child: Icon(Icons.admin_panel_settings, color: Colors.white, size: 20),
+                                )
+                              : Icon(_iconFor(n['type'] ?? ''),
+                                  color: unread ? Colors.blue : Colors.grey),
+                          title: Row(
+                            children: [
+                              Flexible(
+                                child: Text(n['title'] ?? '',
+                                    style: TextStyle(fontWeight: unread ? FontWeight.bold : FontWeight.normal)),
+                              ),
+                              if (fromAdmin) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF4F46E5),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text('الإدارة',
+                                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ],
+                          ),
                           subtitle: Text(n['body'] ?? ''),
                           trailing: unread
                               ? const Icon(Icons.circle, size: 10, color: Colors.blue)

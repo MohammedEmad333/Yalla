@@ -235,6 +235,35 @@ export default function LiveDashboard() {
     setPriceEdit((p) => { const n = { ...p }; delete n[orderId]; return n; });
   }
 
+  // Card 81: إضافة رصيد لحساب خارجي مؤقّت ليكفي لدفع قيمة طلبه
+  async function creditExternal(o) {
+    const userId = o.user?._id;
+    if (!userId) return;
+    const raw = window.prompt(`المبلغ المراد إضافته لرصيد صاحب الطلب (₪):`, String(o.price));
+    if (raw == null) return;
+    const amount = Number(raw);
+    if (!Number.isFinite(amount) || amount <= 0) return alert('أدخل مبلغًا صحيحًا');
+    const res = await fetch(`${API}/api/admin/users/${userId}/wallet/credit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ amount }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return alert(data?.message || 'تعذّر إضافة الرصيد');
+    alert(`تمت إضافة الرصيد. الرصيد الحالي: ${data.balance} ₪`);
+  }
+
+  // Card 82: إرسال رمز التسليم إلى إشعارات الكابتن المُسنَد
+  async function sendCode(orderId) {
+    const res = await fetch(`${API}/api/orders/${orderId}/send-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return alert(data?.message || 'تعذّر إرسال الرمز');
+    alert('أُرسل رمز التسليم إلى إشعارات الكابتن');
+  }
+
   // إسناد طلب لكابتن عبر REST (الخادم يبثّ الإشعارات تلقائيًا)
   async function assign(orderId) {
     const captainId = selected[orderId];
@@ -456,6 +485,22 @@ export default function LiveDashboard() {
                   </>
                 )}
               </div>
+
+              {/* Card 81 + 82: إجراءات الطلبات الخارجية وإرسال الرمز للكابتن */}
+              {(o.user?.isExternal || (o.captain && o.deliveryCode)) && (
+                <div style={styles.actionRow}>
+                  {o.user?.isExternal && (
+                    <button style={styles.creditBtn} onClick={() => creditExternal(o)} title="حساب خارجي مؤقّت — أضف رصيدًا كافيًا للطلب">
+                      💳 أضف رصيدًا لصاحب الطلب
+                    </button>
+                  )}
+                  {o.captain && o.deliveryCode && (
+                    <button style={styles.sendCodeBtn} onClick={() => sendCode(o._id)} title="إرسال رمز التسليم إلى إشعارات الكابتن">
+                      🔑 أرسل الرمز للكابتن
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* زرّ إظهار/إخفاء كل تفاصيل الطلب (Card 29) */}
               <button
@@ -857,6 +902,16 @@ const styles = {
     background: 'transparent', color: theme.color.muted,
     border: `1px solid ${theme.color.outline}`, borderRadius: theme.radius.pill,
     padding: '5px 12px', cursor: 'pointer', fontSize: 12,
+  },
+  // Card 81 + 82: صفّ إجراءات إضافية
+  actionRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' },
+  creditBtn: {
+    background: '#0d9488', color: '#fff', border: 'none',
+    borderRadius: theme.radius.pill, padding: '7px 14px', cursor: 'pointer', fontSize: 12,
+  },
+  sendCodeBtn: {
+    background: '#4f46e5', color: '#fff', border: 'none',
+    borderRadius: theme.radius.pill, padding: '7px 14px', cursor: 'pointer', fontSize: 12,
   },
   // زرّ إظهار/إخفاء التفاصيل (Card 29)
   detailsToggle: {
