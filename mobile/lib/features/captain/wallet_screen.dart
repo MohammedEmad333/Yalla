@@ -13,6 +13,7 @@ const Map<String, String> _methods = {
   'jawwal_pay': 'جوال باي',
   'bank_of_palestine': 'بنك فلسطين',
   'palpay': 'بال باي',
+  'all': 'الكل',
   'cash': 'نقدًا',
 };
 
@@ -81,10 +82,35 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
       _snack('الحدّ الأدنى للسحب ١٠ ₪');
       return;
     }
+    // Card 71: طريقة السحب تعرض محافظ الكابتن الإلكترونية المضافة فقط.
+    // إن لم يُضِف أي محفظة نوجّهه لإضافتها أولًا.
+    if (_payoutWallets.isEmpty) {
+      final add = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.account_balance_wallet, color: YallaColors.primary, size: 36),
+          title: const Text('أضِف محفظتك الإلكترونية'),
+          content: const Text(
+            'لسحب أموالك أضِف محفظة إلكترونية واحدة على الأقلّ (رقم المحفظة واسم صاحبها) '
+            'لتختارها كطريقة للسحب.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('لاحقًا')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('إضافة محفظة')),
+          ],
+        ),
+      );
+      if (add == true) _openWalletsForm();
+      return;
+    }
     final done = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _WithdrawForm(api: widget.api, available: _available),
+      builder: (_) => _WithdrawForm(
+        api: widget.api,
+        available: _available,
+        wallets: _payoutWallets,
+      ),
     );
     if (done == true) _load();
   }
@@ -300,11 +326,12 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
       };
 }
 
-// نموذج طلب سحب (المبلغ + الطريقة + رقم الجوال)
+// نموذج طلب سحب (المبلغ + طريقة السحب من محافظ الكابتن المضافة — Card 71)
 class _WithdrawForm extends StatefulWidget {
   final ApiClient api;
   final num available;
-  const _WithdrawForm({required this.api, required this.available});
+  final List<dynamic> wallets; // المحافظ الإلكترونية المحفوظة للكابتن
+  const _WithdrawForm({required this.api, required this.available, required this.wallets});
 
   @override
   State<_WithdrawForm> createState() => _WithdrawFormState();
@@ -312,15 +339,26 @@ class _WithdrawForm extends StatefulWidget {
 
 class _WithdrawFormState extends State<_WithdrawForm> {
   final _amount = TextEditingController();
-  final _phone = TextEditingController();
-  String _method = 'jawwal_pay';
+  String? _walletCategory; // تصنيف المحفظة المختارة كطريقة للسحب
   bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
+    // نبدأ باختيار أول محفظة مضافة كطريقة افتراضية للسحب
+    if (widget.wallets.isNotEmpty) {
+      _walletCategory = widget.wallets.first['category'] as String?;
+    }
     // تحديث تنبيه تجاوز الرصيد لحظيًا أثناء الكتابة (Card 59)
     _amount.addListener(() => setState(() {}));
+  }
+
+  // المحفظة المختارة حاليًا (رقمها واسم صاحبها للعرض)
+  Map<String, dynamic>? get _selectedWallet {
+    for (final w in widget.wallets) {
+      if (w['category'] == _walletCategory) return Map<String, dynamic>.from(w as Map);
+    }
+    return null;
   }
 
   // الحدّ الأدنى للسحب (يطابق MIN_WITHDRAWAL في الخادم)
@@ -355,16 +393,15 @@ class _WithdrawFormState extends State<_WithdrawForm> {
       await _showExceedsAlert(amount);
       return;
     }
-    if (_phone.text.trim().length < 6) {
-      _snack('أدخل رقم جوال صحيح');
+    if (_walletCategory == null) {
+      _snack('اختر طريقة السحب');
       return;
     }
     setState(() => _submitting = true);
     try {
       await widget.api.post('/captains/me/withdrawals', {
         'amount': amount,
-        'method': _method,
-        'phone': _phone.text.trim(),
+        'walletCategory': _walletCategory,
       });
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -450,28 +487,43 @@ class _WithdrawFormState extends State<_WithdrawForm> {
             ),
           ),
           const SizedBox(height: 12),
+          // Card 71: طريقة السحب تعرض المحافظ الإلكترونية التي أضافها الكابتن فقط
           DropdownButtonFormField<String>(
-            value: _method,
+            value: _walletCategory,
+            isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'طريقة السحب',
               prefixIcon: Icon(Icons.account_balance_wallet),
               border: OutlineInputBorder(),
             ),
-            items: _methods.entries
-                .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
-                .toList(),
-            onChanged: (v) => setState(() => _method = v ?? _method),
+            items: widget.wallets.map((w) {
+              final cat = w['category'] as String? ?? '';
+              final number = '${w['number'] ?? ''}';
+              return DropdownMenuItem(
+                value: cat,
+                child: Text('${_walletCategories[cat] ?? cat} · $number',
+                    overflow: TextOverflow.ellipsis),
+              );
+            }).toList(),
+            onChanged: (v) => setState(() => _walletCategory = v),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _phone,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'رقم الجوال لاستلام التحويل',
-              prefixIcon: Icon(Icons.phone),
-              border: OutlineInputBorder(),
+          // عرض تفاصيل المحفظة المختارة (رقمها واسم صاحبها) للتأكيد
+          if (_selectedWallet != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.info_outline, size: 16, color: YallaColors.muted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'سيُحوَّل إلى: ${_selectedWallet!['number'] ?? ''}'
+                    '${(_selectedWallet!['ownerName'] as String?)?.isNotEmpty ?? false ? ' — ${_selectedWallet!['ownerName']}' : ''}',
+                    style: const TextStyle(color: YallaColors.muted, fontSize: 12),
+                  ),
+                ),
+              ],
             ),
-          ),
+          ],
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -491,7 +543,6 @@ class _WithdrawFormState extends State<_WithdrawForm> {
   @override
   void dispose() {
     _amount.dispose();
-    _phone.dispose();
     super.dispose();
   }
 }

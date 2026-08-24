@@ -104,6 +104,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // تغيير كلمة سر الحساب (Card 72): يفتح نموذجًا (كلمة حالية + جديدة + تأكيد)
+  // ثم يرسلها إلى الخادم الذي يتحقّق من الحالية ويعيّن الجديدة.
+  Future<void> _changePassword() async {
+    final body = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _ChangePasswordForm(),
+    );
+    if (body == null) return;
+    setState(() => _saving = true);
+    try {
+      await widget.api.patch('/auth/me/password', body);
+      _snack('تم تغيير كلمة السر بنجاح');
+    } on ApiException catch (e) {
+      _snack(e.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   // حذف الحساب نهائيًا (متطلّب Google Play) — بتأكيد صريح من المستخدم.
   Future<void> _deleteAccount() async {
     final confirmed = await showDialog<bool>(
@@ -221,6 +241,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
 
                   const Divider(height: 32),
+
+                  // تغيير كلمة سر الحساب (Card 72)
+                  ListTile(
+                    leading: const Icon(Icons.lock_outline),
+                    title: const Text('تغيير كلمة السر'),
+                    trailing: const Icon(Icons.chevron_left, size: 18),
+                    onTap: _saving ? null : _changePassword,
+                  ),
 
                   // تواصل عبر واتس اب الشركة (Card 43)
                   ListTile(
@@ -353,6 +381,125 @@ class _EditProfileFormState extends State<_EditProfileForm> {
     _email.dispose();
     _city.dispose();
     _plate.dispose();
+    super.dispose();
+  }
+}
+
+// نموذج تغيير كلمة السر (Card 72): كلمة حالية + جديدة + تأكيد الجديدة.
+// يتحقّق محليًا من التطابق والطول قبل الإرسال، والخادم يتحقّق من كلمة السر الحالية.
+class _ChangePasswordForm extends StatefulWidget {
+  const _ChangePasswordForm();
+
+  @override
+  State<_ChangePasswordForm> createState() => _ChangePasswordFormState();
+}
+
+class _ChangePasswordFormState extends State<_ChangePasswordForm> {
+  final _current = TextEditingController();
+  final _next = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _obscureCurrent = true;
+  bool _obscureNext = true;
+  String? _error;
+
+  void _submit() {
+    final current = _current.text;
+    final next = _next.text;
+    final confirm = _confirm.text;
+    if (current.isEmpty) {
+      setState(() => _error = 'أدخل كلمة السر الحالية');
+      return;
+    }
+    if (next.length < 6) {
+      setState(() => _error = 'كلمة السر الجديدة يجب أن تكون ٦ أحرف على الأقلّ');
+      return;
+    }
+    if (next != confirm) {
+      setState(() => _error = 'كلمة السر الجديدة وتأكيدها غير متطابقين');
+      return;
+    }
+    if (next == current) {
+      setState(() => _error = 'اختر كلمة سر مختلفة عن الحالية');
+      return;
+    }
+    Navigator.pop(context, {'currentPassword': current, 'newPassword': next});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('تغيير كلمة السر', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _current,
+            obscureText: _obscureCurrent,
+            decoration: InputDecoration(
+              labelText: 'كلمة السر الحالية',
+              prefixIcon: const Icon(Icons.lock_outline),
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(_obscureCurrent ? Icons.visibility : Icons.visibility_off),
+                onPressed: () => setState(() => _obscureCurrent = !_obscureCurrent),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _next,
+            obscureText: _obscureNext,
+            decoration: InputDecoration(
+              labelText: 'كلمة السر الجديدة',
+              prefixIcon: const Icon(Icons.lock),
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(_obscureNext ? Icons.visibility : Icons.visibility_off),
+                onPressed: () => setState(() => _obscureNext = !_obscureNext),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _confirm,
+            obscureText: _obscureNext,
+            decoration: const InputDecoration(
+              labelText: 'تأكيد كلمة السر الجديدة',
+              prefixIcon: Icon(Icons.lock),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _submit,
+              icon: const Icon(Icons.check),
+              label: const Text('تأكيد التغيير'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _next.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 }

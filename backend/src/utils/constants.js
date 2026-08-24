@@ -60,11 +60,12 @@ const WITHDRAWAL_STATUS = Object.freeze({
   REJECTED: 'rejected',
 });
 
-// طرق سحب الأموال المتاحة للكابتن
+// طرق سحب الأموال المتاحة للكابتن — تطابق تصنيفات محافظه الإلكترونية (Card 71)
 const WITHDRAWAL_METHOD = Object.freeze({
   BANK_OF_PALESTINE: 'bank_of_palestine', // بنك فلسطين
   JAWWAL_PAY: 'jawwal_pay',               // جوال باي
   PALPAY: 'palpay',                       // بال باي
+  ALL: 'all',                             // محفظة "الكل" (رقم صالح لكل الطرق)
   CASH: 'cash',                           // نقدًا
 });
 

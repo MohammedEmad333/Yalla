@@ -63,19 +63,39 @@ async function listWithdrawals(captainId, { limit = 30 } = {}) {
  * @param {{amount:number, method:string, phone:string}} payload
  */
 async function requestWithdrawal(captainId, payload = {}) {
-  const captain = await Captain.findById(captainId).select('name');
+  const captain = await Captain.findById(captainId).select('name payoutWallets');
   if (!captain) throw httpError('الكابتن غير موجود', 404);
+
+  // Card 71: طريقة السحب تُختار من محافظ الكابتن الإلكترونية المحفوظة فقط.
+  // نستخرج رقم المحفظة واسم صاحبها من الخادم (مصدر الحقيقة) بدل الثقة بقيم الواجهة،
+  // مع إبقاء التوافق مع الطلبات القديمة التي ترسل method/phone مباشرةً.
+  let { method, phone } = payload;
+  let walletCategory = '';
+  let walletOwner = '';
+  const category = String(payload.walletCategory || '').trim();
+  if (category) {
+    const wallet = (captain.payoutWallets || []).find((w) => w.category === category);
+    if (!wallet || !wallet.number) {
+      throw httpError('أضِف محفظتك الإلكترونية أولًا ثم اختر طريقة السحب', 400);
+    }
+    method = category;
+    phone = String(wallet.number).trim();
+    walletCategory = category;
+    walletOwner = String(wallet.ownerName || '').trim();
+  }
 
   const { available } = await getBalance(captainId);
   const amount = Number(payload.amount);
-  const error = validateWithdrawal({ ...payload, amount }, available);
+  const error = validateWithdrawal({ amount, method, phone }, available);
   if (error) throw httpError(error, 400);
 
   const withdrawal = await CaptainWithdrawal.create({
     captain: captainId,
     amount,
-    method: payload.method,
-    phone: String(payload.phone).trim(),
+    method,
+    phone: String(phone).trim(),
+    walletCategory,
+    walletOwner,
     status: WITHDRAWAL_STATUS.PENDING,
   });
 
@@ -94,6 +114,8 @@ async function requestWithdrawal(captainId, payload = {}) {
       amount,
       method: withdrawal.method,
       phone: withdrawal.phone,
+      walletCategory: withdrawal.walletCategory,
+      walletOwner: withdrawal.walletOwner,
       status: withdrawal.status,
       createdAt: withdrawal.createdAt,
     });

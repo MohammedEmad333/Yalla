@@ -5,6 +5,7 @@ const env = require('../config/env');
 const User = require('../models/User');
 const Captain = require('../models/Captain');
 const adminService = require('../services/admin.service');
+const notifications = require('../services/notification.service');
 const { avatarUrlFor } = require('../middlewares/upload.middleware');
 const { ROLES } = require('../utils/constants');
 
@@ -175,6 +176,44 @@ async function uploadAvatar(req, res, next) {
   }
 }
 
+// تغيير كلمة سر الحساب من داخل التطبيق (Card 72): يتحقّق من كلمة السر الحالية
+// أولًا ثم يعيّن الجديدة، ويرسل إشعارًا داخليًا بأنّ كلمة السر تغيّرت.
+async function changePassword(req, res, next) {
+  try {
+    const { id, role } = req.auth;
+    const { currentPassword, newPassword } = req.body;
+
+    const Model = role === ROLES.CAPTAIN ? Captain : User;
+    const account = await Model.findById(id).select('+passwordHash');
+    if (!account) return res.status(404).json({ message: 'الحساب غير موجود' });
+
+    // التحقّق من كلمة السر الحالية قبل السماح بالتغيير
+    if (!(await account.verifyPassword(currentPassword))) {
+      return res.status(400).json({ message: 'كلمة السر الحالية غير صحيحة' });
+    }
+
+    // منع إعادة استخدام نفس كلمة السر (تغيير فعلي)
+    if (await account.verifyPassword(newPassword)) {
+      return res.status(400).json({ message: 'كلمة السر الجديدة مطابقة للحالية — اختر كلمة مختلفة' });
+    }
+
+    await account.setPassword(newPassword);
+    await account.save();
+
+    // إشعار داخلي بأنّ كلمة السر تم تغييرها بنجاح
+    const recipientRole = role === ROLES.CAPTAIN ? 'captain' : 'user';
+    notifications.createInApp(id, recipientRole, {
+      title: '🔒 تم تغيير كلمة السر',
+      body: 'تم تغيير كلمة سر حسابك بنجاح. إن لم تكن أنت من قام بذلك تواصل مع الدعم فورًا.',
+      data: { type: 'PASSWORD_CHANGED' },
+    });
+
+    res.json({ ok: true, message: 'تم تغيير كلمة السر بنجاح' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // حذف الحساب الحالي وبياناته المرتبطة نهائيًا — بطلب المستخدم نفسه (Google Play:
 // متطلّب حذف الحساب داخل التطبيق). يُعيد استخدام منطق الحذف الآمن (يمنع الحذف
 // أثناء طلب نشط) ويسجّل الفاعل كـ "user"/"captain" للتمييز عن حذف الأدمن.
@@ -212,5 +251,6 @@ module.exports = {
   me,
   updateProfile,
   uploadAvatar,
+  changePassword,
   deleteOwnAccount,
 };
