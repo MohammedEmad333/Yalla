@@ -13,12 +13,14 @@ import WalletTopups from './pages/WalletTopups';
 import Withdrawals from './pages/Withdrawals';
 import Chats from './pages/Chats';
 import Support from './pages/Support';
+import Broadcast from './pages/Broadcast';
 
 const TABS = [
   { key: 'dashboard', label: 'اللوحة اللحظية' },
   { key: 'orders', label: 'بحث الطلبات' },
   { key: 'chats', label: 'المحادثات' },
   { key: 'support', label: 'الدعم' },
+  { key: 'broadcast', label: 'الرسائل' },
   { key: 'wallet', label: 'شحن الرصيد' },
   { key: 'withdrawals', label: 'سحب الكباتن' },
   { key: 'users', label: 'إدارة المستخدمين' },
@@ -65,6 +67,7 @@ function Gate() {
       {page === 'orders' && <OrdersPage />}
       {page === 'chats' && <Chats />}
       {page === 'support' && <Support />}
+      {page === 'broadcast' && <Broadcast />}
       {page === 'wallet' && <WalletTopups />}
       {page === 'withdrawals' && <Withdrawals />}
       {page === 'users' && <UsersManagement />}

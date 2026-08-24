@@ -68,7 +68,7 @@ async function listCustomers({ q } = {}) {
  */
 async function listCaptainsDetailed() {
   const captains = await Captain.find()
-    .select('name phone vehicleType vehiclePlate status isApproved rating ratingsCount avatarUrl activeOrder createdAt')
+    .select('name phone vehicleType vehiclePlate status isApproved rating ratingsCount avatarUrl activeOrder payoutWallets createdAt')
     .sort({ createdAt: -1 })
     .lean();
   if (!captains.length) return [];
@@ -115,6 +115,7 @@ async function listCaptainsDetailed() {
       withdrawn: balance.done,
       pending: balance.pending,
       balance: balance.available, // الرصيد المتوفّر للسحب
+      payoutWallets: c.payoutWallets || [], // Card 67: محافظه الإلكترونية المحفوظة
       createdAt: c.createdAt,
     };
   });

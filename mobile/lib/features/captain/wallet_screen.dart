@@ -16,6 +16,15 @@ const Map<String, String> _methods = {
   'cash': 'نقدًا',
 };
 
+// تصنيفات المحفظة الإلكترونية المحفوظة (Card 67) — تطابق PAYOUT_WALLET_CATEGORY.
+// تشمل خيار "الكل" لرقم واحد صالح لكل الطرق.
+const Map<String, String> _walletCategories = {
+  'bank_of_palestine': 'بنك فلسطين',
+  'palpay': 'محفظة بال باي',
+  'jawwal_pay': 'جوال باي',
+  'all': 'الكل',
+};
+
 class CaptainWalletScreen extends StatefulWidget {
   final ApiClient api;
   final SocketService socket;
@@ -28,6 +37,7 @@ class CaptainWalletScreen extends StatefulWidget {
 class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
   Map<String, dynamic> _balance = {};
   List<dynamic> _withdrawals = [];
+  List<dynamic> _payoutWallets = []; // المحافظ الإلكترونية المحفوظة (Card 67)
   bool _loading = true;
 
   @override
@@ -48,11 +58,13 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
       final results = await Future.wait([
         widget.api.get('/captains/me/balance'),
         widget.api.get('/captains/me/withdrawals'),
+        widget.api.get('/captains/me/payout-wallets'),
       ]);
       if (!mounted) return;
       setState(() {
         _balance = Map<String, dynamic>.from(results[0] as Map);
         _withdrawals = results[1] as List;
+        _payoutWallets = results[2] as List;
         _loading = false;
       });
     } on ApiException catch (e) {
@@ -92,6 +104,8 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             _balanceCard(),
+            const SizedBox(height: 20),
+            _payoutWalletsCard(),
             const SizedBox(height: 20),
             Text('طلبات السحب',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
@@ -153,6 +167,91 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
         ],
       ),
     );
+  }
+
+  // Card 67: بطاقة المحافظ الإلكترونية المحفوظة — رقم المحفظة واسم صاحبها لكل
+  // تصنيف، مع زر لإدارتها. يعرفها الأدمن عند تحويل أموال الكابتن.
+  Widget _payoutWalletsCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: YallaColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: YallaColors.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.account_balance_wallet, color: YallaColors.primary),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('محافظي الإلكترونية',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              ),
+              TextButton.icon(
+                onPressed: _openWalletsForm,
+                icon: const Icon(Icons.edit, size: 18),
+                label: const Text('إدارة'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          if (_payoutWallets.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                'أضِف رقم محفظتك الإلكترونية واسم صاحبها ليحوّل لك الأدمن أموالك بسهولة.',
+                style: TextStyle(color: YallaColors.muted, fontSize: 13),
+              ),
+            )
+          else
+            ..._payoutWallets.map((w) {
+              final cat = w['category'] as String? ?? '';
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: YallaColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(_walletCategories[cat] ?? cat,
+                          style: const TextStyle(
+                              color: YallaColors.primaryDeep, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${w['number'] ?? ''}',
+                              style: const TextStyle(fontWeight: FontWeight.w600)),
+                          if ((w['ownerName'] as String?)?.isNotEmpty ?? false)
+                            Text('${w['ownerName']}',
+                                style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openWalletsForm() async {
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _PayoutWalletsForm(api: widget.api, initial: _payoutWallets),
+    );
+    if (saved == true) _load();
   }
 
   Widget _miniStat(String label, dynamic value) => Column(
@@ -393,6 +492,131 @@ class _WithdrawFormState extends State<_WithdrawForm> {
   void dispose() {
     _amount.dispose();
     _phone.dispose();
+    super.dispose();
+  }
+}
+
+// Card 67: نموذج إدارة المحافظ الإلكترونية المحفوظة — لكل تصنيف رقم المحفظة
+// واسم صاحبها. تُحفَظ الإدخالات ذات الرقم فقط (يتجاهل الخادم الفارغ).
+class _PayoutWalletsForm extends StatefulWidget {
+  final ApiClient api;
+  final List<dynamic> initial;
+  const _PayoutWalletsForm({required this.api, required this.initial});
+
+  @override
+  State<_PayoutWalletsForm> createState() => _PayoutWalletsFormState();
+}
+
+class _PayoutWalletsFormState extends State<_PayoutWalletsForm> {
+  // متحكّمات الرقم واسم صاحبه لكل تصنيف
+  final Map<String, TextEditingController> _number = {};
+  final Map<String, TextEditingController> _owner = {};
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    for (final cat in _walletCategories.keys) {
+      final existing = widget.initial.firstWhere(
+        (w) => w['category'] == cat,
+        orElse: () => null,
+      );
+      _number[cat] = TextEditingController(text: existing?['number']?.toString() ?? '');
+      _owner[cat] = TextEditingController(text: existing?['ownerName']?.toString() ?? '');
+    }
+  }
+
+  Future<void> _submit() async {
+    final wallets = <Map<String, String>>[];
+    for (final cat in _walletCategories.keys) {
+      final number = _number[cat]!.text.trim();
+      if (number.isEmpty) continue; // نتجاهل التصنيفات بلا رقم
+      wallets.add({
+        'category': cat,
+        'number': number,
+        'ownerName': _owner[cat]!.text.trim(),
+      });
+    }
+    setState(() => _submitting = true);
+    try {
+      await widget.api.put('/captains/me/payout-wallets', {'wallets': wallets});
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('محافظي الإلكترونية', style: Theme.of(context).textTheme.titleLarge),
+            const Text('أدخل رقم المحفظة واسم صاحبها لكل تصنيف تستخدمه.',
+                style: TextStyle(color: YallaColors.muted, fontSize: 13)),
+            const SizedBox(height: 16),
+            for (final entry in _walletCategories.entries) ...[
+              Text(entry.value, style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _number[entry.key],
+                keyboardType: TextInputType.text,
+                decoration: const InputDecoration(
+                  labelText: 'رقم المحفظة',
+                  prefixIcon: Icon(Icons.tag),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _owner[entry.key],
+                decoration: const InputDecoration(
+                  labelText: 'اسم صاحب المحفظة',
+                  prefixIcon: Icon(Icons.person),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _submitting ? null : _submit,
+                icon: _submitting
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.save),
+                label: const Text('حفظ'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final c in _number.values) {
+      c.dispose();
+    }
+    for (final c in _owner.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 }

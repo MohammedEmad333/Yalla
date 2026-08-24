@@ -4,6 +4,7 @@ const Captain = require('../models/Captain');
 const io = require('../sockets/io');
 const orderService = require('../services/order.service');
 const captainWalletService = require('../services/captainWallet.service');
+const { sanitizePayoutWallets } = require('../utils/payoutWallets');
 const { CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 
 // تبديل حالة الكابتن (online/offline) عبر REST — بديل لحدث السوكت
@@ -119,6 +120,35 @@ async function requestWithdrawal(req, res, next) {
   }
 }
 
+// ── محافظ الكابتن الإلكترونية المحفوظة (Card 67) ──────────────────
+
+// الكابتن يجلب محافظه المحفوظة (رقم المحفظة + اسم صاحبها لكل تصنيف)
+async function getPayoutWallets(req, res, next) {
+  try {
+    const captain = await Captain.findById(req.auth.id).select('payoutWallets');
+    if (!captain) return res.status(404).json({ message: 'الكابتن غير موجود' });
+    res.json(captain.payoutWallets || []);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// الكابتن يحدّث محافظه المحفوظة (نُطبّع ونُصفّي المدخلات قبل الحفظ)
+async function updatePayoutWallets(req, res, next) {
+  try {
+    const wallets = sanitizePayoutWallets(req.body?.wallets ?? req.body);
+    const captain = await Captain.findByIdAndUpdate(
+      req.auth.id,
+      { payoutWallets: wallets },
+      { new: true }
+    ).select('payoutWallets');
+    if (!captain) return res.status(404).json({ message: 'الكابتن غير موجود' });
+    res.json(captain.payoutWallets || []);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   toggleStatus,
   myOrders,
@@ -128,4 +158,6 @@ module.exports = {
   myBalance,
   myWithdrawals,
   requestWithdrawal,
+  getPayoutWallets,
+  updatePayoutWallets,
 };

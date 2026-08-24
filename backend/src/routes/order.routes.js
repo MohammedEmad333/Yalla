@@ -16,6 +16,13 @@ const createOrderSchema = {
   pickup: [V.required, V.location],      // {address, location:{coordinates}}
   dropoff: [V.required, V.location],
 };
+// إنشاء طلب من لوحة الأدمن (Card 68): اسم صاحب الطلب + هاتفه + نقطتا الطلب
+const adminCreateOrderSchema = {
+  contactName: [V.required, V.string],
+  contactPhone: [V.required, V.phone],
+  pickup: [V.required, V.location],
+  dropoff: [V.required, V.location],
+};
 const rateSchema = {
   stars: [V.required, V.number, V.inRange(1, 5)],
 };
@@ -38,6 +45,9 @@ router.post('/:orderId/rate', authorize(ROLES.USER), validateBody(rateSchema), c
 
 // المستخدم أو الأدمن: إلغاء الطلب (قبل الاستلام)
 router.post('/:orderId/cancel', authorize(ROLES.USER, ROLES.ADMIN), ctrl.cancelOrder);
+
+// الأدمن: إنشاء طلب نيابةً عن صاحب الطلب (Card 68) — قبل المسارات ذات المعرّفات
+router.post('/admin', authorize(ROLES.ADMIN), validateBody(adminCreateOrderSchema), ctrl.createOrderByAdmin);
 
 // الأدمن: عرض الطلبات النشطة + بحث/فلترة مع ترقيم + الكباتن المتاحين + الإسناد
 router.get('/active', authorize(ROLES.ADMIN), ctrl.getActiveOrders);

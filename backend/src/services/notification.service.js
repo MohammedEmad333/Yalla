@@ -4,9 +4,12 @@ const fs = require('fs');
 const env = require('../config/env');
 const logger = require('../utils/logger');
 const Notification = require('../models/Notification');
+const User = require('../models/User');
+const Captain = require('../models/Captain');
 const io = require('../sockets/io');
 const { unreadCount } = require('../utils/notifications');
-const { ROLES, ROOMS, EVENTS } = require('../utils/constants');
+const { includesUsers, includesCaptains } = require('../utils/broadcast');
+const { ROLES, ROOMS, EVENTS, BROADCAST_AUDIENCE } = require('../utils/constants');
 
 /**
  * خدمة الإشعارات (FCM) عبر Firebase Admin.
@@ -194,6 +197,80 @@ async function createInApp(recipientId, recipientRole, payload) {
   }
 }
 
+// ── رسائل/إشعارات الأدمن الجماعية (Card 66) ───────────────────────
+
+// بناء مُرشِّح المستلِمين لفئة معيّنة حسب الجمهور والقائمة المحدّدة
+function recipientFilter(audience, ids) {
+  return audience === BROADCAST_AUDIENCE.SPECIFIC ? { _id: { $in: ids } } : {};
+}
+
+/**
+ * إرسال رسالة/إشعار جماعي من الأدمن (Card 66):
+ * يُنشئ إشعارًا داخليًا لكل مستلِم، ويبثّه لحظيًا عبر السوكت، ويرسل Push (آمن بلا FCM).
+ * @param {{audience:string, title:string, body:string, userIds?:string[], captainIds?:string[]}} p
+ * @returns {Promise<{users:number, captains:number, push:number}>}
+ */
+async function sendBroadcast(p = {}) {
+  const { audience } = p;
+  const title = String(p.title || '').trim();
+  const body = String(p.body || '').trim();
+  const userIds = Array.isArray(p.userIds) ? p.userIds : [];
+  const captainIds = Array.isArray(p.captainIds) ? p.captainIds : [];
+
+  const data = { type: 'ADMIN_MESSAGE' };
+  const notifDocs = [];
+  const tokens = [];
+  let userCount = 0;
+  let captainCount = 0;
+
+  // الزبائن المستهدفون
+  if (includesUsers(audience, userIds)) {
+    const users = await User.find({ role: ROLES.USER, ...recipientFilter(audience, userIds) })
+      .select('deviceTokens')
+      .lean();
+    userCount = users.length;
+    for (const u of users) {
+      notifDocs.push({ recipient: u._id, recipientRole: 'user', type: 'ADMIN_MESSAGE', title, body, data });
+      if (Array.isArray(u.deviceTokens)) tokens.push(...u.deviceTokens);
+    }
+  }
+
+  // الكباتن المستهدفون
+  if (includesCaptains(audience, captainIds)) {
+    const captains = await Captain.find(recipientFilter(audience, captainIds))
+      .select('deviceTokens')
+      .lean();
+    captainCount = captains.length;
+    for (const c of captains) {
+      notifDocs.push({ recipient: c._id, recipientRole: 'captain', type: 'ADMIN_MESSAGE', title, body, data });
+      if (Array.isArray(c.deviceTokens)) tokens.push(...c.deviceTokens);
+    }
+  }
+
+  // حفظ الإشعارات الداخلية دفعةً واحدة، ثم بثّها لحظيًا لكل مستلِم
+  if (notifDocs.length) {
+    const created = await Notification.insertMany(notifDocs);
+    try {
+      const io_ = io.get();
+      for (const notif of created) {
+        io_.to(recipientRoom(notif.recipient, notif.recipientRole)).emit(EVENTS.NOTIFICATION_NEW, notif);
+      }
+    } catch (_) {
+      // السوكت غير مهيّأ (اختبارات) — نتجاهل بأمان
+    }
+  }
+
+  // إشعار Push لكل الأجهزة (آمن: no-op إن كان FCM معطّلًا)
+  let pushSent = 0;
+  const uniqueTokens = [...new Set(tokens.filter(Boolean))];
+  if (uniqueTokens.length) {
+    const res = await sendToTokens(uniqueTokens, { title, body, data });
+    pushSent = res.sent || 0;
+  }
+
+  return { users: userCount, captains: captainCount, push: pushSent };
+}
+
 // قائمة إشعارات المستلِم + عدد غير المقروء
 async function listForRecipient(recipientId, { limit = 30 } = {}) {
   const items = await Notification.find({ recipient: recipientId })
@@ -231,6 +308,7 @@ module.exports = {
   orderCancelledPayload,
   deliveryCodePayload,
   createInApp,
+  sendBroadcast,
   listForRecipient,
   markRead,
   markAllRead,

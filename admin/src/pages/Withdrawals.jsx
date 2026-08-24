@@ -15,6 +15,13 @@ const METHOD_AR = {
   palpay: 'بال باي',
   cash: 'نقدًا',
 };
+// Card 67: تسميات تصنيفات محافظ الكابتن الإلكترونية المحفوظة
+const WALLET_CAT_AR = {
+  bank_of_palestine: 'بنك فلسطين',
+  palpay: 'محفظة بال باي',
+  jawwal_pay: 'جوال باي',
+  all: 'الكل',
+};
 const STATUS_AR = {
   pending: 'معلّق',
   done: 'تمّ التحويل',
@@ -100,6 +107,17 @@ export default function Withdrawals() {
                     {w.captain?.name || '—'}
                   </button>
                   <div style={styles.sub}>{w.captain?.phone || ''}</div>
+                  {/* Card 67: محافظ الكابتن الإلكترونية المحفوظة — وجهة التحويل الصحيحة */}
+                  {Array.isArray(w.captain?.payoutWallets) && w.captain.payoutWallets.length > 0 && (
+                    <div style={styles.walletChips}>
+                      {w.captain.payoutWallets.map((pw, i) => (
+                        <span key={i} style={styles.walletChip} title={pw.ownerName || ''}>
+                          {WALLET_CAT_AR[pw.category] || pw.category}: <b>{pw.number}</b>
+                          {pw.ownerName ? ` — ${pw.ownerName}` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </td>
                 <td><b>{w.amount} ₪</b></td>
                 <td>{METHOD_AR[w.method] || w.method}</td>
@@ -184,6 +202,15 @@ const styles = {
     fontSize: 14,
   },
   sub: { color: theme.color.muted, fontSize: 12 },
+  walletChips: { display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 },
+  walletChip: {
+    background: theme.color.secondarySoft,
+    color: theme.color.secondaryDeep,
+    padding: '2px 8px',
+    borderRadius: theme.radius.sm,
+    fontSize: 11,
+    whiteSpace: 'nowrap',
+  },
   actionCell: { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 },
   noteInput: {
     padding: '8px 10px',
