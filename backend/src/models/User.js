@@ -32,6 +32,11 @@ const userSchema = new mongoose.Schema(
 
     isActive: { type: Boolean, default: true },
 
+    // Card 80: حساب مؤقّت أُنشئ تلقائيًا لطلب خارجي من لوحة الأدمن (أو واتساب)
+    // دون تسجيل من التطبيق. يُميَّز عن الحسابات الدائمة، ويُحذف تلقائيًا بعد
+    // انتهاء طلبه (التسليم/الإلغاء) ما لم يُسجَّل من التطبيق قبل ذلك.
+    isExternal: { type: Boolean, default: false },
+
     // رموز أجهزة FCM لإرسال الإشعارات
     deviceTokens: { type: [String], default: [] },
   },

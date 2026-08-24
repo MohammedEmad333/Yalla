@@ -101,6 +101,39 @@ async function chargeForOrder(userId, amount, orderId) {
   return wallet.balance;
 }
 
+/**
+ * Card 81: إضافة رصيد يدويًا من الأدمن (تعديل) — تُستخدم لتمويل الحسابات الخارجية
+ * المؤقّتة كي يكفي رصيدها لدفع قيمة طلبها عند التسليم. تُسجّل حركة "تعديل" وتبثّ
+ * الرصيد. التحقّق من كون الحساب خارجيًا يتمّ في طبقة المتحكّم.
+ * @param {string} userId
+ * @param {number} amount
+ * @param {object} meta  بيانات تدقيق (سبب/المنفّذ)
+ * @returns {Promise<number>} الرصيد بعد الإضافة
+ */
+async function adminCredit(userId, amount, meta = {}) {
+  const value = Number(amount);
+  if (!(value > 0)) throw httpError('قيمة الإضافة غير صالحة', 400);
+
+  const wallet = await creditWallet(userId, value);
+  try {
+    await WalletTransaction.create({
+      user: userId,
+      wallet: wallet._id,
+      type: WALLET_TX_TYPE.ADJUSTMENT,
+      direction: WALLET_DIRECTION.CREDIT,
+      amount: value,
+      status: TOPUP_STATUS.APPROVED,
+      balanceAfter: wallet.balance,
+      gatewayResponse: meta,
+    });
+  } catch (err) {
+    logger.warn('تعذّر تسجيل حركة إضافة الرصيد:', err.message);
+  }
+
+  broadcastBalance(userId, wallet.balance);
+  return wallet.balance;
+}
+
 /** بثّ الرصيد المحدّث لحظيًا لصاحب المحفظة. */
 function broadcastBalance(userId, balance) {
   try {
@@ -265,6 +298,7 @@ module.exports = {
   getOrCreateWallet,
   getWalletSummary,
   creditWallet,
+  adminCredit,
   debitWallet,
   chargeForOrder,
   broadcastBalance,

@@ -1,8 +1,11 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Captain = require('../models/Captain');
+const CaptainApplication = require('../models/CaptainApplication');
 const Wallet = require('../models/Wallet');
 const WalletTransaction = require('../models/WalletTransaction');
 const CaptainWithdrawal = require('../models/CaptainWithdrawal');
@@ -38,7 +41,7 @@ async function listCustomers({ q } = {}) {
     filter.$or = [{ name: new RegExp(q, 'i') }, { phone: new RegExp(q, 'i') }];
   }
   const users = await User.find(filter)
-    .select('name lastName phone email city isActive createdAt')
+    .select('name lastName phone email city avatarUrl isActive isExternal createdAt')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -56,6 +59,8 @@ async function listCustomers({ q } = {}) {
     phone: u.phone,
     email: u.email || '',
     address: u.city || '',
+    avatarUrl: u.avatarUrl || '', // Card 76: صورة العميل تظهر في لوحة التحكم
+    isExternal: !!u.isExternal, // Card 80: حساب خارجي مؤقّت (يُميَّز عن الدائم)
     balance: balanceByUser.get(String(u._id)) || 0,
     isActive: u.isActive,
     createdAt: u.createdAt,
@@ -202,4 +207,218 @@ async function deleteCaptain(captainId, actorRole = 'admin') {
   return { deleted: true, id: String(captainId) };
 }
 
-module.exports = { listCustomers, listCaptainsDetailed, deleteUser, deleteCaptain };
+/**
+ * Card 78: تعديل الأدمن لبيانات حساب كابتن من لوحة التحكم —
+ * الاسم، رقم الجوال، نوع/لوحة المركبة، وكلمة السر. يُطبّق الحقول المُرسَلة فقط،
+ * ويتحقّق من تفرّد رقم الجوال. (تغيير الصورة عبر مسار الرفع المستقلّ.)
+ * @param {string} captainId
+ * @param {{name?:string, phone?:string, password?:string, vehicleType?:string, vehiclePlate?:string}} fields
+ */
+async function updateCaptain(captainId, fields = {}) {
+  if (!mongoose.Types.ObjectId.isValid(captainId)) throw httpError('معرّف غير صالح', 400);
+  const captain = await Captain.findById(captainId).select('+passwordHash');
+  if (!captain) throw httpError('الكابتن غير موجود', 404);
+
+  const name = fields.name !== undefined ? String(fields.name).trim() : undefined;
+  const phone = fields.phone !== undefined ? String(fields.phone).trim() : undefined;
+  const vehiclePlate =
+    fields.vehiclePlate !== undefined ? String(fields.vehiclePlate).trim() : undefined;
+  const vehicleType = fields.vehicleType;
+  const password = fields.password;
+
+  if (name !== undefined) {
+    if (!name) throw httpError('الاسم لا يمكن أن يكون فارغًا', 400);
+    captain.name = name;
+  }
+  if (phone !== undefined) {
+    if (!/^\d{6,15}$/.test(phone)) throw httpError('رقم الجوال غير صالح', 400);
+    captain.phone = phone;
+  }
+  if (vehicleType !== undefined) {
+    if (!['bicycle', 'motorcycle'].includes(vehicleType)) {
+      throw httpError('نوع المركبة غير صالح', 400);
+    }
+    captain.vehicleType = vehicleType;
+  }
+  if (vehiclePlate !== undefined) captain.vehiclePlate = vehiclePlate;
+
+  if (password !== undefined && password !== '') {
+    if (String(password).length < 6) throw httpError('كلمة السر ٦ أحرف على الأقلّ', 400);
+    await captain.setPassword(password);
+  }
+
+  try {
+    await captain.save();
+  } catch (err) {
+    if (err.code === 11000) throw httpError('رقم الجوال مستخدَم بالفعل', 409);
+    throw err;
+  }
+
+  await Log.create({
+    actorRole: 'admin',
+    action: 'CAPTAIN_UPDATED',
+    meta: {
+      captainId: String(captainId),
+      fields: Object.keys(fields).filter((k) => k !== 'password'),
+      passwordChanged: password !== undefined && password !== '',
+    },
+  });
+
+  return {
+    id: String(captain._id),
+    name: captain.name,
+    phone: captain.phone,
+    vehicleType: captain.vehicleType,
+    vehiclePlate: captain.vehiclePlate || '',
+    avatarUrl: captain.avatarUrl || '',
+  };
+}
+
+// ── Card 79: توثيق الكباتن (تسجيل من التطبيق + موافقة الأدمن) ─────────
+
+/**
+ * Card 79: قائمة طلبات توثيق الكباتن المعلّقة (قيد المراجعة) للأدمن —
+ * تشمل المستندات (صورة الهوية والسيلفي) والبيانات الحسّاسة لاتّخاذ القرار.
+ */
+async function listCaptainApplications({ status = 'pending' } = {}) {
+  const filter = ['pending', 'approved', 'rejected'].includes(status) ? { status } : { status: 'pending' };
+  const apps = await CaptainApplication.find(filter).sort({ createdAt: -1 }).lean();
+  return apps.map((a) => ({
+    id: String(a._id),
+    fullName: a.fullName,
+    phone: a.phone,
+    nationalId: a.nationalId,
+    birthDate: a.birthDate,
+    idPhotoUrl: a.idPhotoUrl,
+    selfieUrl: a.selfieUrl,
+    vehicleType: a.vehicleType,
+    status: a.status,
+    createdAt: a.createdAt,
+  }));
+}
+
+/**
+ * Card 79: قبول طلب توثيق → إنشاء حساب الكابتن (معتمَد) بنقل بيانات الطلب
+ * (بما فيها كلمة السر المُشفّرة والمستندات الحسّاسة) ثم حذف الطلب.
+ * @param {string} applicationId
+ */
+async function approveCaptainApplication(applicationId) {
+  if (!mongoose.Types.ObjectId.isValid(applicationId)) throw httpError('معرّف غير صالح', 400);
+  const app = await CaptainApplication.findById(applicationId).select('+passwordHash');
+  if (!app) throw httpError('الطلب غير موجود', 404);
+  if (app.status !== 'pending') throw httpError('عُولج هذا الطلب مسبقًا', 409);
+
+  if (await Captain.findOne({ phone: app.phone })) {
+    throw httpError('يوجد حساب كابتن بهذا الرقم بالفعل', 409);
+  }
+
+  const captain = new Captain({
+    name: app.fullName,
+    phone: app.phone,
+    passwordHash: app.passwordHash, // نُبقي التجزئة كما هي (لا نعيد التشفير)
+    vehicleType: app.vehicleType,
+    isApproved: true,
+    createdVia: 'app',
+    nationalId: app.nationalId,
+    birthDate: app.birthDate,
+    idPhotoUrl: app.idPhotoUrl,
+    selfieUrl: app.selfieUrl,
+  });
+  try {
+    await captain.save();
+  } catch (err) {
+    if (err.code === 11000) throw httpError('يوجد حساب كابتن بهذا الرقم بالفعل', 409);
+    throw err;
+  }
+
+  await CaptainApplication.deleteOne({ _id: applicationId });
+
+  await Log.create({
+    actorRole: 'admin',
+    action: 'CAPTAIN_APPLICATION_APPROVED',
+    meta: { captainId: String(captain._id), phone: captain.phone },
+  });
+
+  try {
+    io.get().to(ROOMS.admins()).emit('captain:application_resolved', { id: String(applicationId) });
+  } catch (_) {
+    /* السوكت غير مهيّأ */
+  }
+
+  return { id: String(captain._id), name: captain.name, phone: captain.phone };
+}
+
+// حذف ملفّ مرفوع (best-effort) من مساره العامّ /uploads/ids/<file>
+function unlinkUpload(url) {
+  try {
+    if (!url) return;
+    const file = path.basename(url);
+    fs.unlink(path.join(__dirname, '..', '..', 'uploads', 'ids', file), () => {});
+  } catch (_) {
+    /* تجاهل */
+  }
+}
+
+/**
+ * Card 79: رفض طلب توثيق → حذف الطلب نهائيًا (ومستنداته المرفوعة).
+ * @param {string} applicationId
+ */
+async function rejectCaptainApplication(applicationId) {
+  if (!mongoose.Types.ObjectId.isValid(applicationId)) throw httpError('معرّف غير صالح', 400);
+  const app = await CaptainApplication.findById(applicationId);
+  if (!app) throw httpError('الطلب غير موجود', 404);
+  if (app.status !== 'pending') throw httpError('عُولج هذا الطلب مسبقًا', 409);
+
+  unlinkUpload(app.idPhotoUrl);
+  unlinkUpload(app.selfieUrl);
+  await CaptainApplication.deleteOne({ _id: applicationId });
+
+  await Log.create({
+    actorRole: 'admin',
+    action: 'CAPTAIN_APPLICATION_REJECTED',
+    meta: { phone: app.phone },
+  });
+
+  try {
+    io.get().to(ROOMS.admins()).emit('captain:application_resolved', { id: String(applicationId) });
+  } catch (_) {
+    /* السوكت غير مهيّأ */
+  }
+
+  return { rejected: true, id: String(applicationId) };
+}
+
+/**
+ * Card 79: صفحة "بيانات الكباتن" — تعرض للأدمن البيانات الحسّاسة (رقم الهوية،
+ * تاريخ الميلاد، صورة الهوية، السيلفي) للكباتن المُوثّقين من التطبيق.
+ */
+async function listCaptainsData() {
+  const captains = await Captain.find()
+    .select('+nationalId +birthDate +idPhotoUrl +selfieUrl name phone vehicleType createdVia createdAt')
+    .sort({ createdAt: -1 })
+    .lean();
+  return captains.map((c) => ({
+    id: String(c._id),
+    name: c.name,
+    phone: c.phone,
+    vehicleType: c.vehicleType,
+    createdVia: c.createdVia || 'admin',
+    nationalId: c.nationalId || '',
+    birthDate: c.birthDate || null,
+    idPhotoUrl: c.idPhotoUrl || '',
+    selfieUrl: c.selfieUrl || '',
+    createdAt: c.createdAt,
+  }));
+}
+
+module.exports = {
+  listCustomers,
+  listCaptainsDetailed,
+  deleteUser,
+  deleteCaptain,
+  updateCaptain,
+  listCaptainApplications,
+  approveCaptainApplication,
+  rejectCaptainApplication,
+  listCaptainsData,
+};

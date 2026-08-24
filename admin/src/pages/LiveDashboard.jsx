@@ -147,6 +147,7 @@ export default function LiveDashboard() {
   const [expanded, setExpanded] = useState({});    // {orderId: bool} عرض كل التفاصيل (Card 29)
   const [delayed, setDelayed] = useState({});      // {orderId: warning} الطلبات المتأخّرة (Card 40)
   const [timeouts, setTimeouts] = useState({});    // {orderId: info} طلبات لم يقبلها الكابتن خلال المهلة (Card 54)
+  const [priceEdit, setPriceEdit] = useState({}); // Card 74: {orderId: value} تحرير السعر التقريبي
   const [showCreate, setShowCreate] = useState(false); // Card 68: نافذة إنشاء طلب من الأدمن
   const [neighborhoods, setNeighborhoods] = useState([]); // أحياء غزة لمنتقي العنوان
   const token = localStorage.getItem('token');     // توكن الأدمن
@@ -215,6 +216,53 @@ export default function LiveDashboard() {
 
     return () => socket.disconnect(); // تنظيف عند مغادرة الصفحة
   }, [socket, token]);
+
+  // Card 74: حفظ السعر التقريبي (سقف الطلب) الجديد — الخادم يبثّ التحديث لحظيًا
+  async function savePrice(orderId) {
+    const raw = priceEdit[orderId];
+    const price = Number(raw);
+    if (!Number.isFinite(price) || price <= 0) return alert('أدخل سعرًا صحيحًا');
+    const res = await fetch(`${API}/api/orders/${orderId}/price`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ price }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      return alert(data?.message || 'تعذّر تعديل السعر');
+    }
+    // نغلق المحرّر — التحديث يصل عبر حدث order:status_updated فيُحدَّث السعر تلقائيًا
+    setPriceEdit((p) => { const n = { ...p }; delete n[orderId]; return n; });
+  }
+
+  // Card 81: إضافة رصيد لحساب خارجي مؤقّت ليكفي لدفع قيمة طلبه
+  async function creditExternal(o) {
+    const userId = o.user?._id;
+    if (!userId) return;
+    const raw = window.prompt(`المبلغ المراد إضافته لرصيد صاحب الطلب (₪):`, String(o.price));
+    if (raw == null) return;
+    const amount = Number(raw);
+    if (!Number.isFinite(amount) || amount <= 0) return alert('أدخل مبلغًا صحيحًا');
+    const res = await fetch(`${API}/api/admin/users/${userId}/wallet/credit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ amount }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return alert(data?.message || 'تعذّر إضافة الرصيد');
+    alert(`تمت إضافة الرصيد. الرصيد الحالي: ${data.balance} ₪`);
+  }
+
+  // Card 82: إرسال رمز التسليم إلى إشعارات الكابتن المُسنَد
+  async function sendCode(orderId) {
+    const res = await fetch(`${API}/api/orders/${orderId}/send-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return alert(data?.message || 'تعذّر إرسال الرمز');
+    alert('أُرسل رمز التسليم إلى إشعارات الكابتن');
+  }
 
   // إسناد طلب لكابتن عبر REST (الخادم يبثّ الإشعارات تلقائيًا)
   async function assign(orderId) {
@@ -391,6 +439,67 @@ export default function LiveDashboard() {
                   🧑‍✈️ <b>الكابتن:</b> {o.captain?.name}
                   {o.captain?.phone ? ` · ${o.captain.phone}` : ''}
                 </p>
+              )}
+
+              {/* Card 73: رمز التسليم يظهر للأدمن مباشرةً ليعطيه لصاحب الطلب عند الحاجة */}
+              {o.deliveryCode && (
+                <p style={styles.line}>
+                  🔑 <b>رمز التسليم:</b>{' '}
+                  <span style={styles.deliveryCode}>{o.deliveryCode}</span>
+                </p>
+              )}
+
+              {/* Card 74: السعر التقريبي (السقف) قابل للتعديل من الأدمن.
+                  بعد الحفظ يصبح السقف الرسمي ولا يستطيع الكابتن طلب أكثر منه. */}
+              <div style={styles.priceRow}>
+                💰 <b>السعر التقريبي (السقف):</b>
+                {priceEdit[o._id] === undefined ? (
+                  <>
+                    <span style={styles.priceValue}>{o.price} ₪</span>
+                    <button
+                      style={styles.priceEditBtn}
+                      onClick={() => setPriceEdit((p) => ({ ...p, [o._id]: String(o.price) }))}
+                      title="تعديل السعر التقريبي"
+                    >
+                      ✎ تعديل
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="number"
+                      min="1"
+                      style={styles.priceInput}
+                      value={priceEdit[o._id]}
+                      onChange={(e) => setPriceEdit((p) => ({ ...p, [o._id]: e.target.value }))}
+                      onKeyDown={(e) => e.key === 'Enter' && savePrice(o._id)}
+                      autoFocus
+                    />
+                    <button style={styles.priceSaveBtn} onClick={() => savePrice(o._id)}>حفظ</button>
+                    <button
+                      style={styles.priceCancelBtn}
+                      onClick={() => setPriceEdit((p) => { const n = { ...p }; delete n[o._id]; return n; })}
+                    >
+                      إلغاء
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Card 81 + 82: إجراءات الطلبات الخارجية وإرسال الرمز للكابتن */}
+              {(o.user?.isExternal || (o.captain && o.deliveryCode)) && (
+                <div style={styles.actionRow}>
+                  {o.user?.isExternal && (
+                    <button style={styles.creditBtn} onClick={() => creditExternal(o)} title="حساب خارجي مؤقّت — أضف رصيدًا كافيًا للطلب">
+                      💳 أضف رصيدًا لصاحب الطلب
+                    </button>
+                  )}
+                  {o.captain && o.deliveryCode && (
+                    <button style={styles.sendCodeBtn} onClick={() => sendCode(o._id)} title="إرسال رمز التسليم إلى إشعارات الكابتن">
+                      🔑 أرسل الرمز للكابتن
+                    </button>
+                  )}
+                </div>
               )}
 
               {/* زرّ إظهار/إخفاء كل تفاصيل الطلب (Card 29) */}
@@ -759,6 +868,51 @@ const styles = {
     fontWeight: 600,
   }),
   line: { margin: '4px 0', fontSize: 14, color: theme.color.onSurfaceVariant },
+  // Card 73: رمز التسليم بخطّ بارز واضح ليقرأه الأدمن بسهولة
+  deliveryCode: {
+    display: 'inline-block',
+    background: '#eef2ff',
+    color: '#3730a3',
+    border: '1px solid #c7d2fe',
+    borderRadius: theme.radius.md,
+    padding: '1px 10px',
+    fontWeight: 700,
+    letterSpacing: 2,
+    fontSize: 15,
+  },
+  // Card 74: صفّ تعديل السعر التقريبي
+  priceRow: {
+    display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+    margin: '6px 0', fontSize: 14, color: theme.color.onSurfaceVariant,
+  },
+  priceValue: { fontWeight: 700 },
+  priceInput: {
+    width: 90, padding: '5px 8px', borderRadius: theme.radius.md,
+    border: `1px solid ${theme.color.outlineStrong}`,
+  },
+  priceEditBtn: {
+    background: theme.color.surfaceContainer, color: theme.color.onSurfaceVariant,
+    border: 'none', borderRadius: theme.radius.pill, padding: '3px 12px', cursor: 'pointer', fontSize: 12,
+  },
+  priceSaveBtn: {
+    background: theme.color.primary, color: theme.color.onPrimary,
+    border: 'none', borderRadius: theme.radius.pill, padding: '5px 14px', cursor: 'pointer', fontSize: 12,
+  },
+  priceCancelBtn: {
+    background: 'transparent', color: theme.color.muted,
+    border: `1px solid ${theme.color.outline}`, borderRadius: theme.radius.pill,
+    padding: '5px 12px', cursor: 'pointer', fontSize: 12,
+  },
+  // Card 81 + 82: صفّ إجراءات إضافية
+  actionRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' },
+  creditBtn: {
+    background: '#0d9488', color: '#fff', border: 'none',
+    borderRadius: theme.radius.pill, padding: '7px 14px', cursor: 'pointer', fontSize: 12,
+  },
+  sendCodeBtn: {
+    background: '#4f46e5', color: '#fff', border: 'none',
+    borderRadius: theme.radius.pill, padding: '7px 14px', cursor: 'pointer', fontSize: 12,
+  },
   // زرّ إظهار/إخفاء التفاصيل (Card 29)
   detailsToggle: {
     marginTop: 10,

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/auth_repository.dart';
+import 'captain_signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final AuthRepository authRepository;
@@ -154,6 +155,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           }),
                   child: Text(_isRegister ? 'لديك حساب؟ سجّل الدخول' : 'ليس لديك حساب؟ أنشئ حسابًا'),
                 ),
+
+                // Card 79: عند إنشاء حساب — خيار التسجيل ككابتن توصيل (طلب توثيق)
+                if (_isRegister)
+                  OutlinedButton.icon(
+                    onPressed: _loading
+                        ? null
+                        : () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => CaptainSignupScreen(api: widget.authRepository.api),
+                              ),
+                            ),
+                    icon: const Icon(Icons.two_wheeler),
+                    label: const Text('تسجيل ككابتن توصيل'),
+                  ),
               ],
             ),
           ),

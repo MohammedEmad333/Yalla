@@ -7,6 +7,7 @@ import { theme } from './theme';
 import LoginPage from './pages/LoginPage';
 import LiveDashboard from './pages/LiveDashboard';
 import UsersManagement from './pages/UsersManagement';
+import CaptainApplications from './pages/CaptainApplications';
 import StatsPage from './pages/StatsPage';
 import OrdersPage from './pages/OrdersPage';
 import WalletTopups from './pages/WalletTopups';
@@ -24,6 +25,7 @@ const TABS = [
   { key: 'wallet', label: 'شحن الرصيد' },
   { key: 'withdrawals', label: 'سحب الكباتن' },
   { key: 'users', label: 'إدارة المستخدمين' },
+  { key: 'captainDocs', label: 'توثيق الكباتن' },
   { key: 'stats', label: 'الإحصائيات' },
 ];
 
@@ -71,6 +73,7 @@ function Gate() {
       {page === 'wallet' && <WalletTopups />}
       {page === 'withdrawals' && <Withdrawals />}
       {page === 'users' && <UsersManagement />}
+      {page === 'captainDocs' && <CaptainApplications />}
       {page === 'stats' && <StatsPage />}
     </div>
   );

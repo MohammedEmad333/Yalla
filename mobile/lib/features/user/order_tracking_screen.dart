@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
 import '../../core/maps/maps_service.dart';
 import '../../core/realtime/socket_service.dart';
@@ -39,6 +40,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   String _status = 'pending';
   String _captainName = '';
   String _captainPhone = ''; // Card 51: للاتصال المباشر من شاشة الدردشة
+  String _captainAvatar = ''; // Card 77: صورة الكابتن يراها العميل
 
   // ساعة موقّت الوصول التقديري (Card 39)
   int _etaMinutes = 0;         // الزمن التقديري للتوصيل (دقائق)
@@ -94,6 +96,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         _status = data['status'] ?? 'pending';
         _captainName = data['captain']?['name'] ?? '';
         _captainPhone = data['captain']?['phone'] ?? '';
+        _captainAvatar = (data['captain']?['avatarUrl'] ?? '').toString();
         _etaMinutes = (data['etaMinutes'] as num?)?.toInt() ?? 0;
         _etaStart = _resolveEtaStart(Map<String, dynamic>.from(data as Map));
         final cap = data['captain']?['currentLocation']?['coordinates'];
@@ -221,8 +224,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
           _tile(Icons.store, 'الاستلام', _pickup),
           _tile(Icons.flag, 'التسليم', _dropoff),
-          // Card 51: نعرض الاسم الأول فقط للكابتن
-          if (_captainName.isNotEmpty) _tile(Icons.person, 'الكابتن', firstName(_captainName)),
+          // Card 51/77: نعرض صورة الكابتن (إن وُجدت) واسمه الأول فقط للعميل
+          if (_captainName.isNotEmpty) _captainTile(),
 
           // موقع الكابتن اللحظي (كإحداثيات + مؤشّر تحديث حيّ) + فتحه على خرائط جوجل
           if (_captainLat != null)
@@ -326,4 +329,21 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
   Widget _tile(IconData icon, String label, String value) =>
       Card(child: ListTile(leading: Icon(icon), title: Text(label), subtitle: Text(value)));
+
+  // Card 77: بطاقة الكابتن مع صورته الشخصية (إن وُجدت) واسمه الأول فقط.
+  Widget _captainTile() {
+    final url = _captainAvatar.isEmpty
+        ? null
+        : (_captainAvatar.startsWith('http') ? _captainAvatar : '${AppConfig.origin}$_captainAvatar');
+    return Card(
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundImage: url != null ? NetworkImage(url) : null,
+          child: url == null ? const Icon(Icons.person) : null,
+        ),
+        title: const Text('الكابتن'),
+        subtitle: Text(firstName(_captainName)),
+      ),
+    );
+  }
 }

@@ -4,6 +4,7 @@ const router = require('express').Router();
 const ctrl = require('../controllers/admin.controller');
 const support = require('../controllers/support.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { uploadAvatar } = require('../middlewares/upload.middleware');
 const { ROLES } = require('../utils/constants');
 
 // كل مسارات الإدارة للأدمن فقط
@@ -24,7 +25,17 @@ router.delete('/users/:userId', ctrl.deleteUser); // Card 38: حذف نهائي
 // إدارة الكباتن
 router.get('/captains', ctrl.listCaptains);
 router.get('/captains/detailed', ctrl.listCaptainsDetailed); // Card 37: جدول كامل للكباتن
+
+// Card 79: طلبات توثيق الكباتن (تسجيل من التطبيق) + بيانات الكباتن الحسّاسة
+// (قبل مسارات /captains/:captainId لتفادي التقاط "applications"/"data" كمعرّف)
+router.get('/captain-applications', ctrl.listCaptainApplications);
+router.post('/captain-applications/:applicationId/approve', ctrl.approveCaptainApplication);
+router.post('/captain-applications/:applicationId/reject', ctrl.rejectCaptainApplication);
+router.get('/captains/data', ctrl.listCaptainsData); // صفحة "بيانات الكباتن"
 router.patch('/captains/:captainId/approve', ctrl.setCaptainApproval);
+// Card 78: تعديل بيانات حساب الكابتن (اسم/جوال/مركبة/كلمة سر) + تغيير صورته
+router.patch('/captains/:captainId', ctrl.updateCaptain);
+router.post('/captains/:captainId/avatar', uploadAvatar.single('avatar'), ctrl.uploadCaptainAvatar);
 router.delete('/captains/:captainId', ctrl.deleteCaptain); // Card 38: حذف نهائي
 
 // محفظة الكابتن وتسوية العمولة (COD)
@@ -52,5 +63,7 @@ router.get('/wallet/topups', ctrl.listTopups);
 router.post('/wallet/topups/:txId/approve', ctrl.approveTopup);
 router.post('/wallet/topups/:txId/reject', ctrl.rejectTopup);
 router.get('/users/:userId/wallet', ctrl.userWallet);
+// Card 81: إضافة رصيد لحساب خارجي مؤقّت (طلبات الأدمن/الواتساب)
+router.post('/users/:userId/wallet/credit', ctrl.creditExternalUser);
 
 module.exports = router;

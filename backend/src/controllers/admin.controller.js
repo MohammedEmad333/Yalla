@@ -11,6 +11,7 @@ const chatService = require('../services/chat.service');
 const notificationService = require('../services/notification.service');
 const { validateBroadcast } = require('../utils/broadcast');
 const { excelUnicodeBuffer } = require('../utils/csv');
+const { avatarUrlFor } = require('../middlewares/upload.middleware');
 const { ROLES } = require('../utils/constants');
 
 // مؤشّرات الأداء للوحة التحكّم
@@ -109,6 +110,72 @@ async function deleteCaptain(req, res, next) {
   }
 }
 
+// Card 78: تعديل الأدمن لبيانات حساب كابتن (اسم/جوال/مركبة/كلمة سر)
+async function updateCaptain(req, res, next) {
+  try {
+    const result = await adminService.updateCaptain(req.params.captainId, req.body || {});
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 78: الأدمن يغيّر الصورة الشخصية لكابتن (الملفّ في req.file عبر multer)
+async function uploadCaptainAvatar(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'أرفق صورة' });
+    const url = avatarUrlFor(req.file.filename);
+    const captain = await Captain.findByIdAndUpdate(
+      req.params.captainId,
+      { avatarUrl: url },
+      { new: true }
+    ).select('name avatarUrl');
+    if (!captain) return res.status(404).json({ message: 'الكابتن غير موجود' });
+    res.json({ ok: true, avatarUrl: url });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── Card 79: طلبات توثيق الكباتن + بيانات الكباتن الحسّاسة ──────────
+
+async function listCaptainApplications(req, res, next) {
+  try {
+    const items = await adminService.listCaptainApplications({ status: req.query.status });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function approveCaptainApplication(req, res, next) {
+  try {
+    const result = await adminService.approveCaptainApplication(req.params.applicationId);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function rejectCaptainApplication(req, res, next) {
+  try {
+    const result = await adminService.rejectCaptainApplication(req.params.applicationId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 79: صفحة "بيانات الكباتن" — البيانات الحسّاسة للأدمن فقط
+async function listCaptainsData(req, res, next) {
+  try {
+    const items = await adminService.listCaptainsData();
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // اعتماد/إلغاء اعتماد كابتن (غير المعتمَد لا يستقبل طلبات)
 async function setCaptainApproval(req, res, next) {
   try {
@@ -177,6 +244,30 @@ async function rejectTopup(req, res, next) {
     const { reason } = req.body || {};
     const result = await walletService.rejectTopup(req.auth.id, req.params.txId, reason);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 81: إضافة رصيد لحساب خارجي مؤقّت فقط (طلبات الأدمن/الواتساب) — ليكفي
+// رصيده لدفع قيمة طلبه. يُرفض للحسابات الدائمة (لها مسار الشحن العاديّ).
+async function creditExternalUser(req, res, next) {
+  try {
+    const { amount } = req.body || {};
+    const value = Number(amount);
+    if (!(value > 0)) return res.status(400).json({ message: 'أدخل مبلغًا صحيحًا' });
+
+    const user = await User.findById(req.params.userId).select('isExternal role');
+    if (!user) return res.status(404).json({ message: 'المستخدم غير موجود' });
+    if (user.role !== ROLES.USER || !user.isExternal) {
+      return res.status(400).json({ message: 'إضافة الرصيد متاحة للحسابات الخارجية المؤقّتة فقط' });
+    }
+
+    const balance = await walletService.adminCredit(user._id, value, {
+      reason: 'external_topup',
+      by: String(req.auth.id),
+    });
+    res.json({ balance });
   } catch (err) {
     next(err);
   }
@@ -325,11 +416,18 @@ module.exports = {
   deleteCaptain,
   listCaptains,
   setCaptainApproval,
+  updateCaptain,
+  uploadCaptainAvatar,
+  listCaptainApplications,
+  approveCaptainApplication,
+  rejectCaptainApplication,
+  listCaptainsData,
   captainWallet,
   settleCaptain,
   listTopups,
   approveTopup,
   rejectTopup,
+  creditExternalUser,
   userWallet,
   listWithdrawals,
   processWithdrawal,

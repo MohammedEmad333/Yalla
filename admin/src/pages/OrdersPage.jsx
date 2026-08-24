@@ -90,7 +90,7 @@ export default function OrdersPage() {
       <div className="yl-table-wrap" style={styles.tableWrap}>
         <table>
           <thead>
-            <tr><th>#</th><th>الحالة</th><th>صاحب الطلب</th><th>الاستلام</th><th>التسليم</th><th>الكابتن</th><th>السعر</th></tr>
+            <tr><th>#</th><th>الحالة</th><th>صاحب الطلب</th><th>الاستلام</th><th>التسليم</th><th>الكابتن</th><th>رمز التسليم</th><th>السعر</th></tr>
           </thead>
           <tbody>
             {data.items.map((o) => (
@@ -111,6 +111,8 @@ export default function OrdersPage() {
                 <td>{o.pickup?.address}</td>
                 <td>{o.dropoff?.address}</td>
                 <td>{o.captain?.name || '—'}</td>
+                {/* Card 73: رمز التسليم — يظهر للأدمن فقط ليعطيه لصاحب الطلب عند الحاجة */}
+                <td style={{ fontWeight: 700, letterSpacing: 1 }}>{o.deliveryCode || '—'}</td>
                 {/* Card 28: بعد التسليم نعرض السعر الحقيقي (finalPrice) لا التقريبي */}
                 <td style={{ fontWeight: 600 }}>
                   {(o.status === 'delivered' && Number(o.finalPrice) > 0 ? o.finalPrice : o.price)} ₪
@@ -118,7 +120,7 @@ export default function OrdersPage() {
               </tr>
             ))}
             {data.items.length === 0 && (
-              <tr><td colSpan={7} style={{ textAlign: 'center', color: theme.color.muted, padding: 20 }}>لا نتائج</td></tr>
+              <tr><td colSpan={8} style={{ textAlign: 'center', color: theme.color.muted, padding: 20 }}>لا نتائج</td></tr>
             )}
           </tbody>
         </table>

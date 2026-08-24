@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/network/api_client.dart';
+import '../core/onboarding/onboarding.dart';
 import '../core/realtime/socket_service.dart';
 import '../features/captain/active_order_screen.dart';
 import '../features/captain/earnings_screen.dart';
@@ -27,6 +28,10 @@ class _CaptainHomeState extends State<CaptainHome> {
   void initState() {
     super.initState();
     widget.socket.connect(); // اتصال لحظي لاستقبال الطلبات المُسنَدة
+    // Card 75: شرح تعريفي لمرة واحدة (وبعد كل تحديث للميزات الجديدة فقط)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) maybeShowOnboarding(context, 'captain');
+    });
   }
 
   @override

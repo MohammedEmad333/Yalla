@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
 import '../../core/util/names.dart';
 
@@ -94,9 +95,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             _row('التسليم', _order!['dropoff']?['address'] ?? ''),
                             // Card 28: بعد التسليم نعرض السعر الحقيقي المدفوع لا التقريبي.
                             _row(_priceLabel(), '${_shownPrice()} ₪'),
-                            // Card 48/51: اسم الكابتن (الاسم الأول فقط للعميل)
-                            if (_order!['captain'] != null)
-                              _row('الكابتن', firstName(_order!['captain']?['name'])),
+                            // Card 48/51/77: الكابتن — صورته (إن وُجدت) واسمه الأول فقط للعميل
+                            if (_order!['captain'] != null) _captainRow(),
                             // Card 2: رمز التسليم — يعطيه صاحب الطلب للكابتن عند الاستلام
                             // (لا يظهر بعد تسليم الطلب).
                             if ((_order!['deliveryCode'] ?? '').toString().isNotEmpty &&
@@ -168,4 +168,36 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ],
         ),
       );
+
+  // Card 77: عنوان صورة الكابتن الكامل (مسار نسبيّ من الخادم → أصل الـ API).
+  String? _captainAvatarUrl() {
+    final url = (_order!['captain']?['avatarUrl'] ?? '').toString();
+    if (url.isEmpty) return null;
+    return url.startsWith('http') ? url : '${AppConfig.origin}$url';
+  }
+
+  // Card 77: صفّ الكابتن — صورته الشخصية بجانب اسمه الأول (للعميل).
+  Widget _captainRow() {
+    final avatar = _captainAvatarUrl();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          const SizedBox(width: 90, child: Text('الكابتن', style: TextStyle(color: Colors.grey))),
+          CircleAvatar(
+            radius: 18,
+            backgroundImage: avatar != null ? NetworkImage(avatar) : null,
+            child: avatar == null ? const Icon(Icons.person, size: 20) : null,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              firstName(_order!['captain']?['name']),
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -17,6 +17,9 @@ class AuthRepository {
   final TokenStorage _tokens;
   AuthRepository(this._api, this._tokens);
 
+  // Card 79: عميل الـ API متاح لشاشات المصادقة العامّة (مثل تسجيل الكابتن)
+  ApiClient get api => _api;
+
   // مصدر الحقيقة لحالة الدخول — تستمع إليه الواجهة
   final ValueNotifier<AuthSession?> session = ValueNotifier(null);
 

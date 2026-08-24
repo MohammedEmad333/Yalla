@@ -4,10 +4,12 @@ const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 const User = require('../models/User');
 const Captain = require('../models/Captain');
+const CaptainApplication = require('../models/CaptainApplication');
 const adminService = require('../services/admin.service');
 const notifications = require('../services/notification.service');
-const { avatarUrlFor } = require('../middlewares/upload.middleware');
-const { ROLES } = require('../utils/constants');
+const io = require('../sockets/io');
+const { avatarUrlFor, idDocUrlFor } = require('../middlewares/upload.middleware');
+const { ROLES, ROOMS } = require('../utils/constants');
 
 // توليد توكن JWT يحمل المعرّف والدور
 function signToken(id, role) {
@@ -106,6 +108,80 @@ async function registerCaptain(req, res, next) {
 
     res.status(201).json({
       captain: { id: captain._id, name, phone, vehicleType: captain.vehicleType },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 79: تسجيل كابتن من التطبيق — يُنشئ "طلب توثيق" قيد المراجعة (لا حساب مباشر).
+// يجمع الاسم الرباعي والهاتف ورقم الهوية وتاريخ الميلاد وصورتَي الهوية والسيلفي،
+// ثم يبقى الطلب pending حتى يقبله الأدمن (فيُنشأ الحساب) أو يرفضه (فيُحذف الطلب).
+async function applyCaptain(req, res, next) {
+  try {
+    const { fullName, phone, password, nationalId, birthDate, vehicleType } = req.body || {};
+    const files = req.files || {};
+    const idPhoto = files.idPhoto?.[0];
+    const selfie = files.selfie?.[0];
+
+    // تحقّق أساسيّ من الحقول والمستندات
+    if (!fullName || String(fullName).trim().length < 3) {
+      return res.status(400).json({ message: 'أدخل الاسم الرباعي كاملًا' });
+    }
+    if (!phone || !/^\d{6,15}$/.test(String(phone).trim())) {
+      return res.status(400).json({ message: 'أدخل رقم جوال صحيح' });
+    }
+    if (!password || String(password).length < 6) {
+      return res.status(400).json({ message: 'كلمة السر ٦ أحرف على الأقلّ' });
+    }
+    if (!nationalId || !String(nationalId).trim()) {
+      return res.status(400).json({ message: 'أدخل رقم الهوية' });
+    }
+    const dob = birthDate ? new Date(birthDate) : null;
+    if (!dob || Number.isNaN(dob.getTime())) {
+      return res.status(400).json({ message: 'أدخل تاريخ ميلاد صحيح' });
+    }
+    if (!idPhoto || !selfie) {
+      return res.status(400).json({ message: 'أرفق صورة الهوية والسيلفي مع الهوية' });
+    }
+
+    const cleanPhone = String(phone).trim();
+    // منع التكرار: هاتف يملك حساب كابتن، أو طلب توثيق معلّق بنفس الهاتف
+    if (await Captain.findOne({ phone: cleanPhone })) {
+      return res.status(409).json({ message: 'يوجد حساب كابتن بهذا الرقم بالفعل' });
+    }
+    if (await CaptainApplication.findOne({ phone: cleanPhone, status: 'pending' })) {
+      return res.status(409).json({ message: 'لديك طلب توثيق قيد المراجعة بالفعل' });
+    }
+
+    const application = new CaptainApplication({
+      fullName: String(fullName).trim(),
+      phone: cleanPhone,
+      nationalId: String(nationalId).trim(),
+      birthDate: dob,
+      idPhotoUrl: idDocUrlFor(idPhoto.filename),
+      selfieUrl: idDocUrlFor(selfie.filename),
+      vehicleType: vehicleType === 'bicycle' ? 'bicycle' : 'motorcycle',
+    });
+    await application.setPassword(password);
+    await application.save();
+
+    // بثّ للأدمن ليظهر الطلب فورًا في صفحة طلبات الكباتن (بلا بيانات حسّاسة)
+    try {
+      io.get()
+        .to(ROOMS.admins())
+        .emit('captain:application_new', {
+          id: String(application._id),
+          fullName: application.fullName,
+          phone: application.phone,
+        });
+    } catch (_) {
+      /* السوكت غير مهيّأ */
+    }
+
+    res.status(201).json({
+      status: 'pending',
+      message: 'تم استلام طلبك وهو قيد التوثيق. سنُعلمك عند اعتماد حسابك.',
     });
   } catch (err) {
     next(err);
@@ -248,6 +324,7 @@ module.exports = {
   loginUser,
   loginCaptain,
   registerCaptain,
+  applyCaptain,
   me,
   updateProfile,
   uploadAvatar,

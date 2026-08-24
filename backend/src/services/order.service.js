@@ -12,6 +12,7 @@ const notifications = require('./notification.service');
 const chat = require('./chat.service');
 const walletService = require('./wallet.service');
 const captainWallet = require('./captainWallet.service');
+const adminService = require('./admin.service');
 const { coordsForNeighborhood } = require('../utils/neighborhoods');
 const User = require('../models/User');
 const { addRating } = require('../utils/rating');
@@ -189,15 +190,23 @@ async function createOrder(userId, payload, idempotencyKey) {
  * بكلمة مرور عشوائية (لا تُستخدم للدخول) بدور "زبون".
  * @param {string} name  اسم صاحب الطلب
  * @param {string} phone رقم جواله
+ * @param {{external?:boolean}} opts  Card 80: علِّم الحساب المُنشأ حديثًا كخارجي مؤقّت
  * @returns {Promise<import('mongoose').Document>}
  */
-async function findOrCreateCustomerByPhone(name, phone) {
+async function findOrCreateCustomerByPhone(name, phone, { external = false } = {}) {
   const cleanPhone = String(phone || '').trim();
   const cleanName = String(name || '').trim();
   const existing = await User.findOne({ phone: cleanPhone });
+  // Card 80: إن كان لصاحب الهاتف حساب مسبق (دائم أو خارجي) نعيد استخدامه دون
+  // تغيير صفته — لا نحوّل حسابًا دائمًا إلى خارجي.
   if (existing) return existing;
 
-  const user = new User({ name: cleanName || 'زبون', phone: cleanPhone, role: 'user' });
+  const user = new User({
+    name: cleanName || 'زبون',
+    phone: cleanPhone,
+    role: 'user',
+    isExternal: external, // Card 80: حساب خارجي مؤقّت يُحذف بعد انتهاء طلبه
+  });
   await user.setPassword(crypto.randomBytes(12).toString('hex')); // كلمة مرور عشوائية
   try {
     await user.save();
@@ -244,8 +253,9 @@ async function createOrderByAdmin(adminId, payload = {}) {
   if (scheduleError) throw httpError(scheduleError, 400);
   const scheduledAt = payload.scheduledAt ? new Date(payload.scheduledAt) : null;
 
-  // إيجاد/إنشاء صاحب الطلب بالهاتف ليرتبط الطلب بحساب زبون (Order.user مطلوب)
-  const customer = await findOrCreateCustomerByPhone(contactName, contactPhone);
+  // إيجاد/إنشاء صاحب الطلب بالهاتف ليرتبط الطلب بحساب زبون (Order.user مطلوب).
+  // Card 80: الحساب المُنشأ حديثًا لطلب خارجي يُعلَّم كمؤقّت ليُحذف بعد انتهاء الطلب.
+  const customer = await findOrCreateCustomerByPhone(contactName, contactPhone, { external: true });
 
   const deliveryCode = generateDeliveryCode();
 
@@ -280,8 +290,18 @@ async function createOrderByAdmin(adminId, payload = {}) {
       .catch((e) => logger.warn('تعذّر إرسال رمز التسليم لصاحب الطلب:', e.message));
   }
 
+  // Card 81: تنبيه الأدمن لإضافة رصيد كافٍ للحساب الخارجي إن كان جديدًا (مؤقّتًا)،
+  // كي يكفي رصيده لدفع قيمة الطلب عند التسليم.
+  if (customer.isExternal) {
+    notifications.createInApp(adminId, 'admin', {
+      title: '💳 طلب خارجي — أضف رصيدًا',
+      body: `الطلب لحساب خارجي (${contactName}). أضف رصيدًا لا يقلّ عن ${price} ₪ لحسابه ليكفي لدفع الطلب.`,
+      data: { type: 'EXTERNAL_ORDER_TOPUP', userId: String(customer._id), suggested: price },
+    });
+  }
+
   // بثّ للأدمن ليظهر الطلب فورًا في لوحة الإسناد (كبقية الطلبات)
-  await order.populate('user', 'name lastName phone');
+  await order.populate('user', 'name lastName phone isExternal');
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
   io.get().to(ROOMS.user(customer._id.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
 
@@ -489,6 +509,26 @@ async function releaseCaptain(captainId) {
   });
 }
 
+/**
+ * Card 80: حذف الحساب الخارجي المؤقّت بعد انتهاء طلبه.
+ * يُستدعى عند وصول الطلب لحالة نهائية (تسليم/إلغاء). لا يحذف إلا الحسابات
+ * المُعلَّمة `isExternal` (المُنشأة تلقائيًا لطلب خارجي ولم تُسجَّل من التطبيق)،
+ * وفقط إن لم يبقَ لها طلب نشط آخر (يتكفّل حارس adminService.deleteUser بذلك،
+ * فيرمي 409 عند وجود طلب نشط، ونتجاهله). أخطاء الحذف لا تُفشِل تدفّق الحالة.
+ * @param {string|import('mongoose').Types.ObjectId} userId
+ */
+async function maybeDeleteExternalCustomer(userId) {
+  try {
+    if (!userId) return;
+    const user = await User.findById(userId).select('isExternal role');
+    if (!user || !user.isExternal || user.role !== 'user') return;
+    await adminService.deleteUser(userId, 'system');
+  } catch (err) {
+    // 409 = للحساب طلب نشط آخر → نُبقيه؛ أي خطأ آخر لا يجب أن يعطّل تدفّق الطلب
+    logger.warn('تعذّر حذف الحساب الخارجي المؤقّت:', err.message);
+  }
+}
+
 // بثّ تحديث حالة الطلب لكل الأطراف المتابعين له
 function broadcastOrderUpdate(order) {
   const io_ = io.get();
@@ -595,6 +635,13 @@ async function updateOrderStatus(
         io.get().to(ROOMS.captain(String(captainId))).emit(EVENTS.CAPTAIN_WALLET_UPDATED, bal);
       })
       .catch((e) => logger.warn('تعذّر بثّ رصيد محفظة الكابتن بعد التسليم:', e.message));
+
+    // Card 83: إشعار الكابتن بإتمام التوصيل وإضافة أرباحه، وتشجيعه على الاستمرار.
+    notifications.createInApp(captainId, 'captain', {
+      title: '✅ تم تأكيد التسليم',
+      body: `تم توصيل الطلب بنجاح وأُضيف ${order.captainNet} ₪ إلى محفظتك. تابع لاستقبال طلبات جديدة!`,
+      data: { type: 'DELIVERY_DONE', orderId: String(order._id), amount: order.captainNet },
+    });
   }
 
   await writeLog({
@@ -609,6 +656,11 @@ async function updateOrderStatus(
 
   broadcastOrderUpdate(order);
   pushOrderStatusToUser(order); // إشعار المستخدم بتغيّر الحالة (بلا انتظار)
+
+  // Card 80: بعد انتهاء الطلب (تسليم/إلغاء) نحذف الحساب الخارجي المؤقّت إن وُجد
+  if (nextStatus === ORDER_STATUS.DELIVERED || nextStatus === ORDER_STATUS.CANCELLED) {
+    await maybeDeleteExternalCustomer(order.user);
+  }
   return order;
 }
 
@@ -856,6 +908,9 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
   }
   broadcastOrderUpdate(order);
 
+  // Card 80: إلغاء الطلب يُنهيه → احذف الحساب الخارجي المؤقّت إن وُجد
+  await maybeDeleteExternalCustomer(order.user);
+
   return order;
 }
 
@@ -898,17 +953,110 @@ async function forceCompleteByAdmin(orderId, { actorId } = {}) {
 
   broadcastOrderUpdate(order);
   pushOrderStatusToUser(order); // إشعار المستخدم بتغيّر الحالة (بلا انتظار)
+
+  // Card 80: الإغلاق الإداريّ يُنهي الطلب (تسليم) → احذف الحساب الخارجي المؤقّت إن وُجد
+  await maybeDeleteExternalCustomer(order.user);
   return order;
 }
 
 // جلب الطلبات النشطة (للوحة الأدمن)
 async function getActiveOrders() {
+  // Card 73: نضمّ رمز التسليم (select:false افتراضيًا) ليظهر للأدمن في لوحة التحكم
+  // مباشرةً بعد ظهور الطلب. هذا المسار للأدمن فقط، فلا يتسرّب الرمز للكابتن/العميل.
   return Order.find({
     status: { $in: [ORDER_STATUS.PENDING, ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED, ORDER_STATUS.PICKED_UP] },
   })
-    .populate('user', 'name lastName phone')
+    .select('+deliveryCode')
+    // Card 81: نضمّ isExternal ليُظهر الأدمن زرّ إضافة الرصيد للحسابات الخارجية فقط
+    .populate('user', 'name lastName phone isExternal')
     .populate('captain', 'name phone status')
     .sort({ createdAt: -1 });
+}
+
+/**
+ * Card 74: تعديل الأدمن للسعر التقريبي (سقف الطلب) من لوحة التحكم.
+ * السعر التقريبي `price` هو السقف الذي لا يستطيع الكابتن تجاوزه عند إدخال السعر
+ * الحقيقي (يُطبَّق في updateOrderStatus). بعد التعديل يصبح هذا هو السقف الرسمي.
+ * يُسمح بالتعديل قبل التسليم/الإلغاء فقط، وبحدٍّ أدنى للأجرة، ويُبثّ التحديث لحظيًا
+ * للأدمن وصاحب الطلب والكابتن المُسنَد.
+ * @param {string} orderId
+ * @param {number} newPrice  السعر التقريبي الجديد (₪)
+ * @param {{actorId?:string}} ctx
+ */
+async function updateOrderPrice(orderId, newPrice, { actorId = null } = {}) {
+  const price = Math.round(Number(newPrice));
+  if (!Number.isFinite(price) || price < pricing.TARIFF.minFare) {
+    throw httpError(`السعر التقريبي يجب ألّا يقلّ عن ${pricing.TARIFF.minFare} ₪`, 400);
+  }
+
+  const order = await Order.findById(orderId).select('+deliveryCode');
+  if (!order) throw httpError('الطلب غير موجود', 404);
+  if ([ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED].includes(order.status)) {
+    throw httpError('لا يمكن تعديل سعر طلب منتهٍ', 400);
+  }
+
+  const from = order.price;
+  order.price = price;
+  await order.save();
+
+  await writeLog({
+    order: order._id,
+    actorId,
+    actorRole: 'admin',
+    action: 'PRICE_UPDATED',
+    meta: { from, to: price },
+  });
+
+  // نُعيد التحميل بالبيانات المرتبطة ونبثّ التحديث لكل الأطراف ليظهر السقف الجديد فورًا
+  await order.populate('user', 'name lastName phone');
+  await order.populate('captain', 'name phone status');
+  const io_ = io.get();
+  const userId = String(order.user?._id || order.user);
+  io_.to(ROOMS.admins()).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  io_.to(ROOMS.user(userId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  io_.to(ROOMS.order(String(order._id))).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  if (order.captain) {
+    const capId = String(order.captain?._id || order.captain);
+    io_.to(ROOMS.captain(capId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  }
+
+  return order;
+}
+
+/**
+ * Card 82: الأدمن يرسل رمز التسليم إلى إشعارات الكابتن المُسنَد (بأيقونة الأدمن)
+ * ليعطيه إياه عند تعذّر حصوله عليه من صاحب الطلب (طلبات خارجية مثلًا).
+ * يظهر الإشعار لدى الكابتن مع علامة الأدمن ورسالة تطلب إدخال الرمز عند التسليم.
+ * @param {string} orderId
+ */
+async function sendDeliveryCodeToCaptain(orderId) {
+  const order = await Order.findById(orderId).select('+deliveryCode');
+  if (!order) throw httpError('الطلب غير موجود', 404);
+  if (!order.captain) throw httpError('لا يوجد كابتن مُسنَد لهذا الطلب', 400);
+  if (!order.deliveryCode) throw httpError('لا يوجد رمز تسليم لهذا الطلب', 400);
+
+  const payload = {
+    title: '🔑 رمز تسليم الطلب (من الإدارة)',
+    body: `رمز تسليم الطلب هو ${order.deliveryCode} — أدخله عند الضغط على "تم التسليم" لتأكيد الاستلام.`,
+    // fromAdmin: يُظهر أيقونة الأدمن بجانب الإشعار لدى الكابتن (Card 82)
+    data: {
+      type: 'DELIVERY_CODE',
+      orderId: String(order._id),
+      code: order.deliveryCode,
+      fromAdmin: true,
+    },
+  };
+  notifications.createInApp(order.captain, 'captain', payload);
+
+  // إشعار Push للكابتن إن كان له جهاز مسجّل
+  Captain.findById(order.captain)
+    .select('deviceTokens')
+    .then((cap) => {
+      if (cap?.deviceTokens?.length) return notifications.sendToTokens(cap.deviceTokens, payload);
+    })
+    .catch((e) => logger.warn('تعذّر إرسال رمز التسليم للكابتن:', e.message));
+
+  return { sent: true };
 }
 
 // بحث/فلترة الطلبات مع ترقيم (للوحة الأدمن) — يعيد العناصر والإجمالي وعدد الصفحات
@@ -919,6 +1067,8 @@ async function listOrders(rawQuery = {}) {
   // نُشغّل جلب الصفحة والعدّ الكلّي بالتوازي
   const [items, total] = await Promise.all([
     Order.find(filter)
+      // Card 73: رمز التسليم يظهر للأدمن في صفحة بحث الطلبات (مسار أدمن فقط)
+      .select('+deliveryCode')
       .populate('user', 'name phone')
       .populate('captain', 'name phone status')
       // Card 47: نُحضِر أسماء الكباتن الذين رفضوا الطلب لعرض سبب الرفض في لوحة الأدمن
@@ -988,7 +1138,8 @@ async function getOrderForTracking(orderId, requesterId, requesterRole) {
   // (يُحذف لاحقًا من ردّ الكابتن في المتحكّم — الكابتن يتحقّق منه ولا يراه.)
   const order = await Order.findById(orderId)
     .select('+deliveryCode')
-    .populate('captain', 'name phone vehicleType currentLocation status')
+    // Card 77: نضمّ صورة الكابتن (avatarUrl) ليراها العميل ضمن تفاصيل طلبه
+    .populate('captain', 'name phone vehicleType currentLocation status avatarUrl')
     .populate('user', 'name phone');
   if (!order) throw Object.assign(new Error('الطلب غير موجود'), { statusCode: 404 });
 
@@ -1004,7 +1155,8 @@ async function getOrderForTracking(orderId, requesterId, requesterRole) {
 // سجلّ طلبات المستخدم (كل الحالات) — مرتّبة من الأحدث، مع ترقيم بسيط
 async function getMyOrders(userId, { limit = 20, skip = 0 } = {}) {
   return Order.find({ user: userId })
-    .populate('captain', 'name phone vehicleType rating')
+    // Card 77: صورة الكابتن تظهر للعميل في سجلّ طلباته
+    .populate('captain', 'name phone vehicleType rating avatarUrl')
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit);
@@ -1223,6 +1375,8 @@ module.exports = {
   warnDelayedOrders,
   cancelOrder,
   forceCompleteByAdmin,
+  updateOrderPrice,
+  sendDeliveryCodeToCaptain,
   getActiveOrders,
   listOrders,
   getOrdersForExport,
