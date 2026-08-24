@@ -38,7 +38,7 @@ async function listCustomers({ q } = {}) {
     filter.$or = [{ name: new RegExp(q, 'i') }, { phone: new RegExp(q, 'i') }];
   }
   const users = await User.find(filter)
-    .select('name lastName phone email city isActive createdAt')
+    .select('name lastName phone email city avatarUrl isActive createdAt')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -56,6 +56,7 @@ async function listCustomers({ q } = {}) {
     phone: u.phone,
     email: u.email || '',
     address: u.city || '',
+    avatarUrl: u.avatarUrl || '', // Card 76: صورة العميل تظهر في لوحة التحكم
     balance: balanceByUser.get(String(u._id)) || 0,
     isActive: u.isActive,
     createdAt: u.createdAt,
@@ -202,4 +203,71 @@ async function deleteCaptain(captainId, actorRole = 'admin') {
   return { deleted: true, id: String(captainId) };
 }
 
-module.exports = { listCustomers, listCaptainsDetailed, deleteUser, deleteCaptain };
+/**
+ * Card 78: تعديل الأدمن لبيانات حساب كابتن من لوحة التحكم —
+ * الاسم، رقم الجوال، نوع/لوحة المركبة، وكلمة السر. يُطبّق الحقول المُرسَلة فقط،
+ * ويتحقّق من تفرّد رقم الجوال. (تغيير الصورة عبر مسار الرفع المستقلّ.)
+ * @param {string} captainId
+ * @param {{name?:string, phone?:string, password?:string, vehicleType?:string, vehiclePlate?:string}} fields
+ */
+async function updateCaptain(captainId, fields = {}) {
+  if (!mongoose.Types.ObjectId.isValid(captainId)) throw httpError('معرّف غير صالح', 400);
+  const captain = await Captain.findById(captainId).select('+passwordHash');
+  if (!captain) throw httpError('الكابتن غير موجود', 404);
+
+  const name = fields.name !== undefined ? String(fields.name).trim() : undefined;
+  const phone = fields.phone !== undefined ? String(fields.phone).trim() : undefined;
+  const vehiclePlate =
+    fields.vehiclePlate !== undefined ? String(fields.vehiclePlate).trim() : undefined;
+  const vehicleType = fields.vehicleType;
+  const password = fields.password;
+
+  if (name !== undefined) {
+    if (!name) throw httpError('الاسم لا يمكن أن يكون فارغًا', 400);
+    captain.name = name;
+  }
+  if (phone !== undefined) {
+    if (!/^\d{6,15}$/.test(phone)) throw httpError('رقم الجوال غير صالح', 400);
+    captain.phone = phone;
+  }
+  if (vehicleType !== undefined) {
+    if (!['bicycle', 'motorcycle'].includes(vehicleType)) {
+      throw httpError('نوع المركبة غير صالح', 400);
+    }
+    captain.vehicleType = vehicleType;
+  }
+  if (vehiclePlate !== undefined) captain.vehiclePlate = vehiclePlate;
+
+  if (password !== undefined && password !== '') {
+    if (String(password).length < 6) throw httpError('كلمة السر ٦ أحرف على الأقلّ', 400);
+    await captain.setPassword(password);
+  }
+
+  try {
+    await captain.save();
+  } catch (err) {
+    if (err.code === 11000) throw httpError('رقم الجوال مستخدَم بالفعل', 409);
+    throw err;
+  }
+
+  await Log.create({
+    actorRole: 'admin',
+    action: 'CAPTAIN_UPDATED',
+    meta: {
+      captainId: String(captainId),
+      fields: Object.keys(fields).filter((k) => k !== 'password'),
+      passwordChanged: password !== undefined && password !== '',
+    },
+  });
+
+  return {
+    id: String(captain._id),
+    name: captain.name,
+    phone: captain.phone,
+    vehicleType: captain.vehicleType,
+    vehiclePlate: captain.vehiclePlate || '',
+    avatarUrl: captain.avatarUrl || '',
+  };
+}
+
+module.exports = { listCustomers, listCaptainsDetailed, deleteUser, deleteCaptain, updateCaptain };

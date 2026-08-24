@@ -393,6 +393,14 @@ export default function LiveDashboard() {
                 </p>
               )}
 
+              {/* Card 73: رمز التسليم يظهر للأدمن مباشرةً ليعطيه لصاحب الطلب عند الحاجة */}
+              {o.deliveryCode && (
+                <p style={styles.line}>
+                  🔑 <b>رمز التسليم:</b>{' '}
+                  <span style={styles.deliveryCode}>{o.deliveryCode}</span>
+                </p>
+              )}
+
               {/* زرّ إظهار/إخفاء كل تفاصيل الطلب (Card 29) */}
               <button
                 onClick={() => setExpanded((p) => ({ ...p, [o._id]: !p[o._id] }))}
@@ -759,6 +767,18 @@ const styles = {
     fontWeight: 600,
   }),
   line: { margin: '4px 0', fontSize: 14, color: theme.color.onSurfaceVariant },
+  // Card 73: رمز التسليم بخطّ بارز واضح ليقرأه الأدمن بسهولة
+  deliveryCode: {
+    display: 'inline-block',
+    background: '#eef2ff',
+    color: '#3730a3',
+    border: '1px solid #c7d2fe',
+    borderRadius: theme.radius.md,
+    padding: '1px 10px',
+    fontWeight: 700,
+    letterSpacing: 2,
+    fontSize: 15,
+  },
   // زرّ إظهار/إخفاء التفاصيل (Card 29)
   detailsToggle: {
     marginTop: 10,

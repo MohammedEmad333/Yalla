@@ -4,8 +4,29 @@
 // (رقم/اسم/عنوان/رصيد متوفّر/تاريخ الانضمام) مع علامة تمييز حالة الكابتن (Card 35).
 
 import { useEffect, useState } from 'react';
-import { api } from '../api/client';
+import { api, API } from '../api/client';
 import { theme } from '../theme';
+
+// Card 76: صورة الحساب (كابتن/عميل) بجانب الاسم. avatarUrl مسار نسبيّ من الخادم
+// (/uploads/avatars/..)، فنضيف عنوان الـ API. عند غياب الصورة نعرض بديلًا بأوّل حرف.
+function Avatar({ url, name }) {
+  const src = url ? (url.startsWith('http') ? url : `${API}${url}`) : '';
+  if (src) {
+    return <img src={src} alt={name || ''} style={styles.avatar} loading="lazy" />;
+  }
+  const initial = (name || '؟').trim().charAt(0) || '؟';
+  return <span style={styles.avatarFallback}>{initial}</span>;
+}
+
+// خلية الاسم مع الصورة (Card 76)
+function NameCell({ url, name }) {
+  return (
+    <div style={styles.nameCell}>
+      <Avatar url={url} name={name} />
+      <span>{name}</span>
+    </div>
+  );
+}
 
 // تنسيق تاريخ الانضمام بالعربية
 function fmtDate(d) {
@@ -95,7 +116,7 @@ function UsersTab() {
           <tbody>
             {users.map((u) => (
               <tr key={u.id}>
-                <td data-label="الاسم">{u.name}</td>
+                <td data-label="الاسم"><NameCell url={u.avatarUrl} name={u.name} /></td>
                 <td data-label="الهاتف">{u.phone}</td>
                 <td data-label="العنوان">{u.address || '—'}</td>
                 <td data-label="الرصيد المتوفّر"><b>{u.balance} ₪</b></td>
@@ -133,6 +154,7 @@ function CaptainsTab() {
   const [form, setForm] = useState({ name: '', phone: '', password: '', vehicleType: 'motorcycle' });
   const [reviews, setReviews] = useState(null); // مراجعات الكابتن المعروض حاليًا
   const [wallet, setWallet] = useState(null);   // محفظة الكابتن المعروض حاليًا
+  const [editing, setEditing] = useState(null); // Card 78: الكابتن قيد التعديل (أو null)
 
   const load = () => api.get('/admin/captains/detailed').then(setCaptains);
   useEffect(() => { load(); }, []);
@@ -215,7 +237,7 @@ function CaptainsTab() {
           <tbody>
             {captains.map((c) => (
               <tr key={c.id}>
-                <td data-label="الاسم">{c.name}</td>
+                <td data-label="الاسم"><NameCell url={c.avatarUrl} name={c.name} /></td>
                 <td data-label="الهاتف">{c.phone}</td>
                 <td data-label="المركبة">{c.vehicleType === 'bicycle' ? 'دراجة' : 'موتوسيكل'}{c.vehiclePlate ? ` · ${c.vehiclePlate}` : ''}</td>
                 <td data-label="الحالة"><StatusBadge status={c.status} /></td>
@@ -231,6 +253,10 @@ function CaptainsTab() {
                   <div className="yl-btnrow">
                     <button style={styles.btn2(c.isApproved ? '#f59e0b' : '#16a34a')} onClick={() => toggleApprove(c)}>
                       {c.isApproved ? 'إلغاء' : 'اعتماد'}
+                    </button>
+                    {/* Card 78: تعديل بيانات حساب الكابتن */}
+                    <button style={styles.btn2('#2563eb')} onClick={() => setEditing(c)}>
+                      تعديل
                     </button>
                     <button style={styles.btn2('#334155')} onClick={() => showReviews(c)}>
                       المراجعات
@@ -312,6 +338,129 @@ function CaptainsTab() {
           )}
         </div>
       )}
+
+      {/* Card 78: نافذة تعديل بيانات حساب الكابتن */}
+      {editing && (
+        <EditCaptainModal
+          captain={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Card 78: نافذة تعديل حساب كابتن (اسم/جوال/مركبة/كلمة سر + صورة) ──
+function EditCaptainModal({ captain, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name: captain.name || '',
+    phone: captain.phone || '',
+    vehicleType: captain.vehicleType || 'motorcycle',
+    vehiclePlate: captain.vehiclePlate || '',
+    password: '',
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  // حفظ الحقول النصّية — نُرسل كلمة السر فقط إن كُتبت (تغيير اختياري)
+  async function save(e) {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    const payload = {
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      vehicleType: form.vehicleType,
+      vehiclePlate: form.vehiclePlate.trim(),
+    };
+    if (form.password) payload.password = form.password;
+    try {
+      await api.patch(`/admin/captains/${captain.id}`, payload);
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  // رفع صورة الكابتن (multipart) — مسار أدمن مخصّص
+  async function uploadAvatar(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setError('');
+    try {
+      const fd = new FormData();
+      fd.append('avatar', file);
+      const res = await fetch(`${API}/api/admin/captains/${captain.id}/avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: fd,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || 'تعذّر رفع الصورة');
+      captain.avatarUrl = data.avatarUrl; // تحديث فوري للمعاينة
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={styles.modal} onClick={(ev) => ev.stopPropagation()}>
+        <div style={styles.modalHead}>
+          <b>تعديل حساب الكابتن</b>
+          <button style={styles.modalClose} onClick={onClose}>✕</button>
+        </div>
+        <form onSubmit={save} style={styles.modalBody}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Avatar url={captain.avatarUrl} name={form.name} />
+            <label style={styles.uploadLabel}>
+              تغيير الصورة
+              <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: 'none' }} />
+            </label>
+          </div>
+          <label style={styles.field}>
+            <span>الاسم</span>
+            <input style={styles.search} value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          </label>
+          <label style={styles.field}>
+            <span>رقم الجوال</span>
+            <input style={styles.search} value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
+          </label>
+          <label style={styles.field}>
+            <span>المركبة</span>
+            <select style={styles.search} value={form.vehicleType}
+              onChange={(e) => setForm({ ...form, vehicleType: e.target.value })}>
+              <option value="motorcycle">موتوسيكل</option>
+              <option value="bicycle">دراجة</option>
+            </select>
+          </label>
+          <label style={styles.field}>
+            <span>لوحة المركبة</span>
+            <input style={styles.search} value={form.vehiclePlate}
+              onChange={(e) => setForm({ ...form, vehiclePlate: e.target.value })} />
+          </label>
+          <label style={styles.field}>
+            <span>كلمة سر جديدة (اتركها فارغة لعدم التغيير)</span>
+            <input style={styles.search} type="password" value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="••••••" autoComplete="new-password" />
+          </label>
+          {error && <p style={{ color: '#dc2626', margin: 0 }}>{error}</p>}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-start' }}>
+            <button style={styles.btn} type="submit" disabled={busy}>
+              {busy ? '...' : 'حفظ'}
+            </button>
+            <button style={styles.btn2('#64748b')} type="button" onClick={onClose}>إلغاء</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
@@ -330,6 +479,13 @@ const styles = {
     color: active ? theme.color.onPrimary : theme.color.muted,
     boxShadow: active ? theme.shadow.float : 'none',
   }),
+  // Card 76: صورة الحساب وبديلها في خلية الاسم
+  nameCell: { display: 'flex', alignItems: 'center', gap: 10 },
+  avatar: { width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', border: `1px solid ${theme.color.outline}`, flexShrink: 0 },
+  avatarFallback: {
+    width: 34, height: 34, borderRadius: '50%', display: 'grid', placeItems: 'center',
+    background: theme.color.surfaceContainer, color: theme.color.muted, fontWeight: 700, flexShrink: 0,
+  },
   searchRow: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   addForm: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   search: { padding: '11px 14px', borderRadius: theme.radius.md, border: `1px solid ${theme.color.outlineStrong}` },
@@ -371,6 +527,26 @@ const styles = {
   barTrack: { flex: 1, height: 10, background: theme.color.surfaceContainer, borderRadius: theme.radius.pill, overflow: 'hidden' },
   barFill: { height: '100%', background: theme.color.primary, borderRadius: theme.radius.pill },
   reviewItem: { borderTop: `1px solid ${theme.color.outline}`, padding: '10px 0', color: theme.color.onSurfaceVariant },
+  // Card 78: نافذة تعديل الكابتن
+  overlay: {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+    display: 'grid', placeItems: 'center', zIndex: 50, padding: 16,
+  },
+  modal: {
+    background: theme.color.card, borderRadius: theme.radius.lg, width: '100%',
+    maxWidth: 460, boxShadow: theme.shadow.float, direction: 'rtl',
+  },
+  modalHead: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '14px 18px', borderBottom: `1px solid ${theme.color.outline}`,
+  },
+  modalClose: { background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: theme.color.muted },
+  modalBody: { padding: 18, display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '75vh', overflowY: 'auto' },
+  field: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: theme.color.muted },
+  uploadLabel: {
+    background: theme.color.surfaceContainer, color: theme.color.onSurfaceVariant,
+    padding: '8px 14px', borderRadius: theme.radius.pill, cursor: 'pointer', fontSize: 13,
+  },
   walletGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10, margin: '14px 0' },
   walletCell: {
     background: theme.color.surface,

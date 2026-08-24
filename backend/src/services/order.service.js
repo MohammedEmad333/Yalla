@@ -903,9 +903,12 @@ async function forceCompleteByAdmin(orderId, { actorId } = {}) {
 
 // جلب الطلبات النشطة (للوحة الأدمن)
 async function getActiveOrders() {
+  // Card 73: نضمّ رمز التسليم (select:false افتراضيًا) ليظهر للأدمن في لوحة التحكم
+  // مباشرةً بعد ظهور الطلب. هذا المسار للأدمن فقط، فلا يتسرّب الرمز للكابتن/العميل.
   return Order.find({
     status: { $in: [ORDER_STATUS.PENDING, ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED, ORDER_STATUS.PICKED_UP] },
   })
+    .select('+deliveryCode')
     .populate('user', 'name lastName phone')
     .populate('captain', 'name phone status')
     .sort({ createdAt: -1 });
@@ -919,6 +922,8 @@ async function listOrders(rawQuery = {}) {
   // نُشغّل جلب الصفحة والعدّ الكلّي بالتوازي
   const [items, total] = await Promise.all([
     Order.find(filter)
+      // Card 73: رمز التسليم يظهر للأدمن في صفحة بحث الطلبات (مسار أدمن فقط)
+      .select('+deliveryCode')
       .populate('user', 'name phone')
       .populate('captain', 'name phone status')
       // Card 47: نُحضِر أسماء الكباتن الذين رفضوا الطلب لعرض سبب الرفض في لوحة الأدمن

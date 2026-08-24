@@ -11,6 +11,7 @@ const chatService = require('../services/chat.service');
 const notificationService = require('../services/notification.service');
 const { validateBroadcast } = require('../utils/broadcast');
 const { excelUnicodeBuffer } = require('../utils/csv');
+const { avatarUrlFor } = require('../middlewares/upload.middleware');
 const { ROLES } = require('../utils/constants');
 
 // مؤشّرات الأداء للوحة التحكّم
@@ -104,6 +105,33 @@ async function deleteCaptain(req, res, next) {
   try {
     const result = await adminService.deleteCaptain(req.params.captainId);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 78: تعديل الأدمن لبيانات حساب كابتن (اسم/جوال/مركبة/كلمة سر)
+async function updateCaptain(req, res, next) {
+  try {
+    const result = await adminService.updateCaptain(req.params.captainId, req.body || {});
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 78: الأدمن يغيّر الصورة الشخصية لكابتن (الملفّ في req.file عبر multer)
+async function uploadCaptainAvatar(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'أرفق صورة' });
+    const url = avatarUrlFor(req.file.filename);
+    const captain = await Captain.findByIdAndUpdate(
+      req.params.captainId,
+      { avatarUrl: url },
+      { new: true }
+    ).select('name avatarUrl');
+    if (!captain) return res.status(404).json({ message: 'الكابتن غير موجود' });
+    res.json({ ok: true, avatarUrl: url });
   } catch (err) {
     next(err);
   }
@@ -325,6 +353,8 @@ module.exports = {
   deleteCaptain,
   listCaptains,
   setCaptainApproval,
+  updateCaptain,
+  uploadCaptainAvatar,
   captainWallet,
   settleCaptain,
   listTopups,
