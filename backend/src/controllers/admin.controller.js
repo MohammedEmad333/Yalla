@@ -137,6 +137,45 @@ async function uploadCaptainAvatar(req, res, next) {
   }
 }
 
+// ── Card 79: طلبات توثيق الكباتن + بيانات الكباتن الحسّاسة ──────────
+
+async function listCaptainApplications(req, res, next) {
+  try {
+    const items = await adminService.listCaptainApplications({ status: req.query.status });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function approveCaptainApplication(req, res, next) {
+  try {
+    const result = await adminService.approveCaptainApplication(req.params.applicationId);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function rejectCaptainApplication(req, res, next) {
+  try {
+    const result = await adminService.rejectCaptainApplication(req.params.applicationId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Card 79: صفحة "بيانات الكباتن" — البيانات الحسّاسة للأدمن فقط
+async function listCaptainsData(req, res, next) {
+  try {
+    const items = await adminService.listCaptainsData();
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // اعتماد/إلغاء اعتماد كابتن (غير المعتمَد لا يستقبل طلبات)
 async function setCaptainApproval(req, res, next) {
   try {
@@ -355,6 +394,10 @@ module.exports = {
   setCaptainApproval,
   updateCaptain,
   uploadCaptainAvatar,
+  listCaptainApplications,
+  approveCaptainApplication,
+  rejectCaptainApplication,
+  listCaptainsData,
   captainWallet,
   settleCaptain,
   listTopups,

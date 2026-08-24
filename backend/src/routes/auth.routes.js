@@ -5,7 +5,7 @@ const ctrl = require('../controllers/auth.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { validateBody } = require('../middlewares/validate.middleware');
 const { rateLimit } = require('../middlewares/rateLimit.middleware');
-const { uploadAvatar } = require('../middlewares/upload.middleware');
+const { uploadAvatar, uploadCaptainDocs } = require('../middlewares/upload.middleware');
 const { V } = require('../utils/validate');
 const { ROLES } = require('../utils/constants');
 
@@ -34,6 +34,10 @@ const captainRegisterSchema = {
 router.post('/register', authLimiter, validateBody(registerSchema), ctrl.registerUser);
 router.post('/login', authLimiter, validateBody(loginSchema), ctrl.loginUser);
 router.post('/captain/login', authLimiter, validateBody(loginSchema), ctrl.loginCaptain);
+
+// Card 79: تسجيل كابتن من التطبيق (طلب توثيق) — عامّ، متعدّد الأجزاء (مستندات).
+// التحقّق من الحقول داخل المتحكّم لأنّ multipart لا يمرّ عبر validateBody.
+router.post('/captain/apply', authLimiter, uploadCaptainDocs, ctrl.applyCaptain);
 
 // مسارات محميّة — بيانات الحساب وتحديثه ورفع الصورة الشخصية (Card 17)
 const updateProfileSchema = {

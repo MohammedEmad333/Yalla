@@ -11,6 +11,7 @@ const { before, after, beforeEach } = require('node:test');
 const { connect, disconnect, clearDb, state } = require('./setup');
 
 const Captain = require('../../src/models/Captain');
+const CaptainApplication = require('../../src/models/CaptainApplication');
 const User = require('../../src/models/User');
 const Order = require('../../src/models/Order');
 const adminService = require('../../src/services/admin.service');
@@ -102,6 +103,58 @@ test('Card 74: الأدمن يعدّل السعر التقريبي (السقف) 
 
   // سعر أقلّ من الحدّ الأدنى يُرفض
   await assert.rejects(() => orderService.updateOrderPrice(order._id, 1), /يقلّ عن/);
+});
+
+// مساعد: إنشاء طلب توثيق كابتن (Card 79)
+async function makeApplication(overrides = {}) {
+  const app = new CaptainApplication({
+    fullName: 'كابتن رباعي الاسم',
+    phone: `a${Date.now()}${Math.random()}`.slice(0, 12),
+    nationalId: '400000000',
+    birthDate: new Date('1995-01-01'),
+    idPhotoUrl: '/uploads/ids/id-1.jpg',
+    selfieUrl: '/uploads/ids/id-2.jpg',
+    vehicleType: 'motorcycle',
+    ...overrides,
+  });
+  await app.setPassword('secret1');
+  await app.save();
+  return app;
+}
+
+test('Card 79: قبول طلب التوثيق يُنشئ كابتن معتمَدًا وينقل البيانات', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const app = await makeApplication();
+
+  const res = await adminService.approveCaptainApplication(app._id);
+  assert.ok(res.id, 'أُنشئ حساب الكابتن');
+
+  const captain = await Captain.findById(res.id).select('+nationalId +passwordHash isApproved createdVia name phone');
+  assert.equal(captain.isApproved, true, 'الكابتن معتمَد');
+  assert.equal(captain.createdVia, 'app');
+  assert.equal(captain.nationalId, '400000000', 'نُقل رقم الهوية');
+  assert.ok(await captain.verifyPassword('secret1'), 'كلمة السر تعمل بعد النقل');
+
+  const gone = await CaptainApplication.findById(app._id);
+  assert.equal(gone, null, 'حُذف الطلب بعد القبول');
+});
+
+test('Card 79: رفض طلب التوثيق يحذفه ولا يُنشئ كابتن', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const app = await makeApplication();
+
+  await adminService.rejectCaptainApplication(app._id);
+
+  assert.equal(await CaptainApplication.findById(app._id), null, 'حُذف الطلب');
+  assert.equal(await Captain.findOne({ phone: app.phone }), null, 'لم يُنشأ حساب كابتن');
+});
+
+test('Card 79: قبول طلب بهاتف يملك كابتن مسبقًا يُرفض', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const existing = await makeCaptain({ phone: '0597778888' });
+  const app = await makeApplication({ phone: existing.phone });
+
+  await assert.rejects(() => adminService.approveCaptainApplication(app._id), /بالفعل/);
 });
 
 // مساعد: إنشاء طلب في حالة "مُسنَد" لمستخدم وكابتن (لاختبار الإغلاق الإداريّ)

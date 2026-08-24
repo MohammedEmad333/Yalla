@@ -18,6 +18,16 @@ const captainSchema = new mongoose.Schema(
     // الصورة الشخصية لصفحة "حسابي" (Card 17)
     avatarUrl: { type: String, default: '' },
 
+    // ── بيانات توثيق الكابتن (Card 79) — حسّاسة، لا تُرجَع افتراضيًا ──────────
+    // تظهر للأدمن فقط في صفحة "بيانات الكباتن". صورة الهوية والسيلفي تُستخدمان
+    // للتوثيق ولا تظهران في الحساب العاديّ (select:false).
+    nationalId: { type: String, default: '', select: false }, // رقم الهوية
+    birthDate: { type: Date, default: null, select: false },   // تاريخ الميلاد
+    idPhotoUrl: { type: String, default: '', select: false },  // صورة الهوية الرسمية
+    selfieUrl: { type: String, default: '', select: false },   // سيلفي مع الهوية
+    // مصدر إنشاء الحساب: 'admin' (أنشأه الأدمن) أو 'app' (سجّل من التطبيق ووُثّق)
+    createdVia: { type: String, enum: ['admin', 'app'], default: 'admin' },
+
     // محافظ الكابتن الإلكترونية المحفوظة (Card 67) — رقم المحفظة واسم صاحبها
     // لكل تصنيف (بنك فلسطين/بال باي/جوال باي/الكل) ليعرفه الأدمن عند التحويل.
     payoutWallets: {

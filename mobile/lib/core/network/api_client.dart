@@ -99,6 +99,30 @@ class ApiClient {
     return _handle(res);
   }
 
+  // رفع متعدّد الأجزاء بعدّة ملفّات (Card 79) — حقول نصّية + عدّة صور
+  // (مثلًا صورة الهوية والسيلفي). يعمل بلا توكن (تسجيل الكابتن عامّ).
+  Future<dynamic> postMultipartFiles(
+    String path, {
+    required Map<String, String> fields,
+    required Map<String, String> files, // اسم الحقل -> مسار الملفّ
+  }) async {
+    final req = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'));
+    final token = await _tokenStorage.read();
+    if (token != null) req.headers['Authorization'] = 'Bearer $token';
+    req.fields.addAll(fields);
+    for (final entry in files.entries) {
+      if (entry.value.isEmpty) continue;
+      req.files.add(await http.MultipartFile.fromPath(
+        entry.key,
+        entry.value,
+        contentType: _imageContentType(entry.value),
+      ));
+    }
+    final streamed = await req.send();
+    final res = await http.Response.fromStream(streamed);
+    return _handle(res);
+  }
+
   // نوع محتوى الصورة من امتداد الملفّ (افتراضيًّا jpeg)
   MediaType _imageContentType(String path) {
     final p = path.toLowerCase();
