@@ -12,6 +12,7 @@ const notifications = require('./notification.service');
 const chat = require('./chat.service');
 const walletService = require('./wallet.service');
 const captainWallet = require('./captainWallet.service');
+const adminService = require('./admin.service');
 const { coordsForNeighborhood } = require('../utils/neighborhoods');
 const User = require('../models/User');
 const { addRating } = require('../utils/rating');
@@ -189,15 +190,23 @@ async function createOrder(userId, payload, idempotencyKey) {
  * بكلمة مرور عشوائية (لا تُستخدم للدخول) بدور "زبون".
  * @param {string} name  اسم صاحب الطلب
  * @param {string} phone رقم جواله
+ * @param {{external?:boolean}} opts  Card 80: علِّم الحساب المُنشأ حديثًا كخارجي مؤقّت
  * @returns {Promise<import('mongoose').Document>}
  */
-async function findOrCreateCustomerByPhone(name, phone) {
+async function findOrCreateCustomerByPhone(name, phone, { external = false } = {}) {
   const cleanPhone = String(phone || '').trim();
   const cleanName = String(name || '').trim();
   const existing = await User.findOne({ phone: cleanPhone });
+  // Card 80: إن كان لصاحب الهاتف حساب مسبق (دائم أو خارجي) نعيد استخدامه دون
+  // تغيير صفته — لا نحوّل حسابًا دائمًا إلى خارجي.
   if (existing) return existing;
 
-  const user = new User({ name: cleanName || 'زبون', phone: cleanPhone, role: 'user' });
+  const user = new User({
+    name: cleanName || 'زبون',
+    phone: cleanPhone,
+    role: 'user',
+    isExternal: external, // Card 80: حساب خارجي مؤقّت يُحذف بعد انتهاء طلبه
+  });
   await user.setPassword(crypto.randomBytes(12).toString('hex')); // كلمة مرور عشوائية
   try {
     await user.save();
@@ -244,8 +253,9 @@ async function createOrderByAdmin(adminId, payload = {}) {
   if (scheduleError) throw httpError(scheduleError, 400);
   const scheduledAt = payload.scheduledAt ? new Date(payload.scheduledAt) : null;
 
-  // إيجاد/إنشاء صاحب الطلب بالهاتف ليرتبط الطلب بحساب زبون (Order.user مطلوب)
-  const customer = await findOrCreateCustomerByPhone(contactName, contactPhone);
+  // إيجاد/إنشاء صاحب الطلب بالهاتف ليرتبط الطلب بحساب زبون (Order.user مطلوب).
+  // Card 80: الحساب المُنشأ حديثًا لطلب خارجي يُعلَّم كمؤقّت ليُحذف بعد انتهاء الطلب.
+  const customer = await findOrCreateCustomerByPhone(contactName, contactPhone, { external: true });
 
   const deliveryCode = generateDeliveryCode();
 
@@ -489,6 +499,26 @@ async function releaseCaptain(captainId) {
   });
 }
 
+/**
+ * Card 80: حذف الحساب الخارجي المؤقّت بعد انتهاء طلبه.
+ * يُستدعى عند وصول الطلب لحالة نهائية (تسليم/إلغاء). لا يحذف إلا الحسابات
+ * المُعلَّمة `isExternal` (المُنشأة تلقائيًا لطلب خارجي ولم تُسجَّل من التطبيق)،
+ * وفقط إن لم يبقَ لها طلب نشط آخر (يتكفّل حارس adminService.deleteUser بذلك،
+ * فيرمي 409 عند وجود طلب نشط، ونتجاهله). أخطاء الحذف لا تُفشِل تدفّق الحالة.
+ * @param {string|import('mongoose').Types.ObjectId} userId
+ */
+async function maybeDeleteExternalCustomer(userId) {
+  try {
+    if (!userId) return;
+    const user = await User.findById(userId).select('isExternal role');
+    if (!user || !user.isExternal || user.role !== 'user') return;
+    await adminService.deleteUser(userId, 'system');
+  } catch (err) {
+    // 409 = للحساب طلب نشط آخر → نُبقيه؛ أي خطأ آخر لا يجب أن يعطّل تدفّق الطلب
+    logger.warn('تعذّر حذف الحساب الخارجي المؤقّت:', err.message);
+  }
+}
+
 // بثّ تحديث حالة الطلب لكل الأطراف المتابعين له
 function broadcastOrderUpdate(order) {
   const io_ = io.get();
@@ -609,6 +639,11 @@ async function updateOrderStatus(
 
   broadcastOrderUpdate(order);
   pushOrderStatusToUser(order); // إشعار المستخدم بتغيّر الحالة (بلا انتظار)
+
+  // Card 80: بعد انتهاء الطلب (تسليم/إلغاء) نحذف الحساب الخارجي المؤقّت إن وُجد
+  if (nextStatus === ORDER_STATUS.DELIVERED || nextStatus === ORDER_STATUS.CANCELLED) {
+    await maybeDeleteExternalCustomer(order.user);
+  }
   return order;
 }
 
@@ -856,6 +891,9 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
   }
   broadcastOrderUpdate(order);
 
+  // Card 80: إلغاء الطلب يُنهيه → احذف الحساب الخارجي المؤقّت إن وُجد
+  await maybeDeleteExternalCustomer(order.user);
+
   return order;
 }
 
@@ -898,6 +936,9 @@ async function forceCompleteByAdmin(orderId, { actorId } = {}) {
 
   broadcastOrderUpdate(order);
   pushOrderStatusToUser(order); // إشعار المستخدم بتغيّر الحالة (بلا انتظار)
+
+  // Card 80: الإغلاق الإداريّ يُنهي الطلب (تسليم) → احذف الحساب الخارجي المؤقّت إن وُجد
+  await maybeDeleteExternalCustomer(order.user);
   return order;
 }
 

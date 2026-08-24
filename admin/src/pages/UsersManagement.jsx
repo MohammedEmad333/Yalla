@@ -116,7 +116,14 @@ function UsersTab() {
           <tbody>
             {users.map((u) => (
               <tr key={u.id}>
-                <td data-label="الاسم"><NameCell url={u.avatarUrl} name={u.name} /></td>
+                <td data-label="الاسم">
+                  <div style={styles.nameCell}>
+                    <Avatar url={u.avatarUrl} name={u.name} />
+                    <span>{u.name}</span>
+                    {/* Card 80: تمييز الحساب الخارجي المؤقّت عن الدائم */}
+                    {u.isExternal && <span style={styles.externalBadge} title="حساب خارجي مؤقّت يُحذف بعد انتهاء طلبه">مؤقّت</span>}
+                  </div>
+                </td>
                 <td data-label="الهاتف">{u.phone}</td>
                 <td data-label="العنوان">{u.address || '—'}</td>
                 <td data-label="الرصيد المتوفّر"><b>{u.balance} ₪</b></td>
@@ -485,6 +492,11 @@ const styles = {
   avatarFallback: {
     width: 34, height: 34, borderRadius: '50%', display: 'grid', placeItems: 'center',
     background: theme.color.surfaceContainer, color: theme.color.muted, fontWeight: 700, flexShrink: 0,
+  },
+  // Card 80: شارة الحساب الخارجي المؤقّت
+  externalBadge: {
+    background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d',
+    borderRadius: theme.radius.pill, padding: '1px 8px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
   },
   searchRow: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   addForm: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },

@@ -12,9 +12,11 @@ const { connect, disconnect, clearDb, state } = require('./setup');
 
 const Captain = require('../../src/models/Captain');
 const User = require('../../src/models/User');
+const Order = require('../../src/models/Order');
 const adminService = require('../../src/services/admin.service');
 const orderService = require('../../src/services/order.service');
 const walletService = require('../../src/services/wallet.service');
+const { ORDER_STATUS } = require('../../src/utils/constants');
 
 const PICKUP = [31.2357, 30.0444];
 const DROPOFF = [31.2000, 30.0600];
@@ -100,6 +102,61 @@ test('Card 74: الأدمن يعدّل السعر التقريبي (السقف) 
 
   // سعر أقلّ من الحدّ الأدنى يُرفض
   await assert.rejects(() => orderService.updateOrderPrice(order._id, 1), /يقلّ عن/);
+});
+
+// مساعد: إنشاء طلب في حالة "مُسنَد" لمستخدم وكابتن (لاختبار الإغلاق الإداريّ)
+async function makeAssignedOrder(user, captain) {
+  return Order.create({
+    user: user._id,
+    captain: captain._id,
+    pickup: { address: 'الاستلام', location: { type: 'Point', coordinates: PICKUP } },
+    dropoff: { address: 'التسليم', location: { type: 'Point', coordinates: DROPOFF } },
+    price: 20,
+    status: ORDER_STATUS.ASSIGNED,
+    timeline: { assignedAt: new Date() },
+  });
+}
+
+test('Card 80: الحساب الخارجي المؤقّت يُحذف بعد إغلاق طلبه', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const ext = new User({ name: 'خارجي', phone: `x${Date.now()}`, isExternal: true });
+  await ext.setPassword('secret1');
+  await ext.save();
+  const captain = await makeCaptain();
+  const order = await makeAssignedOrder(ext, captain);
+
+  await orderService.forceCompleteByAdmin(order._id, { actorId: captain._id });
+
+  const stillThere = await User.findById(ext._id);
+  assert.equal(stillThere, null, 'الحساب الخارجي المؤقّت حُذف بعد انتهاء الطلب');
+});
+
+test('Card 80: الحساب الدائم لا يُحذف بعد إغلاق طلبه', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const perm = new User({ name: 'دائم', phone: `p${Date.now()}`, isExternal: false });
+  await perm.setPassword('secret1');
+  await perm.save();
+  const captain = await makeCaptain();
+  const order = await makeAssignedOrder(perm, captain);
+
+  await orderService.forceCompleteByAdmin(order._id, { actorId: captain._id });
+
+  const stillThere = await User.findById(perm._id);
+  assert.ok(stillThere, 'الحساب الدائم يبقى بعد انتهاء الطلب');
+});
+
+test('Card 80: طلب الأدمن الخارجي يُنشئ حسابًا مؤقّتًا (isExternal)', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  // نستخدم الدالة المساعدة الداخلية عبر إنشاء طلب أدمن بحيّ صالح
+  const phone = `9${Date.now()}`.slice(0, 10);
+  const order = await orderService.createOrderByAdmin('000000000000000000000000', {
+    contactName: 'زبون خارجي',
+    contactPhone: phone,
+    pickup: { neighborhood: 'الرمال' },
+    dropoff: { neighborhood: 'الزيتون' },
+  });
+  const created = await User.findById(order.user).select('isExternal');
+  assert.equal(created.isExternal, true, 'حساب الطلب الخارجي مؤقّت');
 });
 
 test('Card 76: تفاصيل الزبائن تتضمّن avatarUrl', async (t) => {
