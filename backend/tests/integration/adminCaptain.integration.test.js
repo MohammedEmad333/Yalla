@@ -260,7 +260,7 @@ test('Card 83: بعد التسليم يصل الكابتن إشعار بإتما
   await user.setPassword('secret1');
   await user.save();
   await walletService.creditWallet(user._id, 100000);
-  const captain = await makeCaptain({ status: CAPTAIN_STATUS.ONLINE });
+  const captain = await makeCaptain({ status: CAPTAIN_STATUS.ONLINE, isApproved: true });
 
   const order = await orderService.createOrder(user._id, {
     pickup: { address: 'الاستلام', location: { type: 'Point', coordinates: PICKUP } },

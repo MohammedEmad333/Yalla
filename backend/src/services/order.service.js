@@ -637,7 +637,8 @@ async function updateOrderStatus(
       .catch((e) => logger.warn('تعذّر بثّ رصيد محفظة الكابتن بعد التسليم:', e.message));
 
     // Card 83: إشعار الكابتن بإتمام التوصيل وإضافة أرباحه، وتشجيعه على الاستمرار.
-    notifications.createInApp(captainId, 'captain', {
+    // ننتظر إنشاءه (createInApp تبتلع أخطاءها داخليًا فلا يعيق تدفّق التسليم).
+    await notifications.createInApp(captainId, 'captain', {
       title: '✅ تم تأكيد التسليم',
       body: `تم توصيل الطلب بنجاح وأُضيف ${order.captainNet} ₪ إلى محفظتك. تابع لاستقبال طلبات جديدة!`,
       data: { type: 'DELIVERY_DONE', orderId: String(order._id), amount: order.captainNet },
@@ -1046,7 +1047,8 @@ async function sendDeliveryCodeToCaptain(orderId) {
       fromAdmin: true,
     },
   };
-  notifications.createInApp(order.captain, 'captain', payload);
+  // ننتظر إنشاء الإشعار داخل التطبيق ليكون الرمز جاهزًا لدى الكابتن قبل الردّ.
+  await notifications.createInApp(order.captain, 'captain', payload);
 
   // إشعار Push للكابتن إن كان له جهاز مسجّل
   Captain.findById(order.captain)
