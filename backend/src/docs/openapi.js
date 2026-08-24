@@ -82,6 +82,10 @@ function buildOpenApiSpec() {
         get: op({ summary: 'الجلسة الحالية', tags: ['Auth'] }),
         delete: op({ summary: 'حذف الحساب الحالي وبياناته', tags: ['Auth'] }),
       },
+      '/auth/me/password': {
+        patch: op({ summary: 'تغيير كلمة سر الحساب', tags: ['Auth'],
+          body: { currentPassword: str, newPassword: str } }),
+      },
 
       // ── Orders ──
       '/orders/quote': {

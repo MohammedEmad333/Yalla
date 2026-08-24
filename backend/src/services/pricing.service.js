@@ -21,8 +21,8 @@ const METERS_PER_SHEKEL = 250;
 // معامل تعويض انحناء الطرق مقابل الخط المستقيم (~1.3 في المدن)
 const ROAD_FACTOR = 1.3;
 
-// حدّ أدنى بسيط للأجرة (يمنع سعرًا صفريًّا داخل الحي نفسه)
-const MIN_FARE = 3;
+// الحدّ الأدنى لأجرة أي طلب = ٥ شيكل (Card 69) — يمنع أي طلب أقل من هذا السعر
+const MIN_FARE = 5;
 
 // نُبقي الثابت باسمه القديم للتوافق مع من يقرأه
 const TARIFF = { metersPerShekel: METERS_PER_SHEKEL, roadFactor: ROAD_FACTOR, minFare: MIN_FARE };

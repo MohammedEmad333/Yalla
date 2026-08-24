@@ -43,6 +43,18 @@ const updateProfileSchema = {
 };
 router.get('/me', authenticate, ctrl.me);
 router.patch('/me', authenticate, validateBody(updateProfileSchema), ctrl.updateProfile);
+// تغيير كلمة سر الحساب (Card 72) — كلمة حالية + جديدة (٦ أحرف على الأقلّ)
+const changePasswordSchema = {
+  currentPassword: [V.required],
+  newPassword: [V.required, V.minLength(6)],
+};
+router.patch(
+  '/me/password',
+  authLimiter,
+  authenticate,
+  validateBody(changePasswordSchema),
+  ctrl.changePassword
+);
 router.post('/me/avatar', authenticate, uploadAvatar.single('avatar'), ctrl.uploadAvatar);
 // حذف الحساب ذاتيًا (متطلّب Google Play) — المستخدم يحذف حسابه وبياناته المرتبطة
 router.delete('/me', authenticate, ctrl.deleteOwnAccount);

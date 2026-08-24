@@ -60,6 +60,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     _load();
   }
 
+  // Card 70: عند الضغط على الإشعار نعرض تفاصيله كاملةً (العنوان، النصّ، النوع،
+  // الوقت، وأي بيانات مرتبطة مثل رقم الطلب أو حالته أو رمز التسليم)، ونعلّمه مقروءًا.
+  Future<void> _openDetails(Map<String, dynamic> n) async {
+    _markRead(n);
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _NotificationDetails(n: n, iconFor: _iconFor),
+    );
+  }
+
   // تعليم الكلّ كمقروء
   Future<void> _markAll() async {
     await widget.api.patch('/notifications/read-all', {});
@@ -106,8 +119,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           subtitle: Text(n['body'] ?? ''),
                           trailing: unread
                               ? const Icon(Icons.circle, size: 10, color: Colors.blue)
-                              : null,
-                          onTap: () => _markRead(n),
+                              : const Icon(Icons.chevron_left, size: 18, color: Colors.grey),
+                          onTap: () => _openDetails(n),
                         ),
                       );
                     },
@@ -115,4 +128,136 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
     );
   }
+}
+
+// Card 70: بطاقة تفاصيل الإشعار — تُفتح عند الضغط على أي إشعار وتعرض معلوماته كاملةً.
+class _NotificationDetails extends StatelessWidget {
+  final Map<String, dynamic> n;
+  final IconData Function(String) iconFor;
+  const _NotificationDetails({required this.n, required this.iconFor});
+
+  // تسمية عربية لنوع الإشعار
+  String get _typeLabel => switch (n['type'] as String? ?? '') {
+        'ORDER_ASSIGNED' => 'طلب مُسنَد إليك',
+        'ORDER_STATUS' => 'تحديث حالة الطلب',
+        'ORDER_CANCELLED' => 'إلغاء طلب',
+        'DELIVERY_CODE' => 'رمز تسليم',
+        'WITHDRAWAL_DONE' => 'تحويل أموال',
+        'WITHDRAWAL_REJECTED' => 'رفض طلب سحب',
+        'ADMIN_MESSAGE' => 'رسالة من المشرف',
+        _ => 'إشعار',
+      };
+
+  // تسمية عربية لحالة الطلب المرفقة في بيانات الإشعار
+  String _statusLabel(String s) => switch (s) {
+        'pending' => 'قيد الانتظار',
+        'assigned' => 'مُسنَد لكابتن',
+        'accepted' => 'قبله الكابتن',
+        'picked_up' => 'تمّ الاستلام',
+        'delivered' => 'تمّ التسليم',
+        'cancelled' => 'مُلغى',
+        'rejected' => 'مرفوض',
+        _ => s,
+      };
+
+  // تنسيق التاريخ والوقت بصيغة عربية بسيطة (YYYY/MM/DD - HH:MM) بالتوقيت المحلّي
+  String _formatDate(String? iso) {
+    if (iso == null || iso.isEmpty) return '';
+    final d = DateTime.tryParse(iso)?.toLocal();
+    if (d == null) return '';
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${d.year}/${two(d.month)}/${two(d.day)} — ${two(d.hour)}:${two(d.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = (n['data'] is Map) ? Map<String, dynamic>.from(n['data'] as Map) : <String, dynamic>{};
+    final orderId = data['orderId']?.toString();
+    final status = data['status']?.toString();
+    final code = data['code']?.toString();
+    final when = _formatDate(n['createdAt']?.toString());
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 4,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: Colors.blue.shade50,
+                child: Icon(iconFor(n['type'] ?? ''), color: Colors.blue),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(n['title'] ?? '',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(_typeLabel,
+                    style: TextStyle(color: Colors.blue.shade700, fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+              if (when.isNotEmpty)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.schedule, size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(when, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+            ],
+          ),
+          const Divider(height: 24),
+          // النصّ الكامل للإشعار (قابل للتحديد والنسخ)
+          SelectableText(
+            (n['body'] as String?)?.isNotEmpty == true ? n['body'] : 'لا يوجد تفاصيل إضافية',
+            style: const TextStyle(fontSize: 15, height: 1.5),
+          ),
+          if (orderId != null || status != null || code != null) ...[
+            const SizedBox(height: 16),
+            if (code != null) _detailRow(Icons.key, 'رمز التسليم', code),
+            if (status != null) _detailRow(Icons.local_shipping, 'حالة الطلب', _statusLabel(status)),
+            if (orderId != null)
+              _detailRow(Icons.receipt_long, 'رقم الطلب',
+                  '#${orderId.length > 6 ? orderId.substring(orderId.length - 6) : orderId}'),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: Colors.grey),
+            const SizedBox(width: 8),
+            Text('$label: ', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+            Expanded(
+              child: Text(value,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            ),
+          ],
+        ),
+      );
 }

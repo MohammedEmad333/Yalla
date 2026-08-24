@@ -108,11 +108,12 @@ async function myWithdrawals(req, res, next) {
 // الكابتن يطلب سحب أموال (المبلغ + طريقة السحب + رقم الجوال)
 async function requestWithdrawal(req, res, next) {
   try {
-    const { amount, method, phone } = req.body;
+    const { amount, method, phone, walletCategory } = req.body;
     const withdrawal = await captainWalletService.requestWithdrawal(req.auth.id, {
       amount,
       method,
       phone,
+      walletCategory,
     });
     res.status(201).json(withdrawal);
   } catch (err) {

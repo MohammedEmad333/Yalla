@@ -19,7 +19,10 @@ const captainWithdrawalSchema = new mongoose.Schema(
       enum: Object.values(WITHDRAWAL_METHOD),
       required: true,
     },
-    phone: { type: String, required: true, trim: true }, // رقم الجوال لاستلام التحويل
+    phone: { type: String, required: true, trim: true }, // رقم المحفظة/الجوال المستلِم للتحويل
+    // Card 71: وجهة التحويل مأخوذة من محفظة الكابتن الإلكترونية المختارة
+    walletCategory: { type: String, default: '' }, // PAYOUT_WALLET_CATEGORY المختار
+    walletOwner: { type: String, default: '', trim: true }, // اسم صاحب المحفظة
     status: {
       type: String,
       enum: Object.values(WITHDRAWAL_STATUS),
