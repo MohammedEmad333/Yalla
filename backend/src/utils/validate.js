@@ -47,6 +47,16 @@ const V = {
     if (!hasAddress && !hasParts) return 'العنوان مطلوب (أدخل الحي/الشارع أو عنوانًا)';
     return V.coordinates(v.location?.coordinates);
   },
+
+  // موقع بلا إحداثيّات (Card 68): يُستخدم لطلبات الأدمن حيث تُشتقّ الإحداثيّات من
+  // الحي في الخادم لاحقًا. يكفي وجود حيّ (أو عنوان نصّي) لصلاحية المدخل.
+  neighborhoodLocation: (v) => {
+    if (typeof v !== 'object' || v === null) return 'الموقع غير صالح';
+    const hasAddress = typeof v.address === 'string' && v.address.trim() !== '';
+    const hasHood = typeof v.neighborhood === 'string' && v.neighborhood.trim() !== '';
+    if (!hasAddress && !hasHood) return 'اختر الحي';
+    return null;
+  },
 };
 
 /**

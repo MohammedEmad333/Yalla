@@ -20,8 +20,9 @@ const createOrderSchema = {
 const adminCreateOrderSchema = {
   contactName: [V.required, V.string],
   contactPhone: [V.required, V.phone],
-  pickup: [V.required, V.location],
-  dropoff: [V.required, V.location],
+  // الإحداثيّات تُشتقّ من الحي في الخادم — يكفي وجود حيّ صالح هنا
+  pickup: [V.required, V.neighborhoodLocation],
+  dropoff: [V.required, V.neighborhoodLocation],
 };
 const rateSchema = {
   stars: [V.required, V.number, V.inRange(1, 5)],
