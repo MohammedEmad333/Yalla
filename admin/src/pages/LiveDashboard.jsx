@@ -147,6 +147,8 @@ export default function LiveDashboard() {
   const [expanded, setExpanded] = useState({});    // {orderId: bool} عرض كل التفاصيل (Card 29)
   const [delayed, setDelayed] = useState({});      // {orderId: warning} الطلبات المتأخّرة (Card 40)
   const [timeouts, setTimeouts] = useState({});    // {orderId: info} طلبات لم يقبلها الكابتن خلال المهلة (Card 54)
+  const [showCreate, setShowCreate] = useState(false); // Card 68: نافذة إنشاء طلب من الأدمن
+  const [neighborhoods, setNeighborhoods] = useState([]); // أحياء غزة لمنتقي العنوان
   const token = localStorage.getItem('token');     // توكن الأدمن
 
   // عدد الكباتن المتصلين (لعرضه في الترويسة)
@@ -171,6 +173,8 @@ export default function LiveDashboard() {
 
     loadOrders();
     loadCaptains();
+    // Card 68: نجلب أحياء غزة لمنتقي العنوان في نموذج إنشاء الطلب
+    fetch(`${API}/api/neighborhoods`).then((r) => r.json()).then(setNeighborhoods).catch(() => {});
 
     socket.connect();
 
@@ -282,10 +286,25 @@ export default function LiveDashboard() {
           <h1 style={{ margin: 0 }}>اللوحة اللحظية</h1>
           <p style={styles.subtitle}>متابعة الطلبات النشطة وإسناد الكباتن في الوقت الفعلي</p>
         </div>
-        <span style={styles.badge}>
-          <span style={styles.pulse} /> المتصلون: {onlineCount} / {captains.length}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {/* Card 68: إنشاء طلب من لوحة الأدمن */}
+          <button style={styles.createBtn} onClick={() => setShowCreate(true)}>
+            ＋ إنشاء طلب
+          </button>
+          <span style={styles.badge}>
+            <span style={styles.pulse} /> المتصلون: {onlineCount} / {captains.length}
+          </span>
+        </div>
       </header>
+
+      {/* Card 68: نافذة إنشاء طلب نيابةً عن صاحب الطلب */}
+      {showCreate && (
+        <CreateOrderModal
+          token={token}
+          neighborhoods={neighborhoods}
+          onClose={() => setShowCreate(false)}
+        />
+      )}
 
       {/* Card 54: تنبيه الطلبات التي لم يقبلها الكابتن خلال المهلة وعادت للمجمّع */}
       {Object.keys(timeouts).length > 0 && (
@@ -444,8 +463,169 @@ export default function LiveDashboard() {
   );
 }
 
+// Card 68: نافذة إنشاء طلب من الأدمن — اسم صاحب الطلب وهاتفه + تفاصيل نقطتَي
+// الاستلام والتسليم (الحي/الشارع/التفاصيل/الملاحظة). يُنشأ الطلب pending فيظهر
+// في لوحة الإسناد فورًا عبر حدث order:created (لا حاجة لتحديث الحالة يدويًا).
+function CreateOrderModal({ token, neighborhoods, onClose }) {
+  const emptyPoint = { neighborhood: '', street: '', details: '', note: '' };
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [pickup, setPickup] = useState({ ...emptyPoint });
+  const [dropoff, setDropoff] = useState({ ...emptyPoint });
+  const [packageNote, setPackageNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit() {
+    setError('');
+    if (!contactName.trim()) return setError('اسم صاحب الطلب مطلوب');
+    if (!contactPhone.trim()) return setError('رقم جوال صاحب الطلب مطلوب');
+    if (!pickup.neighborhood) return setError('اختر حي الاستلام');
+    if (!dropoff.neighborhood) return setError('اختر حي التسليم');
+    setSaving(true);
+    try {
+      const res = await fetch(`${API}/api/orders/admin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ contactName, contactPhone, pickup, dropoff, packageNote }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || 'تعذّر إنشاء الطلب');
+      }
+      onClose(); // الطلب يظهر في اللوحة تلقائيًا عبر حدث order:created
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const pointFields = (label, point, setPoint) => (
+    <div style={styles.pointBlock}>
+      <b style={styles.pointTitle}>{label}</b>
+      <select
+        value={point.neighborhood}
+        onChange={(e) => setPoint((p) => ({ ...p, neighborhood: e.target.value }))}
+        style={styles.modalInput}
+      >
+        <option value="">— اختر الحي —</option>
+        {neighborhoods.map((n) => (
+          <option key={n} value={n}>{n}</option>
+        ))}
+      </select>
+      <input style={styles.modalInput} placeholder="الشارع"
+        value={point.street} onChange={(e) => setPoint((p) => ({ ...p, street: e.target.value }))} />
+      <input style={styles.modalInput} placeholder="العنوان بالتفاصيل"
+        value={point.details} onChange={(e) => setPoint((p) => ({ ...p, details: e.target.value }))} />
+      <input style={styles.modalInput} placeholder="ملاحظة (اختياري)"
+        value={point.note} onChange={(e) => setPoint((p) => ({ ...p, note: e.target.value }))} />
+    </div>
+  );
+
+  return (
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.modalHead}>
+          <h2 style={{ margin: 0 }}>إنشاء طلب جديد</h2>
+          <button style={styles.modalClose} onClick={onClose}>✕</button>
+        </div>
+
+        <label style={styles.modalLabel}>بيانات صاحب الطلب</label>
+        <input style={styles.modalInput} placeholder="اسم صاحب الطلب"
+          value={contactName} onChange={(e) => setContactName(e.target.value)} />
+        <input style={styles.modalInput} placeholder="رقم الجوال"
+          value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+
+        <div style={styles.pointsRow}>
+          {pointFields('📍 نقطة الاستلام', pickup, setPickup)}
+          {pointFields('🏁 نقطة التسليم', dropoff, setDropoff)}
+        </div>
+
+        <label style={styles.modalLabel}>وصف الشحنة (اختياري)</label>
+        <input style={styles.modalInput} placeholder="وصف مختصر لما يُوصَّل"
+          value={packageNote} onChange={(e) => setPackageNote(e.target.value)} />
+
+        {error && <div style={styles.modalError}>{error}</div>}
+
+        <div style={styles.modalActions}>
+          <button style={styles.modalCancel} onClick={onClose}>إلغاء</button>
+          <button style={styles.modalSubmit} onClick={submit} disabled={saving}>
+            {saving ? 'جارٍ الإنشاء…' : 'إنشاء الطلب'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const styles = {
   page: { fontFamily: theme.font, direction: 'rtl', padding: 32, maxWidth: 1200, margin: '0 auto' },
+  createBtn: {
+    background: theme.color.primary,
+    color: theme.color.onPrimary,
+    border: 'none',
+    padding: '9px 18px',
+    borderRadius: theme.radius.pill,
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 600,
+    boxShadow: theme.shadow.float,
+  },
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.45)',
+    display: 'grid',
+    placeItems: 'center',
+    zIndex: 50,
+    padding: 16,
+  },
+  modal: {
+    background: theme.color.card,
+    borderRadius: theme.radius.lg,
+    padding: 24,
+    width: '100%',
+    maxWidth: 640,
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    boxShadow: theme.shadow.float,
+    direction: 'rtl',
+  },
+  modalHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  modalClose: {
+    background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: theme.color.muted,
+  },
+  modalLabel: { display: 'block', fontSize: 14, fontWeight: 600, margin: '12px 0 6px', color: theme.color.onSurface },
+  modalInput: {
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: '9px 12px',
+    borderRadius: theme.radius.sm,
+    border: `1px solid ${theme.color.outlineStrong}`,
+    fontSize: 14,
+    fontFamily: theme.font,
+    marginBottom: 8,
+  },
+  pointsRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginTop: 12 },
+  pointBlock: {
+    border: `1px solid ${theme.color.outline}`, borderRadius: theme.radius.md, padding: 12,
+  },
+  pointTitle: { display: 'block', marginBottom: 8, fontSize: 14 },
+  modalError: {
+    background: '#fee2e2', color: '#991b1b', borderRadius: theme.radius.sm,
+    padding: '8px 12px', fontSize: 13, marginTop: 8,
+  },
+  modalActions: { display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 },
+  modalCancel: {
+    background: theme.color.card, color: theme.color.onSurfaceVariant,
+    border: `1px solid ${theme.color.outlineStrong}`, padding: '9px 18px',
+    borderRadius: theme.radius.pill, cursor: 'pointer', fontSize: 14,
+  },
+  modalSubmit: {
+    background: theme.color.primary, color: theme.color.onPrimary, border: 'none',
+    padding: '9px 20px', borderRadius: theme.radius.pill, cursor: 'pointer', fontSize: 14, fontWeight: 600,
+  },
   header: {
     display: 'flex',
     justifyContent: 'space-between',

@@ -18,6 +18,20 @@ const captainSchema = new mongoose.Schema(
     // الصورة الشخصية لصفحة "حسابي" (Card 17)
     avatarUrl: { type: String, default: '' },
 
+    // محافظ الكابتن الإلكترونية المحفوظة (Card 67) — رقم المحفظة واسم صاحبها
+    // لكل تصنيف (بنك فلسطين/بال باي/جوال باي/الكل) ليعرفه الأدمن عند التحويل.
+    payoutWallets: {
+      type: [
+        {
+          category: { type: String, required: true }, // PAYOUT_WALLET_CATEGORY
+          number: { type: String, required: true, trim: true }, // رقم المحفظة
+          ownerName: { type: String, default: '', trim: true }, // اسم صاحب المحفظة
+          _id: false,
+        },
+      ],
+      default: [],
+    },
+
     // حالة التوفّر — يتحكّم بها الكابتن من التطبيق
     status: {
       type: String,

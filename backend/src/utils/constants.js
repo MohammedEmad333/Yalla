@@ -71,6 +71,27 @@ const WITHDRAWAL_METHOD = Object.freeze({
 // الحدّ الأدنى لرصيد السحب (₪) — لا يُسمح بالسحب تحته
 const MIN_WITHDRAWAL = 10;
 
+// تصنيفات محفظة الكابتن الإلكترونية المحفوظة (Card 67) — يخزّن الكابتن رقم
+// المحفظة واسم صاحبها لكل تصنيف ليعرفه الأدمن عند تحويل أمواله:
+//   bank_of_palestine : بنك فلسطين
+//   palpay            : محفظة بال باي
+//   jawwal_pay        : جوال باي
+//   all               : خيار "الكل" (رقم واحد صالح لكل الطرق)
+const PAYOUT_WALLET_CATEGORY = Object.freeze({
+  BANK_OF_PALESTINE: 'bank_of_palestine',
+  PALPAY: 'palpay',
+  JAWWAL_PAY: 'jawwal_pay',
+  ALL: 'all',
+});
+
+// جمهور رسائل/إشعارات الأدمن الجماعية (Card 66)
+const BROADCAST_AUDIENCE = Object.freeze({
+  ALL: 'all',           // كل المستخدمين والكباتن
+  USERS: 'users',       // كل الزبائن
+  CAPTAINS: 'captains', // كل الكباتن
+  SPECIFIC: 'specific', // مستلِمون محدّدون (userIds/captainIds)
+});
+
 // طرق الدفع لشحن الرصيد — المفتاح يُستخدم لاختيار استراتيجية الدفع (Strategy).
 // المرحلة 1: كلّها يدوية (رفع إيصال). المرحلة 2: تُربَط ببوابات رسمية.
 const PAYMENT_METHOD = Object.freeze({
@@ -124,6 +145,8 @@ module.exports = {
   WITHDRAWAL_STATUS,
   WITHDRAWAL_METHOD,
   MIN_WITHDRAWAL,
+  PAYOUT_WALLET_CATEGORY,
+  BROADCAST_AUDIENCE,
   ROOMS,
   EVENTS,
 };

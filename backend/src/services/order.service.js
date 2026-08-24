@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const Order = require('../models/Order');
 const Captain = require('../models/Captain');
 const Log = require('../models/Log');
@@ -176,6 +177,121 @@ async function createOrder(userId, payload, idempotencyKey) {
       if (result.assigned) return result.order;
     } catch (err) {
       logger.warn('فشل الإسناد التلقائي، يبقى الطلب للإسناد اليدوي:', err.message);
+    }
+  }
+
+  return order;
+}
+
+/**
+ * إيجاد أو إنشاء زبون بالهاتف (Card 68) — يُستخدم عند إنشاء الأدمن لطلب نيابةً
+ * عن صاحب طلب قد لا يملك حسابًا. نبحث بالهاتف؛ إن لم يوجد ننشئ حسابًا خفيفًا
+ * بكلمة مرور عشوائية (لا تُستخدم للدخول) بدور "زبون".
+ * @param {string} name  اسم صاحب الطلب
+ * @param {string} phone رقم جواله
+ * @returns {Promise<import('mongoose').Document>}
+ */
+async function findOrCreateCustomerByPhone(name, phone) {
+  const cleanPhone = String(phone || '').trim();
+  const cleanName = String(name || '').trim();
+  const existing = await User.findOne({ phone: cleanPhone });
+  if (existing) return existing;
+
+  const user = new User({ name: cleanName || 'زبون', phone: cleanPhone, role: 'user' });
+  await user.setPassword(crypto.randomBytes(12).toString('hex')); // كلمة مرور عشوائية
+  try {
+    await user.save();
+  } catch (err) {
+    // سباق: أُنشئ الحساب بنفس الهاتف بالتزامن — نُعيد الموجود
+    if (err.code === 11000) return User.findOne({ phone: cleanPhone });
+    throw err;
+  }
+  return user;
+}
+
+/**
+ * (1-ب) إنشاء طلب من لوحة الأدمن نيابةً عن صاحب الطلب (Card 68).
+ * يأخذ اسم صاحب الطلب ورقم جواله وتفاصيل نقطتَي الاستلام والتسليم، ويُنشئ الطلب
+ * في حالة pending ليظهر في لوحة الإسناد كبقية الطلبات — دون اشتراط رصيد محفظة
+ * (يُسوّى نقدًا/خارجيًّا)، وبنفس منطق التسعير والإحداثيّات ورمز التسليم.
+ * @param {string} adminId معرّف الأدمن المُنشئ
+ * @param {object} payload {contactName, contactPhone, pickup, dropoff, packageNote?, vehicleType?, scheduledAt?}
+ */
+async function createOrderByAdmin(adminId, payload = {}) {
+  const contactName = String(payload.contactName || '').trim();
+  const contactPhone = String(payload.contactPhone || '').trim();
+  if (!contactName) throw httpError('اسم صاحب الطلب مطلوب', 400);
+  if (!contactPhone) throw httpError('رقم جوال صاحب الطلب مطلوب', 400);
+
+  // نقطتا الاستلام والتسليم: تطبيع + اشتقاق إحداثيّات من الحي عند غيابها
+  const pickup = ensureCoordsFromNeighborhood(normalizeLocation(payload.pickup));
+  const dropoff = ensureCoordsFromNeighborhood(normalizeLocation(payload.dropoff));
+
+  // نحفظ اسم/هاتف صاحب الطلب على نقطة الاستلام كجهة اتصال إن لم يحدّدها الأدمن
+  if (!pickup.contactName) pickup.contactName = contactName;
+  if (!pickup.contactPhone) pickup.contactPhone = contactPhone;
+
+  // التسعير والزمن التقديري في الخادم (مصدر الحقيقة)
+  const { distanceKm, price } = pricing.quote(
+    pickup.location.coordinates,
+    dropoff.location.coordinates,
+    payload.vehicleType
+  );
+  const etaMinutes = estimateEtaMinutes(distanceKm, payload.vehicleType);
+
+  // التحقّق من وقت الجدولة (اختياري)
+  const scheduleError = validateScheduledAt(payload.scheduledAt);
+  if (scheduleError) throw httpError(scheduleError, 400);
+  const scheduledAt = payload.scheduledAt ? new Date(payload.scheduledAt) : null;
+
+  // إيجاد/إنشاء صاحب الطلب بالهاتف ليرتبط الطلب بحساب زبون (Order.user مطلوب)
+  const customer = await findOrCreateCustomerByPhone(contactName, contactPhone);
+
+  const deliveryCode = generateDeliveryCode();
+
+  const order = await Order.create({
+    user: customer._id,
+    pickup,
+    dropoff,
+    packageNote: payload.packageNote,
+    etaMinutes,
+    price,
+    distanceKm,
+    deliveryCode,
+    scheduledAt,
+    status: ORDER_STATUS.PENDING,
+  });
+
+  await writeLog({
+    order: order._id,
+    actorId: adminId,
+    actorRole: 'admin',
+    action: 'ORDER_CREATED_BY_ADMIN',
+    toStatus: ORDER_STATUS.PENDING,
+    meta: { contactName, contactPhone },
+  });
+
+  // إشعار صاحب الطلب برمز التسليم (داخل التطبيق + Push إن كان له جهاز)
+  const codePayload = notifications.deliveryCodePayload(order, deliveryCode);
+  notifications.createInApp(customer._id, 'user', codePayload);
+  if (customer.deviceTokens?.length) {
+    notifications
+      .sendToTokens(customer.deviceTokens, codePayload)
+      .catch((e) => logger.warn('تعذّر إرسال رمز التسليم لصاحب الطلب:', e.message));
+  }
+
+  // بثّ للأدمن ليظهر الطلب فورًا في لوحة الإسناد (كبقية الطلبات)
+  await order.populate('user', 'name lastName phone');
+  io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
+  io.get().to(ROOMS.user(customer._id.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+
+  // إسناد تلقائي لأقرب كابتن عند التفعيل وللطلبات المستحقّة فقط
+  if (env.autoAssign && isDue(order.scheduledAt)) {
+    try {
+      const result = await autoAssignOrder(order._id, { actorId: adminId, actorRole: 'admin' });
+      if (result.assigned) return result.order;
+    } catch (err) {
+      logger.warn('فشل الإسناد التلقائي لطلب الأدمن، يبقى للإسناد اليدوي:', err.message);
     }
   }
 
@@ -1096,6 +1212,7 @@ async function rateOrder(userId, orderId, stars, comment = '') {
 
 module.exports = {
   createOrder,
+  createOrderByAdmin,
   activateDueScheduledOrders,
   assignOrder,
   autoAssignOrder,

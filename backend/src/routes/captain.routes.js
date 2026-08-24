@@ -15,6 +15,10 @@ router.get('/me/orders', authorize(ROLES.CAPTAIN), ctrl.myOrders);
 router.get('/me/earnings', authorize(ROLES.CAPTAIN), ctrl.myEarnings);
 router.get('/me/wallet', authorize(ROLES.CAPTAIN), ctrl.myWallet);
 
+// الكابتن: محافظه الإلكترونية المحفوظة للتحويل (Card 67)
+router.get('/me/payout-wallets', authorize(ROLES.CAPTAIN), ctrl.getPayoutWallets);
+router.put('/me/payout-wallets', authorize(ROLES.CAPTAIN), ctrl.updatePayoutWallets);
+
 // الكابتن: محفظة الأرباح القابلة للسحب وطلبات السحب (Card 19)
 router.get('/me/balance', authorize(ROLES.CAPTAIN), ctrl.myBalance);
 router.get('/me/withdrawals', authorize(ROLES.CAPTAIN), ctrl.myWithdrawals);

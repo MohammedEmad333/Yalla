@@ -12,6 +12,9 @@ router.use(authenticate, authorize(ROLES.ADMIN));
 // مؤشّرات الأداء (KPIs)
 router.get('/stats', ctrl.getStats);
 
+// إرسال رسائل/إشعارات جماعية (Card 66): للجميع أو كباتن/زبائن محدّدين
+router.post('/notifications', ctrl.sendBroadcast);
+
 // إدارة المستخدمين
 router.get('/users', ctrl.listUsers);
 router.get('/customers', ctrl.listCustomersDetailed); // Card 41: تفاصيل كاملة للزبائن

@@ -97,7 +97,15 @@ function buildOpenApiSpec() {
           parameters: [{ name: 'Idempotency-Key', in: 'header', required: false, schema: str }],
         },
       },
+      '/orders/admin': {
+        post: op({ summary: 'إنشاء طلب من لوحة الأدمن', tags: ['Orders'], roles: ['admin'],
+          body: { contactName: str, contactPhone: str, pickup: { type: 'object' },
+            dropoff: { type: 'object' }, packageNote: str } }),
+      },
       '/orders/mine': { get: op({ summary: 'سجلّ طلباتي', tags: ['Orders'], roles: ['user'] }) },
+      '/neighborhoods': {
+        get: op({ summary: 'قائمة أحياء غزة', tags: ['Orders'], auth: false }),
+      },
       '/orders/active': { get: op({ summary: 'الطلبات النشطة', tags: ['Orders'], roles: ['admin'] }) },
       '/orders/search': { get: op({ summary: 'بحث/فلترة الطلبات', tags: ['Orders'], roles: ['admin'] }) },
       '/orders/export': { get: op({ summary: 'تصدير CSV', tags: ['Orders'], roles: ['admin'] }) },
@@ -133,10 +141,20 @@ function buildOpenApiSpec() {
       '/captains/me/orders': { get: op({ summary: 'سجلّ توصيلاتي', tags: ['Captains'], roles: ['captain'] }) },
       '/captains/me/earnings': { get: op({ summary: 'ملخّص الأرباح', tags: ['Captains'], roles: ['captain'] }) },
       '/captains/me/wallet': { get: op({ summary: 'المحفظة (COD)', tags: ['Captains'], roles: ['captain'] }) },
+      '/captains/me/payout-wallets': {
+        get: op({ summary: 'محافظي الإلكترونية المحفوظة', tags: ['Captains'], roles: ['captain'] }),
+        put: op({ summary: 'تحديث محافظي الإلكترونية', tags: ['Captains'], roles: ['captain'],
+          body: { wallets: { type: 'array', items: { type: 'object' } } } }),
+      },
       '/captains/{id}/reviews': { get: op({ summary: 'مراجعات كابتن', tags: ['Captains'], params: ['id'] }) },
 
       // ── Admin ──
       '/admin/stats': { get: op({ summary: 'مؤشّرات الأداء', tags: ['Admin'], roles: ['admin'] }) },
+      '/admin/notifications': {
+        post: op({ summary: 'إرسال رسالة/إشعار جماعي', tags: ['Admin'], roles: ['admin'],
+          body: { audience: str, title: str, body: str,
+            userIds: { type: 'array', items: str }, captainIds: { type: 'array', items: str } } }),
+      },
       '/admin/users': { get: op({ summary: 'قائمة المستخدمين', tags: ['Admin'], roles: ['admin'] }) },
       '/admin/users/{userId}/active': {
         patch: op({ summary: 'تفعيل/تعطيل مستخدم', tags: ['Admin'], roles: ['admin'], params: ['userId'],

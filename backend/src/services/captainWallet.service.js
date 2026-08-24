@@ -108,8 +108,9 @@ async function requestWithdrawal(captainId, payload = {}) {
 async function listAllWithdrawals({ status, limit = 50 } = {}) {
   const filter = {};
   if (status) filter.status = status;
+  // Card 67: نُحضِر محافظ الكابتن المحفوظة ليعرف الأدمن وجهة التحويل الصحيحة.
   return CaptainWithdrawal.find(filter)
-    .populate('captain', 'name phone')
+    .populate('captain', 'name phone payoutWallets')
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();

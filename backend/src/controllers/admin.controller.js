@@ -8,6 +8,8 @@ const walletService = require('../services/wallet.service');
 const captainWalletService = require('../services/captainWallet.service');
 const adminService = require('../services/admin.service');
 const chatService = require('../services/chat.service');
+const notificationService = require('../services/notification.service');
+const { validateBroadcast } = require('../utils/broadcast');
 const { excelUnicodeBuffer } = require('../utils/csv');
 const { ROLES } = require('../utils/constants');
 
@@ -283,8 +285,34 @@ async function exportChat(req, res, next) {
   }
 }
 
+// ── رسائل/إشعارات الأدمن الجماعية (Card 66) ──────────────────────
+
+// الأدمن يرسل رسالة/إشعارًا للجميع أو لكباتن/زبائن محدّدين
+async function sendBroadcast(req, res, next) {
+  try {
+    const { audience, title, body, userIds, captainIds } = req.body || {};
+    const error = validateBroadcast({ audience, title, body, userIds, captainIds });
+    if (error) return res.status(400).json({ message: error });
+
+    const result = await notificationService.sendBroadcast({
+      audience,
+      title,
+      body,
+      userIds,
+      captainIds,
+    });
+    res.status(201).json({
+      message: `أُرسلت الرسالة إلى ${result.users} زبونًا و${result.captains} كابتن`,
+      ...result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getStats,
+  sendBroadcast,
   listUsers,
   setUserActive,
   listChats,

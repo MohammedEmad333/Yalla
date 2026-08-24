@@ -34,6 +34,16 @@ async function createOrder(req, res, next) {
   }
 }
 
+// الأدمن ينشئ طلبًا نيابةً عن صاحب الطلب (Card 68)
+async function createOrderByAdmin(req, res, next) {
+  try {
+    const order = await orderService.createOrderByAdmin(req.auth.id, req.body);
+    res.status(201).json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // الأدمن يُسند طلبًا لكابتن
 async function assignOrder(req, res, next) {
   try {
@@ -265,6 +275,7 @@ async function listMessages(req, res, next) {
 module.exports = {
   getQuote,
   createOrder,
+  createOrderByAdmin,
   assignOrder,
   autoAssign,
   updateStatus,
