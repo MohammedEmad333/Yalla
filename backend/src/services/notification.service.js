@@ -213,11 +213,15 @@ function recipientFilter(audience, ids) {
 async function sendBroadcast(p = {}) {
   const { audience } = p;
   const title = String(p.title || '').trim();
-  const body = String(p.body || '').trim();
+  const rawBody = String(p.body || '').trim();
   const userIds = Array.isArray(p.userIds) ? p.userIds : [];
   const captainIds = Array.isArray(p.captainIds) ? p.captainIds : [];
 
-  const data = { type: 'ADMIN_MESSAGE' };
+  // Card 66: نوسم الرسالة بأنّها من المشرف ليعرف المستلِم مصدرها
+  const SENDER_LABEL = '📢 رسالة من المشرف';
+  const body = rawBody ? `${SENDER_LABEL}\n${rawBody}` : SENDER_LABEL;
+
+  const data = { type: 'ADMIN_MESSAGE', fromAdmin: true };
   const notifDocs = [];
   const tokens = [];
   let userCount = 0;
