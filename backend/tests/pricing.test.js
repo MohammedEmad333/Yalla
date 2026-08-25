@@ -57,3 +57,32 @@ test('calculatePrice: المسافة الصفرية (داخل الحي نفسه)
 test('METERS_PER_SHEKEL = ٢٥٠', () => {
   assert.equal(pricing.METERS_PER_SHEKEL, 250);
 });
+
+// Card 89: عرض السقف ٨ شيكل خلال فترة العرض
+test('applyOffer: يخفّض السعر الأعلى من ٨ إلى ٨ خلال العرض ويحفظ الأصلي', () => {
+  const during = new Date('2026-09-01T00:00:00Z'); // ضمن فترة العرض
+  const r = pricing.applyOffer(20, during);
+  assert.equal(r.price, 8);
+  assert.equal(r.originalPrice, 20);
+  assert.equal(r.offerApplied, true);
+});
+
+test('applyOffer: لا يغيّر السعر الأقلّ من أو يساوي ٨', () => {
+  const during = new Date('2026-09-01T00:00:00Z');
+  const r = pricing.applyOffer(6, during);
+  assert.equal(r.price, 6);
+  assert.equal(r.offerApplied, false);
+});
+
+test('applyOffer: بعد انتهاء العرض لا يُطبَّق السقف', () => {
+  const after = new Date('2026-12-01T00:00:00Z'); // بعد ١/١٠
+  const r = pricing.applyOffer(20, after);
+  assert.equal(r.price, 20);
+  assert.equal(r.offerApplied, false);
+});
+
+test('quote: يرفق السعر الأصلي وحالة العرض والسقف', () => {
+  const q = pricing.quote(TAHRIR, GIZA);
+  assert.equal(q.offerCap, pricing.OFFER_PRICE_CAP);
+  assert.ok(q.originalPrice >= q.price);
+});

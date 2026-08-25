@@ -15,6 +15,7 @@ const captainWallet = require('./captainWallet.service');
 const adminService = require('./admin.service');
 const { coordsForNeighborhood } = require('../utils/neighborhoods');
 const User = require('../models/User');
+const Wallet = require('../models/Wallet');
 const { addRating } = require('../utils/rating');
 const { canUserCancel, canCaptainReject } = require('../utils/orderRules');
 const { summarizeEarnings } = require('../utils/earnings');
@@ -627,6 +628,27 @@ async function updateOrderStatus(
     chat.purgeOrderMessages(order._id); // بلا انتظار — لا يعيق تدفّق الحالة
   }
 
+  // Card 90: تسوية عمولة الشركة تلقائيًا وفورًا عند التسليم بدل تسويتها يدويًا من
+  // لوحة الأدمن. نزيد settledCommission بقيمة عمولة هذا الطلب، فيبقى "المستحقّ
+  // للشركة" صفرًا دائمًا. (نبقي مسار التسوية اليدوي للأدمن كحلٍّ احتياطي.)
+  if (nextStatus === ORDER_STATUS.DELIVERED && order.commission > 0) {
+    try {
+      await Captain.updateOne(
+        { _id: captainId },
+        { $inc: { settledCommission: order.commission } }
+      );
+      await writeLog({
+        order: order._id,
+        actorId: captainId,
+        actorRole: 'system',
+        action: 'COMMISSION_AUTO_SETTLED',
+        meta: { amount: order.commission },
+      });
+    } catch (e) {
+      logger.warn('تعذّرت التسوية التلقائية لعمولة الطلب:', e.message);
+    }
+  }
+
   // Card 27: بعد إضافة نسبة الكابتن لمحفظته، نبثّ رصيده المحدّث لحظيًا لتحديث شاشته.
   if (nextStatus === ORDER_STATUS.DELIVERED) {
     captainWallet
@@ -964,14 +986,25 @@ async function forceCompleteByAdmin(orderId, { actorId } = {}) {
 async function getActiveOrders() {
   // Card 73: نضمّ رمز التسليم (select:false افتراضيًا) ليظهر للأدمن في لوحة التحكم
   // مباشرةً بعد ظهور الطلب. هذا المسار للأدمن فقط، فلا يتسرّب الرمز للكابتن/العميل.
-  return Order.find({
+  const orders = await Order.find({
     status: { $in: [ORDER_STATUS.PENDING, ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED, ORDER_STATUS.PICKED_UP] },
   })
     .select('+deliveryCode')
     // Card 81: نضمّ isExternal ليُظهر الأدمن زرّ إضافة الرصيد للحسابات الخارجية فقط
     .populate('user', 'name lastName phone isExternal')
     .populate('captain', 'name phone status')
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // Card 88: نُرفق رصيد محفظة صاحب كل طلب ليظهر في اللوحة فور إنشاء الطلب (استعلام
+  // واحد لكل المحافظ). Card 87: يُستخدم أيضًا لعرض/تعديل رصيد الحسابات الخارجية.
+  const userIds = orders.map((o) => o.user?._id).filter(Boolean);
+  const wallets = await Wallet.find({ user: { $in: userIds } }).select('user balance').lean();
+  const balanceByUser = new Map(wallets.map((w) => [String(w.user), w.balance]));
+  for (const o of orders) {
+    if (o.user) o.user.balance = balanceByUser.get(String(o.user._id)) || 0;
+  }
+  return orders;
 }
 
 /**

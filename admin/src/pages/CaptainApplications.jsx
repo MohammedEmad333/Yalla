@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { api, API } from '../api/client';
 import { theme } from '../theme';
+import { vehicleLabel } from '../vehicles';
 
 function fmtDate(d) {
   if (!d) return '—';
@@ -97,7 +98,7 @@ function ApplicationsTab() {
           <p style={styles.line}><b>الهاتف:</b> {a.phone}</p>
           <p style={styles.line}><b>رقم الهوية:</b> {a.nationalId}</p>
           <p style={styles.line}><b>تاريخ الميلاد:</b> {fmtDate(a.birthDate)}</p>
-          <p style={styles.line}><b>المركبة:</b> {a.vehicleType === 'bicycle' ? 'دراجة' : 'موتوسيكل'}</p>
+          <p style={styles.line}><b>المركبة:</b> {vehicleLabel(a.vehicleType)}</p>
           <div style={styles.docsRow}>
             <div style={styles.docCell}><span style={styles.docLabel}>صورة الهوية</span><DocThumb url={a.idPhotoUrl} label="صورة الهوية" /></div>
             <div style={styles.docCell}><span style={styles.docLabel}>سيلفي مع الهوية</span><DocThumb url={a.selfieUrl} label="السيلفي" /></div>

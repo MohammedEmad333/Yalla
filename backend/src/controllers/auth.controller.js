@@ -161,7 +161,8 @@ async function applyCaptain(req, res, next) {
       birthDate: dob,
       idPhotoUrl: idDocUrlFor(idPhoto.filename),
       selfieUrl: idDocUrlFor(selfie.filename),
-      vehicleType: vehicleType === 'bicycle' ? 'bicycle' : 'motorcycle',
+      // Card 92: هوائية/كهربائية/نارية — أيّ قيمة أخرى تُعامَل كنارية افتراضيًا
+      vehicleType: ['bicycle', 'electric'].includes(vehicleType) ? vehicleType : 'motorcycle',
     });
     await application.setPassword(password);
     await application.save();

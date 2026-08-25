@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { api, API } from '../api/client';
 import { theme } from '../theme';
+import { VEHICLE_TYPES, vehicleLabel } from '../vehicles';
 
 // Card 76: صورة الحساب (كابتن/عميل) بجانب الاسم. avatarUrl مسار نسبيّ من الخادم
 // (/uploads/avatars/..)، فنضيف عنوان الـ API. عند غياب الصورة نعرض بديلًا بأوّل حرف.
@@ -65,10 +66,38 @@ export default function UsersManagement() {
   );
 }
 
+// Card 91: نافذة تفاصيل الحساب — تُعرض عند ضغط الأدمن على أي حساب (زبون/كابتن).
+// تعرض الصورة وكل معلومات الحساب في صفوف «تسمية: قيمة».
+function AccountDetailsModal({ title, avatarUrl, name, rows, onClose }) {
+  return (
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={styles.modal} onClick={(ev) => ev.stopPropagation()}>
+        <div style={styles.modalHead}>
+          <b>{title}</b>
+          <button style={styles.modalClose} onClick={onClose}>✕</button>
+        </div>
+        <div style={styles.modalBody}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <Avatar url={avatarUrl} name={name} />
+            <b style={{ fontSize: 16 }}>{name}</b>
+          </div>
+          {rows.filter(([, v]) => v !== undefined && v !== null && v !== '').map(([label, value]) => (
+            <div key={label} style={styles.detailRow}>
+              <span style={styles.detailLabel}>{label}</span>
+              <span style={styles.detailValue}>{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── تبويب الزبائن (Card 41) ────────────────────────────────────
 function UsersTab() {
   const [users, setUsers] = useState([]);
   const [q, setQ] = useState('');
+  const [detail, setDetail] = useState(null); // Card 91: الحساب المعروضة تفاصيله
 
   const load = () =>
     api.get(`/admin/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`).then(setUsers);
@@ -136,6 +165,10 @@ function UsersTab() {
                 </td>
                 <td data-label="إجراء" className="yl-actions">
                   <div className="yl-btnrow">
+                    {/* Card 91: عرض كل معلومات الحساب */}
+                    <button style={styles.btn2('#334155')} onClick={() => setDetail(u)}>
+                      تفاصيل
+                    </button>
                     <button style={styles.btn2(u.isActive ? '#dc2626' : '#16a34a')} onClick={() => toggle(u)}>
                       {u.isActive ? 'تعطيل' : 'تفعيل'}
                     </button>
@@ -152,6 +185,25 @@ function UsersTab() {
           </tbody>
         </table>
       </div>
+
+      {/* Card 91: تفاصيل حساب الزبون */}
+      {detail && (
+        <AccountDetailsModal
+          title="تفاصيل حساب الزبون"
+          avatarUrl={detail.avatarUrl}
+          name={detail.name}
+          onClose={() => setDetail(null)}
+          rows={[
+            ['رقم الجوال', detail.phone],
+            ['البريد الإلكتروني', detail.email],
+            ['العنوان', detail.address],
+            ['الرصيد المتوفّر', `${detail.balance} ₪`],
+            ['نوع الحساب', detail.isExternal ? 'خارجي مؤقّت' : 'دائم'],
+            ['الحالة', detail.isActive ? 'مفعّل' : 'معطّل'],
+            ['تاريخ الانضمام', fmtDate(detail.createdAt)],
+          ]}
+        />
+      )}
     </div>
   );
 }
@@ -163,6 +215,7 @@ function CaptainsTab() {
   const [reviews, setReviews] = useState(null); // مراجعات الكابتن المعروض حاليًا
   const [wallet, setWallet] = useState(null);   // محفظة الكابتن المعروض حاليًا
   const [editing, setEditing] = useState(null); // Card 78: الكابتن قيد التعديل (أو null)
+  const [detail, setDetail] = useState(null);   // Card 91: الكابتن المعروضة تفاصيله
 
   const load = () => api.get('/admin/captains/detailed').then(setCaptains);
   useEffect(() => { load(); }, []);
@@ -228,8 +281,9 @@ function CaptainsTab() {
           onChange={(e) => setForm({ ...form, password: e.target.value })} required />
         <select style={styles.search} value={form.vehicleType}
           onChange={(e) => setForm({ ...form, vehicleType: e.target.value })}>
-          <option value="motorcycle">موتوسيكل</option>
-          <option value="bicycle">دراجة</option>
+          {VEHICLE_TYPES.map((v) => (
+            <option key={v.value} value={v.value}>{v.label}</option>
+          ))}
         </select>
         <button style={styles.btn} type="submit">+ إضافة كابتن</button>
       </form>
@@ -248,7 +302,7 @@ function CaptainsTab() {
               <tr key={c.id}>
                 <td data-label="الاسم"><NameCell url={c.avatarUrl} name={c.name} /></td>
                 <td data-label="الهاتف">{c.phone}</td>
-                <td data-label="المركبة">{c.vehicleType === 'bicycle' ? 'دراجة' : 'موتوسيكل'}{c.vehiclePlate ? ` · ${c.vehiclePlate}` : ''}</td>
+                <td data-label="المركبة">{vehicleLabel(c.vehicleType)}{c.vehiclePlate ? ` · ${c.vehiclePlate}` : ''}</td>
                 <td data-label="الحالة"><StatusBadge status={c.status} /></td>
                 <td data-label="التقييم">⭐ {c.rating} ({c.ratingsCount})</td>
                 <td data-label="الرصيد المتوفّر"><b>{c.balance} ₪</b></td>
@@ -260,6 +314,10 @@ function CaptainsTab() {
                 </td>
                 <td data-label="إجراء" className="yl-actions">
                   <div className="yl-btnrow">
+                    {/* Card 91: عرض كل معلومات حساب الكابتن */}
+                    <button style={styles.btn2('#334155')} onClick={() => setDetail(c)}>
+                      تفاصيل
+                    </button>
                     <button style={styles.btn2(c.isApproved ? '#f59e0b' : '#16a34a')} onClick={() => toggleApprove(c)}>
                       {c.isApproved ? 'إلغاء' : 'اعتماد'}
                     </button>
@@ -356,6 +414,26 @@ function CaptainsTab() {
           onSaved={() => { setEditing(null); load(); }}
         />
       )}
+
+      {/* Card 91: تفاصيل حساب الكابتن */}
+      {detail && (
+        <AccountDetailsModal
+          title="تفاصيل حساب الكابتن"
+          avatarUrl={detail.avatarUrl}
+          name={detail.name}
+          onClose={() => setDetail(null)}
+          rows={[
+            ['رقم الجوال', detail.phone],
+            ['نوع المركبة', vehicleLabel(detail.vehicleType)],
+            ['لوحة المركبة', detail.vehiclePlate],
+            ['الحالة', detail.status === 'online' ? 'متصل' : detail.status === 'busy' ? 'مشغول' : 'غير متصل'],
+            ['الاعتماد', detail.isApproved ? 'معتمَد' : 'قيد المراجعة'],
+            ['التقييم', `⭐ ${detail.rating} (${detail.ratingsCount})`],
+            ['الرصيد المتوفّر للسحب', `${detail.balance} ₪`],
+            ['تاريخ الانضمام', fmtDate(detail.createdAt)],
+          ]}
+        />
+      )}
     </div>
   );
 }
@@ -446,8 +524,9 @@ function EditCaptainModal({ captain, onClose, onSaved }) {
             <span>المركبة</span>
             <select style={styles.search} value={form.vehicleType}
               onChange={(e) => setForm({ ...form, vehicleType: e.target.value })}>
-              <option value="motorcycle">موتوسيكل</option>
-              <option value="bicycle">دراجة</option>
+              {VEHICLE_TYPES.map((v) => (
+                <option key={v.value} value={v.value}>{v.label}</option>
+              ))}
             </select>
           </label>
           <label style={styles.field}>
@@ -557,6 +636,13 @@ const styles = {
   modalClose: { background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: theme.color.muted },
   modalBody: { padding: 18, display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '75vh', overflowY: 'auto' },
   field: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: theme.color.muted },
+  // Card 91: صفوف تفاصيل الحساب
+  detailRow: {
+    display: 'flex', justifyContent: 'space-between', gap: 12,
+    padding: '8px 0', borderBottom: `1px solid ${theme.color.outline}`, fontSize: 14,
+  },
+  detailLabel: { color: theme.color.muted },
+  detailValue: { color: theme.color.onSurface, fontWeight: 600, textAlign: 'left' },
   uploadLabel: {
     background: theme.color.surfaceContainer, color: theme.color.onSurfaceVariant,
     padding: '8px 14px', borderRadius: theme.radius.pill, cursor: 'pointer', fontSize: 13,

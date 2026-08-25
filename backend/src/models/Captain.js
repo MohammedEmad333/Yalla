@@ -12,7 +12,8 @@ const captainSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true, select: false },
 
     // نوع المركبة ورقم اللوحة
-    vehicleType: { type: String, enum: ['bicycle', 'motorcycle'], default: 'motorcycle' },
+    // Card 92: ثلاثة أنواع — هوائية (bicycle) / كهربائية (electric) / نارية (motorcycle)
+    vehicleType: { type: String, enum: ['bicycle', 'electric', 'motorcycle'], default: 'motorcycle' },
     vehiclePlate: { type: String, trim: true },
 
     // الصورة الشخصية لصفحة "حسابي" (Card 17)

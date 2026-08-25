@@ -235,7 +235,7 @@ async function updateCaptain(captainId, fields = {}) {
     captain.phone = phone;
   }
   if (vehicleType !== undefined) {
-    if (!['bicycle', 'motorcycle'].includes(vehicleType)) {
+    if (!['bicycle', 'electric', 'motorcycle'].includes(vehicleType)) {
       throw httpError('نوع المركبة غير صالح', 400);
     }
     captain.vehicleType = vehicleType;
