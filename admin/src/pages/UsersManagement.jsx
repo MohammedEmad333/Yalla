@@ -98,6 +98,7 @@ function UsersTab() {
   const [users, setUsers] = useState([]);
   const [q, setQ] = useState('');
   const [detail, setDetail] = useState(null); // Card 91: الحساب المعروضة تفاصيله
+  const [crediting, setCrediting] = useState(null); // الزبون المطلوب إضافة رصيد له (أو null)
 
   const load = () =>
     api.get(`/admin/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`).then(setUsers);
@@ -169,6 +170,10 @@ function UsersTab() {
                     <button style={styles.btn2('#334155')} onClick={() => setDetail(u)}>
                       تفاصيل
                     </button>
+                    {/* إضافة رصيد لمحفظة الزبون */}
+                    <button style={styles.btn2('#059669')} onClick={() => setCrediting(u)}>
+                      إضافة رصيد
+                    </button>
                     <button style={styles.btn2(u.isActive ? '#dc2626' : '#16a34a')} onClick={() => toggle(u)}>
                       {u.isActive ? 'تعطيل' : 'تفعيل'}
                     </button>
@@ -204,6 +209,84 @@ function UsersTab() {
           ]}
         />
       )}
+
+      {/* نافذة إضافة رصيد لمحفظة الزبون */}
+      {crediting && (
+        <CreditUserModal
+          user={crediting}
+          onClose={() => setCrediting(null)}
+          onCredited={(balance) => {
+            setUsers((prev) => prev.map((x) => (x.id === crediting.id ? { ...x, balance } : x)));
+            setCrediting(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── نافذة إضافة رصيد لمحفظة زبون ────────────────────────────────
+function CreditUserModal({ user, onClose, onCredited }) {
+  const [amount, setAmount] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(e) {
+    e.preventDefault();
+    const value = Number(amount);
+    if (!(value > 0)) {
+      setError('أدخل مبلغًا صحيحًا أكبر من صفر');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const { balance } = await api.post(`/admin/users/${user.id}/wallet/add`, { amount: value });
+      onCredited(balance);
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={styles.modal} onClick={(ev) => ev.stopPropagation()}>
+        <div style={styles.modalHead}>
+          <b>إضافة رصيد</b>
+          <button style={styles.modalClose} onClick={onClose}>✕</button>
+        </div>
+        <form onSubmit={submit} style={styles.modalBody}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Avatar url={user.avatarUrl} name={user.name} />
+            <div>
+              <b style={{ fontSize: 16 }}>{user.name}</b>
+              <div style={{ color: theme.color.muted, fontSize: 13 }}>الرصيد الحالي: {user.balance} ₪</div>
+            </div>
+          </div>
+          <label style={styles.field}>
+            <span>المبلغ المضاف (₪)</span>
+            <input
+              style={styles.search}
+              type="number"
+              min="0"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="مثال: 50"
+              autoFocus
+              required
+            />
+          </label>
+          {error && <p style={{ color: '#dc2626', margin: 0 }}>{error}</p>}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-start' }}>
+            <button style={styles.btn} type="submit" disabled={busy}>
+              {busy ? '...' : 'إضافة'}
+            </button>
+            <button style={styles.btn2('#64748b')} type="button" onClick={onClose}>إلغاء</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
