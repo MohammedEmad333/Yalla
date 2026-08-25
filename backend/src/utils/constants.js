@@ -47,6 +47,7 @@ const WALLET_TX_TYPE = Object.freeze({
   ORDER_PAYMENT: 'order_payment', // خصم قيمة طلب
   REFUND: 'refund',               // استرداد
   ADJUSTMENT: 'adjustment',       // تعديل يدوي من الأدمن
+  WITHDRAWAL: 'withdrawal',       // Card 98: سحب رصيد لمحفظة/بنك خارجي
 });
 
 // ── سحب أرباح الكابتن (Card 19) ──────────────────────────────────

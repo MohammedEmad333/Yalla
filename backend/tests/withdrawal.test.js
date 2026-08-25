@@ -9,6 +9,7 @@ const {
   computeCaptainBalance,
   validateWithdrawal,
   canRequestWithdrawal,
+  validateCustomerWithdrawal,
 } = require('../src/utils/withdrawal');
 const { WITHDRAWAL_STATUS, WITHDRAWAL_METHOD } = require('../src/utils/constants');
 
@@ -68,4 +69,35 @@ test('canRequestWithdrawal: صحيح فقط عند بلوغ الحدّ الأد�
   assert.equal(canRequestWithdrawal(10), true);
   assert.equal(canRequestWithdrawal(9.99), false);
   assert.equal(canRequestWithdrawal(0), false);
+});
+
+// Card 98: التحقّق من سحب رصيد الزبون (وجهة نصّية + رقم حساب)
+test('validateCustomerWithdrawal: يقبل طلبًا صالحًا', () => {
+  const err = validateCustomerWithdrawal(
+    { amount: 20, destination: 'جوال باي', accountNumber: '0599123456' },
+    50
+  );
+  assert.equal(err, null);
+});
+
+test('validateCustomerWithdrawal: يرفض تحت الحدّ الأدنى ويتجاوز الرصيد', () => {
+  assert.match(
+    validateCustomerWithdrawal({ amount: 5, destination: 'بنك فلسطين', accountNumber: '12345678' }, 50),
+    /الحدّ الأدنى/
+  );
+  assert.match(
+    validateCustomerWithdrawal({ amount: 80, destination: 'بنك فلسطين', accountNumber: '12345678' }, 50),
+    /يتجاوز رصيدك/
+  );
+});
+
+test('validateCustomerWithdrawal: يتطلّب وجهة ورقم حساب', () => {
+  assert.match(
+    validateCustomerWithdrawal({ amount: 20, destination: '', accountNumber: '0599123456' }, 50),
+    /المحفظة الإلكترونية أو البنك/
+  );
+  assert.match(
+    validateCustomerWithdrawal({ amount: 20, destination: 'جوال باي', accountNumber: '12' }, 50),
+    /رقم الحساب/
+  );
 });

@@ -8,6 +8,7 @@ import '../../../core/realtime/socket_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/wallet_repository.dart';
 import 'topup_screen.dart';
+import 'withdraw_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   final ApiClient api;
@@ -69,6 +70,14 @@ class _WalletScreenState extends State<WalletScreen> {
     if (done == true) _load();
   }
 
+  // Card 98: فتح شاشة سحب الرصيد ثم إعادة التحميل عند نجاح إرسال الطلب
+  Future<void> _openWithdraw() async {
+    final done = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => WithdrawScreen(api: widget.api)),
+    );
+    if (done == true) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -116,17 +125,33 @@ class _WalletScreenState extends State<WalletScreen> {
               style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w800)),
           Text(_currency, style: const TextStyle(color: Colors.white60, fontSize: 12)),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: YallaColors.primaryDeep,
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: YallaColors.primaryDeep,
+                  ),
+                  onPressed: _openTopup,
+                  icon: const Icon(Icons.add),
+                  label: const Text('شحن الرصيد'),
+                ),
               ),
-              onPressed: _openTopup,
-              icon: const Icon(Icons.add),
-              label: const Text('شحن الرصيد'),
-            ),
+              const SizedBox(width: 10),
+              // Card 98: زرّ سحب الرصيد
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white70),
+                  ),
+                  onPressed: _openWithdraw,
+                  icon: const Icon(Icons.account_balance_outlined),
+                  label: const Text('سحب الرصيد'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -186,6 +211,7 @@ class _WalletScreenState extends State<WalletScreen> {
         'order_payment' => 'دفع قيمة طلب',
         'refund' => 'استرداد رصيد',
         'adjustment' => 'تعديل رصيد',
+        'withdrawal' => 'سحب رصيد',
         // شحن رصيد: نعرض طريقة الدفع إن توفّرت
         _ => _methodLabel(method),
       };

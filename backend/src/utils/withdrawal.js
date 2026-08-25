@@ -50,4 +50,29 @@ function canRequestWithdrawal(available) {
   return (Number(available) || 0) >= MIN_WITHDRAWAL;
 }
 
-module.exports = { computeCaptainBalance, validateWithdrawal, canRequestWithdrawal };
+/**
+ * Card 98: التحقّق من صلاحية طلب سحب رصيد لزبون. الوجهة تُذكَر نصًّا (اسم محفظة
+ * إلكترونية أو بنك) مع رقم الحساب. يُعيد رسالة خطأ (نص) عند الفشل، أو null عند الصلاحية.
+ * @param {{amount:number, destination:string, accountNumber:string}} req
+ * @param {number} available  الرصيد المتاح للسحب
+ */
+function validateCustomerWithdrawal({ amount, destination, accountNumber } = {}, available = 0) {
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value <= 0) return 'مبلغ السحب غير صالح';
+  if (value < MIN_WITHDRAWAL) return `الحدّ الأدنى للسحب ${MIN_WITHDRAWAL} ₪`;
+  if (value > available) return `المبلغ يتجاوز رصيدك المتاح (${available} ₪)`;
+  if (!destination || String(destination).trim().length < 2) {
+    return 'اذكر المحفظة الإلكترونية أو البنك المطلوب التحويل إليه';
+  }
+  if (!accountNumber || String(accountNumber).trim().length < 4) {
+    return 'أدخل رقم الحساب/المحفظة المستلِم للتحويل';
+  }
+  return null;
+}
+
+module.exports = {
+  computeCaptainBalance,
+  validateWithdrawal,
+  canRequestWithdrawal,
+  validateCustomerWithdrawal,
+};

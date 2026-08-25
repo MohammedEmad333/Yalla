@@ -38,7 +38,25 @@ function fmtDate(d) {
   }
 }
 
+// Card 98: صفحة موحّدة بتبويبين — سحب أموال الكباتن وسحب رصيد الزبائن
 export default function Withdrawals() {
+  const [tab, setTab] = useState('captains'); // captains | customers
+  return (
+    <div className="yl-page" style={styles.page}>
+      <div style={styles.tabs}>
+        <button style={styles.tab(tab === 'captains')} onClick={() => setTab('captains')}>
+          سحب أموال الكباتن
+        </button>
+        <button style={styles.tab(tab === 'customers')} onClick={() => setTab('customers')}>
+          سحب رصيد الزبائن
+        </button>
+      </div>
+      {tab === 'captains' ? <CaptainWithdrawals /> : <CustomerWithdrawals />}
+    </div>
+  );
+}
+
+function CaptainWithdrawals() {
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState('pending'); // pending | done | rejected | all
   const [notes, setNotes] = useState({});          // {withdrawalId: نص إشعار التحويل}
@@ -76,7 +94,7 @@ export default function Withdrawals() {
   }
 
   return (
-    <div className="yl-page" style={styles.page}>
+    <div>
       <h1 style={{ margin: '0 0 4px' }}>سحب أموال الكباتن</h1>
       <p style={styles.subtitle}>
         مراجعة طلبات السحب وتفاصيل الأموال · نسبة الشركة {COMPANY_SHARE_PCT}% · إرسال إشعار التحويل
@@ -170,8 +188,116 @@ export default function Withdrawals() {
   );
 }
 
+// Card 98: طلبات سحب رصيد الزبائن — وجهة التحويل (محفظة/بنك) ورقم الحساب،
+// وتنفيذ "تم التحويل" (يخصم من رصيد الزبون ويُشعره) أو "رفض".
+function CustomerWithdrawals() {
+  const [items, setItems] = useState([]);
+  const [status, setStatus] = useState('pending');
+  const [notes, setNotes] = useState({});
+
+  const load = () => {
+    const qs = status && status !== 'all' ? `?status=${status}` : '';
+    api.get(`/admin/customer-withdrawals${qs}`).then(setItems);
+  };
+  useEffect(() => { load(); }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function process(w, action) {
+    const note = notes[w._id] || '';
+    if (action === 'rejected' && !note) {
+      if (!window.confirm('رفض بدون ذكر سبب؟')) return;
+    }
+    try {
+      await api.patch(`/admin/customer-withdrawals/${w._id}`, { action, note });
+      setNotes((p) => { const n = { ...p }; delete n[w._id]; return n; });
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  return (
+    <div>
+      <h1 style={{ margin: '0 0 4px' }}>سحب رصيد الزبائن</h1>
+      <p style={styles.subtitle}>
+        مراجعة طلبات سحب رصيد الزبائن إلى محافظهم الإلكترونية أو بنوكهم · "تم التحويل" يخصم من رصيد الزبون ويُشعره
+      </p>
+
+      <div style={styles.filters}>
+        {['pending', 'done', 'rejected', 'all'].map((s) => (
+          <button key={s} style={styles.filter(status === s)} onClick={() => setStatus(s)}>
+            {s === 'all' ? 'الكل' : STATUS_AR[s]}
+          </button>
+        ))}
+        <button style={styles.reload} onClick={load}>تحديث</button>
+      </div>
+
+      <div className="yl-table-wrap">
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th>الزبون</th><th>المبلغ</th><th>الوجهة</th><th>رقم الحساب</th>
+              <th>التاريخ</th><th>الحالة</th><th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((w) => (
+              <tr key={w._id}>
+                <td>
+                  <b>{[w.user?.name, w.user?.lastName].filter(Boolean).join(' ') || '—'}</b>
+                  <div style={styles.sub}>{w.user?.phone || ''}</div>
+                </td>
+                <td><b>{w.amount} ₪</b></td>
+                <td>
+                  {w.destination}
+                  {w.accountOwner ? <div style={styles.sub}>صاحب الحساب: {w.accountOwner}</div> : null}
+                  {w.note ? <div style={styles.sub}>ملاحظة: {w.note}</div> : null}
+                </td>
+                <td>{w.accountNumber}</td>
+                <td style={{ fontSize: 12 }}>{fmtDate(w.createdAt)}</td>
+                <td><span style={styles.pill(STATUS_COLOR[w.status])}>{STATUS_AR[w.status] || w.status}</span></td>
+                <td>
+                  {w.status === 'pending' ? (
+                    <div style={styles.actionCell}>
+                      <input
+                        style={styles.noteInput}
+                        placeholder="ملاحظة/سبب (اختياري)"
+                        value={notes[w._id] || ''}
+                        onChange={(e) => setNotes((p) => ({ ...p, [w._id]: e.target.value }))}
+                      />
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button style={styles.btn2('#16a34a')} onClick={() => process(w, 'done')}>تم التحويل</button>
+                        <button style={styles.btn2('#dc2626')} onClick={() => process(w, 'rejected')}>رفض</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <span style={styles.sub}>{w.adminNote || '—'}</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {items.length === 0 && (
+              <tr><td colSpan={7} style={{ textAlign: 'center', color: theme.color.muted }}>لا توجد طلبات</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 const styles = {
   page: { direction: 'rtl', fontFamily: theme.font, padding: 32, maxWidth: 1200, margin: '0 auto' },
+  tabs: { display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' },
+  tab: (active) => ({
+    padding: '10px 22px',
+    borderRadius: theme.radius.pill,
+    cursor: 'pointer',
+    border: 'none',
+    fontSize: 15,
+    fontWeight: 700,
+    background: active ? theme.color.primary : theme.color.surfaceContainer,
+    color: active ? theme.color.onPrimary : theme.color.muted,
+  }),
   subtitle: { color: theme.color.muted, margin: '0 0 16px', fontSize: 14 },
   filters: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   filter: (active) => ({
