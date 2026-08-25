@@ -46,6 +46,10 @@ router.post('/captains/:captainId/settle', ctrl.settleCaptain);
 router.get('/withdrawals', ctrl.listWithdrawals);
 router.patch('/withdrawals/:withdrawalId', ctrl.processWithdrawal);
 
+// Card 98: طلبات سحب رصيد الزبائن: عرض + تنفيذ "تم التحويل"/رفض
+router.get('/customer-withdrawals', ctrl.listCustomerWithdrawals);
+router.patch('/customer-withdrawals/:withdrawalId', ctrl.processCustomerWithdrawal);
+
 // مراقبة المحادثات بين الزبائن والكباتن (Card 32 + Card 45)
 router.get('/chats', ctrl.listChats);
 router.get('/chats/:orderId/messages', ctrl.getChatMessages);

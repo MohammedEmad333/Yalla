@@ -49,4 +49,35 @@ class WalletRepository {
     );
     return Map<String, dynamic>.from(data as Map);
   }
+
+  // Card 98: الرصيد المتاح للسحب + هل يوجد طلب جارٍ يمنع السحب (Card 99)
+  // { balance, pending, available, currency, hasActiveOrder }
+  Future<Map<String, dynamic>> getWithdrawAvailability() async {
+    final data = await _api.get('/wallet/withdrawals/available');
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  // Card 98: سجلّ طلبات سحب الرصيد
+  Future<List<dynamic>> getWithdrawals() async {
+    final data = await _api.get('/wallet/withdrawals');
+    return data as List;
+  }
+
+  // Card 98: طلب سحب رصيد إلى محفظة إلكترونية أو بنك يذكره الزبون
+  Future<Map<String, dynamic>> requestWithdrawal({
+    required int amount,
+    required String destination,
+    required String accountNumber,
+    String? accountOwner,
+    String? note,
+  }) async {
+    final data = await _api.post('/wallet/withdrawals', {
+      'amount': amount,
+      'destination': destination,
+      'accountNumber': accountNumber,
+      if (accountOwner != null && accountOwner.isNotEmpty) 'accountOwner': accountOwner,
+      if (note != null && note.isNotEmpty) 'note': note,
+    });
+    return Map<String, dynamic>.from(data as Map);
+  }
 }

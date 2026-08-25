@@ -201,6 +201,7 @@ function UsersTab() {
           rows={[
             ['رقم الجوال', detail.phone],
             ['البريد الإلكتروني', detail.email],
+            ['المحافظة', detail.governorate || '—'],
             ['العنوان', detail.address],
             ['الرصيد المتوفّر', `${detail.balance} ₪`],
             ['نوع الحساب', detail.isExternal ? 'خارجي مؤقّت' : 'دائم'],

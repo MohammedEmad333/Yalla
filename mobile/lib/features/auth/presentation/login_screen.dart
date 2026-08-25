@@ -22,6 +22,22 @@ class _LoginScreenState extends State<LoginScreen> {
   final _lastName = TextEditingController();
   final _phone = TextEditingController();
   final _password = TextEditingController();
+  final _address = TextEditingController(); // Card 96: تفاصيل العنوان
+
+  // Card 96: محافظات قطاع غزة لمنتقي "مكان السكن" (مطابقة لقائمة الخادم)
+  static const _governorates = <String>[
+    'غزة',
+    'بيت حانون',
+    'بيت لاهيا',
+    'خانيونس',
+    'رفح',
+    'النصيرات',
+    'المغازي',
+    'البريج',
+    'دير البلح',
+    'الزوايدة',
+  ];
+  String? _governorate; // المحافظة المختارة
 
   bool _isRegister = false; // false = دخول، true = إنشاء حساب
   bool _loading = false;
@@ -40,6 +56,8 @@ class _LoginScreenState extends State<LoginScreen> {
           lastName: _lastName.text,
           phone: _phone.text,
           password: _password.text,
+          governorate: _governorate,
+          address: _address.text,
         );
       } else {
         await widget.authRepository.login(
@@ -104,6 +122,31 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: Icon(Icons.badge_outlined),
                     ),
                     validator: (v) => (v == null || v.isEmpty) ? 'أدخل اسم العائلة' : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Card 96: مكان السكن — المحافظة (قائمة) + تفاصيل العنوان
+                  DropdownButtonFormField<String>(
+                    value: _governorate,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'المحافظة (مكان السكن)',
+                      prefixIcon: Icon(Icons.location_city_outlined),
+                    ),
+                    items: _governorates
+                        .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _governorate = v),
+                    validator: (v) => (v == null || v.isEmpty) ? 'اختر المحافظة' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _address,
+                    decoration: const InputDecoration(
+                      labelText: 'تفاصيل العنوان',
+                      prefixIcon: Icon(Icons.home_outlined),
+                    ),
+                    validator: (v) => (v == null || v.isEmpty) ? 'أدخل تفاصيل العنوان' : null,
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -183,6 +226,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _lastName.dispose();
     _phone.dispose();
     _password.dispose();
+    _address.dispose();
     super.dispose();
   }
 }

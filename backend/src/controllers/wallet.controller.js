@@ -2,6 +2,7 @@
 
 const walletService = require('../services/wallet.service');
 const paymentService = require('../services/payment');
+const customerWithdrawalService = require('../services/customerWithdrawal.service');
 const { publicUrlFor } = require('../middlewares/upload.middleware');
 
 /**
@@ -71,4 +72,56 @@ async function requestTopup(req, res, next) {
   }
 }
 
-module.exports = { getWallet, getMethods, getTransactions, requestTopup };
+// ── سحب رصيد الزبون (Card 98 + Card 99) ─────────────────────────
+
+// GET /wallet/withdrawals/available — الرصيد المتاح للسحب + هل يوجد طلب جارٍ
+async function getWithdrawAvailability(req, res, next) {
+  try {
+    const [available, activeOrder] = await Promise.all([
+      customerWithdrawalService.getAvailable(req.auth.id),
+      customerWithdrawalService.hasActiveOrder(req.auth.id),
+    ]);
+    res.json({ ...available, hasActiveOrder: activeOrder });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /wallet/withdrawals — سجلّ طلبات سحب الزبون
+async function listMyWithdrawals(req, res, next) {
+  try {
+    const items = await customerWithdrawalService.listMine(req.auth.id, {
+      limit: parseInt(req.query.limit, 10) || 30,
+    });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /wallet/withdrawals — طلب سحب رصيد إلى محفظة إلكترونية أو بنك
+async function requestWithdrawal(req, res, next) {
+  try {
+    const { amount, destination, accountNumber, accountOwner, note } = req.body;
+    const withdrawal = await customerWithdrawalService.requestWithdrawal(req.auth.id, {
+      amount,
+      destination,
+      accountNumber,
+      accountOwner,
+      note,
+    });
+    res.status(201).json(withdrawal);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  getWallet,
+  getMethods,
+  getTransactions,
+  requestTopup,
+  getWithdrawAvailability,
+  listMyWithdrawals,
+  requestWithdrawal,
+};

@@ -6,6 +6,7 @@ const statsService = require('../services/stats.service');
 const orderService = require('../services/order.service');
 const walletService = require('../services/wallet.service');
 const captainWalletService = require('../services/captainWallet.service');
+const customerWithdrawalService = require('../services/customerWithdrawal.service');
 const adminService = require('../services/admin.service');
 const chatService = require('../services/chat.service');
 const notificationService = require('../services/notification.service');
@@ -362,6 +363,37 @@ async function processWithdrawal(req, res, next) {
   }
 }
 
+// ── طلبات سحب رصيد الزبائن (Card 98) ─────────────────────────────
+
+// قائمة طلبات سحب الزبائن (?status=pending|done|rejected|all)
+async function listCustomerWithdrawals(req, res, next) {
+  try {
+    const items = await customerWithdrawalService.listAll({
+      status: req.query.status,
+      limit: parseInt(req.query.limit, 10) || 50,
+    });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// تنفيذ طلب سحب زبون: "تم التحويل" (done) أو "رفض" (rejected)
+async function processCustomerWithdrawal(req, res, next) {
+  try {
+    const { action, note } = req.body || {};
+    const result = await customerWithdrawalService.process(
+      req.auth.id,
+      req.params.withdrawalId,
+      action,
+      note
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ── مراقبة الأدمن للمحادثات (Card 32 + Card 45) ──────────────────
 
 // Card 45: قائمة المحادثات الجارية بين الزبائن والكباتن
@@ -492,4 +524,6 @@ module.exports = {
   userWallet,
   listWithdrawals,
   processWithdrawal,
+  listCustomerWithdrawals,
+  processCustomerWithdrawal,
 };

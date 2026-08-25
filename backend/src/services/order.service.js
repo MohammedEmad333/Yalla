@@ -38,6 +38,58 @@ const { ORDER_STATUS, CAPTAIN_STATUS, ROOMS, EVENTS } = require('../utils/consta
 // نسبة الكابتن من السعر الحقيقي (Card 27): ٨٠٪ للكابتن، والباقي عمولة الشركة.
 const CAPTAIN_SHARE = 0.8;
 
+// Card 95: الحالات التي تُعدّ فيها الطلبات "نشطة" على الكابتن (تشغله). يُعاد
+// احتساب حمل الكابتن منها لضمان تطابق العدّاد مع الواقع دون انحراف.
+const ACTIVE_ORDER_STATUSES = [
+  ORDER_STATUS.ASSIGNED,
+  ORDER_STATUS.ACCEPTED,
+  ORDER_STATUS.PICKED_UP,
+];
+
+// Card 95: الحدّ الأقصى للطلبات المتزامنة لكابتن واحد عند الإسناد اليدوي من
+// لوحة التحكم. قابل للضبط عبر البيئة (MAX_ORDERS_PER_CAPTAIN)، افتراضيًا 5.
+const MAX_ACTIVE_ORDERS_PER_CAPTAIN =
+  parseInt(process.env.MAX_ORDERS_PER_CAPTAIN, 10) > 0
+    ? parseInt(process.env.MAX_ORDERS_PER_CAPTAIN, 10)
+    : 5;
+
+/**
+ * Card 95: إعادة احتساب حمل الكابتن من مصدر الحقيقة (مجموعة الطلبات) وتحديث
+ * حالته وعدّاده والطلب النشط المرجعي. يُستخدم بعد التسليم/الإلغاء/إعادة الطلب
+ * للمجمّع فيبقى العدّاد متطابقًا حتى مع تعدّد الطلبات.
+ * لا يلمس حالة OFFLINE (يتكفّل بها setCaptainOffline صراحةً بعد النداء).
+ * @param {string|import('mongoose').Types.ObjectId} captainId
+ * @returns {Promise<{ activeOrdersCount: number, activeOrder: any, status: string }|null>}
+ */
+async function syncCaptainWorkload(captainId) {
+  if (!captainId) return null;
+  const active = await Order.find({
+    captain: captainId,
+    status: { $in: ACTIVE_ORDER_STATUSES },
+  })
+    .select('_id')
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const count = active.length;
+  const captain = await Captain.findById(captainId).select('status');
+  // نحافظ على OFFLINE إن كان الكابتن غير متصل؛ خلاف ذلك BUSY عند وجود طلب، وإلا ONLINE.
+  const nextStatus =
+    captain && captain.status === CAPTAIN_STATUS.OFFLINE
+      ? CAPTAIN_STATUS.OFFLINE
+      : count > 0
+        ? CAPTAIN_STATUS.BUSY
+        : CAPTAIN_STATUS.ONLINE;
+
+  const update = {
+    activeOrdersCount: count,
+    activeOrder: count > 0 ? active[0]._id : null,
+    status: nextStatus,
+  };
+  await Captain.findByIdAndUpdate(captainId, update);
+  return update;
+}
+
 /**
  * السعر الفعلي المُعتمَد في السجلّات والأرباح (Card 28).
  * بعد التسليم يعتمد المبلغ على السعر الحقيقي الذي أدخله الكابتن (finalPrice)
@@ -374,9 +426,16 @@ async function commitAssignment(order, captain, { actorId, actorRole }) {
   order.timeline.assignedAt = new Date();
   await order.save();
 
-  // شغل الكابتن وربطه بالطلب النشط
+  // شغل الكابتن وربطه بالطلب النشط. Card 95: نُعيد احتساب عدّاد الطلبات النشطة
+  // من قاعدة البيانات (الطلب الحالي محفوظ بحالة assigned) ليدعم إسناد أكثر من
+  // طلب لنفس الكابتن دون انحراف العدّاد، ويشير activeOrder لأحدث طلب مُسنَد.
+  const activeCount = await Order.countDocuments({
+    captain: captain._id,
+    status: { $in: ACTIVE_ORDER_STATUSES },
+  });
   captain.status = CAPTAIN_STATUS.BUSY;
   captain.activeOrder = order._id;
+  captain.activeOrdersCount = activeCount;
   await captain.save();
 
   await writeLog({
@@ -440,10 +499,21 @@ async function assignOrder(adminId, orderId, captainId) {
   if (!captain.isApproved) {
     throw Object.assign(new Error('الكابتن غير معتمَد'), { statusCode: 400 });
   }
-  // Card 34: يستطيع الأدمن الإسناد لكابتن غير متصل (offline) لإيقاظه عبر الإشعار،
-  // لكن لا نسمح بالإسناد لكابتن مشغول بطلب آخر حاليًا (busy/activeOrder).
-  if (captain.status === CAPTAIN_STATUS.BUSY || captain.activeOrder) {
-    throw Object.assign(new Error('الكابتن مشغول بطلب آخر حاليًا'), { statusCode: 400 });
+  // Card 34: يستطيع الأدمن الإسناد لكابتن غير متصل (offline) لإيقاظه عبر الإشعار.
+  // Card 95: يُسمح الآن بإسناد أكثر من طلب لنفس الكابتن، حتى بلوغ الحدّ الأقصى
+  // للطلبات المتزامنة. نحمي من التجاوز حتى لا يُحمَّل الكابتن فوق طاقته. نحسب
+  // العدد الفعلي من قاعدة البيانات لتفادي أي انحراف في الحقل المخزَّن.
+  const currentActive = await Order.countDocuments({
+    captain: captain._id,
+    status: { $in: ACTIVE_ORDER_STATUSES },
+  });
+  if (currentActive >= MAX_ACTIVE_ORDERS_PER_CAPTAIN) {
+    throw Object.assign(
+      new Error(
+        `الكابتن وصل الحدّ الأقصى للطلبات المتزامنة (${MAX_ACTIVE_ORDERS_PER_CAPTAIN})`
+      ),
+      { statusCode: 400 }
+    );
   }
 
   return commitAssignment(order, captain, { actorId: adminId, actorRole: 'admin' });
@@ -501,13 +571,12 @@ const ALLOWED_TRANSITIONS = {
   [ORDER_STATUS.PICKED_UP]: [ORDER_STATUS.DELIVERED],
 };
 
-// تحرير الكابتن ليعود متاحًا (عند التسليم أو الإلغاء)
+// تحرير الكابتن من طلب انتهى (تسليم/إلغاء/إعادة للمجمّع). Card 95: نعيد احتساب
+// الحمل من الطلبات المتبقّية، فيبقى مشغولًا (busy) إن كان لديه طلبات أخرى نشطة،
+// أو يعود متاحًا (online) عند خلوّه. يُستدعى بعد حفظ الحالة الجديدة للطلب.
 async function releaseCaptain(captainId) {
   if (!captainId) return;
-  await Captain.findByIdAndUpdate(captainId, {
-    status: CAPTAIN_STATUS.ONLINE,
-    activeOrder: null,
-  });
+  await syncCaptainWorkload(captainId);
 }
 
 /**
@@ -1153,18 +1222,24 @@ async function getAvailableCaptains() {
 }
 
 // جلب كل الكباتن المعتمَدين (متصلين وغير متصلين) مع علامة الحالة — لقائمة الإسناد
-// في لوحة الأدمن (Card 34 + Card 35). الكابتن المشغول (busy) غير قابل للإسناد.
+// في لوحة الأدمن (Card 34 + Card 35). Card 95: يجوز الإسناد لكابتن مشغول ما لم
+// يبلغ الحدّ الأقصى للطلبات المتزامنة، ونُظهر عدد طلباته النشطة (activeOrdersCount).
 async function getAssignableCaptains() {
   const captains = await Captain.find({ isApproved: true })
-    .select('name phone vehicleType currentLocation rating status activeOrder')
+    .select('name phone vehicleType currentLocation rating status activeOrder activeOrdersCount')
     .sort({ status: 1, name: 1 }) // busy/offline/online مرتّبة نصيًا؛ الترتيب النهائي في الواجهة
     .lean();
-  return captains.map((c) => ({
-    ...c,
-    // متاح للإسناد إن لم يكن مشغولًا بطلب نشط (سواء online أو offline)
-    assignable: c.status !== CAPTAIN_STATUS.BUSY && !c.activeOrder,
-    online: c.status === CAPTAIN_STATUS.ONLINE,
-  }));
+  return captains.map((c) => {
+    const activeOrdersCount = c.activeOrdersCount || 0;
+    return {
+      ...c,
+      activeOrdersCount,
+      maxOrders: MAX_ACTIVE_ORDERS_PER_CAPTAIN,
+      // متاح للإسناد ما دام لم يبلغ الحدّ الأقصى (يشمل المشغول تحت الحدّ)
+      assignable: activeOrdersCount < MAX_ACTIVE_ORDERS_PER_CAPTAIN,
+      online: c.status === CAPTAIN_STATUS.ONLINE,
+    };
+  });
 }
 
 // جلب طلب واحد للتتبّع — مع التحقّق من صلاحية الوصول (صاحب الطلب/الكابتن المُسنَد/الأدمن)
@@ -1227,36 +1302,45 @@ async function getCaptainOrders(captainId, { limit = 20, skip = 0 } = {}) {
 
 /**
  * تحويل الكابتن إلى "غير متصل" (offline) — يُستدعى من REST ومن السوكت.
- * إن كان لديه طلب نشط لم يُستَلم بعد (assigned/accepted) يُرفَض الطلب فورًا،
- * يُعاد إلى مجمّع الأدمن لإسناده لكابتن آخر، ويختفي من شاشة الكابتن لحظيًا (Card 16).
+ * كل طلب نشط لم يُستَلم بعد (assigned/accepted) يُرفَض فورًا، يُعاد إلى مجمّع
+ * الأدمن لإسناده لكابتن آخر، ويختفي من شاشة الكابتن لحظيًا (Card 16).
+ * Card 95: يعالج كل الطلبات النشطة (لا طلبًا واحدًا) لدعم تعدّد الطلبات.
  * الطلبات التي بعد الاستلام (picked_up) لا تُمَسّ.
  */
 async function setCaptainOffline(captainId) {
   const captain = await Captain.findById(captainId);
   if (!captain) throw Object.assign(new Error('الكابتن غير موجود'), { statusCode: 404 });
 
-  let clearedActive = false;
-  if (captain.activeOrder) {
-    const activeOrder = await Order.findById(captain.activeOrder);
-    const prePickup =
-      activeOrder &&
-      [ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED].includes(activeOrder.status);
-    if (prePickup) {
-      // يعيده للمجمّع (يحرّر الكابتن + يبثّ للكابتن ليختفي + يعيد الإسناد لآخر)
-      await returnToPoolAndReassign(activeOrder, captainId, {
-        actorRole: 'captain',
-        action: 'ORDER_REJECTED_CAPTAIN_OFFLINE',
-      });
-      clearedActive = true;
-    }
+  // Card 95: أعِد كل الطلبات قبل الاستلام للمجمّع (قد تكون أكثر من طلب).
+  const prePickupOrders = await Order.find({
+    captain: captainId,
+    status: { $in: [ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED] },
+  });
+  for (const activeOrder of prePickupOrders) {
+    // يعيده للمجمّع (يحرّر الكابتن + يبثّ للكابتن ليختفي + يعيد الإسناد لآخر)
+    await returnToPoolAndReassign(activeOrder, captainId, {
+      actorRole: 'captain',
+      action: 'ORDER_REJECTED_CAPTAIN_OFFLINE',
+    });
   }
 
-  // نضبط الكابتن غير متصل (نتجاوز أي إعادة تعيين online من returnToPoolAndReassign)
-  const update = { status: CAPTAIN_STATUS.OFFLINE };
-  if (clearedActive) update.activeOrder = null;
-  const updated = await Captain.findByIdAndUpdate(captainId, update, { new: true }).select(
-    'name status'
-  );
+  // نضبط الكابتن غير متصل ونعيد احتساب حمله من الطلبات المتبقّية (picked_up تبقى)
+  const remainingActive = await Order.find({
+    captain: captainId,
+    status: { $in: ACTIVE_ORDER_STATUSES },
+  })
+    .select('_id')
+    .sort({ createdAt: -1 })
+    .lean();
+  const updated = await Captain.findByIdAndUpdate(
+    captainId,
+    {
+      status: CAPTAIN_STATUS.OFFLINE,
+      activeOrdersCount: remainingActive.length,
+      activeOrder: remainingActive.length ? remainingActive[0]._id : null,
+    },
+    { new: true }
+  ).select('name status');
 
   // إعلام الأدمن ليختفي الكابتن من قائمة المتاحين فورًا (Card 15)
   io.get().to(ROOMS.admins()).emit(EVENTS.CAPTAIN_STATUS_CHANGED, {

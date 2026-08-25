@@ -21,4 +21,9 @@ router.get('/transactions', ctrl.getTransactions);
 // طلب شحن رصيد — multipart بحقل صورة اسمه "receipt"
 router.post('/topup', uploadReceipt.single('receipt'), ctrl.requestTopup);
 
+// سحب رصيد الزبون (Card 98 + Card 99)
+router.get('/withdrawals/available', ctrl.getWithdrawAvailability);
+router.get('/withdrawals', ctrl.listMyWithdrawals);
+router.post('/withdrawals', ctrl.requestWithdrawal);
+
 module.exports = router;

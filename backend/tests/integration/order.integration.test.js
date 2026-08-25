@@ -95,6 +95,41 @@ test('الإسناد اليدوي: يربط الكابتن ويجعله busy', a
   const freshCaptain = await Captain.findById(captain._id);
   assert.equal(freshCaptain.status, CAPTAIN_STATUS.BUSY);
   assert.equal(String(freshCaptain.activeOrder), String(order._id));
+  assert.equal(freshCaptain.activeOrdersCount, 1, 'عدّاد الطلبات النشطة = 1');
+});
+
+test('Card 95: يمكن إسناد أكثر من طلب لكابتن واحد مع عدّاد صحيح', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const [user, captain, admin] = [await makeUser(), await makeCaptain(), await makeUser()];
+
+  const order1 = await orderService.createOrder(user._id, orderPayload());
+  const order2 = await orderService.createOrder(user._id, orderPayload());
+
+  // الإسناد الثاني لنفس الكابتن (المشغول) يجب أن ينجح الآن
+  await orderService.assignOrder(admin._id, order1._id, captain._id);
+  await orderService.assignOrder(admin._id, order2._id, captain._id);
+
+  let fresh = await Captain.findById(captain._id);
+  assert.equal(fresh.status, CAPTAIN_STATUS.BUSY);
+  assert.equal(fresh.activeOrdersCount, 2, 'طلبان نشطان');
+
+  // القائمة القابلة للإسناد تُظهر العدّاد وتبقيه قابلًا للإسناد تحت الحدّ
+  const list = await orderService.getAssignableCaptains();
+  const row = list.find((c) => String(c._id) === String(captain._id));
+  assert.equal(row.activeOrdersCount, 2);
+  assert.equal(row.assignable, true, 'قابل للإسناد ما دام تحت الحدّ الأقصى');
+
+  // تسليم أحد الطلبين يُنقص العدّاد ويبقي الكابتن مشغولًا بالطلب الآخر
+  await orderService.updateOrderStatus(captain._id, order1._id, ORDER_STATUS.ACCEPTED);
+  await orderService.updateOrderStatus(captain._id, order1._id, ORDER_STATUS.PICKED_UP);
+  await orderService.updateOrderStatus(
+    captain._id, order1._id, ORDER_STATUS.DELIVERED, '', order1.deliveryCode, order1.price
+  );
+
+  fresh = await Captain.findById(captain._id);
+  assert.equal(fresh.activeOrdersCount, 1, 'بقي طلب واحد نشط');
+  assert.equal(fresh.status, CAPTAIN_STATUS.BUSY, 'ما زال مشغولًا بالطلب الآخر');
+  assert.equal(String(fresh.activeOrder), String(order2._id));
 });
 
 test('انتقالات الحالة: accepted → picked_up → delivered تحرّر الكابتن', async (t) => {

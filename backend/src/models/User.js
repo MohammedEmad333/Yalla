@@ -18,6 +18,11 @@ const userSchema = new mongoose.Schema(
     avatarUrl: { type: String, default: '' }, // مسار الصورة الشخصية المرفوعة
     city: { type: String, default: '', trim: true }, // المدينة
 
+    // Card 96: مكان السكن عند إنشاء الحساب — المحافظة (من قائمة محافظات غزة)
+    // وتفاصيل العنوان النصّية. تظهر للأدمن في بيانات الزبائن.
+    governorate: { type: String, default: '', trim: true }, // المحافظة
+    address: { type: String, default: '', trim: true }, // تفاصيل العنوان
+
     // عناوين محفوظة للاستخدام السريع عند الطلب
     savedAddresses: [
       {
