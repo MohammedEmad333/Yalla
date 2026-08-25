@@ -40,6 +40,8 @@ class AuthRepository {
     required String password,
     String? lastName,
     String? email,
+    String? governorate, // Card 96: مكان السكن — المحافظة
+    String? address, // Card 96: تفاصيل العنوان
   }) async {
     final data = await _api.post('/auth/register', {
       'name': name,
@@ -47,6 +49,8 @@ class AuthRepository {
       'phone': phone,
       'password': password,
       if (email != null && email.isNotEmpty) 'email': email,
+      if (governorate != null && governorate.isNotEmpty) 'governorate': governorate,
+      if (address != null && address.isNotEmpty) 'address': address,
     });
     await _tokens.save(data['token']);
     session.value = _fromUser(data);

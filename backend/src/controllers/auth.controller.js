@@ -19,15 +19,24 @@ function signToken(id, role) {
 // تسجيل مستخدم جديد (عميل)
 async function registerUser(req, res, next) {
   try {
-    const { name, lastName, phone, email, password } = req.body;
-    const user = new User({ name, lastName, phone, email, role: ROLES.USER });
+    const { name, lastName, phone, email, password, governorate, address } = req.body;
+    // Card 96: نخزّن مكان السكن (المحافظة + تفاصيل العنوان) عند إنشاء الحساب
+    const user = new User({ name, lastName, phone, email, governorate, address, role: ROLES.USER });
     await user.setPassword(password); // تشفير كلمة المرور
     await user.save();
 
     const token = signToken(user._id, user.role);
     res.status(201).json({
       token,
-      user: { id: user._id, name, lastName: user.lastName, phone, role: user.role },
+      user: {
+        id: user._id,
+        name,
+        lastName: user.lastName,
+        phone,
+        governorate: user.governorate,
+        address: user.address,
+        role: user.role,
+      },
     });
   } catch (err) {
     next(err);
@@ -201,7 +210,7 @@ async function me(req, res, next) {
       if (!captain) return res.status(404).json({ message: 'الحساب غير موجود' });
       return res.json({ role, captain });
     }
-    const user = await User.findById(id).select('name lastName phone email city avatarUrl role');
+    const user = await User.findById(id).select('name lastName phone email city governorate address avatarUrl role');
     if (!user) return res.status(404).json({ message: 'الحساب غير موجود' });
     res.json({ role: user.role, user });
   } catch (err) {
@@ -223,11 +232,11 @@ async function updateProfile(req, res, next) {
       return res.json({ role, captain });
     }
 
-    const allowed = pick(req.body, ['name', 'lastName', 'email', 'city']);
+    const allowed = pick(req.body, ['name', 'lastName', 'email', 'city', 'governorate', 'address']);
     const user = await User.findByIdAndUpdate(id, allowed, {
       new: true,
       runValidators: true,
-    }).select('name lastName phone email city avatarUrl role');
+    }).select('name lastName phone email city governorate address avatarUrl role');
     if (!user) return res.status(404).json({ message: 'الحساب غير موجود' });
     res.json({ role: user.role, user });
   } catch (err) {

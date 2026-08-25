@@ -7,6 +7,7 @@ const { validateBody } = require('../middlewares/validate.middleware');
 const { rateLimit } = require('../middlewares/rateLimit.middleware');
 const { uploadAvatar, uploadCaptainDocs } = require('../middlewares/upload.middleware');
 const { V } = require('../utils/validate');
+const { GOVERNORATES } = require('../utils/governorates');
 const { ROLES } = require('../utils/constants');
 
 // حدّ أشدّ على مسارات المصادقة لمنع هجمات التخمين (brute force)
@@ -18,6 +19,10 @@ const registerSchema = {
   lastName: [V.string], // اسم العائلة — اختياري
   phone: [V.required, V.phone],
   password: [V.required, V.minLength(6)],
+  // Card 96: مكان السكن — المحافظة (من القائمة المعتمَدة) وتفاصيل العنوان.
+  // اختياريان في التحقّق لضمان توافق العملاء القدامى، ويُتحقَّق من صحّة المحافظة عند إرسالها.
+  governorate: [V.string, V.isIn(GOVERNORATES)],
+  address: [V.string],
 };
 const loginSchema = {
   phone: [V.required, V.phone],
@@ -44,6 +49,9 @@ const updateProfileSchema = {
   name: [V.string],
   lastName: [V.string],
   city: [V.string],
+  // Card 96: يمكن تعديل مكان السكن لاحقًا من صفحة "حسابي"
+  governorate: [V.string, V.isIn(GOVERNORATES)],
+  address: [V.string],
 };
 router.get('/me', authenticate, ctrl.me);
 router.patch('/me', authenticate, validateBody(updateProfileSchema), ctrl.updateProfile);

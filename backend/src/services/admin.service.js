@@ -41,7 +41,7 @@ async function listCustomers({ q } = {}) {
     filter.$or = [{ name: new RegExp(q, 'i') }, { phone: new RegExp(q, 'i') }];
   }
   const users = await User.find(filter)
-    .select('name lastName phone email city avatarUrl isActive isExternal createdAt')
+    .select('name lastName phone email city governorate address avatarUrl isActive isExternal createdAt')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -58,7 +58,10 @@ async function listCustomers({ q } = {}) {
     name: [u.name, u.lastName].filter(Boolean).join(' ').trim() || u.name,
     phone: u.phone,
     email: u.email || '',
-    address: u.city || '',
+    // Card 96: مكان السكن — المحافظة + تفاصيل العنوان (مع تراجع للمدينة القديمة)
+    governorate: u.governorate || '',
+    address:
+      [u.governorate, u.address].filter(Boolean).join(' — ') || u.city || u.address || '',
     avatarUrl: u.avatarUrl || '', // Card 76: صورة العميل تظهر في لوحة التحكم
     isExternal: !!u.isExternal, // Card 80: حساب خارجي مؤقّت (يُميَّز عن الدائم)
     balance: balanceByUser.get(String(u._id)) || 0,
