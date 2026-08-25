@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # عنوان الـ backend على Render (نفس ما يستخدمه الأدمن).
-API_ORIGIN="${API_ORIGIN:-https://yalla-api-z6t0.onrender.com}"
+API_ORIGIN="${API_ORIGIN:-https://yalla-api.duckdns.org}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/mobile"

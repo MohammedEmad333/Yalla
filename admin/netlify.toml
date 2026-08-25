@@ -7,7 +7,7 @@
 #
 # مهم: اضبط متغيّر البيئة VITE_API_URL من لوحة Netlify (Site settings → Environment)
 #       على عنوان الـ Backend على Render، مثال:
-#       VITE_API_URL = https://yalla-api-z6t0.onrender.com
+#       VITE_API_URL = https://yalla-api.duckdns.org
 #       (يُقرأ وقت البناء — أي تغيير يتطلّب إعادة نشر Redeploy)
 
 [build]
