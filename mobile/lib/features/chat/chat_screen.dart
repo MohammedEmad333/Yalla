@@ -20,6 +20,8 @@ class ChatScreen extends StatefulWidget {
   // Card 51: اسم الطرف الآخر (الكامل — نعرض الاسم الأول فقط) ورقم هاتفه للاتصال المباشر.
   final String? peerName;
   final String? peerPhone;
+  // دور الطرف الآخر ('user' أو 'captain') — لعرض تسمية/أيقونة بديلة عند غياب الاسم.
+  final String? peerRole;
 
   const ChatScreen({
     super.key,
@@ -29,6 +31,7 @@ class ChatScreen extends StatefulWidget {
     required this.myRole,
     this.peerName,
     this.peerPhone,
+    this.peerRole,
   });
 
   @override
@@ -61,6 +64,13 @@ class _ChatScreenState extends State<ChatScreen> {
       if ('${data['orderId']}' != widget.orderId) return;
       setState(() => _messages.clear());
       _snack('انتهى التوصيل — حُذفت المحادثة');
+    });
+
+    // Card 94: حذف الأدمن لرسالة واحدة — نُزيلها فورًا من الشاشة
+    widget.socket.onChatMessageDeleted((data) {
+      if (!mounted) return;
+      if ('${data['orderId']}' != widget.orderId) return;
+      setState(() => _messages.removeWhere((m) => '${m['_id']}' == '${data['id']}'));
     });
   }
 
@@ -134,15 +144,52 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!await launchUrl(uri)) _snack('تعذّر بدء الاتصال');
   }
 
+  // أيقونة تمثّل دور المُرسِل (Card 93): صاحب الطلب / الكابتن / الأدمن
+  IconData _roleIcon(String? role) => switch (role) {
+        'captain' => Icons.two_wheeler,
+        'admin' => Icons.shield,
+        _ => Icons.person,
+      };
+
+  // تسمية عربية لدور طرف المحادثة (تُستخدم بديلًا عن الاسم عند غيابه)
+  String _roleLabel(String? role) => switch (role) {
+        'captain' => 'الكابتن',
+        'admin' => 'الإدارة',
+        _ => 'صاحب الطلب',
+      };
+
+  // اسم المُرسِل المعروض على كل رسالة (Card 93): "أنت" لرسائلي، والإدارة للأدمن،
+  // واسم الطرف الآخر (الأول فقط) وإلا تسمية دوره.
+  String _senderName(String? role) {
+    if (role == widget.myRole) return 'أنت';
+    if (role == 'admin') return 'الإدارة';
+    final peerFirst = firstName(widget.peerName);
+    if (peerFirst.isNotEmpty && role == widget.peerRole) return peerFirst;
+    return _roleLabel(role);
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Card 51: نعرض الاسم الأول فقط للطرف الآخر (خصوصية).
+    // Card 51: نعرض الاسم الأول فقط للطرف الآخر (خصوصية) وإلا تسمية دوره.
     final peerFirst = firstName(widget.peerName);
-    final title = peerFirst.isEmpty ? 'الدردشة' : 'الدردشة مع $peerFirst';
+    final peerLabel = peerFirst.isNotEmpty ? peerFirst : _roleLabel(widget.peerRole);
+    final title = 'الدردشة مع $peerLabel';
     final canCall = (widget.peerPhone ?? '').trim().isNotEmpty;
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        // Card 93: أيقونة الطرف الآخر بجانب اسمه في أعلى الدردشة
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 14,
+              backgroundColor: YallaColors.primary,
+              child: Icon(_roleIcon(widget.peerRole), size: 16, color: Colors.white),
+            ),
+            const SizedBox(width: 8),
+            Flexible(child: Text(title, overflow: TextOverflow.ellipsis)),
+          ],
+        ),
         actions: [
           if (canCall)
             IconButton(
@@ -176,7 +223,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _bubble(Map<String, dynamic> msg) {
-    final mine = msg['senderRole'] == widget.myRole;
+    final role = msg['senderRole'] as String?;
+    final mine = role == widget.myRole;
+    // Card 93: أيقونة واسم المُرسِل فوق نصّ كل رسالة
+    final name = _senderName(role);
+    final onColor = mine ? Colors.white : null;
+    final labelColor = mine ? Colors.white70 : YallaColors.muted;
     return Align(
       alignment: mine ? Alignment.centerLeft : Alignment.centerRight,
       child: Container(
@@ -187,9 +239,21 @@ class _ChatScreenState extends State<ChatScreen> {
           color: mine ? YallaColors.primary : Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Text(
-          '${msg['text'] ?? ''}',
-          style: TextStyle(color: mine ? Colors.white : null),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_roleIcon(role), size: 13, color: labelColor),
+                const SizedBox(width: 4),
+                Text(name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: labelColor)),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text('${msg['text'] ?? ''}', style: TextStyle(color: onColor)),
+          ],
         ),
       ),
     );

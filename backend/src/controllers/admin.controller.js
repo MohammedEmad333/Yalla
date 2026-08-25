@@ -375,6 +375,16 @@ async function sendChatMessage(req, res, next) {
   }
 }
 
+// Card 94: حذف الأدمن لرسالة دردشة واحدة من أي محادثة نهائيًا
+async function deleteChatMessage(req, res, next) {
+  try {
+    const result = await chatService.deleteMessage(req.params.orderId, req.params.messageId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Card 32: تصدير محادثة طلب بصيغة CSV (متاح حتى بعد انتهاء المحادثة/أرشفتها)
 async function exportChat(req, res, next) {
   try {
@@ -433,6 +443,7 @@ module.exports = {
   listChats,
   getChatMessages,
   sendChatMessage,
+  deleteChatMessage,
   exportChat,
   listCustomersDetailed,
   listCaptainsDetailed,

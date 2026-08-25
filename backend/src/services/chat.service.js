@@ -187,10 +187,35 @@ async function listMessagesForAdmin(orderId, { limit = 500 } = {}) {
   return Message.find({ order: orderId }).sort({ createdAt: 1 }).limit(limit).lean();
 }
 
+/**
+ * Card 94: حذف الأدمن لرسالة دردشة واحدة نهائيًا (من أي محادثة). يُزيلها من
+ * الذاكرة ويبثّ حدثًا لغرفة الطلب ليختفي فورًا لدى الطرفين المتّصلين.
+ * @param {string} orderId
+ * @param {string} messageId
+ * @returns {Promise<{ deleted: true, id: string, orderId: string }>}
+ */
+async function deleteMessage(orderId, messageId) {
+  const message = await Message.findOne({ _id: messageId, order: orderId });
+  if (!message) throw httpError('الرسالة غير موجودة', 404);
+
+  await Message.deleteOne({ _id: messageId });
+
+  try {
+    io.get()
+      .to(ROOMS.order(String(orderId)))
+      .emit(EVENTS.CHAT_MESSAGE_DELETED, { id: String(messageId), orderId: String(orderId) });
+  } catch (_) {
+    // السوكت غير مهيّأ (اختبارات) — نتجاهل بأمان
+  }
+
+  return { deleted: true, id: String(messageId), orderId: String(orderId) };
+}
+
 module.exports = {
   sendMessage,
   listMessages,
   purgeOrderMessages,
   listActiveChats,
   listMessagesForAdmin,
+  deleteMessage,
 };

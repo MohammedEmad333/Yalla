@@ -297,6 +297,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         myRole: 'captain',
         peerName: peerName,
         peerPhone: peerPhone,
+        peerRole: 'user',
       ),
     ));
   }

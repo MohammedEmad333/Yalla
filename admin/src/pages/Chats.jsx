@@ -60,6 +60,11 @@ export default function Chats() {
       setMessages((prev) => (m.order === active ? [...prev, m] : prev));
       loadChats();
     });
+    // Card 94: حُذفت رسالة — أزِلها فورًا من العرض
+    socket.on('chat:message_deleted', (d) => {
+      setMessages((prev) => prev.filter((m) => m._id !== d.id));
+      loadChats();
+    });
     return () => socket.disconnect();
   }, [socket]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -93,6 +98,26 @@ export default function Chats() {
     } catch (err) {
       alert(err.message);
       setText(body);
+    }
+  }
+
+  // Card 94: حذف رسالة واحدة نهائيًا من أي محادثة
+  async function deleteMessage(orderId, messageId) {
+    if (!window.confirm('حذف هذه الرسالة نهائيًا؟ لا يمكن التراجع.')) return;
+    try {
+      const res = await fetch(`${API}/api/admin/chats/${orderId}/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || 'تعذّر حذف الرسالة');
+      }
+      // الإزالة تصل أيضًا عبر حدث chat:message_deleted، ونزيلها هنا فورًا احتياطًا
+      setMessages((prev) => prev.filter((m) => m._id !== messageId));
+      loadChats();
+    } catch (err) {
+      alert(err.message);
     }
   }
 
@@ -168,7 +193,17 @@ export default function Chats() {
                   return (
                     <div key={m._id} style={styles.msgRow(meta.me)}>
                       <div style={styles.bubble(meta.bg, meta.me)}>
-                        <div style={styles.msgSender}>{meta.icon} {meta.label}</div>
+                        <div style={styles.bubbleHead}>
+                          <span style={styles.msgSender}>{meta.icon} {meta.label}</span>
+                          {/* Card 94: حذف أي رسالة عن طريق الأدمن */}
+                          <button
+                            style={styles.msgDelete}
+                            title="حذف الرسالة نهائيًا"
+                            onClick={() => deleteMessage(m.order || active, m._id)}
+                          >
+                            🗑
+                          </button>
+                        </div>
                         <div>{m.text}</div>
                         <div style={styles.msgTime}>{fmtTime(m.createdAt)}</div>
                       </div>
@@ -247,7 +282,13 @@ const styles = {
     background: bg, borderRadius: theme.radius.md, padding: '8px 12px', maxWidth: '75%',
     border: `1px solid ${me ? theme.color.warning || '#eab308' : theme.color.outline}`,
   }),
+  bubbleHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   msgSender: { fontSize: 11, color: theme.color.muted, marginBottom: 2 },
+  // Card 94: زرّ حذف الرسالة
+  msgDelete: {
+    background: 'transparent', border: 'none', cursor: 'pointer',
+    fontSize: 13, lineHeight: 1, opacity: 0.6, padding: 0,
+  },
   msgTime: { fontSize: 10, color: theme.color.muted, marginTop: 2, textAlign: 'left' },
   composer: { display: 'flex', gap: 8, padding: 16, borderTop: `1px solid ${theme.color.outline}` },
   input: { flex: 1, padding: '10px 14px', borderRadius: theme.radius.pill, border: `1px solid ${theme.color.outlineStrong}` },

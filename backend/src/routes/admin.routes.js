@@ -50,6 +50,8 @@ router.patch('/withdrawals/:withdrawalId', ctrl.processWithdrawal);
 router.get('/chats', ctrl.listChats);
 router.get('/chats/:orderId/messages', ctrl.getChatMessages);
 router.post('/chats/:orderId/messages', ctrl.sendChatMessage);
+// Card 94: حذف رسالة دردشة واحدة نهائيًا (من أي محادثة)
+router.delete('/chats/:orderId/messages/:messageId', ctrl.deleteChatMessage);
 router.get('/chats/:orderId/export', ctrl.exportChat);
 
 // التواصل المباشر بين الزبائن والأدمن (Card 46)
