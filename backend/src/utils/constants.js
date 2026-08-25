@@ -123,6 +123,7 @@ const EVENTS = Object.freeze({
   WITHDRAWAL_REQUESTED: 'withdrawal:requested',     // طلب سحب جديد يُبثّ للأدمن (Card 19)
   CHAT_MESSAGE: 'chat:message',   // رسالة دردشة جديدة على طلب (Card 18)
   CHAT_CLEARED: 'chat:cleared',   // حُذفت رسائل الطلب (بعد التسليم/الإلغاء)
+  CHAT_MESSAGE_DELETED: 'chat:message_deleted', // حذف الأدمن لرسالة دردشة واحدة (Card 94)
   ORDER_DELAYED: 'order:delayed', // طلب تجاوز زمنه التقديري — تحذير للأدمن (Card 40)
   ORDER_ASSIGN_TIMEOUT: 'order:assign_timeout', // انتهت مهلة قبول الكابتن — تنبيه للأدمن (Card 54)
   CAPTAIN_DELETED: 'captain:deleted', // حُذف كابتن نهائيًا (Card 38)

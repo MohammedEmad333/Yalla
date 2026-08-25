@@ -105,6 +105,9 @@ class SocketService {
       _addListener('chat:message', cb);
   void onChatCleared(void Function(Map<String, dynamic>) cb) =>
       _addListener('chat:cleared', cb);
+  // Card 94: حذف الأدمن لرسالة دردشة واحدة — تُزال فورًا لدى الطرفين
+  void onChatMessageDeleted(void Function(Map<String, dynamic>) cb) =>
+      _addListener('chat:message_deleted', cb);
 
   // إرسال رسالة دردشة لحظيًا (يتحقّق الخادم من العضويّة والحالة ويبثّها لغرفة الطلب)
   void sendChatMessage(String orderId, String text) =>
