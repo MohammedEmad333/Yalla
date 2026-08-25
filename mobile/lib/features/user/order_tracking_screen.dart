@@ -180,6 +180,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         myRole: 'user',
         peerName: _captainName,
         peerPhone: _captainPhone,
+        peerRole: 'captain',
       ),
     ));
   }

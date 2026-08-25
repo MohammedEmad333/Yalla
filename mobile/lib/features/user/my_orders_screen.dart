@@ -75,6 +75,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         myRole: 'user',
         peerName: captain?['name'] as String?,
         peerPhone: captain?['phone'] as String?,
+        peerRole: 'captain',
       ),
     ));
   }

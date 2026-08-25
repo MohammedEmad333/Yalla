@@ -50,6 +50,8 @@ router.patch('/withdrawals/:withdrawalId', ctrl.processWithdrawal);
 router.get('/chats', ctrl.listChats);
 router.get('/chats/:orderId/messages', ctrl.getChatMessages);
 router.post('/chats/:orderId/messages', ctrl.sendChatMessage);
+// Card 94: حذف رسالة دردشة واحدة نهائيًا (من أي محادثة)
+router.delete('/chats/:orderId/messages/:messageId', ctrl.deleteChatMessage);
 router.get('/chats/:orderId/export', ctrl.exportChat);
 
 // التواصل المباشر بين الزبائن والأدمن (Card 46)
@@ -65,6 +67,8 @@ router.post('/wallet/topups/:txId/reject', ctrl.rejectTopup);
 router.get('/users/:userId/wallet', ctrl.userWallet);
 // Card 81: إضافة رصيد لحساب خارجي مؤقّت (طلبات الأدمن/الواتساب)
 router.post('/users/:userId/wallet/credit', ctrl.creditExternalUser);
+// إضافة رصيد لأي زبون من لوحة الأدمن (زر «إضافة رصيد»)
+router.post('/users/:userId/wallet/add', ctrl.creditUser);
 // Card 87: تعديل رصيد حساب خارجي مؤقّت على قيمة محدّدة
 router.patch('/users/:userId/wallet/balance', ctrl.setExternalUserBalance);
 

@@ -273,6 +273,30 @@ async function creditExternalUser(req, res, next) {
   }
 }
 
+// إضافة رصيد لأي زبون (دائم أو خارجي) من لوحة الأدمن — يشحن محفظة الزبون يدويًا
+// بالمبلغ المطلوب ويسجّل حركة "تعديل" في دفتر الأستاذ.
+async function creditUser(req, res, next) {
+  try {
+    const { amount } = req.body || {};
+    const value = Number(amount);
+    if (!(value > 0)) return res.status(400).json({ message: 'أدخل مبلغًا صحيحًا' });
+
+    const user = await User.findById(req.params.userId).select('role');
+    if (!user) return res.status(404).json({ message: 'المستخدم غير موجود' });
+    if (user.role !== ROLES.USER) {
+      return res.status(400).json({ message: 'إضافة الرصيد متاحة لحسابات الزبائن فقط' });
+    }
+
+    const balance = await walletService.adminCredit(user._id, value, {
+      reason: 'admin_credit',
+      by: String(req.auth.id),
+    });
+    res.json({ balance });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Card 87: تعديل رصيد حساب خارجي مؤقّت على قيمة محدّدة (بعد إضافته) — يُرفض
 // للحسابات الدائمة (لها مسار الشحن العاديّ). يعرض الأدمن الرصيد الحالي ويعدّله.
 async function setExternalUserBalance(req, res, next) {
@@ -375,6 +399,16 @@ async function sendChatMessage(req, res, next) {
   }
 }
 
+// Card 94: حذف الأدمن لرسالة دردشة واحدة من أي محادثة نهائيًا
+async function deleteChatMessage(req, res, next) {
+  try {
+    const result = await chatService.deleteMessage(req.params.orderId, req.params.messageId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Card 32: تصدير محادثة طلب بصيغة CSV (متاح حتى بعد انتهاء المحادثة/أرشفتها)
 async function exportChat(req, res, next) {
   try {
@@ -433,6 +467,7 @@ module.exports = {
   listChats,
   getChatMessages,
   sendChatMessage,
+  deleteChatMessage,
   exportChat,
   listCustomersDetailed,
   listCaptainsDetailed,
@@ -452,6 +487,7 @@ module.exports = {
   approveTopup,
   rejectTopup,
   creditExternalUser,
+  creditUser,
   setExternalUserBalance,
   userWallet,
   listWithdrawals,
