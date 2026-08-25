@@ -67,6 +67,8 @@ router.post('/wallet/topups/:txId/reject', ctrl.rejectTopup);
 router.get('/users/:userId/wallet', ctrl.userWallet);
 // Card 81: إضافة رصيد لحساب خارجي مؤقّت (طلبات الأدمن/الواتساب)
 router.post('/users/:userId/wallet/credit', ctrl.creditExternalUser);
+// إضافة رصيد لأي زبون من لوحة الأدمن (زر «إضافة رصيد»)
+router.post('/users/:userId/wallet/add', ctrl.creditUser);
 // Card 87: تعديل رصيد حساب خارجي مؤقّت على قيمة محدّدة
 router.patch('/users/:userId/wallet/balance', ctrl.setExternalUserBalance);
 
