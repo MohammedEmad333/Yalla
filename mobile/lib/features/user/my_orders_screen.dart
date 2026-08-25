@@ -76,6 +76,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         peerName: captain?['name'] as String?,
         peerPhone: captain?['phone'] as String?,
         peerRole: 'captain',
+        peerAvatarUrl: captain?['avatarUrl'] as String?, // Card 100
       ),
     ));
   }

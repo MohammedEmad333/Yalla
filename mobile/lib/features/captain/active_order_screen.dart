@@ -45,7 +45,12 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     widget.socket.onOrderStatusUpdated((order) {
       if (!mounted || _order == null || order['_id'] != _order!['_id']) return;
       final status = order['status'];
-      setState(() => _order = _activeStatuses.contains(status) ? order : null);
+      // Card 101: نحتفظ ببيانات صاحب الطلب المُحمّلة عند تحديث الحالة لحظيًا
+      if (_activeStatuses.contains(status)) {
+        _applyOrderUpdate(Map<String, dynamic>.from(order));
+      } else {
+        setState(() => _order = null);
+      }
     });
   }
 
@@ -117,8 +122,13 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       if (deliveryCode != null) body['deliveryCode'] = deliveryCode;
       if (finalPrice != null) body['finalPrice'] = finalPrice;
       final updated = await widget.api.patch('/orders/$id/status', body);
-      setState(() => _order = next == 'delivered' ? null : Map<String, dynamic>.from(updated));
-      if (next == 'delivered') _snack('تم تسليم الطلب ✓');
+      if (next == 'delivered') {
+        setState(() => _order = null);
+        _snack('تم تسليم الطلب ✓');
+      } else {
+        // Card 101: نحتفظ ببيانات صاحب الطلب حتى لا تختفي بعد القبول
+        _applyOrderUpdate(Map<String, dynamic>.from(updated));
+      }
     } on ApiException catch (e) {
       _snack(e.message); // يشمل "رمز التسليم غير صحيح"
     } catch (_) {
@@ -288,7 +298,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
 
   // فتح شاشة الدردشة مع صاحب الطلب (Card 18)
   // Card 51: نمرّر اسم العميل (يُعرض الاسم الأول فقط) ورقمه للاتصال المباشر.
-  void _openChat(String orderId, {String? peerName, String? peerPhone}) {
+  void _openChat(String orderId, {String? peerName, String? peerPhone, String? peerAvatarUrl}) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => ChatScreen(
         orderId: orderId,
@@ -298,8 +308,21 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         peerName: peerName,
         peerPhone: peerPhone,
         peerRole: 'user',
+        peerAvatarUrl: peerAvatarUrl,
       ),
     ));
+  }
+
+  // Card 101: بعد تقدّم الحالة قد يعيد الخادم صاحب الطلب كمعرّف فقط (بلا اسم/هاتف/صورة)،
+  // فتختفي بيانات صاحب الطلب وأيقونة الاتصال والدردشة. نحتفظ ببياناته المُحمّلة سابقًا.
+  void _applyOrderUpdate(Map<String, dynamic> updated) {
+    final prevUser = _order?['user'];
+    final newUser = updated['user'];
+    final merged = Map<String, dynamic>.from(updated);
+    if (newUser is! Map && prevUser is Map) {
+      merged['user'] = prevUser;
+    }
+    setState(() => _order = merged);
   }
 
   // الاسم الكامل لصاحب الطلب (الاسم الأول + اسم العائلة إن وُجد)
@@ -377,6 +400,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         order['user'] is Map ? Map<String, dynamic>.from(order['user']) : null;
     final String senderName = _senderName(sender);
     final String senderPhone = (sender?['phone'] ?? '').toString();
+    final String senderAvatar = (sender?['avatarUrl'] ?? '').toString(); // Card 100
     final Map<String, dynamic>? pickupLoc =
         order['pickup'] is Map ? Map<String, dynamic>.from(order['pickup']) : null;
     final Map<String, dynamic>? dropoffLoc =
@@ -431,7 +455,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         // زر الدردشة مع صاحب الطلب خلال التوصيل (Card 18)
         OutlinedButton.icon(
           onPressed: () => _openChat(order['_id'] as String,
-              peerName: senderName, peerPhone: senderPhone),
+              peerName: senderName, peerPhone: senderPhone, peerAvatarUrl: senderAvatar),
           icon: const Icon(Icons.chat_bubble_outline),
           label: const Text('الدردشة مع صاحب الطلب'),
         ),

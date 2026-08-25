@@ -1280,7 +1280,8 @@ async function getCaptainOrders(captainId, { limit = 20, skip = 0 } = {}) {
   const orders = await Order.find({
     $or: [{ captain: captainId }, { 'rejections.captain': captainId }],
   })
-    .populate('user', 'name lastName phone')
+    // Card 100: نضمّ صورة صاحب الطلب ليراها الكابتن في أعلى الدردشة
+    .populate('user', 'name lastName phone avatarUrl')
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)

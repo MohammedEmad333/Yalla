@@ -226,23 +226,30 @@ function UsersTab() {
   );
 }
 
-// ── نافذة إضافة رصيد لمحفظة زبون ────────────────────────────────
+// ── نافذة إضافة/تعديل رصيد محفظة زبون ───────────────────────────
+// Card 87: للحسابات الخارجية المؤقّتة يمكن أيضًا تعديل الرصيد على قيمة محدّدة
+// (لا إضافة فقط)، بعد عرض الرصيد الحالي.
 function CreditUserModal({ user, onClose, onCredited }) {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // 'add' = إضافة مبلغ للرصيد | 'set' = تعيين الرصيد على قيمة محدّدة (خارجي فقط)
+  const [mode, setMode] = useState('add');
 
   async function submit(e) {
     e.preventDefault();
     const value = Number(amount);
-    if (!(value > 0)) {
-      setError('أدخل مبلغًا صحيحًا أكبر من صفر');
+    if (mode === 'add' ? !(value > 0) : !(value >= 0)) {
+      setError(mode === 'add' ? 'أدخل مبلغًا صحيحًا أكبر من صفر' : 'أدخل رصيدًا صحيحًا (≥ 0)');
       return;
     }
     setBusy(true);
     setError('');
     try {
-      const { balance } = await api.post(`/admin/users/${user.id}/wallet/add`, { amount: value });
+      const { balance } =
+        mode === 'add'
+          ? await api.post(`/admin/users/${user.id}/wallet/add`, { amount: value })
+          : await api.patch(`/admin/users/${user.id}/wallet/balance`, { balance: value });
       onCredited(balance);
     } catch (err) {
       setError(err.message);
@@ -254,7 +261,7 @@ function CreditUserModal({ user, onClose, onCredited }) {
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(ev) => ev.stopPropagation()}>
         <div style={styles.modalHead}>
-          <b>إضافة رصيد</b>
+          <b>{mode === 'add' ? 'إضافة رصيد' : 'تعديل الرصيد'}</b>
           <button style={styles.modalClose} onClick={onClose}>✕</button>
         </div>
         <form onSubmit={submit} style={styles.modalBody}>
@@ -265,8 +272,27 @@ function CreditUserModal({ user, onClose, onCredited }) {
               <div style={{ color: theme.color.muted, fontSize: 13 }}>الرصيد الحالي: {user.balance} ₪</div>
             </div>
           </div>
+          {/* Card 87: تبديل بين الإضافة والتعديل للحسابات الخارجية المؤقّتة */}
+          {user.isExternal && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                style={styles.btn2(mode === 'add' ? '#059669' : '#94a3b8')}
+                onClick={() => { setMode('add'); setError(''); }}
+              >
+                إضافة مبلغ
+              </button>
+              <button
+                type="button"
+                style={styles.btn2(mode === 'set' ? '#059669' : '#94a3b8')}
+                onClick={() => { setMode('set'); setError(''); setAmount(String(user.balance ?? '')); }}
+              >
+                تعديل الرصيد
+              </button>
+            </div>
+          )}
           <label style={styles.field}>
-            <span>المبلغ المضاف (₪)</span>
+            <span>{mode === 'add' ? 'المبلغ المضاف (₪)' : 'الرصيد الجديد (₪)'}</span>
             <input
               style={styles.search}
               type="number"
@@ -282,7 +308,7 @@ function CreditUserModal({ user, onClose, onCredited }) {
           {error && <p style={{ color: '#dc2626', margin: 0 }}>{error}</p>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-start' }}>
             <button style={styles.btn} type="submit" disabled={busy}>
-              {busy ? '...' : 'إضافة'}
+              {busy ? '...' : mode === 'add' ? 'إضافة' : 'حفظ الرصيد'}
             </button>
             <button style={styles.btn2('#64748b')} type="button" onClick={onClose}>إلغاء</button>
           </div>

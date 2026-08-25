@@ -181,6 +181,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         peerName: _captainName,
         peerPhone: _captainPhone,
         peerRole: 'captain',
+        peerAvatarUrl: _captainAvatar, // Card 100: صورة الكابتن بأعلى الدردشة
       ),
     ));
   }

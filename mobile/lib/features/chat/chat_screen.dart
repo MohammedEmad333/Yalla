@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -23,6 +24,9 @@ class ChatScreen extends StatefulWidget {
   // دور الطرف الآخر ('user' أو 'captain') — لعرض تسمية/أيقونة بديلة عند غياب الاسم.
   final String? peerRole;
 
+  // Card 100: الصورة الشخصية للطرف الآخر — تظهر بأعلى الدردشة إن كانت مضافة.
+  final String? peerAvatarUrl;
+
   const ChatScreen({
     super.key,
     required this.orderId,
@@ -32,6 +36,7 @@ class ChatScreen extends StatefulWidget {
     this.peerName,
     this.peerPhone,
     this.peerRole,
+    this.peerAvatarUrl,
   });
 
   @override
@@ -144,6 +149,22 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!await launchUrl(uri)) _snack('تعذّر بدء الاتصال');
   }
 
+  // Card 100: صورة الطرف الآخر بأعلى الدردشة إن كانت مضافة، وإلا أيقونة دوره.
+  Widget _peerAvatar() {
+    final raw = (widget.peerAvatarUrl ?? '').trim();
+    final url = raw.isEmpty
+        ? null
+        : (raw.startsWith('http') ? raw : '${AppConfig.origin}$raw');
+    return CircleAvatar(
+      radius: 14,
+      backgroundColor: YallaColors.primary,
+      backgroundImage: url != null ? NetworkImage(url) : null,
+      child: url == null
+          ? Icon(_roleIcon(widget.peerRole), size: 16, color: Colors.white)
+          : null,
+    );
+  }
+
   // أيقونة تمثّل دور المُرسِل (Card 93): صاحب الطلب / الكابتن / الأدمن
   IconData _roleIcon(String? role) => switch (role) {
         'captain' => Icons.two_wheeler,
@@ -177,15 +198,11 @@ class _ChatScreenState extends State<ChatScreen> {
     final canCall = (widget.peerPhone ?? '').trim().isNotEmpty;
     return Scaffold(
       appBar: AppBar(
-        // Card 93: أيقونة الطرف الآخر بجانب اسمه في أعلى الدردشة
+        // Card 93 + 100: صورة الطرف الآخر (إن وُجدت) أو أيقونة دوره بجانب اسمه
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircleAvatar(
-              radius: 14,
-              backgroundColor: YallaColors.primary,
-              child: Icon(_roleIcon(widget.peerRole), size: 16, color: Colors.white),
-            ),
+            _peerAvatar(),
             const SizedBox(width: 8),
             Flexible(child: Text(title, overflow: TextOverflow.ellipsis)),
           ],
@@ -229,8 +246,9 @@ class _ChatScreenState extends State<ChatScreen> {
     final name = _senderName(role);
     final onColor = mine ? Colors.white : null;
     final labelColor = mine ? Colors.white70 : YallaColors.muted;
+    // Card 100: رسائلي تظهر على اليمين، ورسائل الطرف الآخر على اليسار.
     return Align(
-      alignment: mine ? Alignment.centerLeft : Alignment.centerRight,
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
