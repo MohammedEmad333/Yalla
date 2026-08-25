@@ -114,7 +114,7 @@ Vercel هو الأنسب هنا: الطبقة المجانية (Hobby) سخيّ�
    بجانب Root Directory واختر `admin`). سيكتشف Vercel إطار **Vite** تلقائيًا،
    وأمر البناء ومجلّد الإخراج (`dist`) مضبوطان في `vercel.json`.
 4. وسّع **Environment Variables** وأضِف قبل النشر:
-   - `VITE_API_URL` = `https://yalla-api-z6t0.onrender.com` (عنوان Render من الخطوة 2)
+   - `VITE_API_URL` = `https://yalla-api.duckdns.org` (عنوان Render من الخطوة 2)
 
    > يُقرأ هذا المتغيّر **وقت البناء**، فأي تغيير له يتطلّب **Redeploy** (Deployments
    > → آخر نشر → ⋯ → Redeploy).
@@ -136,7 +136,7 @@ Vercel هو الأنسب هنا: الطبقة المجانية (Hobby) سخيّ�
    - **Base directory:** `admin`
    - (الأمر ومجلّد النشر مضبوطان في `netlify.toml`: `npm run build` → `dist`)
 4. قبل النشر، من **Site settings → Environment variables** أضِف:
-   - `VITE_API_URL` = `https://yalla-api-z6t0.onrender.com` (عنوان Render من الخطوة 2)
+   - `VITE_API_URL` = `https://yalla-api.duckdns.org` (عنوان Render من الخطوة 2)
 
    > يُقرأ هذا المتغيّر **وقت البناء**، فأي تغيير له يتطلّب **Redeploy**.
 5. انشر. ستحصل على عنوان مثل `https://gazalook-admin.netlify.app`.

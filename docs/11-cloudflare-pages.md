@@ -28,7 +28,7 @@
    البناء يتم مسبقًا ويُلتزَم في المستودع.
 
 عنوان الـ backend يُثبَّت وقت البناء عبر `--dart-define=API_ORIGIN=...` ويشير إلى
-خدمة Render (`https://yalla-api-z6t0.onrender.com`).
+خدمة Render (`https://yalla-api.duckdns.org`).
 
 ---
 

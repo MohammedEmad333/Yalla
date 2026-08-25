@@ -17,7 +17,7 @@ on:
       api_origin:
         description: 'عنوان الـ Backend الذي يتصل به تطبيق الويب (API_ORIGIN)'
         required: false
-        default: 'https://yalla-api-z6t0.onrender.com'
+        default: 'https://yalla-api.duckdns.org'
   push:
     branches: ['**']
     # نبني فقط عند تغيّر مصدر التطبيق أو أداة البناء — لا عند تغيّر web-app/ نفسه
@@ -57,7 +57,7 @@ jobs:
       - name: تحديد API_ORIGIN
         run: |
           ORIGIN="${{ github.event.inputs.api_origin }}"
-          if [ -z "$ORIGIN" ]; then ORIGIN="https://yalla-api-z6t0.onrender.com"; fi
+          if [ -z "$ORIGIN" ]; then ORIGIN="https://yalla-api.duckdns.org"; fi
           echo "API_ORIGIN=$ORIGIN" >> "$GITHUB_ENV"
           echo "سيُبنى تطبيق الويب للاتصال بـ: $ORIGIN"
 

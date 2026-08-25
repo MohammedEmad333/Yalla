@@ -3,7 +3,7 @@
 // طريقتان لضبط الخادم عند التشغيل عبر --dart-define:
 //
 // 1) الخادم السحابي (HTTPS بلا منفذ) — الأسهل للاستخدام الحقيقي:
-//      flutter run --dart-define=API_ORIGIN=https://yalla-api-z6t0.onrender.com
+//      flutter run --dart-define=API_ORIGIN=https://yalla-api.duckdns.org
 //
 // 2) خادم محلّي على الشبكة (مضيف + منفذ):
 //      flutter run --dart-define=API_HOST=192.168.1.5
