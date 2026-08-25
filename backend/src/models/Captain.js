@@ -58,8 +58,12 @@ const captainSchema = new mongoose.Schema(
       updatedAt: { type: Date, default: Date.now },
     },
 
-    // الطلب النشط حاليًا (إن وُجد)
+    // الطلب النشط حاليًا (إن وُجد) — يشير لأحدث طلب مُسنَد عند تعدّد الطلبات.
     activeOrder: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
+
+    // Card 95: عدد الطلبات النشطة المُسنَدة للكابتن حاليًا (assigned/accepted/picked_up).
+    // يسمح للأدمن بإسناد أكثر من طلب لنفس الكابتن ويظهر كعلامة عدد في لوحة التحكم.
+    activeOrdersCount: { type: Number, default: 0, min: 0 },
 
     // رموز أجهزة FCM لإرسال الإشعارات (قد يملك الكابتن أكثر من جهاز)
     deviceTokens: { type: [String], default: [] },

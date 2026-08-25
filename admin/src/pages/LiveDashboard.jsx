@@ -572,10 +572,13 @@ export default function LiveDashboard() {
                     style={styles.select}
                   >
                     <option value="">— اختر كابتن —</option>
-                    {/* Card 34/35: يُسمح بإسناد كابتن غير متصل (يُوقَظ بالإشعار)؛ المشغول مستبعَد */}
+                    {/* Card 34/35: يُسمح بإسناد كابتن غير متصل (يُوقَظ بالإشعار).
+                        Card 95: يجوز إسناد أكثر من طلب لنفس الكابتن (تحت الحدّ الأقصى)،
+                        ونُظهر عدد طلباته النشطة الحالية. */}
                     {captains.filter((c) => c.assignable).map((c) => (
                       <option key={c._id} value={c._id}>
                         {c.online ? '🟢' : '⚪'} {c.name} ({vehicleLabel(c.vehicleType)})
+                        {c.activeOrdersCount > 0 ? ` — 📦 ${c.activeOrdersCount} طلبات` : ''}
                         {c.online ? '' : ' — غير متصل'}
                       </option>
                     ))}
@@ -596,17 +599,26 @@ export default function LiveDashboard() {
           <h2 style={styles.colTitle}>الكباتن ({captains.length})</h2>
           {captains.length === 0 && <p style={styles.empty}>لا يوجد كباتن معتمَدون</p>}
           {captains.map((c) => {
-            const dotColor = c.busy ? '#f59e0b' : c.online ? theme.color.success : '#94a3b8';
-            const label = c.busy ? 'مشغول' : c.online ? 'متصل' : 'غير متصل';
+            // Card 95: الكابتن مشغول إن كان لديه طلب نشط واحد على الأقل
+            const activeCount = c.activeOrdersCount || 0;
+            const busy = c.status === 'busy' || activeCount > 0;
+            const dotColor = busy ? '#f59e0b' : c.online ? theme.color.success : '#94a3b8';
+            const label = busy ? 'مشغول' : c.online ? 'متصل' : 'غير متصل';
             return (
               <div key={c._id} style={styles.captainCard}>
                 <span style={{ ...styles.dot, background: dotColor, boxShadow: `0 0 0 3px ${dotColor}22` }} />
-                <div>
+                <div style={{ flex: 1 }}>
                   <strong>{c.name}</strong>
                   <div style={styles.captainMeta}>
                     {vehicleLabel(c.vehicleType)} · ⭐ {c.rating} · {label}
                   </div>
                 </div>
+                {/* Card 95: علامة عدد الطلبات النشطة المُسنَدة للكابتن */}
+                {activeCount > 0 && (
+                  <span style={styles.orderBadge} title={`${activeCount} طلب نشط مُسنَد`}>
+                    📦 {activeCount}
+                  </span>
+                )}
               </div>
             );
           })}
@@ -1041,4 +1053,15 @@ const styles = {
     flexShrink: 0,
   },
   captainMeta: { color: theme.color.muted, fontSize: 13, marginTop: 2 },
+  // Card 95: علامة عدد الطلبات النشطة المُسنَدة للكابتن
+  orderBadge: {
+    background: '#f59e0b',
+    color: '#fff',
+    borderRadius: 999,
+    padding: '2px 10px',
+    fontSize: 13,
+    fontWeight: 700,
+    flexShrink: 0,
+    whiteSpace: 'nowrap',
+  },
 };
