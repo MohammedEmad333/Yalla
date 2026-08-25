@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/util/vehicles.dart';
 
 class CaptainSignupScreen extends StatefulWidget {
   final ApiClient api;
@@ -187,24 +188,17 @@ class _CaptainSignupScreenState extends State<CaptainSignupScreen> {
               ),
               const Divider(),
 
-              // نوع المركبة
-              Row(
-                children: [
-                  const Icon(Icons.two_wheeler_outlined, color: YallaColors.muted),
-                  const SizedBox(width: 12),
-                  const Text('نوع المركبة:'),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(value: 'motorcycle', label: Text('موتوسيكل')),
-                        ButtonSegment(value: 'bicycle', label: Text('دراجة')),
-                      ],
-                      selected: {_vehicleType},
-                      onSelectionChanged: (s) => setState(() => _vehicleType = s.first),
-                    ),
-                  ),
-                ],
+              // نوع المركبة (Card 92): هوائية/كهربائية/نارية
+              DropdownButtonFormField<String>(
+                value: _vehicleType,
+                decoration: const InputDecoration(
+                  labelText: 'نوع المركبة',
+                  prefixIcon: Icon(Icons.two_wheeler_outlined),
+                ),
+                items: kVehicleTypes
+                    .map((v) => DropdownMenuItem(value: v.value, child: Text(v.label)))
+                    .toList(),
+                onChanged: (v) => setState(() => _vehicleType = v ?? 'motorcycle'),
               ),
               const SizedBox(height: 16),
 

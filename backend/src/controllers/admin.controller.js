@@ -273,6 +273,30 @@ async function creditExternalUser(req, res, next) {
   }
 }
 
+// Card 87: تعديل رصيد حساب خارجي مؤقّت على قيمة محدّدة (بعد إضافته) — يُرفض
+// للحسابات الدائمة (لها مسار الشحن العاديّ). يعرض الأدمن الرصيد الحالي ويعدّله.
+async function setExternalUserBalance(req, res, next) {
+  try {
+    const { balance } = req.body || {};
+    const value = Number(balance);
+    if (!(value >= 0)) return res.status(400).json({ message: 'أدخل رصيدًا صحيحًا' });
+
+    const user = await User.findById(req.params.userId).select('isExternal role');
+    if (!user) return res.status(404).json({ message: 'المستخدم غير موجود' });
+    if (user.role !== ROLES.USER || !user.isExternal) {
+      return res.status(400).json({ message: 'تعديل الرصيد متاح للحسابات الخارجية المؤقّتة فقط' });
+    }
+
+    const newBalance = await walletService.adminSetBalance(user._id, value, {
+      reason: 'external_balance_edit',
+      by: String(req.auth.id),
+    });
+    res.json({ balance: newBalance });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // عرض محفظة مستخدم معيّن + آخر حركاته
 async function userWallet(req, res, next) {
   try {
@@ -428,6 +452,7 @@ module.exports = {
   approveTopup,
   rejectTopup,
   creditExternalUser,
+  setExternalUserBalance,
   userWallet,
   listWithdrawals,
   processWithdrawal,

@@ -13,6 +13,21 @@ const ROLE_META = {
   admin: { icon: '🛡️', label: 'الأدمن', bg: '#fef9c3', me: true }, // أيقونة الأدمن الخاصّة
 };
 
+// Card 93: طرف محادثة (أيقونة + اسم) مع زرّ اتصال هاتفي مباشر إن توفّر رقمه.
+function Party({ icon, name, phone }) {
+  return (
+    <span style={styles.party}>
+      <span>{icon}</span>
+      <span>{name || '—'}</span>
+      {phone && (
+        <a href={`tel:${phone}`} style={styles.callBtn} title={`اتصال بـ ${name || ''} (${phone})`}>
+          📞 اتصال
+        </a>
+      )}
+    </span>
+  );
+}
+
 function fmtTime(d) {
   if (!d) return '';
   try {
@@ -121,7 +136,7 @@ export default function Chats() {
                 <span style={styles.count}>{c.messages}</span>
               </div>
               <div style={styles.parties}>
-                {c.user?.name || '—'} ↔ {c.captain?.name || '—'}
+                {ROLE_META.user.icon} {c.user?.name || '—'} ↔ {ROLE_META.captain.icon} {c.captain?.name || '—'}
               </div>
               <div style={styles.preview}>{c.lastText}</div>
             </button>
@@ -136,8 +151,11 @@ export default function Chats() {
               <div style={styles.threadHead}>
                 <div>
                   <b>طلب #{active.slice(-5)}</b>
-                  <div style={styles.sub}>
-                    {activeChat?.user?.name} ({activeChat?.user?.phone}) ↔ {activeChat?.captain?.name} ({activeChat?.captain?.phone})
+                  {/* Card 93: أيقونة واسم كل طرف + زرّ اتصال هاتفي مباشر بجانبه */}
+                  <div style={styles.partiesRow}>
+                    <Party icon={ROLE_META.user.icon} name={activeChat?.user?.name} phone={activeChat?.user?.phone} />
+                    <span style={styles.partySep}>↔</span>
+                    <Party icon={ROLE_META.captain.icon} name={activeChat?.captain?.name} phone={activeChat?.captain?.phone} />
                   </div>
                 </div>
                 <button style={styles.exportBtn} onClick={() => exportCsv(active)}>⬇ تصدير CSV</button>
@@ -210,6 +228,15 @@ const styles = {
     padding: 16, borderBottom: `1px solid ${theme.color.outline}`,
   },
   sub: { color: theme.color.muted, fontSize: 12, marginTop: 2 },
+  // Card 93: صفّ أطراف المحادثة مع أزرار الاتصال
+  partiesRow: { display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, flexWrap: 'wrap' },
+  party: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: theme.color.onSurfaceVariant },
+  partySep: { color: theme.color.muted },
+  callBtn: {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    background: theme.color.success || '#16a34a', color: '#fff', textDecoration: 'none',
+    padding: '3px 10px', borderRadius: theme.radius.pill, fontSize: 12, whiteSpace: 'nowrap',
+  },
   exportBtn: {
     background: theme.color.secondary, color: theme.color.onSecondary, border: 'none',
     padding: '8px 14px', borderRadius: theme.radius.pill, cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap',

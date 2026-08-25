@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
 import { theme, orderStatusColor } from '../theme';
+import { vehicleLabel } from '../vehicles';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -235,6 +236,15 @@ export default function LiveDashboard() {
     setPriceEdit((p) => { const n = { ...p }; delete n[orderId]; return n; });
   }
 
+  // يحدّث رصيد صاحب الطلب في الحالة المحلية لكل الطلبات التي تخصّه (Card 87/88)
+  function setUserBalance(userId, balance) {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.user?._id === userId ? { ...o, user: { ...o.user, balance } } : o
+      )
+    );
+  }
+
   // Card 81: إضافة رصيد لحساب خارجي مؤقّت ليكفي لدفع قيمة طلبه
   async function creditExternal(o) {
     const userId = o.user?._id;
@@ -250,7 +260,29 @@ export default function LiveDashboard() {
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) return alert(data?.message || 'تعذّر إضافة الرصيد');
+    // Card 87: نعرض الرصيد المحدّث فورًا في اللوحة بعد الإضافة
+    setUserBalance(userId, data.balance);
     alert(`تمت إضافة الرصيد. الرصيد الحالي: ${data.balance} ₪`);
+  }
+
+  // Card 87: تعديل رصيد الحساب الخارجي على قيمة محدّدة (بعد إضافته)
+  async function editBalance(o) {
+    const userId = o.user?._id;
+    if (!userId) return;
+    const current = Number(o.user?.balance) || 0;
+    const raw = window.prompt(`الرصيد الجديد لصاحب الطلب (₪):`, String(current));
+    if (raw == null) return;
+    const balance = Number(raw);
+    if (!Number.isFinite(balance) || balance < 0) return alert('أدخل رصيدًا صحيحًا');
+    const res = await fetch(`${API}/api/admin/users/${userId}/wallet/balance`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ balance }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return alert(data?.message || 'تعذّر تعديل الرصيد');
+    setUserBalance(userId, data.balance);
+    alert(`تم تعديل الرصيد. الرصيد الحالي: ${data.balance} ₪`);
   }
 
   // Card 82: إرسال رمز التسليم إلى إشعارات الكابتن المُسنَد
@@ -432,6 +464,12 @@ export default function LiveDashboard() {
                   {o.user?.phone ? ` · ${o.user.phone}` : ''}
                 </p>
               )}
+              {/* Card 88: رصيد محفظة صاحب الطلب يظهر لكل الطلبات فور إنشائها */}
+              {o.user && (
+                <p style={styles.line}>
+                  💰 <b>رصيد صاحب الطلب:</b> {Number(o.user.balance) || 0} ₪
+                </p>
+              )}
               <p style={styles.line}>📍 <b>استلام:</b> {o.pickup?.address}</p>
               <p style={styles.line}>🏁 <b>تسليم:</b> {o.dropoff?.address}</p>
               {o.captain && (
@@ -494,6 +532,12 @@ export default function LiveDashboard() {
                       💳 أضف رصيدًا لصاحب الطلب
                     </button>
                   )}
+                  {/* Card 87: تعديل الرصيد المضاف للحساب الخارجي على قيمة محدّدة */}
+                  {o.user?.isExternal && (
+                    <button style={styles.editBalanceBtn} onClick={() => editBalance(o)} title="تعديل رصيد الحساب الخارجي على قيمة محدّدة">
+                      ✎ تعديل الرصيد
+                    </button>
+                  )}
                   {o.captain && o.deliveryCode && (
                     <button style={styles.sendCodeBtn} onClick={() => sendCode(o._id)} title="إرسال رمز التسليم إلى إشعارات الكابتن">
                       🔑 أرسل الرمز للكابتن
@@ -531,7 +575,7 @@ export default function LiveDashboard() {
                     {/* Card 34/35: يُسمح بإسناد كابتن غير متصل (يُوقَظ بالإشعار)؛ المشغول مستبعَد */}
                     {captains.filter((c) => c.assignable).map((c) => (
                       <option key={c._id} value={c._id}>
-                        {c.online ? '🟢' : '⚪'} {c.name} ({c.vehicleType === 'bicycle' ? 'دراجة' : 'موتوسيكل'})
+                        {c.online ? '🟢' : '⚪'} {c.name} ({vehicleLabel(c.vehicleType)})
                         {c.online ? '' : ' — غير متصل'}
                       </option>
                     ))}
@@ -560,7 +604,7 @@ export default function LiveDashboard() {
                 <div>
                   <strong>{c.name}</strong>
                   <div style={styles.captainMeta}>
-                    {c.vehicleType === 'bicycle' ? 'دراجة' : 'موتوسيكل'} · ⭐ {c.rating} · {label}
+                    {vehicleLabel(c.vehicleType)} · ⭐ {c.rating} · {label}
                   </div>
                 </div>
               </div>
@@ -907,6 +951,11 @@ const styles = {
   actionRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' },
   creditBtn: {
     background: '#0d9488', color: '#fff', border: 'none',
+    borderRadius: theme.radius.pill, padding: '7px 14px', cursor: 'pointer', fontSize: 12,
+  },
+  // Card 87: زرّ تعديل الرصيد
+  editBalanceBtn: {
+    background: '#0891b2', color: '#fff', border: 'none',
     borderRadius: theme.radius.pill, padding: '7px 14px', cursor: 'pointer', fontSize: 12,
   },
   sendCodeBtn: {

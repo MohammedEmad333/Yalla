@@ -134,6 +134,46 @@ async function adminCredit(userId, amount, meta = {}) {
   return wallet.balance;
 }
 
+/**
+ * Card 87: ضبط رصيد محفظة زبون على قيمة محدّدة من الأدمن (تعديل مباشر) — تُستخدم
+ * لتصحيح رصيد الحسابات الخارجية المؤقّتة بعد إضافته. نحسب الفرق عن الرصيد الحالي
+ * ونطبّقه ذرّيًّا (زيادة أو نقصان)، ونسجّل حركة "تعديل" ثم نبثّ الرصيد.
+ * @param {string} userId
+ * @param {number} newBalance الرصيد المطلوب بعد التعديل (≥ 0)
+ * @param {object} meta بيانات تدقيق (سبب/المنفّذ)
+ * @returns {Promise<number>} الرصيد بعد التعديل
+ */
+async function adminSetBalance(userId, newBalance, meta = {}) {
+  const target = Number(newBalance);
+  if (!(target >= 0)) throw httpError('قيمة الرصيد غير صالحة', 400);
+
+  const current = await getOrCreateWallet(userId);
+  const delta = target - current.balance;
+  if (delta === 0) {
+    broadcastBalance(userId, current.balance);
+    return current.balance;
+  }
+
+  const wallet = await creditWallet(userId, delta); // delta قد يكون سالبًا
+  try {
+    await WalletTransaction.create({
+      user: userId,
+      wallet: wallet._id,
+      type: WALLET_TX_TYPE.ADJUSTMENT,
+      direction: delta > 0 ? WALLET_DIRECTION.CREDIT : WALLET_DIRECTION.DEBIT,
+      amount: Math.abs(delta),
+      status: TOPUP_STATUS.APPROVED,
+      balanceAfter: wallet.balance,
+      gatewayResponse: { ...meta, setTo: target },
+    });
+  } catch (err) {
+    logger.warn('تعذّر تسجيل حركة تعديل الرصيد:', err.message);
+  }
+
+  broadcastBalance(userId, wallet.balance);
+  return wallet.balance;
+}
+
 /** بثّ الرصيد المحدّث لحظيًا لصاحب المحفظة. */
 function broadcastBalance(userId, balance) {
   try {
@@ -299,6 +339,7 @@ module.exports = {
   getWalletSummary,
   creditWallet,
   adminCredit,
+  adminSetBalance,
   debitWallet,
   chargeForOrder,
   broadcastBalance,

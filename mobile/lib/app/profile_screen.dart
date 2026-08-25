@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/config/app_config.dart';
 import '../core/config/company.dart';
 import '../core/network/api_client.dart';
+import '../core/util/vehicles.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ApiClient api;
@@ -234,8 +235,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _infoTile(Icons.email, 'البريد الإلكتروني', _me['email']),
                     _infoTile(Icons.location_city, 'المدينة', _me['city']),
                   ] else ...[
-                    _infoTile(Icons.two_wheeler, 'نوع المركبة',
-                        _me['vehicleType'] == 'bicycle' ? 'دراجة هوائية' : 'موتوسيكل'),
+                    _infoTile(Icons.two_wheeler, 'نوع المركبة', vehicleLabel(_me['vehicleType'])),
                     _infoTile(Icons.confirmation_number, 'رقم اللوحة', _me['vehiclePlate']),
                     _infoTile(Icons.star, 'التقييم', '${_me['rating'] ?? '—'}'),
                   ],

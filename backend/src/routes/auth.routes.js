@@ -27,7 +27,7 @@ const captainRegisterSchema = {
   name: [V.required, V.string],
   phone: [V.required, V.phone],
   password: [V.required, V.minLength(6)],
-  vehicleType: [V.isIn(['bicycle', 'motorcycle'])], // اختياري
+  vehicleType: [V.isIn(['bicycle', 'electric', 'motorcycle'])], // اختياري (Card 92)
 };
 
 // مسارات عامّة (بحدّ معدّل + تحقّق)

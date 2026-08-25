@@ -18,7 +18,8 @@ const captainApplicationSchema = new mongoose.Schema(
     idPhotoUrl: { type: String, required: true },              // صورة الهوية الرسمية
     selfieUrl: { type: String, required: true },               // سيلفي مع الهوية
 
-    vehicleType: { type: String, enum: ['bicycle', 'motorcycle'], default: 'motorcycle' },
+    // Card 92: هوائية (bicycle) / كهربائية (electric) / نارية (motorcycle)
+    vehicleType: { type: String, enum: ['bicycle', 'electric', 'motorcycle'], default: 'motorcycle' },
 
     // pending فقط تُعرض للأدمن؛ القبول يُنشئ الكابتن والرفض يحذف الطلب،
     // فلا يبقى في العادة إلا الطلبات المعلّقة.
