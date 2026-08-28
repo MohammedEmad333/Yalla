@@ -37,9 +37,17 @@ function makeImageUploader(dir, prefix) {
   return multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: imageFileFilter });
 }
 
-// رافع إيصالات الشحن (المحفظة) ورافع الصور الشخصية (Card 17)
+// رافع إيصالات الشحن (المحفظة)
 const uploadReceipt = makeImageUploader(RECEIPTS_DIR, 'receipt');
-const uploadAvatar = makeImageUploader(AVATARS_DIR, 'avatar');
+
+// Card 102: رافع الصورة الشخصية إلى الذاكرة (memoryStorage) بدل القرص، لأنّ الصورة
+// تُخزَّن بعدها في قاعدة البيانات (دائمة) لا على القرص المؤقّت. نبقي نفس مرشّح الصور
+// وحدّ الحجم المستخدمَين في بقية الرافعات.
+const uploadAvatar = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: imageFileFilter,
+});
 // Card 79: رافع مستندات توثيق الكابتن — حقلان: idPhoto (الهوية) + selfie (سيلفي)
 const uploadCaptainDocs = makeImageUploader(IDS_DIR, 'id').fields([
   { name: 'idPhoto', maxCount: 1 },

@@ -5,10 +5,11 @@ const env = require('../config/env');
 const User = require('../models/User');
 const Captain = require('../models/Captain');
 const CaptainApplication = require('../models/CaptainApplication');
+const { saveAvatar, deleteAvatarByUrl } = require('../utils/avatarStore');
 const adminService = require('../services/admin.service');
 const notifications = require('../services/notification.service');
 const io = require('../sockets/io');
-const { avatarUrlFor, idDocUrlFor } = require('../middlewares/upload.middleware');
+const { idDocUrlFor } = require('../middlewares/upload.middleware');
 const { ROLES, ROOMS } = require('../utils/constants');
 
 // توليد توكن JWT يحمل المعرّف والدور
@@ -248,13 +249,20 @@ async function updateProfile(req, res, next) {
   }
 }
 
-// رفع/تحديث الصورة الشخصية (Card 17) — الملفّ في req.file عبر multer.
+// رفع/تحديث الصورة الشخصية (Card 17) — الملفّ في req.file عبر multer (في الذاكرة).
+// Card 102: نخزّن الصورة في قاعدة البيانات (FileAsset) بدل القرص المؤقّت حتى لا
+// تختفي بعد إعادة تشغيل الاستضافة، ونعرّض رابطًا ثابتًا /files/<id>.
 async function uploadAvatar(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ message: 'أرفق صورة' });
-    const url = avatarUrlFor(req.file.filename);
     const { id, role } = req.auth;
     const Model = role === ROLES.CAPTAIN ? Captain : User;
+
+    // نحفظ الصورة الجديدة في قاعدة البيانات ثم نحذف القديمة (إن كانت مخزّنة عندنا)
+    const url = await saveAvatar(req.file, { owner: id, ownerRole: role });
+    const account = await Model.findById(id).select('avatarUrl');
+    await deleteAvatarByUrl(account && account.avatarUrl);
+
     await Model.findByIdAndUpdate(id, { avatarUrl: url });
     res.json({ ok: true, avatarUrl: url });
   } catch (err) {

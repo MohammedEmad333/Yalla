@@ -18,6 +18,9 @@ app.use(express.json({ limit: '100kb' })); // تحليل JSON بحدّ حجم ي
 // خدمة الملفّات المرفوعة إستاتيكيًّا (إيصالات شحن الرصيد — المرحلة 1)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
+// Card 102: خدمة الصور المخزّنة في قاعدة البيانات (دائمة، لا تُمحى عند إعادة التشغيل)
+app.use('/files', require('./routes/files.routes'));
+
 // حدّ معدّل عام سخيّ لكل الـ API (طبقة حماية أساسية ضدّ الإساءة)
 app.use('/api', rateLimit({ windowMs: 60_000, max: 300 }));
 app.use('/api', routes);                 // كل الـ API تحت البادئة /api
