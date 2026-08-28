@@ -3,6 +3,9 @@
 const walletService = require('../services/wallet.service');
 const paymentService = require('../services/payment');
 const customerWithdrawalService = require('../services/customerWithdrawal.service');
+const notifications = require('../services/notification.service');
+const User = require('../models/User');
+const logger = require('../utils/logger');
 const { publicUrlFor } = require('../middlewares/upload.middleware');
 
 /**
@@ -65,6 +68,19 @@ async function requestTopup(req, res, next) {
       },
       idempotencyKey: req.get('Idempotency-Key') || undefined,
     });
+
+    // Card 105: إشعار المشرفين (داخل التطبيق + Push لنسخة أندرويد) بطلب شحن رصيد
+    // جديد بحاجة للموافقة. آمن: لا يؤثّر على استجابة الزبون إن فشل.
+    User.findById(req.auth.id)
+      .select('name lastName')
+      .lean()
+      .then((u) => {
+        const name = u ? [u.name, u.lastName].filter(Boolean).join(' ').trim() : '';
+        return notifications.notifyAdmins(
+          notifications.topupRequestAdminPayload({ name, amount, method })
+        );
+      })
+      .catch((e) => logger.warn('تعذّر إشعار المشرفين بطلب الشحن:', e.message));
 
     res.status(201).json(tx);
   } catch (err) {

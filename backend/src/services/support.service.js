@@ -38,6 +38,20 @@ async function userSend(userId, text) {
   // بثّ للزبون (أجهزته الأخرى) وللأدمن
   emit(ROOMS.user(String(userId)), message);
   emit(ROOMS.admins(), message);
+
+  // Card 105: إشعار المشرفين (داخل التطبيق + Push لنسخة أندرويد) برسالة دعم جديدة
+  // ليصل التنبيه حتى والتطبيق مغلق. آمن: لا يوقف التدفّق إن فشل.
+  User.findById(userId)
+    .select('name lastName')
+    .lean()
+    .then((u) => {
+      const name = u ? [u.name, u.lastName].filter(Boolean).join(' ').trim() : '';
+      return notifications.notifyAdmins(
+        notifications.supportMessageAdminPayload({ name, text: message.text })
+      );
+    })
+    .catch((e) => logger.warn('تعذّر إشعار المشرفين برسالة الدعم:', e.message));
+
   return message;
 }
 

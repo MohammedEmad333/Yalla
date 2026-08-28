@@ -199,6 +199,52 @@ function withdrawalAdminPayload({ who, name, amount }) {
   };
 }
 
+// ── Card 105: حمولات إشعارات أدمن إضافية (نسخة أندرويد للوحة الأدمن) ──
+
+// إشعار الأدمن بطلب شحن رصيد (إضافة رصيد) من زبون بحاجة للموافقة
+function topupRequestAdminPayload({ name, amount, method } = {}) {
+  return {
+    title: '💰 طلب شحن رصيد',
+    body: `طلب شحن${name ? ` من ${name}` : ''}${amount ? ` بمبلغ ${amount}` : ''}${
+      method ? ` عبر ${method}` : ''
+    } بانتظار الموافقة`,
+    data: { type: 'ADMIN_TOPUP_REQUEST', method: String(method || '') },
+  };
+}
+
+// إشعار الأدمن برسالة دعم جديدة من زبون
+function supportMessageAdminPayload({ name, text } = {}) {
+  const preview = String(text || '').trim();
+  return {
+    title: '📨 رسالة دعم جديدة',
+    body: `${name ? `${name}: ` : ''}${
+      preview.length > 80 ? `${preview.slice(0, 80)}…` : preview || 'رسالة جديدة'
+    }`,
+    data: { type: 'ADMIN_SUPPORT_MESSAGE' },
+  };
+}
+
+// إشعار الأدمن بتسجيل زبون جديد
+function newUserAdminPayload(user = {}) {
+  const name = [user.name, user.lastName].filter(Boolean).join(' ').trim();
+  return {
+    title: '🧑 زبون جديد',
+    body: `انضمّ زبون جديد${name ? `: ${name}` : ''}${user.phone ? ` (${user.phone})` : ''}`,
+    data: { type: 'ADMIN_NEW_USER', userId: user._id ? String(user._id) : '' },
+  };
+}
+
+// إشعار الأدمن بطلب توثيق كابتن جديد (حساب كابتن جديد بحاجة لمراجعة)
+function newCaptainApplicationAdminPayload(app = {}) {
+  return {
+    title: '🛵 طلب كابتن جديد',
+    body: `طلب توثيق كابتن جديد${app.fullName ? `: ${app.fullName}` : ''}${
+      app.phone ? ` (${app.phone})` : ''
+    } بانتظار المراجعة`,
+    data: { type: 'ADMIN_NEW_CAPTAIN', applicationId: app._id ? String(app._id) : '' },
+  };
+}
+
 // ── إشعارات داخل التطبيق (In-App) ─────────────────────────────
 
 // غرفة السوكت المناسبة لدور المستلِم (لبثّ الإشعار لحظيًا)
@@ -405,6 +451,10 @@ module.exports = {
   newOrderAdminPayload,
   orderNeedsReassignAdminPayload,
   withdrawalAdminPayload,
+  topupRequestAdminPayload,
+  supportMessageAdminPayload,
+  newUserAdminPayload,
+  newCaptainApplicationAdminPayload,
   createInApp,
   notifyAdmins,
   sendBroadcast,
