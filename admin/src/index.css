@@ -32,6 +32,10 @@ body {
   color: var(--on-surface);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Card 105 (أندرويد): يمنع "السحب للتحديث" الافتراضيّ للمتصفّح/WebView حتى لا
+     يتعارض مع إيماءتنا الخاصّة، ويُلغي وميض اللمس الأزرق على الأزرار. */
+  overscroll-behavior-y: contain;
+  -webkit-tap-highlight-color: transparent;
 }
 
 h1,
@@ -264,4 +268,35 @@ tbody tr:hover {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #c4bdb8;
+}
+
+/* ═══ Card 105: نسخة أندرويد — السحب للتحديث + آمِن الحواف (safe-area) ═══ */
+
+/* دوران مؤشّر التحميل في مكوّن PullToRefresh */
+@keyframes yl-ptr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.yl-ptr-spin {
+  animation: yl-ptr-spin 0.7s linear infinite;
+}
+
+/* احترام آمِن الحواف على أجهزة أندرويد ذات النتوء/شريط الحالة المتراكب:
+   حشو علويّ للشريط الثابت (يفوز على الأنماط السطريّة بـ !important)، وحشو سفليّ
+   للصفحة يراعي شريط إيماءات الأندرويد. توضَع بعد استعلامات الوسائط لتفوز في كلّ العروض. */
+.yl-nav {
+  padding-top: max(12px, env(safe-area-inset-top)) !important;
+}
+.yl-page {
+  padding-bottom: max(24px, env(safe-area-inset-bottom)) !important;
+}
+
+/* منع تحديد النصّ العرضيّ عند الضغط المطوّل على عناصر التحكّم (إحساس تطبيق أصليّ)،
+   مع إبقاء النصوص العاديّة قابلة للتحديد. */
+button,
+.yl-nav,
+th {
+  -webkit-user-select: none;
+  user-select: none;
 }

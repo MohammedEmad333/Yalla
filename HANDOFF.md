@@ -96,11 +96,27 @@ There is a `curl`/PowerShell snippet earlier in the history to create captain+us
 
 ---
 
-## Recently fixed (this session — Cards 102/103)
+## Recently fixed (this session — Cards 104/105)
+- **#104 الصورة الشخصية لا تظهر في التطبيق ولا لوحة الأدمن:** بعد نقل التخزين إلى
+  قاعدة البيانات (Card 102)، كانت قراءة `FileAsset` بـ `.lean()` تُعيد حقل البيانات
+  كـ **BSON Binary** لا `Buffer`، فكان `res.send` يُسلسِله كـ JSON (نصّ base64)
+  بترويسة `application/json` بدل الصورة الخام — فلا تظهر في أيّ واجهة. الحلّ: أداة
+  `utils/toBuffer` تُعيد `Buffer` صحيحًا، ويُرسل مسار `/files/<id>` البايتات عبر
+  `res.end` مع `Content-Length`. + اختبارات وحدة.
+- **#105 نسخة أندرويد للوحة الأدمن — إشعارات أكثر + واجهة + سحب للتحديث:**
+  - **إشعارات أدمن جديدة (Push + داخليّة):** رسالة دعم جديدة من زبون، طلب شحن رصيد
+    (إضافة رصيد)، تسجيل زبون جديد، وطلب توثيق كابتن جديد — عبر `notifyAdmins` مع
+    حمولات نقيّة جديدة في `notification.service` (سحب الرصيد كان موجودًا مسبقًا).
+  - **السحب للتحديث:** مكوّن `admin/src/components/PullToRefresh.jsx` مستقلّ بلا
+    مكتبات، مربوط في `App.jsx` بإعادة تركيب الصفحة الحاليّة فتُعيد تحميل بياناتها.
+  - **واجهة أنسب لأندرويد:** احترام آمِن الحواف (`safe-area-inset`)، منع السحب
+    الافتراضيّ للمتصفّح (`overscroll-behavior`)، وإلغاء وميض اللمس.
+
+## Previously fixed (Cards 102/103)
 - **#102 اختفاء الصورة الشخصية:** كانت تُخزَّن على قرص الحاوية المؤقّت فتُمحى عند إعادة الإنشاء. الآن تُخزَّن في قاعدة البيانات (`FileAsset`) وتُخدَم من `/files/<id>`. أُضيف أيضًا volume دائم `yalla_uploads` للإيصالات/مستندات الكباتن. **مُطبَّق على السيرفر.**
 - **#103 نسخة أندرويد للأدمن + إشعارات:** الخادم صار يرسل Push للمشرفين (`notifyAdmins`)، ولوحة الأدمن تُسجّل جهازها (`admin/src/push.js`)، ومشروع Capacitor في `admin/android/` + workflow لبناء APK. **جانب الخادم مُطبَّق؛ يتبقّى بناء APK بأسرار Firebase.**
 
-## Previously fixed
+## Previously fixed (earlier sessions)
 Unified login for all roles; fixed "login shows error but signs in after restart" (session now drives navigation directly), "no token" on requests (in-memory token cache), and broken sign-out. Backend `/auth/login` response shape unchanged, so the admin panel is unaffected.
 
 ## Known gaps / good next steps

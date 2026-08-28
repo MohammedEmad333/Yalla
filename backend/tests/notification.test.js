@@ -75,3 +75,44 @@ test('withdrawalAdminPayload: يميّز الكابتن عن العميل ويذ
   const cust = notifications.withdrawalAdminPayload({ who: 'customer', amount: 20 });
   assert.ok(cust.body.includes('عميل') && cust.body.includes('20'));
 });
+
+// ── Card 105: حمولات إشعارات أدمن إضافية ────────────────────────
+test('topupRequestAdminPayload: يذكر الاسم والمبلغ والطريقة ونوع الحدث', () => {
+  const p = notifications.topupRequestAdminPayload({ name: 'سارة', amount: 100, method: 'jawwalpay' });
+  assert.equal(p.data.type, 'ADMIN_TOPUP_REQUEST');
+  assert.equal(p.data.method, 'jawwalpay');
+  assert.ok(p.body.includes('سارة') && p.body.includes('100') && p.body.includes('jawwalpay'));
+});
+
+test('topupRequestAdminPayload: يعمل بلا بيانات (آمن)', () => {
+  const p = notifications.topupRequestAdminPayload();
+  assert.equal(p.data.type, 'ADMIN_TOPUP_REQUEST');
+  assert.ok(p.title.length > 0 && p.body.length > 0);
+});
+
+test('supportMessageAdminPayload: يقصّ النصّ الطويل ويحمل الاسم والنوع', () => {
+  const long = 'ا'.repeat(200);
+  const p = notifications.supportMessageAdminPayload({ name: 'خالد', text: long });
+  assert.equal(p.data.type, 'ADMIN_SUPPORT_MESSAGE');
+  assert.ok(p.body.includes('خالد'));
+  assert.ok(p.body.includes('…') && p.body.length < 120);
+});
+
+test('supportMessageAdminPayload: نصّ افتراضي عند غياب الرسالة', () => {
+  const p = notifications.supportMessageAdminPayload({});
+  assert.ok(p.body.length > 0);
+});
+
+test('newUserAdminPayload: يدمج الاسم والهاتف ونوع الحدث', () => {
+  const p = notifications.newUserAdminPayload({ _id: 'u1', name: 'محمد', lastName: 'علي', phone: '0599' });
+  assert.equal(p.data.type, 'ADMIN_NEW_USER');
+  assert.equal(p.data.userId, 'u1');
+  assert.ok(p.body.includes('محمد علي') && p.body.includes('0599'));
+});
+
+test('newCaptainApplicationAdminPayload: يحمل الاسم والهاتف ونوع الحدث', () => {
+  const p = notifications.newCaptainApplicationAdminPayload({ _id: 'a1', fullName: 'عمر يوسف', phone: '0569' });
+  assert.equal(p.data.type, 'ADMIN_NEW_CAPTAIN');
+  assert.equal(p.data.applicationId, 'a1');
+  assert.ok(p.body.includes('عمر يوسف') && p.body.includes('0569'));
+});

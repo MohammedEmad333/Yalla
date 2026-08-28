@@ -26,6 +26,12 @@ async function registerUser(req, res, next) {
     await user.setPassword(password); // تشفير كلمة المرور
     await user.save();
 
+    // Card 105: إشعار المشرفين (داخل التطبيق + Push لنسخة أندرويد) بزبون جديد.
+    // آمن: fire-and-forget لا يؤثّر على إنشاء الحساب إن فشل.
+    notifications
+      .notifyAdmins(notifications.newUserAdminPayload(user))
+      .catch(() => {});
+
     const token = signToken(user._id, user.role);
     res.status(201).json({
       token,
@@ -189,6 +195,12 @@ async function applyCaptain(req, res, next) {
     } catch (_) {
       /* السوكت غير مهيّأ */
     }
+
+    // Card 105: إشعار المشرفين (داخل التطبيق + Push لنسخة أندرويد) بطلب كابتن جديد
+    // بحاجة للمراجعة. آمن: fire-and-forget.
+    notifications
+      .notifyAdmins(notifications.newCaptainApplicationAdminPayload(application))
+      .catch(() => {});
 
     res.status(201).json({
       status: 'pending',
