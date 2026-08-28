@@ -1,11 +1,13 @@
 // Card 105: السحب للتحديث (Pull-to-refresh) لنسخة أندرويد من لوحة الأدمن.
 //
-// مكوّن مستقلّ بلا أيّ مكتبة خارجية: يستمع للمسّ (touch) على مستوى النافذة،
-// ولا يُفعَّل إلّا عندما تكون الصفحة في أعلاها (scrollY ≤ 0) وكانت الإيماءة
-// عموديّة نزولًا — فلا يتعارض مع تمرير الجداول الأفقي. عند تجاوز عتبة السحب
-// يُشغّل onRefresh() ويُظهر مؤشّر تحميل دوّار حتى ينتهي.
+// تصميم آمن قطعًا تجاه التمرير: كل مستمعي اللمس هنا passive:true — أي لا
+// يستدعون preventDefault إطلاقًا، فمن المستحيل أن يُعطّلوا تمرير الصفحة (هذا
+// كان سبب توقّف التمرير سابقًا). نكتفي بتتبّع السحب للأسفل ونحن في أعلى الصفحة
+// لإظهار مؤشّر ثم إطلاق التحديث عند الإفلات. ومنع "سحب-للتحديث" الافتراضيّ
+// للمتصفّح يتكفّل به overscroll-behavior:contain في index.css.
 //
-// على الويب العادي (بلا لمس) لا يحدث شيء — الأحداث اللمسيّة لا تُطلَق أصلًا.
+// لكل إيماءة "قفل اتجاه": لا نُظهر المؤشّر إلّا لسحب نازل واضح من أعلى الصفحة،
+// وأيّ حركة للأعلى/أفقيّة تُقفل الإيماءة على وضع تمرير عاديّ فلا نتدخّل بصريًّا.
 
 import { useEffect, useRef, useState } from 'react';
 import { theme } from '../theme';
@@ -13,72 +15,82 @@ import { theme } from '../theme';
 const THRESHOLD = 64; // مسافة السحب (px) اللازمة لإطلاق التحديث
 const MAX_PULL = 96; // أقصى إزاحة بصريّة للمحتوى أثناء السحب
 const RESISTANCE = 0.5; // مقاومة السحب (نصف المسافة الفعليّة) لإحساس طبيعيّ
+const DECIDE = 10; // عتبة الحركة (px) التي عندها نقرّر نمط الإيماءة
 
 export default function PullToRefresh({ onRefresh, children }) {
-  const [distance, setDistance] = useState(0); // إزاحة السحب الحاليّة (للعرض)
-  const [refreshing, setRefreshing] = useState(false); // هل يجري التحديث الآن؟
-  const [dragging, setDragging] = useState(false); // هل الإصبع على الشاشة الآن؟
+  const [distance, setDistance] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pulling, setPulling] = useState(false);
 
-  // نُبقي القيم المتغيّرة في مراجع حتى نربط مستمعي اللمس مرّة واحدة فقط
-  // (لا نُعيد ربطها مع كلّ حركة إصبع) ونقرأ أحدث قيمة داخل المعالِجات.
-  const refs = useRef({ startY: 0, startX: 0, active: false, distance: 0, refreshing: false });
+  const refs = useRef({ startY: 0, startX: 0, mode: 'idle', distance: 0, refreshing: false });
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;
 
   useEffect(() => {
     const st = refs.current;
-    const atTop = () => (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
+    const atTop = () => {
+      const se = document.scrollingElement || document.documentElement;
+      return (window.scrollY || (se && se.scrollTop) || 0) <= 0;
+    };
     const setDist = (d) => {
       st.distance = d;
       setDistance(d);
     };
 
     function onStart(e) {
-      if (st.refreshing || !atTop()) {
-        st.active = false;
-        return;
-      }
+      if (st.refreshing) return;
       const t = e.touches[0];
       st.startY = t.clientY;
       st.startX = t.clientX;
-      st.active = true;
+      // نبدأ "غير محدّد" فقط إن كنّا في أعلى الصفحة، وإلّا فهي إيماءة تمرير عاديّ
+      st.mode = atTop() ? 'undecided' : 'scroll';
     }
 
     function onMove(e) {
-      if (!st.active || st.refreshing) return;
+      if (st.refreshing || st.mode === 'scroll' || st.mode === 'idle') return;
       const t = e.touches[0];
       const dy = t.clientY - st.startY;
       const dx = t.clientX - st.startX;
-      // نتجاهل الإيماءات الأفقيّة (تمرير الجداول) أو الصعود
-      if (dy <= 0 || Math.abs(dx) > Math.abs(dy)) {
-        if (st.distance !== 0) setDist(0);
-        return;
+
+      if (st.mode === 'undecided') {
+        // أي حركة للأعلى أو أفقيّة → تمرير عاديّ، لا نتدخّل أبدًا في هذه الإيماءة
+        if (dy <= -DECIDE || (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > DECIDE)) {
+          st.mode = 'scroll';
+          return;
+        }
+        if (dy >= DECIDE && atTop()) {
+          st.mode = 'pull';
+          setPulling(true);
+        } else {
+          return;
+        }
       }
-      // إن غادرت الصفحة أعلاها أثناء السحب نُلغي
-      if (!atTop()) {
-        st.active = false;
-        setDist(0);
-        setDragging(false);
-        return;
+
+      if (st.mode === 'pull') {
+        // إن غادرنا الأعلى نترك الإيماءة للتمرير العاديّ
+        if (!atTop() || dy <= 0) {
+          st.mode = 'scroll';
+          setPulling(false);
+          setDist(0);
+          return;
+        }
+        // ملاحظة: لا preventDefault (المستمع passive) — التمرير لا يتعطّل أبدًا.
+        setDist(Math.min(dy * RESISTANCE, MAX_PULL));
       }
-      if (!st.distance) setDragging(true);
-      // نمنع تمرير الصفحة/توهّج الأندرويد الافتراضيّ أثناء السحب
-      if (e.cancelable) e.preventDefault();
-      setDist(Math.min(dy * RESISTANCE, MAX_PULL));
     }
 
     async function onEnd() {
-      if (!st.active) return;
-      st.active = false;
-      setDragging(false);
-      if (st.distance >= THRESHOLD) {
+      setPulling(false);
+      const wasPull = st.mode === 'pull';
+      st.mode = 'idle';
+      if (wasPull && st.distance >= THRESHOLD) {
         st.refreshing = true;
         setRefreshing(true);
-        setDist(THRESHOLD); // نُثبّت المؤشّر أثناء التحديث
+        setDist(THRESHOLD);
         try {
           await onRefreshRef.current?.();
         } catch (_) {
-          // نتجاهل أخطاء التحديث — الصفحة تعرض أخطاءها بنفسها
+          // نتجاهل — الصفحة تعرض أخطاءها بنفسها
         } finally {
           st.refreshing = false;
           setRefreshing(false);
@@ -89,8 +101,9 @@ export default function PullToRefresh({ onRefresh, children }) {
       }
     }
 
+    // كلّها passive:true — لا يمكنها تعطيل التمرير مهما حدث
     window.addEventListener('touchstart', onStart, { passive: true });
-    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchmove', onMove, { passive: true });
     window.addEventListener('touchend', onEnd, { passive: true });
     window.addEventListener('touchcancel', onEnd, { passive: true });
     return () => {
@@ -103,11 +116,10 @@ export default function PullToRefresh({ onRefresh, children }) {
 
   const progress = Math.min(distance / THRESHOLD, 1);
   const showIndicator = distance > 0 || refreshing;
-  const settle = dragging ? 'none' : 'transform 0.2s ease, opacity 0.2s ease';
+  const settle = pulling ? 'none' : 'transform 0.2s ease, opacity 0.2s ease';
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* مؤشّر السحب/التحميل — يظهر ويتحرّك مع السحب */}
       <div
         aria-hidden={!showIndicator}
         style={{
@@ -151,10 +163,11 @@ export default function PullToRefresh({ onRefresh, children }) {
         </div>
       </div>
 
-      {/* المحتوى — يُزاح للأسفل أثناء السحب لإحساس طبيعيّ */}
+      {/* المحتوى — يُزاح للأسفل أثناء السحب فقط، وبلا أيّ تحويل عند السكون */}
       <div
         style={{
-          transform: `translateY(${refreshing ? THRESHOLD * 0.5 : distance}px)`,
+          transform:
+            distance || refreshing ? `translateY(${refreshing ? THRESHOLD * 0.5 : distance}px)` : 'none',
           transition: settle,
         }}
       >
