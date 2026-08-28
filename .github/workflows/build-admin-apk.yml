@@ -53,18 +53,31 @@ jobs:
           GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
           OUT=android/app/google-services.json
+          validate() {
+            # ملف google-services.json الصحيح يحوي كائن project_info.
+            # مفتاح الخدمة (fcm.json) يحوي private_key وليس project_info — نرفضه.
+            if grep -q '"private_key"' "$OUT" && ! grep -q '"project_info"' "$OUT"; then
+              echo "::error::يبدو أنّك وضعت مفتاح خدمة Firebase (fcm.json) بدل google-services.json. الملف المطلوب يُنزَّل من Firebase Console ← Project settings ← Your apps ← تطبيق Android بالحزمة com.yalla.admin ← google-services.json (يحوي project_info)."
+              return 1
+            fi
+            if ! grep -q '"project_info"' "$OUT"; then
+              echo "::error::google-services.json غير صالح (لا يحوي project_info). نزّله من Firebase Console لتطبيق Android بالحزمة com.yalla.admin."
+              return 1
+            fi
+          }
           if [ -n "$GS_JSON" ]; then
             # الأسهل: لصق محتوى الملف كما هو في السرّ GOOGLE_SERVICES_JSON
             printf '%s' "$GS_JSON" > "$OUT"
+            validate || exit 1
             echo "✅ google-services.json (JSON خام) مضاف — الإشعارات مفعّلة"
           elif [ -n "$GS_B64" ]; then
-            # بديل: base64. نزيل الفراغات/الأسطر ونفكّ الترميز بتسامح ثم نتحقّق
-            if printf '%s' "$GS_B64" | tr -d '[:space:]' | base64 -d > "$OUT" 2>/dev/null && grep -q '"project_id"' "$OUT"; then
-              echo "✅ google-services.json (base64) مضاف — الإشعارات مفعّلة"
-            else
-              echo "::error::GOOGLE_SERVICES_JSON_BASE64 غير صالح. الأسهل: استخدم السرّ GOOGLE_SERVICES_JSON وألصق محتوى الملف كما هو. أو ولّد base64 صحيحًا على Linux/Mac بـ: base64 -w0 google-services.json"
+            # بديل: base64. نزيل الفراغات/الأسطر ونفكّ الترميز بتسامح
+            if ! printf '%s' "$GS_B64" | tr -d '[:space:]' | base64 -d > "$OUT" 2>/dev/null; then
+              echo "::error::GOOGLE_SERVICES_JSON_BASE64 ليس base64 صالحًا. الأسهل: استخدم السرّ GOOGLE_SERVICES_JSON وألصق محتوى الملف كما هو."
               exit 1
             fi
+            validate || exit 1
+            echo "✅ google-services.json (base64) مضاف — الإشعارات مفعّلة"
           else
             echo "⚠️ بلا إعداد Firebase — سيُبنى التطبيق بلا إشعارات Push"
           fi
