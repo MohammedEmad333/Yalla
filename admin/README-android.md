@@ -18,8 +18,10 @@
 
 1. اضبط الأسرار في: **Settings → Secrets and variables → Actions**
    - `ADMIN_API_URL` (مطلوب): رابط الخادم المنشور، مثل `https://<عنوان-خادمك-على-Oracle>`
-   - `GOOGLE_SERVICES_JSON_BASE64` (اختياري، لتفعيل الإشعارات): نفّذ محليًا
-     `base64 -w0 google-services.json` وألصق الناتج.
+   - `GOOGLE_SERVICES_JSON` (الأسهل، لتفعيل الإشعارات): افتح ملف
+     `google-services.json` وألصق محتواه **كما هو** في السرّ.
+   - أو `GOOGLE_SERVICES_JSON_BASE64` (بديل): على Linux/Mac نفّذ
+     `base64 -w0 google-services.json` وألصق الناتج (تجنّب ترميز Windows فقد يُفسد القيمة).
 2. من تبويب **Actions** → اختر **Build Admin APK** → **Run workflow**.
 3. بعد انتهاء البناء، نزّل الـ APK من قسم **Artifacts** (`yalla-admin-apk`) وثبّته على الهاتف.
 

@@ -5,8 +5,8 @@
 #
 # أسرار مطلوبة/اختيارية (Settings → Secrets and variables → Actions):
 #   ADMIN_API_URL                (مطلوب) رابط الخادم المنشور، مثل https://<عنوان-خادمك-على-Oracle>
-#   GOOGLE_SERVICES_JSON_BASE64  (اختياري) محتوى google-services.json مُرمَّزًا base64 لتفعيل الإشعارات.
-#                                 توليده: base64 -w0 google-services.json
+#   GOOGLE_SERVICES_JSON         (الأسهل، لتفعيل الإشعارات) الصق محتوى ملف google-services.json كما هو.
+#   GOOGLE_SERVICES_JSON_BASE64  (بديل) نفس الملف مُرمَّزًا base64 — توليده على Linux/Mac: base64 -w0 google-services.json
 #   ANDROID_KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD (اختياري) للإصدار الموقَّع.
 
 name: Build Admin APK
@@ -49,13 +49,24 @@ jobs:
 
       - name: إضافة google-services.json (لتفعيل الإشعارات) إن توفّر
         env:
+          GS_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
           GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
-          if [ -n "$GS_B64" ]; then
-            echo "$GS_B64" | base64 -d > android/app/google-services.json
-            echo "✅ google-services.json مضاف — الإشعارات مفعّلة"
+          OUT=android/app/google-services.json
+          if [ -n "$GS_JSON" ]; then
+            # الأسهل: لصق محتوى الملف كما هو في السرّ GOOGLE_SERVICES_JSON
+            printf '%s' "$GS_JSON" > "$OUT"
+            echo "✅ google-services.json (JSON خام) مضاف — الإشعارات مفعّلة"
+          elif [ -n "$GS_B64" ]; then
+            # بديل: base64. نزيل الفراغات/الأسطر ونفكّ الترميز بتسامح ثم نتحقّق
+            if printf '%s' "$GS_B64" | tr -d '[:space:]' | base64 -d > "$OUT" 2>/dev/null && grep -q '"project_id"' "$OUT"; then
+              echo "✅ google-services.json (base64) مضاف — الإشعارات مفعّلة"
+            else
+              echo "::error::GOOGLE_SERVICES_JSON_BASE64 غير صالح. الأسهل: استخدم السرّ GOOGLE_SERVICES_JSON وألصق محتوى الملف كما هو. أو ولّد base64 صحيحًا على Linux/Mac بـ: base64 -w0 google-services.json"
+              exit 1
+            fi
           else
-            echo "⚠️ بلا google-services.json — سيُبنى التطبيق بلا إشعارات Push"
+            echo "⚠️ بلا إعداد Firebase — سيُبنى التطبيق بلا إشعارات Push"
           fi
 
       - name: بناء الويب (Vite) بعنوان الـ API
