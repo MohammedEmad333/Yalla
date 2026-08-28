@@ -8,17 +8,25 @@ try {
   // dotenv غير مثبّت — نعتمد على متغيّرات البيئة الموجودة مباشرةً
 }
 
+// أصول تطبيقات Capacitor الأصليّة (نسخة أندرويد من لوحة الأدمن — Card 103/105).
+// WebView في Capacitor يرسل الطلبات من أصل ثابت لا يتغيّر: مع androidScheme:"https"
+// يكون الأصل https://localhost، وعلى iOS capacitor://localhost. نسمح بها دائمًا حتى
+// يعمل تطبيق الأندرويد دون الحاجة لإضافة أصله يدويًا في CORS_ORIGIN بكلّ نشر/بناء.
+const CAPACITOR_ORIGINS = ['https://localhost', 'capacitor://localhost', 'http://localhost'];
+
 // يقبل CORS_ORIGIN رابطًا واحدًا أو عدّة روابط مفصولة بفاصلة، مثل:
 //   CORS_ORIGIN=https://gazalook-admin.netlify.app,https://yalla.workers.dev
-// القيمة "*" تسمح لأي نطاق. نُرجع نصًّا واحدًا أو مصفوفة أو "*" —
-// وكلها مدعومة من حزمة cors ومن Socket.io.
+// القيمة "*" تسمح لأي نطاق. نُرجع "*" أو مصفوفة أصول — وكلاهما مدعوم من حزمة
+// cors ومن Socket.io. نُلحق دائمًا أصول Capacitor حتى تعمل نسخة الأندرويد.
 function parseCorsOrigin(value) {
+  // غياب القيمة أو "*" يعني السماح للجميع (يشمل Capacitor أصلًا) — نُبقيه كما كان.
   if (!value || value.trim() === '*') return '*';
   const list = value
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
-  return list.length === 1 ? list[0] : list;
+  // ندمج الأصول المضبوطة مع أصول Capacitor بلا تكرار حتى تعمل نسخة الأندرويد دائمًا
+  return [...new Set([...list, ...CAPACITOR_ORIGINS])];
 }
 
 const env = {
@@ -44,3 +52,6 @@ const env = {
 };
 
 module.exports = env;
+// مكشوفة للاختبار فقط (منطق نقيّ لدمج أصول CORS)
+module.exports.parseCorsOrigin = parseCorsOrigin;
+module.exports.CAPACITOR_ORIGINS = CAPACITOR_ORIGINS;
