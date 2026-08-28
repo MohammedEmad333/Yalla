@@ -28,7 +28,7 @@
    البناء يتم مسبقًا ويُلتزَم في المستودع.
 
 عنوان الـ backend يُثبَّت وقت البناء عبر `--dart-define=API_ORIGIN=...` ويشير إلى
-خدمة Render (`https://yalla-api.duckdns.org`).
+خادم Oracle (`https://yalla-api.duckdns.org`).
 
 ---
 
@@ -53,14 +53,14 @@ Cloudflare ينشر تلقائيًا بعد الـ push.
 رابط Cloudflare (مثل `https://yalla.<account>.workers.dev`) يجب أن يُسمح له بالوصول
 إلى الـ backend عبر CORS:
 
-- على **Render** (خدمة `yalla-api`) أضِف رابط Cloudflare إلى `CORS_ORIGIN` مع رابط
+- على **خادم Oracle** أضِف رابط Cloudflare إلى `CORS_ORIGIN` مع رابط
   لوحة الأدمن، مفصولين بفاصلة (الـ backend يدعم عدّة روابط الآن). مثال:
 
   ```
   https://gazalook-admin.netlify.app,https://yalla.<account>.workers.dev
   ```
 
-- راجع [`04-cloud-deployment.md`](04-cloud-deployment.md) لتفاصيل متغيّرات Render.
+- راجع [`12-oracle-cloud-migration.md`](12-oracle-cloud-migration.md) لتفاصيل متغيّرات الخادم.
 
 بدون هذا، سيفشل تسجيل الدخول واتصال Socket من نسخة الويب.
 

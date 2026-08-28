@@ -2,8 +2,9 @@
 
 تُشغَّل المنظومة كاملةً عبر Docker Compose: قاعدة البيانات + الـ API + لوحة الأدمن.
 
-> 🌐 للنشر السحابي المجاني (Render + MongoDB Atlas + Netlify/Vercel) بدل Docker،
-> راجع [`04-cloud-deployment.md`](04-cloud-deployment.md).
+> 🌐 للنشر السحابي الحالي على **Oracle Cloud** (الخادم + قاعدة البيانات معًا في
+> Docker) راجع [`12-oracle-cloud-migration.md`](12-oracle-cloud-migration.md).
+> (الطريقة القديمة Render + Atlas في `04-cloud-deployment.md` للاطّلاع التاريخي فقط.)
 
 ## التشغيل بأمر واحد
 

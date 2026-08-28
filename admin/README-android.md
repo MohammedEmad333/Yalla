@@ -8,7 +8,30 @@
 > الكود جاهز: صفحة الأدمن تسجّل جهازها تلقائيًا بعد تسجيل الدخول
 > (`src/push.js` + `src/auth/AuthContext.jsx`)، والخادم يرسل Push لكل المشرفين
 > عند الأحداث المهمّة (`notifyAdmins` في `backend/src/services/notification.service.js`).
-> يبقى فقط توليد مشروع أندرويد مرّة واحدة وربطه بمشروع Firebase.
+> ومشروع أندرويد (Capacitor) **مُولَّد ومحفوظ في `admin/android/`**.
+
+---
+
+## الطريقة الأسهل: بناء APK تلقائيًا عبر GitHub Actions (موصى بها)
+
+لا حاجة لتثبيت أي أدوات على جهازك — GitHub يبني الـ APK نيابةً عنك:
+
+1. اضبط الأسرار في: **Settings → Secrets and variables → Actions**
+   - `ADMIN_API_URL` (مطلوب): رابط الخادم المنشور، مثل `https://<عنوان-خادمك-على-Oracle>`
+   - `GOOGLE_SERVICES_JSON_BASE64` (اختياري، لتفعيل الإشعارات): نفّذ محليًا
+     `base64 -w0 google-services.json` وألصق الناتج.
+2. من تبويب **Actions** → اختر **Build Admin APK** → **Run workflow**.
+3. بعد انتهاء البناء، نزّل الـ APK من قسم **Artifacts** (`yalla-admin-apk`) وثبّته على الهاتف.
+
+> بلا `GOOGLE_SERVICES_JSON_BASE64` يُبنى التطبيق ويعمل بالكامل لكن **بلا إشعارات
+> Push** (تُفعَّل لاحقًا بمجرّد إضافة السرّ وإعادة التشغيل). ولا تنسَ إضافة
+> `https://localhost` إلى `CORS_ORIGIN` على الخادم (انظر القسم 4 أدناه).
+
+---
+
+## الطريقة اليدوية (Android Studio)
+
+المشروع مولَّد مسبقًا في `admin/android/`، لذا تخطّى `npx cap add android`.
 
 ## المتطلّبات
 
@@ -34,11 +57,10 @@ npm install -D @capacitor/cli
 اضبط عنوان الـ API للخادم المنشور (وليس localhost، فالهاتف لن يصله):
 
 ```bash
-# مثال Render:
-VITE_API_URL=https://yalla-api.onrender.com npm run build
+# مثال (خادمك على Oracle):
+VITE_API_URL=https://<عنوان-خادمك-على-Oracle> npm run build
 
-npx cap add android      # يولّد مجلّد android/ (مرّة واحدة)
-npx cap sync             # ينسخ dist/ ويثبّت المكوّنات الإضافية
+npx cap sync android     # ينسخ dist/ ويحدّث المكوّنات الإضافية (المشروع مولَّد مسبقًا)
 ```
 
 ## 3) ربط Firebase (FCM)
@@ -47,8 +69,8 @@ npx cap sync             # ينسخ dist/ ويثبّت المكوّنات الإ
    `com.yalla.admin`.
 2. نزّل `google-services.json` وضعه في `admin/android/app/google-services.json`.
 3. من إعدادات المشروع → Service accounts → ولّد مفتاح خدمة (JSON)، وألصق
-   محتواه في متغيّر البيئة `FCM_CREDENTIALS_JSON` على الخادم (Render) — هذا
-   ما يستخدمه الخادم لإرسال الإشعارات (راجع `render.yaml`).
+   محتواه في متغيّر البيئة `FCM_CREDENTIALS_JSON` على الخادم (Oracle) — هذا
+   ما يستخدمه الخادم لإرسال الإشعارات.
 
 Capacitor يضيف إعداد `google-services` تلقائيًا لمشروع Gradle عند `cap sync`.
 إن لزم، تأكّد أنّ `android/build.gradle` و`android/app/build.gradle` يحويان
@@ -73,7 +95,7 @@ npx cap open android     # يفتح Android Studio
 عند كلّ تعديل لاحق للوحة:
 
 ```bash
-VITE_API_URL=https://yalla-api.onrender.com npm run build && npx cap sync
+VITE_API_URL=https://<عنوان-خادمك-على-Oracle> npm run build && npx cap sync
 ```
 
 ## كيف تعمل الإشعارات (نظرة عامّة)

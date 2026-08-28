@@ -6,7 +6,7 @@
 # (أمر البناء ومجلّد النشر مضبوطان أدناه، ونسبيّان لمجلّد admin/)
 #
 # مهم: اضبط متغيّر البيئة VITE_API_URL من لوحة Netlify (Site settings → Environment)
-#       على عنوان الـ Backend على Render، مثال:
+#       على عنوان الـ Backend على Oracle، مثال:
 #       VITE_API_URL = https://yalla-api.duckdns.org
 #       (يُقرأ وقت البناء — أي تغيير يتطلّب إعادة نشر Redeploy)
 
