@@ -133,6 +133,11 @@ async function requestWithdrawal(userId, payload = {}) {
     // السوكت غير مهيّأ (اختبارات) — نتجاهل بأمان
   }
 
+  // Card 103: إشعار Push لأجهزة الأدمن بطلب سحب رصيد عميل جديد — غير حاجب
+  notifications
+    .notifyAdmins(notifications.withdrawalAdminPayload({ who: 'customer', amount }))
+    .catch(() => {});
+
   return withdrawal;
 }
 

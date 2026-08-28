@@ -3,6 +3,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { enablePush, disablePush } from '../push';
 
 const AuthContext = createContext(null);
 
@@ -19,8 +20,10 @@ export function AuthProvider({ children }) {
       .get('/auth/me')
       .then((data) => {
         // نقبل فقط دور admin في هذه اللوحة
-        if (data.role === 'admin') setAdmin(data.user);
-        else localStorage.removeItem('token');
+        if (data.role === 'admin') {
+          setAdmin(data.user);
+          enablePush(); // Card 103: تسجيل جهاز الأدمن للإشعارات (أندرويد فقط)
+        } else localStorage.removeItem('token');
       })
       .catch(() => localStorage.removeItem('token'))
       .finally(() => setLoading(false));
@@ -34,9 +37,11 @@ export function AuthProvider({ children }) {
     }
     localStorage.setItem('token', data.token);
     setAdmin(data.user);
+    enablePush(); // Card 103: تسجيل جهاز الأدمن للإشعارات (أندرويد فقط)
   }
 
   function logout() {
+    disablePush(); // إلغاء تسجيل رمز الجهاز قبل الخروج
     localStorage.removeItem('token');
     setAdmin(null);
   }

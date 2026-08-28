@@ -221,6 +221,8 @@ async function createOrder(userId, payload, idempotencyKey) {
   // بثّ لكل الأدمن: طلب جديد بانتظار الإسناد + إعلام المستخدم بغرفته
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
   io.get().to(ROOMS.user(userId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  // Card 103: إشعار Push لأجهزة الأدمن (نسخة أندرويد) بطلب جديد — غير حاجب
+  notifications.notifyAdmins(notifications.newOrderAdminPayload(order)).catch(() => {});
 
   // إسناد تلقائي لأقرب كابتن عند التفعيل (AUTO_ASSIGN=true) — للطلبات المستحقّة فقط.
   // الطلبات المجدولة مستقبلًا تبقى pending حتى يحين وقتها. إن لم يوجد كابتن يبقى
@@ -401,6 +403,8 @@ async function activateDueScheduledOrders(now = new Date()) {
     await order.populate('user', 'name lastName phone');
     io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
     io.get().to(ROOMS.user(uid)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+    // Card 103: إشعار Push لأجهزة الأدمن بطلب مجدول أصبح فعّالًا الآن
+    notifications.notifyAdmins(notifications.newOrderAdminPayload(order)).catch(() => {});
 
     if (env.autoAssign) {
       try {
@@ -793,6 +797,8 @@ async function returnToPoolAndReassign(order, captainId, { actorRole, action, re
   await order.populate('user', 'name lastName phone');
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
   io.get().to(ROOMS.user(ownerId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  // Card 103: إشعار Push لأجهزة الأدمن بأنّ طلبًا عاد بحاجة لإعادة إسناد
+  notifications.notifyAdmins(notifications.orderNeedsReassignAdminPayload(order)).catch(() => {});
 
   // إعلام الكابتن السابق ليختفي الطلب من شاشته فورًا دون تحديث (Cards: رفض/انتقال لغير متصل).
   // في هذه اللحظة الطلب pending وبلا كابتن، فتعرف شاشة الكابتن أنه لم يعد مُسنَدًا إليها.

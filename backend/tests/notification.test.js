@@ -43,3 +43,35 @@ test('sendToTokens: لا يفعل شيئًا بلا رموز (آمن)', async ()
   const res = await notifications.sendToTokens([], { title: 't', body: 'b' });
   assert.equal(res.sent, 0);
 });
+
+// ── Card 103: حمولات إشعارات الأدمن (نسخة أندرويد) ──────────────
+test('newOrderAdminPayload: يحمل عنوانَي الاستلام والتسليم ونوع الحدث', () => {
+  const p = notifications.newOrderAdminPayload({
+    _id: 'o1',
+    pickup: { address: 'الرمال' },
+    dropoff: { address: 'الشجاعية' },
+  });
+  assert.equal(p.data.type, 'ADMIN_NEW_ORDER');
+  assert.equal(p.data.orderId, 'o1');
+  assert.ok(p.body.includes('الرمال') && p.body.includes('الشجاعية'));
+});
+
+test('newOrderAdminPayload: عناوين افتراضية عند غياب البيانات', () => {
+  const p = notifications.newOrderAdminPayload({ _id: 'o2' });
+  assert.equal(p.data.orderId, 'o2');
+  assert.ok(p.body.length > 0);
+});
+
+test('orderNeedsReassignAdminPayload: نوع إعادة الإسناد', () => {
+  const p = notifications.orderNeedsReassignAdminPayload({ _id: 'o3', pickup: { address: 'التفاح' } });
+  assert.equal(p.data.type, 'ADMIN_ORDER_REASSIGN');
+  assert.ok(p.body.includes('التفاح'));
+});
+
+test('withdrawalAdminPayload: يميّز الكابتن عن العميل ويذكر المبلغ', () => {
+  const cap = notifications.withdrawalAdminPayload({ who: 'captain', name: 'أحمد', amount: 50 });
+  assert.equal(cap.data.type, 'ADMIN_WITHDRAWAL');
+  assert.ok(cap.body.includes('كابتن') && cap.body.includes('أحمد') && cap.body.includes('50'));
+  const cust = notifications.withdrawalAdminPayload({ who: 'customer', amount: 20 });
+  assert.ok(cust.body.includes('عميل') && cust.body.includes('20'));
+});

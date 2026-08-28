@@ -1,0 +1,14 @@
+{
+  "appId": "com.yalla.admin",
+  "appName": "Yalla Admin",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}
