@@ -165,6 +165,40 @@ function orderCancelledPayload(order) {
   };
 }
 
+// ── Card 103: حمولات إشعارات الأدمن (نسخة أندرويد للوحة الأدمن) ──────
+// دوال نقيّة تبني نصّ الإشعار الذي يصل لجهاز الأدمن ليتحرّك فورًا.
+
+// إشعار الأدمن بطلب جديد بحاجة لإسناد كابتن
+function newOrderAdminPayload(order) {
+  const from = order.pickup?.address || 'موقع الاستلام';
+  const to = order.dropoff?.address || 'موقع التسليم';
+  return {
+    title: '🚴 طلب جديد',
+    body: `من: ${from}\nإلى: ${to}`,
+    data: { type: 'ADMIN_NEW_ORDER', orderId: String(order._id) },
+  };
+}
+
+// إشعار الأدمن بأنّ طلبًا رُفض/انتهت مهلته وعاد بحاجة لإعادة إسناد
+function orderNeedsReassignAdminPayload(order) {
+  const from = order.pickup?.address || 'موقع الاستلام';
+  return {
+    title: '🔁 طلب يحتاج إعادة إسناد',
+    body: `طلب عاد إلى قائمة الانتظار — من: ${from}`,
+    data: { type: 'ADMIN_ORDER_REASSIGN', orderId: String(order._id) },
+  };
+}
+
+// إشعار الأدمن بطلب سحب رصيد (كابتن/عميل) بحاجة للمراجعة
+function withdrawalAdminPayload({ who, name, amount }) {
+  const label = who === 'captain' ? 'كابتن' : 'عميل';
+  return {
+    title: '💸 طلب سحب رصيد',
+    body: `طلب سحب من ${label}${name ? ` (${name})` : ''}${amount ? ` بمبلغ ${amount}` : ''} بانتظار المراجعة`,
+    data: { type: 'ADMIN_WITHDRAWAL', who: String(who || '') },
+  };
+}
+
 // ── إشعارات داخل التطبيق (In-App) ─────────────────────────────
 
 // غرفة السوكت المناسبة لدور المستلِم (لبثّ الإشعار لحظيًا)
@@ -202,6 +236,63 @@ async function createInApp(recipientId, recipientRole, payload) {
 // بناء مُرشِّح المستلِمين لفئة معيّنة حسب الجمهور والقائمة المحدّدة
 function recipientFilter(audience, ids) {
   return audience === BROADCAST_AUDIENCE.SPECIFIC ? { _id: { $in: ids } } : {};
+}
+
+/**
+ * Card 103: إشعار كلّ المشرفين (الأدمن) بحدث يخصّهم (طلب جديد، سحب رصيد...).
+ * يُنشئ إشعارًا داخليًا لكل مشرف، ويبثّه لحظيًا لغرفة الأدمن، ويرسل Push إلى
+ * أجهزتهم المسجَّلة (آمن: no-op إن كان FCM معطّلًا). هكذا يصل الإشعار إلى نسخة
+ * أندرويد من لوحة الأدمن حتى والتطبيق مغلق.
+ * @param {{title:string, body:string, data?:object}} payload
+ * @returns {Promise<{admins:number, push:number}>}
+ */
+async function notifyAdmins(payload = {}) {
+  const title = String(payload.title || '').trim();
+  const body = String(payload.body || '').trim();
+  const data = payload.data || {};
+
+  const admins = await User.find({ role: ROLES.ADMIN }).select('_id deviceTokens').lean();
+  if (!admins.length) return { admins: 0, push: 0 };
+
+  // إشعار داخلي لكلّ مشرف (لصفحة الإشعارات الخاصّة به) + تجميع رموز الأجهزة
+  const notifDocs = [];
+  const tokens = [];
+  for (const a of admins) {
+    notifDocs.push({
+      recipient: a._id,
+      recipientRole: ROLES.ADMIN,
+      type: data.type || 'ADMIN_ALERT',
+      title,
+      body,
+      data,
+    });
+    if (Array.isArray(a.deviceTokens)) tokens.push(...a.deviceTokens);
+  }
+
+  // حفظ الإشعارات الداخلية دفعةً واحدة ثم بثّها مرّة واحدة لغرفة الأدمن
+  // (كلّ المشرفين يتشاركون غرفة واحدة، فنبثّ حدثًا واحدًا لتفادي التكرار)
+  try {
+    const created = await Notification.insertMany(notifDocs);
+    try {
+      if (created.length) {
+        io.get().to(ROOMS.admins()).emit(EVENTS.NOTIFICATION_NEW, created[0]);
+      }
+    } catch (_) {
+      // السوكت غير مهيّأ (اختبارات) — نتجاهل بأمان
+    }
+  } catch (err) {
+    logger.warn('تعذّر إنشاء إشعارات الأدمن الداخلية:', err.message);
+  }
+
+  // إشعار Push لأجهزة الأدمن (آمن إن كان FCM معطّلًا)
+  let pushSent = 0;
+  const uniqueTokens = [...new Set(tokens.filter(Boolean))];
+  if (uniqueTokens.length) {
+    const res = await sendToTokens(uniqueTokens, { title, body, data });
+    pushSent = res.sent || 0;
+  }
+
+  return { admins: admins.length, push: pushSent };
 }
 
 /**
@@ -311,7 +402,11 @@ module.exports = {
   orderStatusPayload,
   orderCancelledPayload,
   deliveryCodePayload,
+  newOrderAdminPayload,
+  orderNeedsReassignAdminPayload,
+  withdrawalAdminPayload,
   createInApp,
+  notifyAdmins,
   sendBroadcast,
   listForRecipient,
   markRead,

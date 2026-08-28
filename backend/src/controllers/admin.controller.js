@@ -12,7 +12,7 @@ const chatService = require('../services/chat.service');
 const notificationService = require('../services/notification.service');
 const { validateBroadcast } = require('../utils/broadcast');
 const { excelUnicodeBuffer } = require('../utils/csv');
-const { avatarUrlFor } = require('../middlewares/upload.middleware');
+const { saveAvatar, deleteAvatarByUrl } = require('../utils/avatarStore');
 const { ROLES } = require('../utils/constants');
 
 // مؤشّرات الأداء للوحة التحكّم
@@ -125,13 +125,12 @@ async function updateCaptain(req, res, next) {
 async function uploadCaptainAvatar(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ message: 'أرفق صورة' });
-    const url = avatarUrlFor(req.file.filename);
-    const captain = await Captain.findByIdAndUpdate(
-      req.params.captainId,
-      { avatarUrl: url },
-      { new: true }
-    ).select('name avatarUrl');
-    if (!captain) return res.status(404).json({ message: 'الكابتن غير موجود' });
+    // Card 102: نخزّن الصورة في قاعدة البيانات (دائم) ونحذف القديمة إن وُجدت
+    const prev = await Captain.findById(req.params.captainId).select('avatarUrl');
+    if (!prev) return res.status(404).json({ message: 'الكابتن غير موجود' });
+    const url = await saveAvatar(req.file, { owner: req.params.captainId, ownerRole: ROLES.CAPTAIN });
+    await deleteAvatarByUrl(prev.avatarUrl);
+    await Captain.findByIdAndUpdate(req.params.captainId, { avatarUrl: url });
     res.json({ ok: true, avatarUrl: url });
   } catch (err) {
     next(err);

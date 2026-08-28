@@ -123,6 +123,11 @@ async function requestWithdrawal(captainId, payload = {}) {
     // السوكت غير مهيّأ (اختبارات) — نتجاهل بأمان
   }
 
+  // Card 103: إشعار Push لأجهزة الأدمن بطلب سحب رصيد كابتن جديد — غير حاجب
+  notifications
+    .notifyAdmins(notifications.withdrawalAdminPayload({ who: 'captain', name: captain.name, amount }))
+    .catch(() => {});
+
   return withdrawal;
 }
 
