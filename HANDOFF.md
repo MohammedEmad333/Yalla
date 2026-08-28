@@ -8,6 +8,20 @@ Repo: `MohammedEmad333/Yalla`. **Work happens directly on `main`** (the user mad
 
 ---
 
+## 🌐 Production (current) — Oracle Cloud
+
+الإنتاج كلّه على **سيرفر Oracle Cloud (Always Free, Ubuntu 22.04 ARM)** واحد — **لم يعد على Render/Atlas** (حُذف `render.yaml`). التفاصيل الكاملة في [`docs/12-oracle-cloud-migration.md`](docs/12-oracle-cloud-migration.md).
+
+- **تشغيل يدوي بـ `docker run`** (ليس docker-compose): ثلاث حاويات — `yalla-mongo` (بيانات في volume `yalla_mongo_data`، مقفولة على `127.0.0.1`)، `yalla-api` (Node، `--network host` على :4000، env عبر `~/yalla.env`، يربط `~/fcm.json:/app/fcm.json:ro` و `yalla_uploads:/app/uploads`)، و `caddy` (HTTPS تلقائي، `~/caddy/Caddyfile` يوجّه `yalla-api.duckdns.org` → :4000).
+- **الواجهات على CDN:** لوحة الأدمن على **Vercel**، تطبيق الويب على **Cloudflare** — كلاهما يشير إلى `https://yalla-api.duckdns.org`.
+- **FCM مفعّل** عبر `~/fcm.json` (`FCM_CREDENTIALS_PATH`).
+- **تحديث الباك اند:** أعِد بناء `yalla-api` وأعِد إنشاء الحاوية — الأمر الكامل في `docs/12`. لا تشغّل `docker compose up` على السيرفر (يسبّب تعارضًا مع الحاويات اليدوية).
+- **الصور الشخصية** تُخزَّن في قاعدة البيانات (`FileAsset` + `/files/<id>`) لا على القرص — Card 102.
+
+> ملاحظة: قسم «Environment gotchas» أدناه يخصّ **جهاز التطوير المحلّي (Windows)** للمطوّر، لا الإنتاج.
+
+---
+
 ## ⚠️ Environment gotchas (the user's machine) — READ FIRST
 
 The user runs **Windows on ARM64** (Snapdragon) with Docker Desktop (WSL2). Getting this running took a long debugging session; here's what matters so you don't repeat it:
@@ -76,15 +90,21 @@ There is a `curl`/PowerShell snippet earlier in the history to create captain+us
 
 **Mobile** (`mobile/`, Flutter): unified single login (login/register toggle), user home (create order / my orders / **wallet** / notifications / profile), captain home (active order / earnings / notifications / profile), reactive auth via `ValueNotifier<AuthSession?>` in `AuthRepository`, in-memory-cached `TokenStorage`, `SocketService`, `ApiClient` (host via `AppConfig`/`--dart-define`). Wallet screens under `features/wallet/` (top-up via `image_picker` + multipart upload; live balance via `wallet:updated` socket event).
 
-**Deploy/CI:** `docker-compose.yml` (mongo + api + admin), `.github/workflows/ci.yml` (unit + integration + admin build), `docs/01..03` (data architecture, realtime flow, deployment).
+**Deploy/CI:** production = Oracle Cloud (manual `docker run`, see «Production» above + `docs/12`). `docker-compose.yml` (mongo + api + admin + uploads volume) is for **local dev** only. `.github/workflows/ci.yml` (unit + integration + admin build) + `build-admin-apk.yml` (يبني APK للوحة الأدمن). `docs/01..03` (data architecture, realtime flow, deployment).
+
+**Admin Android app (Card 103):** لوحة الأدمن مُغلَّفة بـ **Capacitor** (`admin/android/`، الحزمة `com.yalla.admin`) لاستقبال إشعارات Push. الخادم يرسل Push للمشرفين عبر `notifyAdmins` (طلب جديد / سحب رصيد). البناء عبر workflow «Build Admin APK» (أسرار: `ADMIN_API_URL`, `GOOGLE_SERVICES_JSON_BASE64`). دليل: `admin/README-android.md`.
 
 ---
 
-## Recently fixed (last session)
-Unified login for all roles; fixed "login shows error but signs in after restart" (session now drives navigation directly), "no token" on requests (in-memory token cache), and broken sign-out. Backend `/auth/login` response shape unchanged, so the admin panel is unaffected. **Requires `docker compose up -d --build`.**
+## Recently fixed (this session — Cards 102/103)
+- **#102 اختفاء الصورة الشخصية:** كانت تُخزَّن على قرص الحاوية المؤقّت فتُمحى عند إعادة الإنشاء. الآن تُخزَّن في قاعدة البيانات (`FileAsset`) وتُخدَم من `/files/<id>`. أُضيف أيضًا volume دائم `yalla_uploads` للإيصالات/مستندات الكباتن. **مُطبَّق على السيرفر.**
+- **#103 نسخة أندرويد للأدمن + إشعارات:** الخادم صار يرسل Push للمشرفين (`notifyAdmins`)، ولوحة الأدمن تُسجّل جهازها (`admin/src/push.js`)، ومشروع Capacitor في `admin/android/` + workflow لبناء APK. **جانب الخادم مُطبَّق؛ يتبقّى بناء APK بأسرار Firebase.**
+
+## Previously fixed
+Unified login for all roles; fixed "login shows error but signs in after restart" (session now drives navigation directly), "no token" on requests (in-memory token cache), and broken sign-out. Backend `/auth/login` response shape unchanged, so the admin panel is unaffected.
 
 ## Known gaps / good next steps
-- **Re-enable Maps** (add `google_maps_flutter` + API key; restore map screens) and **FCM** (Firebase config) when keys are available.
+- **Re-enable Maps** (add `google_maps_flutter` + API key; restore map screens) when keys are available. (FCM مفعّل بالفعل على السيرفر عبر `~/fcm.json`.)
 - Delete the stale remote branch `claude/yalla-delivery-app-mvp-n7s98t` (needs to be done from a normal machine; sandbox proxy blocks ref deletion).
 - Not built yet: i18n (ar/en), a ready-made Postman collection, deeper analytics.
 - Mobile: wire "My Orders" → order tracking / detail screens; add order detail navigation.

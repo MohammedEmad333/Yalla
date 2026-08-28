@@ -189,21 +189,43 @@ docker logs caddy             # حالة الشهادة
 
 **تحديث الـ Backend بعد سحب كود جديد:**
 ```bash
-cd ~/Yalla && git pull
-cd backend && docker build -t yalla-api .
+cd ~/Yalla && git checkout main && git pull origin main
+docker tag yalla-api yalla-api:backup            # نسخة للتراجع عند الحاجة
+docker build -t yalla-api ./backend
 docker stop yalla-api && docker rm yalla-api
 docker run -d --name yalla-api --restart unless-stopped \
-  --network host --env-file ~/yalla.env -v ~/fcm.json:/app/fcm.json:ro yalla-api
+  --network host --env-file ~/yalla.env \
+  -v ~/fcm.json:/app/fcm.json:ro \
+  -v yalla_uploads:/app/uploads \
+  yalla-api
+# فحص:  docker logs --tail 30 yalla-api ; curl -s http://localhost:4000/api/health
+# تراجع عند فشل:  docker rm -f yalla-api ; docker run ... yalla-api:backup (بنفس الأعلام)
 ```
+> **مهم (Card 102):** الحاوية تربط الآن **`-v yalla_uploads:/app/uploads`** — تخزين دائم
+> للإيصالات ومستندات توثيق الكباتن حتى لا تُمحى عند إعادة إنشاء الحاوية. أمّا الصورة
+> الشخصية فتُخزَّن في قاعدة البيانات مباشرة (`FileAsset`)، فتبقى دائمًا.
+>
+> **تطبيق أندرويد للأدمن (Card 103):** أضِف `https://localhost` إلى `CORS_ORIGIN` في
+> `~/yalla.env` حتى يصل تطبيق أندرويد (أصل Capacitor) إلى الـ API.
 
 ---
 
+## تحديثات لاحقة على السيرفر (Card 102/103)
+
+بعد النقل، نُشِرت هذه التغييرات على نفس السيرفر (إعادة بناء `yalla-api` بالأمر أعلاه):
+
+- **تخزين دائم للمرفوعات:** أُضيف `-v yalla_uploads:/app/uploads` لحاوية الـ API.
+- **الصورة الشخصية في قاعدة البيانات (#102):** موديل `FileAsset` + مسار `/files/<id>`
+  بدل تخزينها على قرص الحاوية المؤقّت — فلا تختفي بعد إعادة التشغيل.
+- **إشعارات الأدمن (#103):** الخادم يرسل Push لأجهزة المشرفين عند طلب جديد/سحب رصيد
+  (`notifyAdmins`). و`CORS_ORIGIN` يشمل `https://localhost` لتطبيق أندرويد.
+- **إزالة Render/Atlas من المستودع:** حُذف `render.yaml` وحُدِّثت الوثائق.
+
 ## مهامّ متابعة (اختيارية)
 
-- [ ] **إيقاف Render + Atlas** بعد التأكّد من استقرار السيرفر الجديد (توفير موارد).
+- [x] **إيقاف Render + Atlas** — تمّ؛ المنظومة كاملةً على Oracle الآن.
 - [ ] **نسخ احتياطي خارج السيرفر** — نقل `~/backups` دوريًّا إلى تخزين خارجي (Object Storage / Drive).
 - [ ] **مراقبة DuckDNS** — تأكيد بقاء الـ IP محدَّثًا (ثابت غالبًا).
-- [ ] إزالة قاعدة `0.0.0.0/0` المؤقّتة من Atlas Network Access إن لم تُوقَف Atlas بعد.
 
 ---
 
