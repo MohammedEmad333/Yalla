@@ -1,5 +1,9 @@
 # القسم 4 — النشر السحابي المجاني (Cloud Deployment)
 
+> ⚠️ **مهجور (للاطّلاع التاريخي فقط).** لم تعد المنظومة تُنشَر على Render + MongoDB
+> Atlas. النشر الحالي على **خادم Oracle Cloud (Always Free) واحد** يجمع الباك اند
+> وقاعدة البيانات في Docker — راجع [`12-oracle-cloud-migration.md`](12-oracle-cloud-migration.md).
+
 هذا الدليل يشرح نشر Yalla على خدمات سحابية **مجانية** بدل Docker المحلّي، لأن
 استضافة InfinityFree (نطاقات `great-site.net`) تدعم **PHP + MySQL فقط** ولا تُشغّل
 Node.js أو Socket.io أو MongoDB — أي أنها غير صالحة لتشغيل خادم Yalla.

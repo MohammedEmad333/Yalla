@@ -70,8 +70,11 @@ npm run dev               # يعمل على http://localhost:5173
 
 راجع `docs/` لتفاصيل المعمارية، التدفّق اللحظي، والنشر.
 
-## النشر السحابي المجاني
+## النشر السحابي
 
-لنشر Yalla على خدمات مجانية (Render + MongoDB Atlas + Netlify/Vercel) بدل Docker
-المحلّي — وربطه بنطاق مثل `gazalook.great-site.net` — راجع الدليل خطوةً بخطوة:
-[`docs/04-cloud-deployment.md`](docs/04-cloud-deployment.md).
+المنظومة منشورة حاليًا على **خادم Oracle Cloud (Always Free) واحد** يشغّل الباك اند
+وقاعدة البيانات معًا داخل Docker. راجع دليل النقل والتشغيل:
+[`docs/12-oracle-cloud-migration.md`](docs/12-oracle-cloud-migration.md).
+
+> الطريقة القديمة (Render + MongoDB Atlas) لم تعد مستخدمة — راجع
+> [`docs/04-cloud-deployment.md`](docs/04-cloud-deployment.md) للاطّلاع التاريخي فقط.

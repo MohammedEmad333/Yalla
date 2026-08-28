@@ -32,6 +32,11 @@ services:
       JWT_EXPIRES_IN: 7d
       CORS_ORIGIN: '*'
       AUTO_ASSIGN: ${AUTO_ASSIGN:-false}
+    # تخزين دائم للملفّات المرفوعة (إيصالات الشحن + مستندات توثيق الكباتن)
+    # حتى لا تُمحى عند إعادة بناء/إنشاء الحاوية. الصور الشخصية تُخزَّن في
+    # قاعدة البيانات (FileAsset) فلا تتأثّر أصلًا.
+    volumes:
+      - uploads_data:/app/uploads
     # نبدأ mongo أولًا؛ والـ API يعيد محاولة الاتصال حتى جاهزيتها
     depends_on:
       - mongo
@@ -53,3 +58,4 @@ services:
 
 volumes:
   mongo_data:
+  uploads_data:
