@@ -30,8 +30,12 @@ services:
       MONGO_URI: mongodb://mongo:27017/yalla
       JWT_SECRET: ${JWT_SECRET:-change_me_super_secret}
       JWT_EXPIRES_IN: 7d
-      CORS_ORIGIN: '*'
+      # يقبل عدّة أصول مفصولة بفواصل؛ أضِف https://localhost لتطبيق أندرويد
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
       AUTO_ASSIGN: ${AUTO_ASSIGN:-false}
+      # إشعارات Firebase (Card 103): ألصق مفتاح خدمة Firebase (JSON بسطر واحد)
+      # في ملف .env بجانب docker-compose.yml. فارغ = الإشعارات معطّلة (آمن).
+      FCM_CREDENTIALS_JSON: ${FCM_CREDENTIALS_JSON:-}
     # تخزين دائم للملفّات المرفوعة (إيصالات الشحن + مستندات توثيق الكباتن)
     # حتى لا تُمحى عند إعادة بناء/إنشاء الحاوية. الصور الشخصية تُخزَّن في
     # قاعدة البيانات (FileAsset) فلا تتأثّر أصلًا.
