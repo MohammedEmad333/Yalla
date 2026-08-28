@@ -4,7 +4,7 @@
 # النتيجة: ملف app-debug.apk يُرفع كـ Artifact لتنزيله وتثبيته على الهاتف.
 #
 # أسرار مطلوبة/اختيارية (Settings → Secrets and variables → Actions):
-#   ADMIN_API_URL                (مطلوب) رابط الخادم المنشور، مثل https://yalla-api.onrender.com
+#   ADMIN_API_URL                (مطلوب) رابط الخادم المنشور، مثل https://<عنوان-خادمك-على-Oracle>
 #   GOOGLE_SERVICES_JSON_BASE64  (اختياري) محتوى google-services.json مُرمَّزًا base64 لتفعيل الإشعارات.
 #                                 توليده: base64 -w0 google-services.json
 #   ANDROID_KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD (اختياري) للإصدار الموقَّع.

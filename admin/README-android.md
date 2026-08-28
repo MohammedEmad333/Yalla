@@ -17,7 +17,7 @@
 لا حاجة لتثبيت أي أدوات على جهازك — GitHub يبني الـ APK نيابةً عنك:
 
 1. اضبط الأسرار في: **Settings → Secrets and variables → Actions**
-   - `ADMIN_API_URL` (مطلوب): رابط الخادم المنشور، مثل `https://yalla-api.onrender.com`
+   - `ADMIN_API_URL` (مطلوب): رابط الخادم المنشور، مثل `https://<عنوان-خادمك-على-Oracle>`
    - `GOOGLE_SERVICES_JSON_BASE64` (اختياري، لتفعيل الإشعارات): نفّذ محليًا
      `base64 -w0 google-services.json` وألصق الناتج.
 2. من تبويب **Actions** → اختر **Build Admin APK** → **Run workflow**.
@@ -57,8 +57,8 @@ npm install -D @capacitor/cli
 اضبط عنوان الـ API للخادم المنشور (وليس localhost، فالهاتف لن يصله):
 
 ```bash
-# مثال Render:
-VITE_API_URL=https://yalla-api.onrender.com npm run build
+# مثال (خادمك على Oracle):
+VITE_API_URL=https://<عنوان-خادمك-على-Oracle> npm run build
 
 npx cap sync android     # ينسخ dist/ ويحدّث المكوّنات الإضافية (المشروع مولَّد مسبقًا)
 ```
@@ -69,8 +69,8 @@ npx cap sync android     # ينسخ dist/ ويحدّث المكوّنات الإ
    `com.yalla.admin`.
 2. نزّل `google-services.json` وضعه في `admin/android/app/google-services.json`.
 3. من إعدادات المشروع → Service accounts → ولّد مفتاح خدمة (JSON)، وألصق
-   محتواه في متغيّر البيئة `FCM_CREDENTIALS_JSON` على الخادم (Render) — هذا
-   ما يستخدمه الخادم لإرسال الإشعارات (راجع `render.yaml`).
+   محتواه في متغيّر البيئة `FCM_CREDENTIALS_JSON` على الخادم (Oracle) — هذا
+   ما يستخدمه الخادم لإرسال الإشعارات.
 
 Capacitor يضيف إعداد `google-services` تلقائيًا لمشروع Gradle عند `cap sync`.
 إن لزم، تأكّد أنّ `android/build.gradle` و`android/app/build.gradle` يحويان
@@ -95,7 +95,7 @@ npx cap open android     # يفتح Android Studio
 عند كلّ تعديل لاحق للوحة:
 
 ```bash
-VITE_API_URL=https://yalla-api.onrender.com npm run build && npx cap sync
+VITE_API_URL=https://<عنوان-خادمك-على-Oracle> npm run build && npx cap sync
 ```
 
 ## كيف تعمل الإشعارات (نظرة عامّة)
