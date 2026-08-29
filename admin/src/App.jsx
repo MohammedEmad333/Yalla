@@ -1,9 +1,10 @@
 // جذر تطبيق لوحة الأدمن — يربط المصادقة بالبوابة (Login Gate)
 // مع تنقّل بسيط بين اللوحة اللحظية وإدارة المستخدمين.
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { theme } from './theme';
+import PullToRefresh from './components/PullToRefresh';
 import LoginPage from './pages/LoginPage';
 import LiveDashboard from './pages/LiveDashboard';
 import UsersManagement from './pages/UsersManagement';
@@ -32,6 +33,14 @@ const TABS = [
 function Gate() {
   const { admin, loading, logout } = useAuth();
   const [page, setPage] = useState('dashboard'); // dashboard | orders | users | stats
+  // مفتاح إعادة التركيب: السحب-للتحديث يُعيد تركيب الصفحة الحاليّة فتُعيد كلّ صفحة
+  // تحميل بياناتها (عبر useEffect) دون منطق خاصّ بكلّ صفحة.
+  const [refreshKey, setRefreshKey] = useState(0);
+  const handleRefresh = useCallback(async () => {
+    setRefreshKey((k) => k + 1);
+    // مهلة قصيرة لإبقاء المؤشّر ظاهرًا ريثما تُعيد الصفحة المُركّبة جلب بياناتها
+    await new Promise((r) => setTimeout(r, 650));
+  }, []);
 
   // أثناء استعادة الجلسة نعرض مؤشّر تحميل
   if (loading) return <div style={styles.loading}>...جارٍ التحميل</div>;
@@ -65,18 +74,20 @@ function Gate() {
         </div>
       </nav>
 
-      <div key={page}>
-        {page === 'dashboard' && <LiveDashboard />}
-        {page === 'orders' && <OrdersPage />}
-        {page === 'chats' && <Chats />}
-        {page === 'support' && <Support />}
-        {page === 'broadcast' && <Broadcast />}
-        {page === 'wallet' && <WalletTopups />}
-        {page === 'withdrawals' && <Withdrawals />}
-        {page === 'users' && <UsersManagement />}
-        {page === 'captainDocs' && <CaptainApplications />}
-        {page === 'stats' && <StatsPage />}
-      </div>
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div key={`${page}-${refreshKey}`}>
+          {page === 'dashboard' && <LiveDashboard />}
+          {page === 'orders' && <OrdersPage />}
+          {page === 'chats' && <Chats />}
+          {page === 'support' && <Support />}
+          {page === 'broadcast' && <Broadcast />}
+          {page === 'wallet' && <WalletTopups />}
+          {page === 'withdrawals' && <Withdrawals />}
+          {page === 'users' && <UsersManagement />}
+          {page === 'captainDocs' && <CaptainApplications />}
+          {page === 'stats' && <StatsPage />}
+        </div>
+      </PullToRefresh>
     </div>
   );
 }
