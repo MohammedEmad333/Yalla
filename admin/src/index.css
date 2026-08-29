@@ -268,7 +268,19 @@ tbody tr:hover {
   background: #c4bdb8;
 }
 
-/* ═══ Card 105: نسخة أندرويد — آمِن الحواف (safe-area) ═══ */
+/* ═══ Card 105: نسخة أندرويد — السحب للتحديث + آمِن الحواف (safe-area) ═══ */
+
+/* دوران مؤشّر التحميل في مكوّن PullToRefresh.
+   ملاحظة: لا نضبط overscroll-behavior هنا عمدًا — فقد كان سببًا لإرباك التمرير في
+   WebView (إيماءة L)، والمكوّن passive بالكامل فلا يحتاجه. */
+@keyframes yl-ptr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.yl-ptr-spin {
+  animation: yl-ptr-spin 0.7s linear infinite;
+}
 
 /* احترام آمِن الحواف على أجهزة أندرويد ذات النتوء/شريط الحالة المتراكب:
    حشو علويّ للشريط الثابت (يفوز على الأنماط السطريّة بـ !important)، وحشو سفليّ
