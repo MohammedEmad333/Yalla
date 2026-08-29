@@ -24,9 +24,6 @@ body {
   width: 100%;
   /* يمنع أي تمرير/تمدّد أفقي عرضيّ يدفع التخطيط على الجوال */
   overflow-x: hidden;
-  /* Card 105 (أندرويد): يمنع "السحب للتحديث" الافتراضيّ للمتصفّح/WebView حتى لا
-     يتعارض مع إيماءتنا الخاصّة. يوضَع على عنصر التمرير الفعليّ (html و body). */
-  overscroll-behavior-y: contain;
 }
 
 body {
@@ -271,17 +268,7 @@ tbody tr:hover {
   background: #c4bdb8;
 }
 
-/* ═══ Card 105: نسخة أندرويد — السحب للتحديث + آمِن الحواف (safe-area) ═══ */
-
-/* دوران مؤشّر التحميل في مكوّن PullToRefresh */
-@keyframes yl-ptr-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.yl-ptr-spin {
-  animation: yl-ptr-spin 0.7s linear infinite;
-}
+/* ═══ Card 105: نسخة أندرويد — آمِن الحواف (safe-area) ═══ */
 
 /* احترام آمِن الحواف على أجهزة أندرويد ذات النتوء/شريط الحالة المتراكب:
    حشو علويّ للشريط الثابت (يفوز على الأنماط السطريّة بـ !important)، وحشو سفليّ
