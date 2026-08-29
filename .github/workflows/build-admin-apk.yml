@@ -1,6 +1,8 @@
 # بناء APK لنسخة أندرويد من لوحة الأدمن (Card 103) — تلقائيًا على خوادم GitHub.
 #
-# التشغيل: يدويًا من تبويب Actions (Run workflow)، أو عند دفع وسم admin-v*.
+# التشغيل: تلقائيًا عند تغيّر ملفّات admin/** على main (حتى يعكس الـ APK آخر
+# إصلاحات لوحة الأدمن دون نسيان)، أو يدويًا من تبويب Actions (Run workflow)،
+# أو عند دفع وسم admin-v*.
 # النتيجة: ملف app-debug.apk يُرفع كـ Artifact لتنزيله وتثبيته على الهاتف.
 #
 # أسرار مطلوبة/اختيارية (Settings → Secrets and variables → Actions):
@@ -20,6 +22,12 @@ on:
         default: ''
   push:
     tags: ['admin-v*']
+    # أيّ تعديل على لوحة الأدمن يُنتج APK جديدًا تلقائيًا — كي لا يبقى المستخدم على
+    # نسخة قديمة (كانت هذه فجوة التسليم التي أبقت إصلاح التمرير خارج تطبيق أندرويد).
+    branches: ['main']
+    paths:
+      - 'admin/**'
+      - '.github/workflows/build-admin-apk.yml'
 
 jobs:
   build-apk:
