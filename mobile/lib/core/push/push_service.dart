@@ -62,16 +62,21 @@ class PushService {
     try {
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-      // تهيئة الإشعارات المحلّية (تُستخدم لعرض الإشعار والتطبيق مفتوح، وإنشاء القناة)
-      await _initLocalNotifications();
+      // الإشعارات المحلّية (القناة + عرض في المقدّمة + معالج الخلفية) خاصّة بالجوّال
+      // فقط — حزمة flutter_local_notifications لا تدعم الويب. نتخطّاها على الويب حتى
+      // لا نكسر بناء/تشغيل تطبيق الويب (نفس مشروع Flutter يُبنى للويب أيضًا).
+      if (!kIsWeb) {
+        // تهيئة الإشعارات المحلّية (تُستخدم لعرض الإشعار والتطبيق مفتوح، وإنشاء القناة)
+        await _initLocalNotifications();
 
-      // معالج رسائل الخلفية/الإغلاق (يعرضها النظام تلقائيًا)
-      FirebaseMessaging.onBackgroundMessage(firebaseBackgroundHandler);
+        // معالج رسائل الخلفية/الإغلاق (يعرضها النظام تلقائيًا)
+        FirebaseMessaging.onBackgroundMessage(firebaseBackgroundHandler);
 
-      // عند فتح التطبيق (foreground): النظام لا يعرض الإشعار تلقائيًا — نعرضه نحن.
-      FirebaseMessaging.onMessage.listen(_showForeground);
+        // عند فتح التطبيق (foreground): النظام لا يعرض الإشعار تلقائيًا — نعرضه نحن.
+        FirebaseMessaging.onMessage.listen(_showForeground);
+      }
 
-      // على iOS: اعرض الإشعار المنبثق حتى والتطبيق في المقدّمة
+      // على iOS/الويب: اعرض الإشعار المنبثق حتى والتطبيق في المقدّمة (no-op على أندرويد)
       await FirebaseMessaging.instance
           .setForegroundNotificationPresentationOptions(alert: true, badge: true, sound: true);
 
@@ -99,6 +104,7 @@ class PushService {
   // عرض إشعار محلّي عند وصول رسالة والتطبيق مفتوح (foreground) — بمحتوى عامّ على
   // شاشة القفل وأولويّة قصوى ليظهر منبثقًا.
   static Future<void> _showForeground(RemoteMessage message) async {
+    if (kIsWeb) return; // الإشعارات المحلّية غير مدعومة على الويب
     final n = message.notification;
     if (n == null) return; // رسالة بيانات فقط — لا نعرض شيئًا
     try {
