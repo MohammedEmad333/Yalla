@@ -70,9 +70,14 @@ router.patch(
 // الأدمن: إرسال رمز التسليم إلى إشعارات الكابتن المُسنَد — Card 82
 router.post('/:orderId/send-code', authorize(ROLES.ADMIN), ctrl.sendCode);
 
+// الكابتن: الطلبات المبثوثة المتاحة (الإسناد التلقائي) — قبل مسار /:orderId
+router.get('/available', authorize(ROLES.CAPTAIN), ctrl.availableOrders);
+
 // الكابتن: تحديث حالة الطلب + رفض الطلب (إعادة إسناد)
 router.patch('/:orderId/status', authorize(ROLES.CAPTAIN), ctrl.updateStatus);
 router.patch('/:orderId/reject', authorize(ROLES.CAPTAIN), ctrl.rejectOrder);
+// الكابتن: قبول طلب مبثوث (الإسناد التلقائي) — أوّل من يقبل يظفر به
+router.post('/:orderId/claim', authorize(ROLES.CAPTAIN), ctrl.claimOrder);
 
 // دردشة الطلب بين صاحب الطلب والكابتن خلال التوصيل (Card 18)
 router.get('/:orderId/messages', authorize(ROLES.USER, ROLES.CAPTAIN, ROLES.ADMIN), ctrl.listMessages);

@@ -73,6 +73,26 @@ async function autoAssign(req, res, next) {
   }
 }
 
+// الكابتن يجلب الطلبات المبثوثة المتاحة (الإسناد التلقائي) ليقبل أحدها
+async function availableOrders(req, res, next) {
+  try {
+    const orders = await orderService.getAvailableBroadcastOrders(req.auth.id);
+    res.json(orders);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// الكابتن يقبل طلبًا مبثوثًا — أوّل من يقبل يظفر به (قبول ذرّي)
+async function claimOrder(req, res, next) {
+  try {
+    const order = await orderService.claimOrder(req.auth.id, req.params.orderId);
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // الكابتن يحدّث حالة الطلب (accepted / picked_up / delivered)
 async function updateStatus(req, res, next) {
   try {
@@ -300,6 +320,8 @@ module.exports = {
   createOrderByAdmin,
   assignOrder,
   autoAssign,
+  availableOrders,
+  claimOrder,
   updateStatus,
   rejectOrder,
   cancelOrder,

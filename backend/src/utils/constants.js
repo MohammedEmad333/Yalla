@@ -105,6 +105,7 @@ const PAYMENT_METHOD = Object.freeze({
 // أسماء غرف Socket.io — نجمّع الاتصالات حسب الدور والكيان
 const ROOMS = Object.freeze({
   admins: () => 'admins',                    // غرفة كل الأدمن
+  captains: () => 'captains',                // غرفة كل الكباتن (للبثّ الجماعي — الإسناد التلقائي)
   captain: (id) => `captain:${id}`,          // غرفة كابتن محدّد
   user: (id) => `user:${id}`,                // غرفة مستخدم محدّد
   order: (id) => `order:${id}`,              // غرفة طلب محدّد (لتتبّعه)
@@ -127,6 +128,10 @@ const EVENTS = Object.freeze({
   CHAT_MESSAGE_DELETED: 'chat:message_deleted', // حذف الأدمن لرسالة دردشة واحدة (Card 94)
   ORDER_DELAYED: 'order:delayed', // طلب تجاوز زمنه التقديري — تحذير للأدمن (Card 40)
   ORDER_ASSIGN_TIMEOUT: 'order:assign_timeout', // انتهت مهلة قبول الكابتن — تنبيه للأدمن (Card 54)
+  // الإسناد التلقائي (بثّ لكل الكباتن): طلب جديد مبثوث لكل الكباتن ليقبله أوّلهم،
+  // وحدث "أُخِذ الطلب" ليختفي من شاشة بقيّة الكباتن فور قبول/إسناد أحدهم له.
+  ORDER_BROADCAST: 'order:broadcast',
+  ORDER_TAKEN: 'order:taken',
   CAPTAIN_DELETED: 'captain:deleted', // حُذف كابتن نهائيًا (Card 38)
   USER_DELETED: 'user:deleted',       // حُذف زبون نهائيًا (Card 38)
   SUPPORT_MESSAGE: 'support:message', // رسالة دعم بين الزبون والأدمن (Card 44/46)

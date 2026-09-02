@@ -96,6 +96,22 @@ There is a `curl`/PowerShell snippet earlier in the history to create captain+us
 
 ---
 
+## Recently added — الإسناد التلقائي (بثّ الطلبات لكل الكباتن)
+زر «الإسناد التلقائي» في ترويسة اللوحة اللحظية (`admin/src/pages/LiveDashboard.jsx`)
+يبدّل إعدادًا لحظيًا في الخادم. عند التفعيل تُبثّ الطلبات الجديدة (والعائدة للمجمّع)
+لكل الكباتن المعتمَدين عبر السوكت + إشعار Push (يعمل حتى والهاتف مغلق)، ويأخذها
+**أوّل كابتن يقبلها** (قبول ذرّي عبر `findOneAndUpdate`)، ثم تختفي من شاشات الباقين.
+- **الإعداد:** `Settings` (Singleton) + `settings.service.js` (مخبّأ في الذاكرة،
+  يُحمَّل عند الإقلاع `preload`). المسارات: `GET/PATCH /api/admin/settings`.
+- **الخادم:** `order.service.js` — `broadcastOrderToCaptains` / `claimOrder`
+  (يعيد 409 إن أُخِذ الطلب) / `getAvailableBroadcastOrders` / `broadcastPendingOrders`
+  (يُبثّ المعلّق عند التفعيل). حقلا `broadcast`/`broadcastAt` في `Order`.
+  أحداث سوكت جديدة: `order:broadcast` و`order:taken`؛ وغرفة `captains` (كل الكباتن).
+  مسارات الكابتن: `GET /api/orders/available` و`POST /api/orders/:id/claim`.
+- **الكابتن (Flutter):** `active_order_screen.dart` يعرض قائمة الطلبات المتاحة
+  مع زرّ «قبول الطلب» حين لا يوجد طلب نشط، ويتحدّث لحظيًا عبر `order:broadcast`/`order:taken`.
+- **اختبارات:** `tests/settings.test.js` (وحدة) + `tests/integration/broadcastAssign.integration.test.js`.
+
 ## Recently fixed (this session — Cards 104/105)
 - **#104 الصورة الشخصية لا تظهر في التطبيق ولا لوحة الأدمن:** بعد نقل التخزين إلى
   قاعدة البيانات (Card 102)، كانت قراءة `FileAsset` بـ `.lean()` تُعيد حقل البيانات

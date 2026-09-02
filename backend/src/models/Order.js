@@ -63,6 +63,12 @@ const orderSchema = new mongoose.Schema(
     // الكباتن الذين رفضوا الطلب — يُستبعدون عند إعادة الإسناد التلقائي
     rejectedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Captain' }],
 
+    // الإسناد التلقائي (بثّ لكل الكباتن): عند تفعيل الأدمن للإسناد التلقائي يُبثّ
+    // الطلب لكل الكباتن (broadcast=true) فيراه الجميع، ويأخذه أوّل كابتن يقبله
+    // (قبول ذرّي — من يظفر بالوثيقة أوّلًا). بعدها يُصفّر الحقل ويختفي من الباقين.
+    broadcast: { type: Boolean, default: false, index: true },
+    broadcastAt: { type: Date, default: null },
+
     // سجلّ رفض الطلب لكلّ كابتن مع سبب الرفض ووقته (Card 47) — يبقى الطلب ظاهرًا
     // في صفحة طلبات الكابتن الرافض كـ"مرفوض" مع إمكانية عرض سبب الرفض.
     rejections: [

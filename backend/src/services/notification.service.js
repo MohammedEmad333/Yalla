@@ -133,6 +133,16 @@ function orderAssignedPayload(order) {
   };
 }
 
+// إشعار كل الكباتن بطلب جديد مبثوث (الإسناد التلقائي) — يُوقظهم حتى والتطبيق مغلق
+// ليتسابقوا على قبوله. يأخذه أوّل من يقبل ثم يختفي من الباقين.
+function orderBroadcastPayload(order) {
+  return {
+    title: '🚨 طلب جديد متاح',
+    body: `استلام من: ${order.pickup?.address || 'موقع الاستلام'} — سارع بالقبول قبل غيرك!`,
+    data: { type: 'ORDER_BROADCAST', orderId: String(order._id) },
+  };
+}
+
 // إشعار المستخدم بتغيّر حالة طلبه
 function orderStatusPayload(order) {
   const labels = {
@@ -445,6 +455,7 @@ module.exports = {
   isEnabled,
   sendToTokens,
   orderAssignedPayload,
+  orderBroadcastPayload,
   orderStatusPayload,
   orderCancelledPayload,
   deliveryCodePayload,
