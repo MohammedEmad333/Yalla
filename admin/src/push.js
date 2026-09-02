@@ -42,6 +42,26 @@ export async function enablePush() {
     }
     if (perm.receive !== 'granted') return; // رفض المستخدم الإذن
 
+    // إنشاء قناة إشعارات عالية الأهمّية (Android 8+) تطابق channelId الذي يرسله
+    // الخادم (yalla_orders). الأهمّية القصوى (5) تجعل الإشعار منبثقًا (heads-up)
+    // يُوقظ الشاشة، والرؤية العامّة (1) تُظهر محتواه كاملًا على شاشة القفل — Card 22
+    try {
+      if (typeof PushNotifications.createChannel === 'function') {
+        await PushNotifications.createChannel({
+          id: 'yalla_orders',
+          name: 'إشعارات لوحة الأدمن',
+          description: 'الطلبات الجديدة وطلبات السحب والتنبيهات المهمّة',
+          importance: 5, // HIGH — إشعار منبثق يُوقظ الشاشة
+          visibility: 1, // PUBLIC — يظهر المحتوى كاملًا على شاشة القفل
+          sound: 'default',
+          vibration: true,
+          lights: true,
+        });
+      }
+    } catch (_) {
+      // نتجاهل — إنشاء القناة اختياريّ ولا يجب أن يكسر التسجيل
+    }
+
     if (!listenersBound) {
       listenersBound = true;
       // عند نجاح التسجيل يصلنا رمز FCM — نرسله للخادم

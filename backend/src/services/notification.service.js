@@ -108,6 +108,11 @@ async function sendToTokens(tokens, { title, body, data = {} }) {
           sound: 'default',
           defaultSound: true,
           priority: 'high',
+          // Card 22: يظهر الإشعار بمحتواه كاملًا على شاشة القفل (لا يُخفى/يُطوى)
+          visibility: 'public',
+          // يُوقظ الشاشة ويظهر كإشعار منبثق (heads-up) حتى والهاتف مقفل
+          notificationPriority: 'PRIORITY_MAX',
+          defaultVibrateTimings: true,
         },
       },
       apns: {

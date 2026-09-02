@@ -96,6 +96,21 @@ There is a `curl`/PowerShell snippet earlier in the history to create captain+us
 
 ---
 
+## Recently added — بقاء الجلسة + إشعارات شاشة القفل
+- **بقاء تسجيل الدخول بعد إغلاق التطبيق:** تطبيق يلا (Flutter) يستخدم الآن
+  `EncryptedSharedPreferences` على أندرويد (`token_storage.dart`) بدل مخزن
+  Keystore الافتراضي الذي كانت مفاتيحه تُبطَل أحيانًا فتُفقد الجلسة؛ فتبقى الجلسة
+  محفوظة بموثوقيّة (`restore()` يستعيدها عند الإقلاع). لوحة الأدمن (Capacitor)
+  تحفظ التوكن في `localStorage` وتستعيده عبر `/auth/me` (بلا تغيير).
+- **إشعارات تصل والتطبيق/الشاشة مغلقة وتظهر على شاشة القفل:**
+  - الخادم يرسل `visibility:'public'` + `notificationPriority:'PRIORITY_MAX'`
+    في كتلة android (`notification.service.js`).
+  - تطبيق يلا: أُضيفت `flutter_local_notifications`؛ ننشئ قناة عالية الأهمّية
+    `yalla_orders` (Importance.max + visibility public) ونعرض الإشعار أيضًا
+    والتطبيق مفتوح (foreground) عبر `onMessage` (`push_service.dart`).
+  - لوحة الأدمن: `push.js` ينشئ قناة `yalla_orders` (importance 5، visibility 1)
+    عبر `PushNotifications.createChannel`.
+
 ## Recently added — الإسناد التلقائي (بثّ الطلبات لكل الكباتن)
 زر «الإسناد التلقائي» في ترويسة اللوحة اللحظية (`admin/src/pages/LiveDashboard.jsx`)
 يبدّل إعدادًا لحظيًا في الخادم. عند التفعيل تُبثّ الطلبات الجديدة (والعائدة للمجمّع)

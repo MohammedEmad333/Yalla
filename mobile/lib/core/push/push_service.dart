@@ -1,17 +1,38 @@
-// خدمة الإشعارات المنبثقة (FCM) — بطاقة 22: تصل الإشعارات حتى والتطبيق مغلق.
+// خدمة الإشعارات المنبثقة (FCM) — بطاقة 22: تصل الإشعارات حتى والتطبيق مغلق
+// وشاشة الهاتف مقفلة، وتظهر على شاشة القفل بمحتواها كاملًا.
 //
 // تصميم آمن: إن لم يُولَّد `firebase_options.dart` بعد (لم يُشغَّل flutterfire
 // configure)، تفشل التهيئة بهدوء وتبقى الإشعارات معطّلة دون أن تُعطّل بقيّة التطبيق.
 //
-// كيف تصل والتطبيق مغلق؟ الخادم يرسل رسالة تحوي كتلة notification بأولويّة عالية،
-// فيعرضها نظام التشغيل تلقائيًا في شريط الإشعارات دون الحاجة لتشغيل كود التطبيق.
+// كيف تصل والتطبيق مغلق وشاشة الهاتف مقفلة؟ الخادم يرسل رسالة تحوي كتلة
+// notification بأولويّة عالية (priority=high + visibility=public)، فيعرضها نظام
+// التشغيل تلقائيًا على شريط الإشعارات وشاشة القفل دون تشغيل كود التطبيق. ولضمان
+// ظهورها كإشعار منبثق (heads-up) يُوقظ الشاشة، ننشئ قناة عالية الأهمّية على الجهاز
+// (channelId = yalla_orders يطابق ما يرسله الخادم). وعند فتح التطبيق (foreground)
+// لا يعرض النظام الإشعار تلقائيًا، فنعرضه نحن عبر flutter_local_notifications.
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../network/api_client.dart';
 import '../../firebase_options.dart';
+
+// قناة الإشعارات عالية الأهمّية — تطابق channelId الذي يرسله الخادم و
+// default_notification_channel_id في AndroidManifest. الأهمّية القصوى تجعل
+// الإشعار منبثقًا (heads-up) يُوقظ الشاشة، وترى محتواه على شاشة القفل.
+const AndroidNotificationChannel _ordersChannel = AndroidNotificationChannel(
+  'yalla_orders',
+  'طلبات يلا',
+  description: 'إشعارات الطلبات والتحديثات المهمّة',
+  importance: Importance.max,
+  playSound: true,
+  enableVibration: true,
+);
+
+final FlutterLocalNotificationsPlugin _localNotifications =
+    FlutterLocalNotificationsPlugin();
 
 /// معالج رسائل الخلفية — **يجب** أن يبقى دالّة علوية (top-level) موسومة بـ
 /// vm:entry-point، لأنّ النظام يستدعيه في عزلة Dart منفصلة عندما يصل إشعار
@@ -33,17 +54,75 @@ class PushService {
   static bool _ready = false; // هل نجحت تهيئة Firebase؟
   bool get isReady => _ready;
 
-  /// تهيئة Firebase وتسجيل معالج الخلفية — تُستدعى مرّة واحدة عند إقلاع التطبيق.
-  /// آمنة: إن لم يُولَّد firebase_options.dart تبقى الإشعارات معطّلة.
+  /// تهيئة Firebase + الإشعارات المحلّية + قناة عالية الأهمّية + معالج الخلفية.
+  /// تُستدعى مرّة واحدة عند إقلاع التطبيق. آمنة: إن لم يُولَّد firebase_options.dart
+  /// تبقى الإشعارات معطّلة.
   static Future<void> initialize() async {
     if (_ready) return;
     try {
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+      // تهيئة الإشعارات المحلّية (تُستخدم لعرض الإشعار والتطبيق مفتوح، وإنشاء القناة)
+      await _initLocalNotifications();
+
+      // معالج رسائل الخلفية/الإغلاق (يعرضها النظام تلقائيًا)
       FirebaseMessaging.onBackgroundMessage(firebaseBackgroundHandler);
+
+      // عند فتح التطبيق (foreground): النظام لا يعرض الإشعار تلقائيًا — نعرضه نحن.
+      FirebaseMessaging.onMessage.listen(_showForeground);
+
+      // على iOS: اعرض الإشعار المنبثق حتى والتطبيق في المقدّمة
+      await FirebaseMessaging.instance
+          .setForegroundNotificationPresentationOptions(alert: true, badge: true, sound: true);
+
       _ready = true;
     } catch (e) {
       _ready = false;
       debugPrint('FCM غير مُهيّأ (شغّل flutterfire configure لتفعيله): $e');
+    }
+  }
+
+  // تهيئة إضافة الإشعارات المحلّية وإنشاء القناة عالية الأهمّية على أندرويد.
+  static Future<void> _initLocalNotifications() async {
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosInit = DarwinInitializationSettings();
+    await _localNotifications.initialize(
+      const InitializationSettings(android: androidInit, iOS: iosInit),
+    );
+
+    // إنشاء القناة عالية الأهمّية (Android 8+) — تظهر منبثقة وعلى شاشة القفل
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_ordersChannel);
+  }
+
+  // عرض إشعار محلّي عند وصول رسالة والتطبيق مفتوح (foreground) — بمحتوى عامّ على
+  // شاشة القفل وأولويّة قصوى ليظهر منبثقًا.
+  static Future<void> _showForeground(RemoteMessage message) async {
+    final n = message.notification;
+    if (n == null) return; // رسالة بيانات فقط — لا نعرض شيئًا
+    try {
+      await _localNotifications.show(
+        n.hashCode,
+        n.title,
+        n.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _ordersChannel.id,
+            _ordersChannel.name,
+            channelDescription: _ordersChannel.description,
+            importance: Importance.max,
+            priority: Priority.max,
+            visibility: NotificationVisibility.public, // محتوى كامل على شاشة القفل
+            playSound: true,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true),
+        ),
+        payload: message.data['orderId']?.toString(),
+      );
+    } catch (e) {
+      debugPrint('تعذّر عرض الإشعار في المقدّمة: $e');
     }
   }
 
