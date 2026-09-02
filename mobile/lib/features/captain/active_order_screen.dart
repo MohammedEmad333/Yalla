@@ -28,17 +28,48 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
   bool _loading = true;        // أثناء الجلب الأولي
   Map<String, dynamic>? _order; // الطلب النشط الحالي (null = لا يوجد)
 
+  // الإسناد التلقائي: الطلبات المبثوثة المتاحة للقبول (أوّل من يقبل يظفر بها).
+  // تظهر فقط حين لا يوجد طلب نشط. تُحدَّث لحظيًا عبر order:broadcast / order:taken.
+  List<Map<String, dynamic>> _available = [];
+  String? _claimingId;         // معرّف الطلب الجاري قبوله (لتعطيل زرّه)
+
   @override
   void initState() {
     super.initState();
     _loadStatus();      // نعكس حالة الاتصال الحقيقية (يبقى الكابتن متصلًا بعد إغلاق التطبيق)
     _loadActiveOrder();
+    _loadAvailable();   // الإسناد التلقائي: الطلبات المبثوثة المتاحة للقبول
 
     // استقبال طلب جديد مُسنَد لحظيًا (بثّه الخادم عند الإسناد)
     widget.socket.onOrderAssigned((order) {
       if (!mounted) return;
-      setState(() => _order = order);
+      setState(() {
+        _order = order;
+        _available = []; // لديه طلب نشط الآن — نُخفي قائمة المتاح
+      });
       _snack('وصلك طلب جديد 🛵');
+    });
+
+    // الإسناد التلقائي: طلب جديد مبثوث لكل الكباتن — نُضيفه لقائمة المتاح (إن لم
+    // يكن لديه طلب نشط ولم يكن موجودًا مسبقًا في القائمة).
+    widget.socket.onOrderBroadcast((order) {
+      if (!mounted || _order != null) return;
+      final id = order['_id'];
+      if (id == null) return;
+      setState(() {
+        _available = [
+          Map<String, dynamic>.from(order),
+          ..._available.where((o) => o['_id'] != id),
+        ];
+      });
+    });
+
+    // الإسناد التلقائي: طلب مبثوث أُخِذ (قَبِله كابتن آخر/أُلغي) — نُزيله من القائمة
+    widget.socket.onOrderTaken((payload) {
+      if (!mounted) return;
+      final id = payload['orderId'];
+      if (id == null) return;
+      setState(() => _available = _available.where((o) => o['_id'] != id).toList());
     });
 
     // تحديثات الحالة (مثل إلغاء الأدمن للطلب) — نزيل الطلب إن انتهى
@@ -50,6 +81,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         _applyOrderUpdate(Map<String, dynamic>.from(order));
       } else {
         setState(() => _order = null);
+        _loadAvailable(); // تحرّر الكابتن — أعِد جلب الطلبات المبثوثة المتاحة
       }
     });
   }
@@ -85,11 +117,51 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     }
   }
 
+  // الإسناد التلقائي: جلب الطلبات المبثوثة المتاحة للقبول (حين لا يوجد طلب نشط)
+  Future<void> _loadAvailable() async {
+    try {
+      final data = await widget.api.get('/orders/available');
+      if (!mounted) return;
+      final list = (data as List).cast<Map<String, dynamic>>();
+      setState(() => _available = list);
+    } catch (_) {
+      // لا نُزعج الكابتن — قد لا يكون الإسناد التلقائي مفعّلًا
+    }
+  }
+
+  // الإسناد التلقائي: قبول طلب مبثوث — أوّل من يقبل يظفر به (قبول ذرّي في الخادم)
+  Future<void> _claim(String orderId) async {
+    setState(() => _claimingId = orderId);
+    try {
+      final order = await widget.api.post('/orders/$orderId/claim', {});
+      if (!mounted) return;
+      setState(() {
+        _order = Map<String, dynamic>.from(order);
+        _available = [];
+      });
+      _snack('تم قبول الطلب — أصبح طلبك النشط 🛵');
+    } on ApiException catch (e) {
+      // 409 = أخذه كابتن آخر — نُزيله من القائمة
+      if (mounted) {
+        setState(() => _available = _available.where((o) => o['_id'] != orderId).toList());
+      }
+      _snack(e.message);
+    } catch (_) {
+      _snack('تعذّر قبول الطلب');
+    } finally {
+      if (mounted) setState(() => _claimingId = null);
+    }
+  }
+
   // تبديل التوفّر عبر REST — يُعلم الخادم فيظهر الكابتن للأدمن كـ "متاح"
   Future<void> _toggleOnline(bool value) async {
-    setState(() => _isOnline = value);
+    setState(() {
+      _isOnline = value;
+      if (!value) _available = []; // غير متصل — لا نعرض طلبات متاحة
+    });
     try {
       await widget.api.patch('/captains/status', {'status': value ? 'online' : 'offline'});
+      if (value) _loadAvailable(); // أصبح متصلًا — اجلب الطلبات المبثوثة المتاحة
     } on ApiException catch (e) {
       setState(() => _isOnline = !value); // تراجع عند الفشل
       _snack(e.message);
@@ -124,6 +196,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       final updated = await widget.api.patch('/orders/$id/status', body);
       if (next == 'delivered') {
         setState(() => _order = null);
+        _loadAvailable(); // تحرّر — أعِد جلب الطلبات المبثوثة المتاحة
         _snack('تم تسليم الطلب ✓');
       } else {
         // Card 101: نحتفظ ببيانات صاحب الطلب حتى لا تختفي بعد القبول
@@ -241,6 +314,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       setState(() {
         _order = null;
         _isOnline = false;
+        _available = []; // غير متصل — لا نعرض طلبات متاحة
       });
       _snack('تم رفض الطلب — أصبحت غير متصل');
     } on ApiException catch (e) {
@@ -369,15 +443,46 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(onRefresh: _loadActiveOrder, child: _buildBody()),
+          : RefreshIndicator(
+              onRefresh: () async {
+                await _loadActiveOrder();
+                await _loadAvailable();
+              },
+              child: _buildBody(),
+            ),
     );
   }
 
   Widget _buildBody() {
     final order = _order;
 
-    // لا يوجد طلب نشط حاليًا
+    // لا يوجد طلب نشط حاليًا — نعرض الطلبات المبثوثة المتاحة (الإسناد التلقائي) إن وُجدت
     if (order == null) {
+      if (_isOnline && _available.isNotEmpty) {
+        return ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.campaign, color: YallaColors.success),
+                SizedBox(width: 8),
+                Text(
+                  'طلبات متاحة — سارع بالقبول',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'يأخذ الطلب أوّل كابتن يقبله.',
+              style: TextStyle(color: YallaColors.muted, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            ..._available.map(_availableCard),
+          ],
+        );
+      }
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
@@ -505,6 +610,39 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       return address.isEmpty ? '—' : address;
     }
     return lines.join('\n');
+  }
+
+  // الإسناد التلقائي: بطاقة طلب مبثوث متاح مع زرّ قبول (أوّل من يقبل يظفر به)
+  Widget _availableCard(Map<String, dynamic> o) {
+    final id = (o['_id'] ?? '').toString();
+    final pickup = o['pickup'] is Map ? Map<String, dynamic>.from(o['pickup']) : null;
+    final dropoff = o['dropoff'] is Map ? Map<String, dynamic>.from(o['dropoff']) : null;
+    final note = (o['packageNote'] ?? '').toString();
+    final claiming = _claimingId == id;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _detailTile(Icons.store, 'الاستلام', _addressDetail(pickup)),
+            _detailTile(Icons.flag, 'التسليم', _addressDetail(dropoff)),
+            if (note.isNotEmpty) _detailTile(Icons.inventory_2_outlined, 'وصف الشحنة', note),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: YallaColors.success),
+              onPressed: (_busy || _claimingId != null) ? null : () => _claim(id),
+              icon: claiming
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.check_circle),
+              label: Text(claiming ? 'جارٍ القبول…' : 'قبول الطلب'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // عنصر عرض تفصيلة واحدة

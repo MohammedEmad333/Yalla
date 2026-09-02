@@ -38,7 +38,11 @@ function registerSocketHandlers(io) {
 
     // ضمّ العميل إلى الغرفة المناسبة لدوره
     if (role === ROLES.ADMIN) socket.join(ROOMS.admins());
-    if (role === ROLES.CAPTAIN) socket.join(ROOMS.captain(id));
+    if (role === ROLES.CAPTAIN) {
+      socket.join(ROOMS.captain(id));
+      // غرفة كل الكباتن — لاستقبال الطلبات المبثوثة (الإسناد التلقائي) لحظيًا
+      socket.join(ROOMS.captains());
+    }
     if (role === ROLES.USER) socket.join(ROOMS.user(id));
 
     // المستخدم/الكابتن ينضمّ لغرفة طلب معيّن لمتابعته لحظيًا

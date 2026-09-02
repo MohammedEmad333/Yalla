@@ -88,6 +88,14 @@ class SocketService {
   void onOrderAssigned(void Function(Map<String, dynamic>) cb) =>
       _addListener('order:assigned', cb);
 
+  // (للكابتن) الإسناد التلقائي: طلب جديد مبثوث لكل الكباتن ليقبله أوّلهم
+  void onOrderBroadcast(void Function(Map<String, dynamic>) cb) =>
+      _addListener('order:broadcast', cb);
+
+  // (للكابتن) الإسناد التلقائي: طلب مبثوث أُخِذ (قَبِله كابتن آخر) — يُزال من القائمة
+  void onOrderTaken(void Function(Map<String, dynamic>) cb) =>
+      _addListener('order:taken', cb);
+
   // الاستماع لإشعار داخلي جديد يُبثّ لحظيًا للمستلِم
   void onNotificationNew(void Function(Map<String, dynamic>) cb) =>
       _addListener('notification:new', cb);

@@ -151,6 +151,8 @@ export default function LiveDashboard() {
   const [priceEdit, setPriceEdit] = useState({}); // Card 74: {orderId: value} تحرير السعر التقريبي
   const [showCreate, setShowCreate] = useState(false); // Card 68: نافذة إنشاء طلب من الأدمن
   const [neighborhoods, setNeighborhoods] = useState([]); // أحياء غزة لمنتقي العنوان
+  const [autoAssignOn, setAutoAssignOn] = useState(false); // الإسناد التلقائي (بثّ لكل الكباتن)
+  const [autoBusy, setAutoBusy] = useState(false);        // أثناء تبديل الإسناد التلقائي
   const token = localStorage.getItem('token');     // توكن الأدمن
 
   // عدد الكباتن المتصلين (لعرضه في الترويسة)
@@ -175,6 +177,11 @@ export default function LiveDashboard() {
 
     loadOrders();
     loadCaptains();
+    // الإسناد التلقائي: نجلب حالته الحاليّة لعرض المفتاح في الترويسة
+    fetch(`${API}/api/admin/settings`, { headers })
+      .then((r) => r.json())
+      .then((s) => setAutoAssignOn(!!s?.autoAssignBroadcast))
+      .catch(() => {});
     // Card 68: نجلب أحياء غزة لمنتقي العنوان في نموذج إنشاء الطلب
     fetch(`${API}/api/neighborhoods`).then((r) => r.json()).then(setNeighborhoods).catch(() => {});
 
@@ -217,6 +224,35 @@ export default function LiveDashboard() {
 
     return () => socket.disconnect(); // تنظيف عند مغادرة الصفحة
   }, [socket, token]);
+
+  // تبديل الإسناد التلقائي (بثّ الطلبات لكل الكباتن). عند التفعيل يبثّ الخادم
+  // كل الطلبات المعلّقة القائمة فورًا للكباتن، ويأخذها أوّل من يقبل.
+  async function toggleAutoAssign() {
+    const next = !autoAssignOn;
+    setAutoBusy(true);
+    setAutoAssignOn(next); // تفاؤليًّا
+    try {
+      const res = await fetch(`${API}/api/admin/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ autoAssignBroadcast: next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || 'تعذّر تحديث الإعداد');
+      setAutoAssignOn(!!data.autoAssignBroadcast);
+      if (data.autoAssignBroadcast) {
+        alert(
+          `تم تفعيل الإسناد التلقائي ✅\nتُبثّ الطلبات الآن لكل الكباتن مع إشعار، ويأخذها أوّل من يقبل.` +
+          (data.broadcasted ? `\nبُثّ ${data.broadcasted} طلبًا معلّقًا حاليًّا.` : '')
+        );
+      }
+    } catch (err) {
+      setAutoAssignOn(!next); // تراجع عند الفشل
+      alert(err.message || 'تعذّر تحديث الإعداد');
+    } finally {
+      setAutoBusy(false);
+    }
+  }
 
   // Card 74: حفظ السعر التقريبي (سقف الطلب) الجديد — الخادم يبثّ التحديث لحظيًا
   async function savePrice(orderId) {
@@ -367,6 +403,16 @@ export default function LiveDashboard() {
           <p style={styles.subtitle}>متابعة الطلبات النشطة وإسناد الكباتن في الوقت الفعلي</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {/* الإسناد التلقائي: مفتاح يبثّ الطلبات لكل الكباتن ليأخذها أوّل من يقبل */}
+          <button
+            style={styles.autoToggle(autoAssignOn)}
+            onClick={toggleAutoAssign}
+            disabled={autoBusy}
+            title="عند التفعيل تُرسَل الطلبات لكل الكباتن مع إشعار (حتى لو الهاتف مغلق)، ويأخذها أوّل من يقبل ثم تختفي من الباقين"
+          >
+            <span style={styles.autoDot(autoAssignOn)} />
+            {autoBusy ? '…' : `الإسناد التلقائي: ${autoAssignOn ? 'مفعّل' : 'متوقّف'}`}
+          </button>
           {/* Card 68: إنشاء طلب من لوحة الأدمن */}
           <button style={styles.createBtn} onClick={() => setShowCreate(true)}>
             ＋ إنشاء طلب
@@ -438,6 +484,12 @@ export default function LiveDashboard() {
                   {isScheduledPending(o) && (
                     <span style={styles.scheduledTag} title="طلب مجدول لوقت لاحق">
                       🕒 مجدول · {fmtTime(o.scheduledAt)}
+                    </span>
+                  )}
+                  {/* علامة الطلب المبثوث لكل الكباتن (الإسناد التلقائي) بانتظار من يقبله */}
+                  {o.broadcast && o.status === 'pending' && (
+                    <span style={styles.broadcastTag} title="مبثوث لكل الكباتن — بانتظار من يقبله أوّلًا">
+                      📢 مبثوث
                     </span>
                   )}
                   {/* Card 40: علامة تأخّر الطلب */}
@@ -736,6 +788,38 @@ const styles = {
     fontSize: 14,
     fontWeight: 600,
     boxShadow: theme.shadow.float,
+  },
+  // مفتاح الإسناد التلقائي في الترويسة — أخضر عند التفعيل ورماديّ عند التوقّف
+  autoToggle: (on) => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    background: on ? theme.color.success : theme.color.card,
+    color: on ? '#fff' : theme.color.onSurfaceVariant,
+    border: `1px solid ${on ? theme.color.success : theme.color.outlineStrong}`,
+    padding: '9px 16px',
+    borderRadius: theme.radius.pill,
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+  }),
+  autoDot: (on) => ({
+    width: 9,
+    height: 9,
+    borderRadius: '50%',
+    background: on ? '#fff' : theme.color.muted,
+    boxShadow: on ? '0 0 0 3px rgba(255,255,255,0.35)' : 'none',
+  }),
+  // علامة الطلب المبثوث لكل الكباتن
+  broadcastTag: {
+    background: '#dc2626',
+    color: '#fff',
+    padding: '3px 10px',
+    borderRadius: theme.radius.pill,
+    fontSize: 12,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
   },
   overlay: {
     position: 'fixed',

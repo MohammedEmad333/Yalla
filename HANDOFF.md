@@ -96,6 +96,37 @@ There is a `curl`/PowerShell snippet earlier in the history to create captain+us
 
 ---
 
+## Recently added — بقاء الجلسة + إشعارات شاشة القفل
+- **بقاء تسجيل الدخول بعد إغلاق التطبيق:** تطبيق يلا (Flutter) يستخدم الآن
+  `EncryptedSharedPreferences` على أندرويد (`token_storage.dart`) بدل مخزن
+  Keystore الافتراضي الذي كانت مفاتيحه تُبطَل أحيانًا فتُفقد الجلسة؛ فتبقى الجلسة
+  محفوظة بموثوقيّة (`restore()` يستعيدها عند الإقلاع). لوحة الأدمن (Capacitor)
+  تحفظ التوكن في `localStorage` وتستعيده عبر `/auth/me` (بلا تغيير).
+- **إشعارات تصل والتطبيق/الشاشة مغلقة وتظهر على شاشة القفل:**
+  - الخادم يرسل `visibility:'public'` + `notificationPriority:'PRIORITY_MAX'`
+    في كتلة android (`notification.service.js`).
+  - تطبيق يلا: أُضيفت `flutter_local_notifications`؛ ننشئ قناة عالية الأهمّية
+    `yalla_orders` (Importance.max + visibility public) ونعرض الإشعار أيضًا
+    والتطبيق مفتوح (foreground) عبر `onMessage` (`push_service.dart`).
+  - لوحة الأدمن: `push.js` ينشئ قناة `yalla_orders` (importance 5، visibility 1)
+    عبر `PushNotifications.createChannel`.
+
+## Recently added — الإسناد التلقائي (بثّ الطلبات لكل الكباتن)
+زر «الإسناد التلقائي» في ترويسة اللوحة اللحظية (`admin/src/pages/LiveDashboard.jsx`)
+يبدّل إعدادًا لحظيًا في الخادم. عند التفعيل تُبثّ الطلبات الجديدة (والعائدة للمجمّع)
+لكل الكباتن المعتمَدين عبر السوكت + إشعار Push (يعمل حتى والهاتف مغلق)، ويأخذها
+**أوّل كابتن يقبلها** (قبول ذرّي عبر `findOneAndUpdate`)، ثم تختفي من شاشات الباقين.
+- **الإعداد:** `Settings` (Singleton) + `settings.service.js` (مخبّأ في الذاكرة،
+  يُحمَّل عند الإقلاع `preload`). المسارات: `GET/PATCH /api/admin/settings`.
+- **الخادم:** `order.service.js` — `broadcastOrderToCaptains` / `claimOrder`
+  (يعيد 409 إن أُخِذ الطلب) / `getAvailableBroadcastOrders` / `broadcastPendingOrders`
+  (يُبثّ المعلّق عند التفعيل). حقلا `broadcast`/`broadcastAt` في `Order`.
+  أحداث سوكت جديدة: `order:broadcast` و`order:taken`؛ وغرفة `captains` (كل الكباتن).
+  مسارات الكابتن: `GET /api/orders/available` و`POST /api/orders/:id/claim`.
+- **الكابتن (Flutter):** `active_order_screen.dart` يعرض قائمة الطلبات المتاحة
+  مع زرّ «قبول الطلب» حين لا يوجد طلب نشط، ويتحدّث لحظيًا عبر `order:broadcast`/`order:taken`.
+- **اختبارات:** `tests/settings.test.js` (وحدة) + `tests/integration/broadcastAssign.integration.test.js`.
+
 ## Recently fixed (this session — Cards 104/105)
 - **#104 الصورة الشخصية لا تظهر في التطبيق ولا لوحة الأدمن:** بعد نقل التخزين إلى
   قاعدة البيانات (Card 102)، كانت قراءة `FileAsset` بـ `.lean()` تُعيد حقل البيانات

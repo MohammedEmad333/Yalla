@@ -108,6 +108,11 @@ async function sendToTokens(tokens, { title, body, data = {} }) {
           sound: 'default',
           defaultSound: true,
           priority: 'high',
+          // Card 22: يظهر الإشعار بمحتواه كاملًا على شاشة القفل (لا يُخفى/يُطوى)
+          visibility: 'public',
+          // يُوقظ الشاشة ويظهر كإشعار منبثق (heads-up) حتى والهاتف مقفل
+          notificationPriority: 'PRIORITY_MAX',
+          defaultVibrateTimings: true,
         },
       },
       apns: {
@@ -130,6 +135,16 @@ function orderAssignedPayload(order) {
     title: '🛵 طلب جديد',
     body: `استلام من: ${order.pickup?.address || 'موقع الاستلام'}`,
     data: { type: 'ORDER_ASSIGNED', orderId: String(order._id) },
+  };
+}
+
+// إشعار كل الكباتن بطلب جديد مبثوث (الإسناد التلقائي) — يُوقظهم حتى والتطبيق مغلق
+// ليتسابقوا على قبوله. يأخذه أوّل من يقبل ثم يختفي من الباقين.
+function orderBroadcastPayload(order) {
+  return {
+    title: '🚨 طلب جديد متاح',
+    body: `استلام من: ${order.pickup?.address || 'موقع الاستلام'} — سارع بالقبول قبل غيرك!`,
+    data: { type: 'ORDER_BROADCAST', orderId: String(order._id) },
   };
 }
 
@@ -445,6 +460,7 @@ module.exports = {
   isEnabled,
   sendToTokens,
   orderAssignedPayload,
+  orderBroadcastPayload,
   orderStatusPayload,
   orderCancelledPayload,
   deliveryCodePayload,

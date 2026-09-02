@@ -9,6 +9,7 @@ const env = require('../config/env');
 const logger = require('../utils/logger');
 const pricing = require('./pricing.service');
 const notifications = require('./notification.service');
+const settingsService = require('./settings.service');
 const chat = require('./chat.service');
 const walletService = require('./wallet.service');
 const captainWallet = require('./captainWallet.service');
@@ -224,6 +225,16 @@ async function createOrder(userId, payload, idempotencyKey) {
   // Card 103: إشعار Push لأجهزة الأدمن (نسخة أندرويد) بطلب جديد — غير حاجب
   notifications.notifyAdmins(notifications.newOrderAdminPayload(order)).catch(() => {});
 
+  // الإسناد التلقائي (بثّ لكل الكباتن): عند تفعيله من لوحة الأدمن يُبثّ الطلب لكل
+  // الكباتن (مع إشعار Push) ليأخذه أوّل من يقبل — للطلبات المستحقّة فقط.
+  if (settingsService.isBroadcastMode() && isDue(order.scheduledAt)) {
+    try {
+      return await broadcastOrderToCaptains(order);
+    } catch (err) {
+      logger.warn('فشل بثّ الطلب للكباتن، يبقى للإسناد اليدوي:', err.message);
+    }
+  }
+
   // إسناد تلقائي لأقرب كابتن عند التفعيل (AUTO_ASSIGN=true) — للطلبات المستحقّة فقط.
   // الطلبات المجدولة مستقبلًا تبقى pending حتى يحين وقتها. إن لم يوجد كابتن يبقى
   // الطلب pending للإسناد اليدوي — دون كسر تدفّق الإنشاء.
@@ -360,6 +371,15 @@ async function createOrderByAdmin(adminId, payload = {}) {
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
   io.get().to(ROOMS.user(customer._id.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
 
+  // الإسناد التلقائي (بثّ لكل الكباتن) عند تفعيله — للطلبات المستحقّة فقط
+  if (settingsService.isBroadcastMode() && isDue(order.scheduledAt)) {
+    try {
+      return await broadcastOrderToCaptains(order);
+    } catch (err) {
+      logger.warn('فشل بثّ طلب الأدمن للكباتن، يبقى للإسناد اليدوي:', err.message);
+    }
+  }
+
   // إسناد تلقائي لأقرب كابتن عند التفعيل وللطلبات المستحقّة فقط
   if (env.autoAssign && isDue(order.scheduledAt)) {
     try {
@@ -406,6 +426,15 @@ async function activateDueScheduledOrders(now = new Date()) {
     // Card 103: إشعار Push لأجهزة الأدمن بطلب مجدول أصبح فعّالًا الآن
     notifications.notifyAdmins(notifications.newOrderAdminPayload(order)).catch(() => {});
 
+    if (settingsService.isBroadcastMode()) {
+      try {
+        await broadcastOrderToCaptains(order);
+        continue;
+      } catch (err) {
+        logger.warn('فشل بثّ طلب مجدول للكباتن:', err.message);
+      }
+    }
+
     if (env.autoAssign) {
       try {
         await autoAssignOrder(order._id, { actorRole: 'system' });
@@ -425,10 +454,17 @@ async function activateDueScheduledOrders(now = new Date()) {
  */
 async function commitAssignment(order, captain, { actorId, actorRole }) {
   const from = order.status;
+  const wasBroadcast = order.broadcast;
   order.captain = captain._id;
   order.status = ORDER_STATUS.ASSIGNED;
   order.timeline.assignedAt = new Date();
+  // إن كان الطلب مبثوثًا لكل الكباتن نُلغي البثّ الآن (أُسنِد لكابتن محدّد)
+  order.broadcast = false;
+  order.broadcastAt = null;
   await order.save();
+
+  // أخبر بقيّة الكباتن أنّ الطلب أُخِذ ليختفي من شاشاتهم فورًا (بثّ سابق)
+  if (wasBroadcast) emitOrderTaken(order._id, captain._id);
 
   // شغل الكابتن وربطه بالطلب النشط. Card 95: نُعيد احتساب عدّاد الطلبات النشطة
   // من قاعدة البيانات (الطلب الحالي محفوظ بحالة assigned) ليدعم إسناد أكثر من
@@ -563,6 +599,203 @@ async function autoAssignOrder(orderId, { actorId = null, actorRole = 'system' }
 
   const populated = await commitAssignment(order, captain, { actorId, actorRole });
   return { assigned: true, order: populated };
+}
+
+// ── الإسناد التلقائي: بثّ الطلب لكل الكباتن ومنافسة القبول (First-Come) ────────
+//
+// عند تفعيل الأدمن لـ«الإسناد التلقائي» من لوحة التحكم يُبثّ كل طلب جديد لكل
+// الكباتن (لحظيًا + إشعار Push يُوقظهم حتى والهاتف مغلق). يراه الجميع ويأخذه أوّل
+// من يقبل (قبول ذرّي عبر findOneAndUpdate)، ثم يختفي من شاشات الباقين.
+
+// إخطار غرفة كل الكباتن بأنّ طلبًا مبثوثًا قد أُخِذ ليُزال من شاشاتهم فورًا
+function emitOrderTaken(orderId, captainId = null) {
+  try {
+    io.get().to(ROOMS.captains()).emit(EVENTS.ORDER_TAKEN, {
+      orderId: String(orderId),
+      captainId: captainId ? String(captainId) : null,
+    });
+  } catch (_) {
+    // السوكت غير مهيّأ (اختبارات) — نتجاهل بأمان
+  }
+}
+
+/**
+ * بثّ طلب (في حالة pending) لكل الكباتن المعتمَدين: يعلّمه كـ«مبثوث»، يبثّه لحظيًا
+ * لغرفة الكباتن، ويرسل إشعار Push لأجهزتهم (آمن: no-op إن كان FCM معطّلًا) حتى
+ * يصلهم حتى والتطبيق مغلق. لا يُسند لأحد — أوّل من يقبل يظفر به (claimOrder).
+ * @param {import('mongoose').Document} order  وثيقة الطلب (pending)
+ * @param {{excludeIds?: Array}} opts  كباتن يُستبعدون من الإشعار (مثل من رفض الطلب)
+ */
+async function broadcastOrderToCaptains(order, { excludeIds = [] } = {}) {
+  order.broadcast = true;
+  order.broadcastAt = new Date();
+  await order.save();
+
+  // نُحمّل بيانات صاحب الطلب لتظهر في بطاقة الطلب لدى الكابتن
+  const populated = await order.populate('user', 'name lastName phone');
+
+  // بثّ لحظي لكل الكباتن المتصلين ليظهر الطلب فورًا في قائمة الطلبات المتاحة
+  try {
+    io.get().to(ROOMS.captains()).emit(EVENTS.ORDER_BROADCAST, populated);
+  } catch (_) {
+    // السوكت غير مهيّأ (اختبارات) — نتجاهل بأمان
+  }
+
+  // إشعار Push لكل الكباتن المعتمَدين (يستثني من رفض الطلب) — يوقظهم حتى والهاتف مغلق
+  const exclude = (excludeIds || []).map(String);
+  Captain.find({ isApproved: true })
+    .select('_id deviceTokens')
+    .lean()
+    .then((caps) => {
+      const tokens = [];
+      for (const c of caps) {
+        if (exclude.includes(String(c._id))) continue;
+        if (Array.isArray(c.deviceTokens)) tokens.push(...c.deviceTokens);
+      }
+      const uniqueTokens = [...new Set(tokens.filter(Boolean))];
+      if (uniqueTokens.length) {
+        return notifications.sendToTokens(uniqueTokens, notifications.orderBroadcastPayload(order));
+      }
+    })
+    .catch((e) => logger.warn('تعذّر إرسال إشعار البثّ للكباتن:', e.message));
+
+  return populated;
+}
+
+/**
+ * قبول كابتن لطلب مبثوث (الإسناد التلقائي) — أوّل من يقبل يظفر به.
+ * القبول ذرّي: نحدّث الوثيقة فقط إن كانت ما تزال pending ومبثوثة وبلا كابتن، فمن
+ * يظفر بالتحديث أوّلًا يأخذ الطلب؛ ويحصل الباقون على 409 (لم يعد متاحًا).
+ * @param {string} captainId
+ * @param {string} orderId
+ */
+async function claimOrder(captainId, orderId) {
+  const captain = await Captain.findById(captainId);
+  if (!captain) throw httpError('الكابتن غير موجود', 404);
+  if (!captain.isApproved) throw httpError('الكابتن غير معتمَد', 400);
+
+  // احترام الحدّ الأقصى للطلبات المتزامنة (يُحسب من القاعدة لتفادي أي انحراف)
+  const currentActive = await Order.countDocuments({
+    captain: captain._id,
+    status: { $in: ACTIVE_ORDER_STATUSES },
+  });
+  if (currentActive >= MAX_ACTIVE_ORDERS_PER_CAPTAIN) {
+    throw httpError(`وصلت الحدّ الأقصى للطلبات المتزامنة (${MAX_ACTIVE_ORDERS_PER_CAPTAIN})`, 400);
+  }
+
+  const now = new Date();
+  // القبول الذرّي: الفائز الوحيد هو من يُحدّث الوثيقة وهي ما تزال متاحة.
+  // نستبعد من رفض الطلب سابقًا حتى لا يقبله مجددًا.
+  const order = await Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      status: ORDER_STATUS.PENDING,
+      broadcast: true,
+      captain: null,
+      rejectedBy: { $ne: captain._id },
+    },
+    {
+      $set: {
+        captain: captain._id,
+        status: ORDER_STATUS.ACCEPTED,
+        broadcast: false,
+        broadcastAt: null,
+        'timeline.assignedAt': now,
+        'timeline.acceptedAt': now,
+      },
+    },
+    { new: true }
+  );
+
+  if (!order) {
+    // فقد السباق أو أُلغي/سُحب الطلب — لم يعد متاحًا
+    throw httpError('لم يعد هذا الطلب متاحًا — أخذه كابتن آخر', 409);
+  }
+
+  // شغل الكابتن واربطه بالطلب (نعيد احتساب الحمل من القاعدة لدعم تعدّد الطلبات)
+  const activeCount = await Order.countDocuments({
+    captain: captain._id,
+    status: { $in: ACTIVE_ORDER_STATUSES },
+  });
+  captain.status = CAPTAIN_STATUS.BUSY;
+  captain.activeOrder = order._id;
+  captain.activeOrdersCount = activeCount;
+  await captain.save();
+
+  await writeLog({
+    order: order._id,
+    actorId: captain._id,
+    actorRole: 'captain',
+    action: 'ORDER_CLAIMED',
+    fromStatus: ORDER_STATUS.PENDING,
+    toStatus: ORDER_STATUS.ACCEPTED,
+    meta: { captainId: captain._id, mode: 'broadcast' },
+  });
+
+  const populated = await order.populate([
+    { path: 'captain', select: 'name phone vehicleType' },
+    { path: 'user', select: 'name lastName phone' },
+  ]);
+
+  // للكابتن الفائز: يظهر الطلب في شاشته النشطة؛ ولصاحب الطلب والأدمن: تحديث الحالة
+  try {
+    const io_ = io.get();
+    io_.to(ROOMS.captain(String(captain._id))).emit(EVENTS.ORDER_ASSIGNED, populated);
+    io_.to(ROOMS.user(String(order.user?._id || order.user))).emit(EVENTS.ORDER_STATUS_UPDATED, populated);
+    io_.to(ROOMS.admins()).emit(EVENTS.ORDER_STATUS_UPDATED, populated);
+  } catch (_) {
+    // السوكت غير مهيّأ (اختبارات) — نتجاهل بأمان
+  }
+  // اختفاء الطلب من شاشات بقيّة الكباتن
+  emitOrderTaken(order._id, captain._id);
+
+  return populated;
+}
+
+/**
+ * جلب الطلبات المبثوثة المتاحة للكابتن (الإسناد التلقائي) — لعرضها في تطبيق الكابتن.
+ * تستثني الطلبات التي رفضها هذا الكابتن، والطلبات المجدولة التي لم يحن وقتها بعد.
+ * @param {string} captainId
+ */
+async function getAvailableBroadcastOrders(captainId) {
+  const orders = await Order.find({
+    status: ORDER_STATUS.PENDING,
+    broadcast: true,
+    captain: null,
+    rejectedBy: { $ne: captainId },
+  })
+    .populate('user', 'name lastName phone')
+    .sort({ broadcastAt: -1, createdAt: -1 })
+    .limit(50)
+    .lean();
+
+  // نستبعد الطلبات المجدولة لوقت لاحق لم يحن بعد
+  return orders.filter((o) => isDue(o.scheduledAt) || o.scheduledActivated);
+}
+
+/**
+ * بثّ كل الطلبات المعلّقة الحاليّة لكل الكباتن — يُستدعى عند تفعيل الأدمن للإسناد
+ * التلقائي، فتظهر الطلبات القائمة فورًا للكباتن دون انتظار طلبات جديدة.
+ * @returns {Promise<number>} عدد الطلبات التي بُثّت
+ */
+async function broadcastPendingOrders() {
+  const pending = await Order.find({
+    status: ORDER_STATUS.PENDING,
+    captain: null,
+  });
+
+  let count = 0;
+  for (const order of pending) {
+    // نتخطّى الطلبات المجدولة التي لم يحن وقتها بعد
+    if (order.scheduledAt && !order.scheduledActivated && !isDue(order.scheduledAt)) continue;
+    try {
+      await broadcastOrderToCaptains(order, { excludeIds: order.rejectedBy || [] });
+      count += 1;
+    } catch (err) {
+      logger.warn('تعذّر بثّ طلب معلّق عند تفعيل الإسناد التلقائي:', err.message);
+    }
+  }
+  return count;
 }
 
 /**
@@ -806,6 +1039,16 @@ async function returnToPoolAndReassign(order, captainId, { actorRole, action, re
     io.get().to(ROOMS.captain(String(captainId))).emit(EVENTS.ORDER_STATUS_UPDATED, order);
   }
 
+  // الإسناد التلقائي (بثّ لكل الكباتن): يُعاد بثّ الطلب لكل الكباتن (عدا من رفضه)
+  // ليأخذه أوّل من يقبل من جديد.
+  if (settingsService.isBroadcastMode()) {
+    try {
+      return await broadcastOrderToCaptains(order, { excludeIds: order.rejectedBy || [] });
+    } catch (err) {
+      logger.warn('فشل إعادة بثّ الطلب للكباتن:', err.message);
+    }
+  }
+
   // إعادة إسناد تلقائي لأقرب كابتن آخر (مع استبعاد من رُفض/انتهت مهلته)
   if (env.autoAssign) {
     try {
@@ -970,11 +1213,17 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
 
   const from = order.status;
   const captainId = order.captain;
+  const wasBroadcast = order.broadcast;
 
   order.status = ORDER_STATUS.CANCELLED;
   order.timeline.cancelledAt = new Date();
   order.cancelReason = reason || (actorRole === 'admin' ? 'ألغاه الأدمن' : 'ألغاه المستخدم');
+  order.broadcast = false;
+  order.broadcastAt = null;
   await order.save();
+
+  // إن كان الطلب مبثوثًا لكل الكباتن (ولم يُقبَل بعد) نُخبرهم أنّه لم يعد متاحًا
+  if (wasBroadcast) emitOrderTaken(order._id);
 
   await releaseCaptain(captainId); // تحرير الكابتن إن كان مُسنَدًا
   chat.purgeOrderMessages(order._id); // حذف رسائل الدردشة بعد الإلغاء (Card 18)
@@ -1495,6 +1744,10 @@ module.exports = {
   assignOrder,
   autoAssignOrder,
   findNearestCaptain,
+  broadcastOrderToCaptains,
+  claimOrder,
+  getAvailableBroadcastOrders,
+  broadcastPendingOrders,
   updateOrderStatus,
   rejectOrder,
   expireStaleAssignments,

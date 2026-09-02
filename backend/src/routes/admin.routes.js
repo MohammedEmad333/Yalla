@@ -13,6 +13,10 @@ router.use(authenticate, authorize(ROLES.ADMIN));
 // مؤشّرات الأداء (KPIs)
 router.get('/stats', ctrl.getStats);
 
+// إعدادات المنظومة: قراءة/تبديل الإسناد التلقائي (بثّ الطلبات لكل الكباتن)
+router.get('/settings', ctrl.getSettings);
+router.patch('/settings', ctrl.updateSettings);
+
 // إرسال رسائل/إشعارات جماعية (Card 66): للجميع أو كباتن/زبائن محدّدين
 router.post('/notifications', ctrl.sendBroadcast);
 

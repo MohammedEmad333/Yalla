@@ -9,11 +9,16 @@ const connectDB = require('./config/db');
 const registerSocketHandlers = require('./sockets/order.socket');
 const { startScheduler } = require('./services/scheduler.service');
 const notifications = require('./services/notification.service');
+const settingsService = require('./services/settings.service');
 const logger = require('./utils/logger');
 
 // نقطة الإقلاع: نربط Express + Socket.io على خادم HTTP واحد
 async function bootstrap() {
   await connectDB(); // 1) الاتصال بقاعدة البيانات
+
+  // تحميل إعدادات المنظومة (الإسناد التلقائي) مرّة إلى المخبّأ لاستخدامها في
+  // المسار الحرِج (إنشاء الطلب) بلا استعلام في كل مرّة.
+  await settingsService.preload();
 
   // 2) إنشاء خادم HTTP يلفّ تطبيق Express
   const server = http.createServer(app);

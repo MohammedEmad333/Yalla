@@ -8,6 +8,7 @@ const walletService = require('../services/wallet.service');
 const captainWalletService = require('../services/captainWallet.service');
 const customerWithdrawalService = require('../services/customerWithdrawal.service');
 const adminService = require('../services/admin.service');
+const settingsService = require('../services/settings.service');
 const chatService = require('../services/chat.service');
 const notificationService = require('../services/notification.service');
 const { validateBroadcast } = require('../utils/broadcast');
@@ -490,8 +491,43 @@ async function sendBroadcast(req, res, next) {
   }
 }
 
+// ── إعدادات المنظومة (الإسناد التلقائي) ──────────────────────────────
+// الأدمن يجلب الإعدادات الحاليّة لعرض حالة مفتاح الإسناد التلقائي في اللوحة
+async function getSettings(req, res, next) {
+  try {
+    const settings = await settingsService.getSettings();
+    res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// الأدمن يبدّل الإسناد التلقائي (بثّ الطلبات لكل الكباتن). عند التفعيل نبثّ فورًا
+// كل الطلبات المعلّقة الحاليّة للكباتن كي تظهر لهم دون انتظار طلبات جديدة.
+async function updateSettings(req, res, next) {
+  try {
+    const { autoAssignBroadcast } = req.body || {};
+    const patch = {};
+    if (typeof autoAssignBroadcast === 'boolean') patch.autoAssignBroadcast = autoAssignBroadcast;
+
+    const settings = await settingsService.updateSettings(patch);
+
+    // عند تفعيل الإسناد التلقائي نبثّ الطلبات المعلّقة القائمة فورًا للكباتن
+    let broadcasted = 0;
+    if (patch.autoAssignBroadcast === true) {
+      broadcasted = await orderService.broadcastPendingOrders();
+    }
+
+    res.json({ ...settings, broadcasted });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getStats,
+  getSettings,
+  updateSettings,
   sendBroadcast,
   listUsers,
   setUserActive,
