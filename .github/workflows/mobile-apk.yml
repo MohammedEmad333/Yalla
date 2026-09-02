@@ -71,6 +71,11 @@ jobs:
       - name: تثبيت التبعيات
         run: flutter pub get
 
+      # تفعيل core library desugaring في سقالة Android المولّدة — تتطلّبه حزمة
+      # flutter_local_notifications (إشعارات شاشة القفل/heads-up)، وإلّا يفشل البناء.
+      - name: تفعيل desugaring (flutter_local_notifications)
+        run: python3 tool/enable_desugaring.py
+
       # توليد أيقونة يلا في mipmap (غير حاسم — البناء يكمل بأيقونة افتراضية عند الفشل)
       - name: توليد أيقونة التطبيق
         run: dart run flutter_launcher_icons || echo "تخطّي توليد الأيقونة"
