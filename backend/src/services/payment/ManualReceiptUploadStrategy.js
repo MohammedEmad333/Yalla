@@ -27,10 +27,11 @@ class ManualReceiptUploadStrategy extends PaymentStrategy {
   async initiateTopUp(ctx, { walletService }) {
     const { userId, amount, proof, idempotencyKey } = ctx;
 
-    // إثبات التحويل مطلوب في المسار اليدوي
-    if (!proof || (!proof.imageUrl && !proof.referenceNumber)) {
+    // صورة الإيصال إجباريّة في المسار اليدوي (Card 107) — لا يُقبل طلب الشحن بدونها
+    // حتى لو أُدخل رقم العملية، لأنّ الإيصال هو الإثبات الأساسي لمراجعة الأدمن.
+    if (!proof || !proof.imageUrl) {
       throw Object.assign(
-        new Error('صورة الإيصال أو رقم العملية مطلوب لإتمام الشحن'),
+        new Error('صورة الإيصال مطلوبة لإتمام طلب الشحن'),
         { statusCode: 400 }
       );
     }

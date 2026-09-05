@@ -41,7 +41,7 @@ test('الشحن اليدوي يُنشئ حركة معلّقة دون إضافة
     userId: user._id,
     method: PAYMENT_METHOD.JAWWAL_PAY,
     amount: 100,
-    proof: { referenceNumber: 'TX-123' },
+    proof: { imageUrl: '/uploads/r1.jpg', referenceNumber: 'TX-123' },
   });
 
   assert.equal(tx.status, TOPUP_STATUS.PENDING);
@@ -59,7 +59,7 @@ test('موافقة الأدمن تضيف الرصيد، وهي آمنة ضدّ �
     userId: user._id,
     method: PAYMENT_METHOD.BANK_OF_PALESTINE,
     amount: 250,
-    proof: { referenceNumber: 'TX-999' },
+    proof: { imageUrl: '/uploads/r2.jpg', referenceNumber: 'TX-999' },
   });
 
   const res = await walletService.approveTopup(admin._id, tx._id, 'تمّ التحقّق');
@@ -82,7 +82,7 @@ test('رفض الأدمن لا يضيف رصيدًا', async (t) => {
     userId: user._id,
     method: PAYMENT_METHOD.PALPAY,
     amount: 80,
-    proof: { referenceNumber: 'TX-777' },
+    proof: { imageUrl: '/uploads/r3.jpg', referenceNumber: 'TX-777' },
   });
 
   const res = await walletService.rejectTopup(admin._id, tx._id, 'إيصال غير واضح');

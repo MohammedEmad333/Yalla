@@ -6,6 +6,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
 import { theme, orderStatusColor } from '../theme';
 import { vehicleLabel } from '../vehicles';
+import { useAuth } from '../auth/AuthContext';
+
+// Card 110: هل يقع الطلب ضمن نطاق مناطق الأدمن؟ (مدينة الاستلام أو التسليم)
+// نطاق فارغ = أدمن كامل الصلاحية يرى كل الطلبات.
+const orderInRegions = (order, regions) => {
+  if (!Array.isArray(regions) || regions.length === 0) return true;
+  return regions.includes(order?.pickup?.city) || regions.includes(order?.dropoff?.city);
+};
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -41,6 +49,7 @@ const fmtTime = (iso) => {
 const addressLines = (loc) => {
   if (!loc) return [];
   const parts = [
+    ['المدينة', loc.city],
     ['الحي', loc.neighborhood],
     ['الشارع', loc.street],
     ['التفاصيل', loc.details],
@@ -150,10 +159,13 @@ export default function LiveDashboard() {
   const [timeouts, setTimeouts] = useState({});    // {orderId: info} طلبات لم يقبلها الكابتن خلال المهلة (Card 54)
   const [priceEdit, setPriceEdit] = useState({}); // Card 74: {orderId: value} تحرير السعر التقريبي
   const [showCreate, setShowCreate] = useState(false); // Card 68: نافذة إنشاء طلب من الأدمن
-  const [neighborhoods, setNeighborhoods] = useState([]); // أحياء غزة لمنتقي العنوان
+  const [neighborhoods, setNeighborhoods] = useState({}); // Card 109: {المدينة: [الأحياء]} لمنتقي العنوان
   const [autoAssignOn, setAutoAssignOn] = useState(false); // الإسناد التلقائي (بثّ لكل الكباتن)
   const [autoBusy, setAutoBusy] = useState(false);        // أثناء تبديل الإسناد التلقائي
   const token = localStorage.getItem('token');     // توكن الأدمن
+  // Card 110: نطاق مناطق الأدمن — يفلتر الأحداث اللحظية لتوافق ما يجلبه REST المفلتَر
+  const { admin } = useAuth();
+  const regions = useMemo(() => admin?.regions || [], [admin]);
 
   // عدد الكباتن المتصلين (لعرضه في الترويسة)
   const onlineCount = captains.filter((c) => c.online).length;
@@ -182,19 +194,23 @@ export default function LiveDashboard() {
       .then((r) => r.json())
       .then((s) => setAutoAssignOn(!!s?.autoAssignBroadcast))
       .catch(() => {});
-    // Card 68: نجلب أحياء غزة لمنتقي العنوان في نموذج إنشاء الطلب
-    fetch(`${API}/api/neighborhoods`).then((r) => r.json()).then(setNeighborhoods).catch(() => {});
+    // Card 68 + Card 109: نجلب الأحياء مُجمّعة حسب المدينة لمنتقي المدينة ثمّ الحي
+    fetch(`${API}/api/neighborhoods?grouped=1`).then((r) => r.json()).then(setNeighborhoods).catch(() => {});
 
     socket.connect();
 
     // طلب جديد أنشأه مستخدم (أو عاد للمجمّع بعد رفض) -> أضِفه أعلى القائمة فورًا.
     // نُزيل أي نسخة سابقة بنفس المعرّف تفاديًا للتكرار عند تسابق الأحداث.
     socket.on('order:created', (order) => {
+      // Card 110: أدمن المناطق لا يرى إلّا طلبات نطاقه
+      if (!orderInRegions(order, regions)) return;
       setOrders((prev) => [order, ...prev.filter((o) => o._id !== order._id)]);
     });
 
     // تحديث حالة طلب -> استبدله في القائمة (أو أزِله إن اكتمل)
     socket.on('order:status_updated', (order) => {
+      // Card 110: تجاهل تحديثات الطلبات خارج نطاق أدمن المناطق
+      if (!orderInRegions(order, regions)) return;
       setOrders((prev) => {
         const done = ['delivered', 'cancelled'].includes(order.status);
         const others = prev.filter((o) => o._id !== order._id);
@@ -223,7 +239,7 @@ export default function LiveDashboard() {
     });
 
     return () => socket.disconnect(); // تنظيف عند مغادرة الصفحة
-  }, [socket, token]);
+  }, [socket, token, regions]);
 
   // تبديل الإسناد التلقائي (بثّ الطلبات لكل الكباتن). عند التفعيل يبثّ الخادم
   // كل الطلبات المعلّقة القائمة فورًا للكباتن، ويأخذها أوّل من يقبل.
@@ -401,6 +417,10 @@ export default function LiveDashboard() {
         <div>
           <h1 style={{ margin: 0 }}>اللوحة اللحظية</h1>
           <p style={styles.subtitle}>متابعة الطلبات النشطة وإسناد الكباتن في الوقت الفعلي</p>
+          {/* Card 110: شارة نطاق مناطق الأدمن (تظهر لأدمن المناطق فقط) */}
+          {regions.length > 0 && (
+            <span style={styles.regionBadge}>📍 أدمن مناطق: {regions.join('، ')}</span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           {/* الإسناد التلقائي: مفتاح يبثّ الطلبات لكل الكباتن ليأخذها أوّل من يقبل */}
@@ -684,7 +704,9 @@ export default function LiveDashboard() {
 // الاستلام والتسليم (الحي/الشارع/التفاصيل/الملاحظة). يُنشأ الطلب pending فيظهر
 // في لوحة الإسناد فورًا عبر حدث order:created (لا حاجة لتحديث الحالة يدويًا).
 function CreateOrderModal({ token, neighborhoods, onClose }) {
-  const emptyPoint = { neighborhood: '', street: '', details: '', note: '' };
+  // Card 109: neighborhoods = {المدينة: [الأحياء]}؛ نختار المدينة ثمّ الحي
+  const cities = Object.keys(neighborhoods || {});
+  const emptyPoint = { city: '', neighborhood: '', street: '', details: '', note: '' };
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [pickup, setPickup] = useState({ ...emptyPoint });
@@ -697,8 +719,8 @@ function CreateOrderModal({ token, neighborhoods, onClose }) {
     setError('');
     if (!contactName.trim()) return setError('اسم صاحب الطلب مطلوب');
     if (!contactPhone.trim()) return setError('رقم جوال صاحب الطلب مطلوب');
-    if (!pickup.neighborhood) return setError('اختر حي الاستلام');
-    if (!dropoff.neighborhood) return setError('اختر حي التسليم');
+    if (!pickup.city || !pickup.neighborhood) return setError('اختر مدينة وحي الاستلام');
+    if (!dropoff.city || !dropoff.neighborhood) return setError('اختر مدينة وحي التسليم');
     setSaving(true);
     try {
       const res = await fetch(`${API}/api/orders/admin`, {
@@ -721,13 +743,25 @@ function CreateOrderModal({ token, neighborhoods, onClose }) {
   const pointFields = (label, point, setPoint) => (
     <div style={styles.pointBlock}>
       <b style={styles.pointTitle}>{label}</b>
+      {/* Card 109: المدينة قبل الحي — تغيير المدينة يُصفّر الحي */}
+      <select
+        value={point.city}
+        onChange={(e) => setPoint((p) => ({ ...p, city: e.target.value, neighborhood: '' }))}
+        style={styles.modalInput}
+      >
+        <option value="">— اختر المدينة —</option>
+        {cities.map((c) => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </select>
       <select
         value={point.neighborhood}
         onChange={(e) => setPoint((p) => ({ ...p, neighborhood: e.target.value }))}
         style={styles.modalInput}
+        disabled={!point.city}
       >
         <option value="">— اختر الحي —</option>
-        {neighborhoods.map((n) => (
+        {(neighborhoods[point.city] || []).map((n) => (
           <option key={n} value={n}>{n}</option>
         ))}
       </select>
@@ -884,6 +918,10 @@ const styles = {
     flexWrap: 'wrap',
   },
   subtitle: { color: theme.color.muted, margin: '4px 0 0', fontSize: 14 },
+  regionBadge: {
+    display: 'inline-block', marginTop: 8, padding: '4px 12px', fontSize: 13, fontWeight: 700,
+    background: theme.color.primary, color: theme.color.onPrimary, borderRadius: theme.radius.pill,
+  },
   badge: {
     display: 'inline-flex',
     alignItems: 'center',

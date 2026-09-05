@@ -175,7 +175,8 @@ async function sendCode(req, res, next) {
 // الأدمن يجلب الطلبات النشطة للوحة التحكّم
 async function getActiveOrders(req, res, next) {
   try {
-    const orders = await orderService.getActiveOrders();
+    // Card 110: نطاق مناطق الأدمن من التوكن يقصر الطلبات على مدنه
+    const orders = await orderService.getActiveOrders(req.auth.regions);
     res.json(orders);
   } catch (err) {
     next(err);
@@ -185,7 +186,7 @@ async function getActiveOrders(req, res, next) {
 // الأدمن يبحث/يفلتر الطلبات مع ترقيم (?status=&from=&to=&q=&page=&limit=)
 async function listOrders(req, res, next) {
   try {
-    const result = await orderService.listOrders(req.query);
+    const result = await orderService.listOrders(req.query, req.auth.regions);
     res.json(result);
   } catch (err) {
     next(err);
@@ -195,7 +196,7 @@ async function listOrders(req, res, next) {
 // الأدمن يصدّر الطلبات (بنفس الفلاتر) كملفّ CSV
 async function exportOrders(req, res, next) {
   try {
-    const rows = await orderService.getOrdersForExport(req.query);
+    const rows = await orderService.getOrdersForExport(req.query, req.auth.regions);
     const columns = [
       { key: 'id', header: 'المعرّف' },
       { key: 'status', header: 'الحالة' },

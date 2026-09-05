@@ -12,9 +12,9 @@ const io = require('../sockets/io');
 const { idDocUrlFor } = require('../middlewares/upload.middleware');
 const { ROLES, ROOMS } = require('../utils/constants');
 
-// توليد توكن JWT يحمل المعرّف والدور
-function signToken(id, role) {
-  return jwt.sign({ id, role }, env.jwtSecret, { expiresIn: env.jwtExpiresIn });
+// توليد توكن JWT يحمل المعرّف والدور (وحقولًا إضافيّة اختياريّة مثل regions للأدمن)
+function signToken(id, role, extra = {}) {
+  return jwt.sign({ id, role, ...extra }, env.jwtSecret, { expiresIn: env.jwtExpiresIn });
 }
 
 // تسجيل مستخدم جديد (عميل)
@@ -64,10 +64,19 @@ async function loginUser(req, res, next) {
       if (!user.isActive) {
         return res.status(403).json({ message: 'الحساب معطّل — تواصل مع الدعم' });
       }
-      const token = signToken(user._id, user.role);
+      // Card 110: نطاق مناطق الأدمن يُحمَل في التوكن ويُعاد للوحة لتفلتر واجهتها
+      const regions = user.role === ROLES.ADMIN ? user.regions || [] : [];
+      const token = signToken(user._id, user.role, regions.length ? { regions } : {});
       return res.json({
         token,
-        user: { id: user._id, name: user.name, lastName: user.lastName, phone, role: user.role },
+        user: {
+          id: user._id,
+          name: user.name,
+          lastName: user.lastName,
+          phone,
+          role: user.role,
+          ...(user.role === ROLES.ADMIN ? { regions } : {}),
+        },
       });
     }
 
@@ -223,7 +232,8 @@ async function me(req, res, next) {
       if (!captain) return res.status(404).json({ message: 'الحساب غير موجود' });
       return res.json({ role, captain });
     }
-    const user = await User.findById(id).select('name lastName phone email city governorate address avatarUrl role');
+    // Card 110: نضمّ regions ليعرف الأدمن نطاق مدنه في اللوحة
+    const user = await User.findById(id).select('name lastName phone email city governorate address avatarUrl role regions');
     if (!user) return res.status(404).json({ message: 'الحساب غير موجود' });
     res.json({ role: user.role, user });
   } catch (err) {

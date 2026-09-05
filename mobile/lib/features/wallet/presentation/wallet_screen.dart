@@ -167,6 +167,9 @@ class _WalletScreenState extends State<WalletScreen> {
     final desc = _txDescription(tx['type'] as String?, tx['method'] as String?);
     final (label, color) = _statusMeta(status);
     final isCredit = (tx['direction'] as String?) == 'credit';
+    // Card 106: سبب رفض طلب الشحن يظهر في التطبيق أسفل وصف الحركة
+    final reason = (tx['rejectionReason'] as String?)?.trim() ?? '';
+    final showReason = status == 'rejected' && reason.isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -182,7 +185,18 @@ class _WalletScreenState extends State<WalletScreen> {
         ),
         title: Text('${isCredit ? '+' : '-'}$amount ₪',
             style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(desc, style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+        subtitle: showReason
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(desc, style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+                  const SizedBox(height: 2),
+                  Text('سبب الرفض: $reason',
+                      style: const TextStyle(color: YallaColors.error, fontSize: 12)),
+                ],
+              )
+            : Text(desc, style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+        isThreeLine: showReason,
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(

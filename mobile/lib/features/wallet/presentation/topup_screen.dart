@@ -66,10 +66,10 @@ class _TopupScreenState extends State<TopupScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selected == null) return;
-    // يجب توفّر صورة الإيصال أو رقم العملية على الأقلّ
-    if (_receipt == null && _reference.text.trim().isEmpty) {
+    // Card 107: صورة الإيصال إجباريّة لإتمام طلب الشحن
+    if (_receipt == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('أرفق صورة الإيصال أو أدخل رقم العملية')),
+        const SnackBar(content: Text('أرفق صورة الإيصال لإتمام طلب الشحن')),
       );
       return;
     }
@@ -137,7 +137,7 @@ class _TopupScreenState extends State<TopupScreen> {
                   TextFormField(
                     controller: _reference,
                     decoration: const InputDecoration(
-                      labelText: 'رقم العملية (من إشعار التحويل)',
+                      labelText: 'رقم العملية (اختياري — من إشعار التحويل)',
                       prefixIcon: Icon(Icons.confirmation_number_outlined),
                     ),
                   ),
@@ -266,7 +266,7 @@ class _TopupScreenState extends State<TopupScreen> {
                 children: [
                   Icon(Icons.upload_file, size: 36, color: YallaColors.muted),
                   SizedBox(height: 8),
-                  Text('ارفع صورة الإيصال', style: TextStyle(color: YallaColors.muted)),
+                  Text('ارفع صورة الإيصال (إجباري)', style: TextStyle(color: YallaColors.muted)),
                 ],
               )
             : ClipRRect(

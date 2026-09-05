@@ -10,6 +10,7 @@ const { ORDER_STATUS } = require('../utils/constants');
 const locationSchema = new mongoose.Schema(
   {
     address: { type: String, required: true },   // عنوان موحّد للعرض/البحث (مُركَّب أو مُرسَل)
+    city: { type: String, default: '' },           // المدينة (Card 109) — تحدّد المنطقة
     neighborhood: { type: String, default: '' },  // الحي
     street: { type: String, default: '' },         // الشارع
     details: { type: String, default: '' },        // العنوان بالتفاصيل

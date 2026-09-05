@@ -239,8 +239,15 @@ async function process(adminId, withdrawalId, action, adminNote = '') {
         }
       : {
           title: 'طلب سحب الرصيد مرفوض',
-          body: adminNote || 'تعذّر تنفيذ طلب سحب رصيدك — تواصل مع الدعم.',
-          data: { type: 'CUSTOMER_WITHDRAWAL_REJECTED', withdrawalId: String(withdrawal._id) },
+          // Card 106: يظهر سبب الرفض للزبون في الإشعار (ويُخزَّن في adminNote للعرض)
+          body: adminNote
+            ? `سبب الرفض: ${adminNote}`
+            : 'تعذّر تنفيذ طلب سحب رصيدك — تواصل مع الدعم.',
+          data: {
+            type: 'CUSTOMER_WITHDRAWAL_REJECTED',
+            withdrawalId: String(withdrawal._id),
+            reason: adminNote || '',
+          },
         };
   notifications.createInApp(withdrawal.user, ROLES.USER, payload).catch(() => {});
   User.findById(withdrawal.user)
