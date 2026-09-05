@@ -40,6 +40,42 @@ function buildOrderFilter({ status, from, to, q } = {}) {
 }
 
 /**
+ * Card 110: مرشّح نطاق مناطق الأدمن — يقصر الطلبات على المدن ضمن نطاقه.
+ * يُطابَق على مدينة الاستلام أو التسليم (يكفي أن تقع إحداهما ضمن النطاق).
+ * قائمة فارغة/غير صالحة ⇒ مرشّح فارغ {} (أدمن كامل الصلاحية يرى كل الطلبات).
+ * @param {string[]} regions قائمة أسماء المدن ضمن نطاق الأدمن
+ * @returns {Object} كائن مرشّح صالح لدمجه مع مرشّحات أخرى
+ */
+function regionOrderFilter(regions) {
+  if (!Array.isArray(regions)) return {};
+  const cities = regions.map((r) => String(r || '').trim()).filter(Boolean);
+  if (cities.length === 0) return {};
+  return {
+    $or: [
+      { 'pickup.city': { $in: cities } },
+      { 'dropoff.city': { $in: cities } },
+    ],
+  };
+}
+
+/**
+ * Card 110: دمج مرشّح البحث مع مرشّح نطاق مناطق الأدمن دمجًا آمنًا.
+ * إن حوى المرشّحان $or (بحث نصّي + نطاق) نجمعهما تحت $and حتى لا يطغى أحدهما.
+ * @param {Object} baseFilter مرشّح البحث الأساسي (من buildOrderFilter)
+ * @param {string[]} regions نطاق مناطق الأدمن
+ * @returns {Object} مرشّح مدموج
+ */
+function withRegionScope(baseFilter = {}, regions) {
+  const region = regionOrderFilter(regions);
+  if (!region.$or) return baseFilter;
+  if (baseFilter.$or) {
+    const { $or: baseOr, ...rest } = baseFilter;
+    return { ...rest, $and: [{ $or: baseOr }, { $or: region.$or }] };
+  }
+  return { ...baseFilter, $or: region.$or };
+}
+
+/**
  * تحويل معاملات الترقيم إلى skip/limit مع حدود آمنة.
  * @param {{page?:number|string, limit?:number|string}} params
  * @returns {{page:number, limit:number, skip:number}}
@@ -50,4 +86,9 @@ function parsePagination({ page, limit } = {}) {
   return { page: p, limit: l, skip: (p - 1) * l };
 }
 
-module.exports = { buildOrderFilter, parsePagination };
+module.exports = {
+  buildOrderFilter,
+  parsePagination,
+  regionOrderFilter,
+  withRegionScope,
+};

@@ -5,7 +5,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildOrderFilter, parsePagination } = require('../src/utils/orderQuery');
+const {
+  buildOrderFilter,
+  parsePagination,
+  regionOrderFilter,
+  withRegionScope,
+} = require('../src/utils/orderQuery');
 
 test('buildOrderFilter: فارغ بلا معايير', () => {
   assert.deepEqual(buildOrderFilter({}), {});
@@ -45,4 +50,41 @@ test('parsePagination: يحسب skip ويحدّ القيم', () => {
   assert.deepEqual(parsePagination({ page: 3, limit: 10 }), { page: 3, limit: 10, skip: 20 });
   assert.equal(parsePagination({ limit: 999 }).limit, 100); // الحدّ الأقصى
   assert.equal(parsePagination({ page: -5 }).page, 1); // الحدّ الأدنى
+});
+
+// ── Card 110: مرشّح نطاق مناطق الأدمن ──────────────────────────────
+
+test('regionOrderFilter: نطاق فارغ/غير مصفوفة ⇒ مرشّح فارغ', () => {
+  assert.deepEqual(regionOrderFilter([]), {});
+  assert.deepEqual(regionOrderFilter(undefined), {});
+  assert.deepEqual(regionOrderFilter(['  ', '']), {}); // بعد التشذيب لا مدن
+});
+
+test('regionOrderFilter: يطابق مدينة الاستلام أو التسليم', () => {
+  const f = regionOrderFilter(['الوسطى', 'خانيونس', 'رفح']);
+  assert.deepEqual(f, {
+    $or: [
+      { 'pickup.city': { $in: ['الوسطى', 'خانيونس', 'رفح'] } },
+      { 'dropoff.city': { $in: ['الوسطى', 'خانيونس', 'رفح'] } },
+    ],
+  });
+});
+
+test('withRegionScope: بلا نطاق يُعيد المرشّح كما هو', () => {
+  const base = { status: 'pending' };
+  assert.deepEqual(withRegionScope(base, []), base);
+});
+
+test('withRegionScope: يضيف $or للنطاق عند غياب بحث نصّي', () => {
+  const f = withRegionScope({ status: 'pending' }, ['رفح']);
+  assert.equal(f.status, 'pending');
+  assert.ok(Array.isArray(f.$or) && f.$or.length === 2);
+});
+
+test('withRegionScope: يجمع بحث $or ونطاق $or تحت $and دون تعارض', () => {
+  const base = buildOrderFilter({ q: 'الرمال' }); // يحوي $or للبحث
+  const f = withRegionScope(base, ['خانيونس']);
+  assert.ok(Array.isArray(f.$and) && f.$and.length === 2);
+  assert.ok(f.$and[0].$or && f.$and[1].$or);
+  assert.equal(f.$or, undefined); // لم يبقَ $or علوي متعارض
 });

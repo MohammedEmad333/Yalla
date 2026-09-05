@@ -21,7 +21,12 @@ const { addRating } = require('../utils/rating');
 const { canUserCancel, canCaptainReject } = require('../utils/orderRules');
 const { summarizeEarnings } = require('../utils/earnings');
 const { ratingDistribution } = require('../utils/reviews');
-const { buildOrderFilter, parsePagination } = require('../utils/orderQuery');
+const {
+  buildOrderFilter,
+  parsePagination,
+  regionOrderFilter,
+  withRegionScope,
+} = require('../utils/orderQuery');
 const { summarizeWallet } = require('../utils/wallet');
 const { estimateEtaMinutes, isOrderDelayed, deliveryDueAt } = require('../utils/eta');
 const { validateScheduledAt, isDue } = require('../utils/schedule');
@@ -125,9 +130,10 @@ function ensureCoordsFromNeighborhood(loc) {
     Array.isArray(coords) && coords.length === 2 && (coords[0] !== 0 || coords[1] !== 0);
   if (hasValid) return loc;
 
-  const fromHood = coordsForNeighborhood(loc?.neighborhood);
+  // Card 109: نمرّر المدينة لدقّة اشتقاق الإحداثيّات (أسماء أحياء قد تتكرّر بين المدن)
+  const fromHood = coordsForNeighborhood(loc?.neighborhood, loc?.city);
   if (!fromHood) {
-    throw httpError('اختر حيًّا صالحًا من أحياء غزة لنقطتَي الاستلام والتسليم', 400);
+    throw httpError('اختر المدينة ثمّ حيًّا صالحًا لنقطتَي الاستلام والتسليم', 400);
   }
   return { ...loc, location: { type: 'Point', coordinates: fromHood } };
 }
@@ -1307,11 +1313,13 @@ async function forceCompleteByAdmin(orderId, { actorId } = {}) {
 }
 
 // جلب الطلبات النشطة (للوحة الأدمن)
-async function getActiveOrders() {
+// Card 110: يُمرَّر نطاق مناطق الأدمن (regions) ليقتصر على طلبات مدنه فقط.
+async function getActiveOrders(regions) {
   // Card 73: نضمّ رمز التسليم (select:false افتراضيًا) ليظهر للأدمن في لوحة التحكم
   // مباشرةً بعد ظهور الطلب. هذا المسار للأدمن فقط، فلا يتسرّب الرمز للكابتن/العميل.
   const orders = await Order.find({
     status: { $in: [ORDER_STATUS.PENDING, ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED, ORDER_STATUS.PICKED_UP] },
+    ...regionOrderFilter(regions),
   })
     .select('+deliveryCode')
     // Card 81: نضمّ isExternal ليُظهر الأدمن زرّ إضافة الرصيد للحسابات الخارجية فقط
@@ -1419,8 +1427,9 @@ async function sendDeliveryCodeToCaptain(orderId) {
 }
 
 // بحث/فلترة الطلبات مع ترقيم (للوحة الأدمن) — يعيد العناصر والإجمالي وعدد الصفحات
-async function listOrders(rawQuery = {}) {
-  const filter = buildOrderFilter(rawQuery);
+// Card 110: يُقصر النتائج على نطاق مناطق الأدمن (regions) إن وُجد.
+async function listOrders(rawQuery = {}, regions) {
+  const filter = withRegionScope(buildOrderFilter(rawQuery), regions);
   const { page, limit, skip } = parsePagination(rawQuery);
 
   // نُشغّل جلب الصفحة والعدّ الكلّي بالتوازي
@@ -1442,8 +1451,9 @@ async function listOrders(rawQuery = {}) {
 }
 
 // تجهيز صفوف الطلبات للتصدير CSV (بنفس مرشّحات البحث، بحدّ أعلى للأمان)
-async function getOrdersForExport(rawQuery = {}) {
-  const filter = buildOrderFilter(rawQuery);
+// Card 110: يُقصر التصدير على نطاق مناطق الأدمن (regions) إن وُجد.
+async function getOrdersForExport(rawQuery = {}, regions) {
+  const filter = withRegionScope(buildOrderFilter(rawQuery), regions);
   const MAX_EXPORT = 5000; // حدّ يمنع تصدير ضخم يستنزف الذاكرة
 
   const orders = await Order.find(filter)

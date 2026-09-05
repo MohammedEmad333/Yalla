@@ -286,8 +286,9 @@ async function approveTopup(adminId, txId, note = '') {
   claimed.balanceAfter = wallet.balance;
   await claimed.save();
 
-  // إشعار المستخدم + بثّ الرصيد الجديد لحظيًا
-  await notifications.createInApp(claimed.user, ROLES.USER, {
+  // إشعار المستخدم (داخل التطبيق + Push ليصل حتى والتطبيق مغلق — Card 108)
+  // + بثّ الرصيد الجديد لحظيًا ليتحدّث في المحفظة دون تحديث الصفحة.
+  await notifications.notifyUser(claimed.user, ROLES.USER, {
     title: '✅ تمّ شحن رصيدك',
     body: `أُضيف ${claimed.amount} ₪ إلى محفظتك. رصيدك الآن ${wallet.balance} ₪`,
     data: { type: 'WALLET_TOPUP_APPROVED', transactionId: String(claimed._id) },
@@ -316,10 +317,18 @@ async function rejectTopup(adminId, txId, reason = '') {
   );
   if (!rejected) throw httpError('العملية عولجت بالفعل', 409);
 
-  await notifications.createInApp(rejected.user, ROLES.USER, {
+  // Card 106: إشعار المستخدم بسبب الرفض (داخل التطبيق + Push). السبب يُخزَّن أيضًا
+  // في rejectionReason فيظهر في سجلّ حركات المحفظة بالتطبيق.
+  await notifications.notifyUser(rejected.user, ROLES.USER, {
     title: '⚠️ رُفض طلب الشحن',
-    body: reason || 'تعذّر تأكيد التحويل. تواصل مع الدعم إن كان لديك استفسار.',
-    data: { type: 'WALLET_TOPUP_REJECTED', transactionId: String(rejected._id) },
+    body: reason
+      ? `سبب الرفض: ${reason}`
+      : 'تعذّر تأكيد التحويل. تواصل مع الدعم إن كان لديك استفسار.',
+    data: {
+      type: 'WALLET_TOPUP_REJECTED',
+      transactionId: String(rejected._id),
+      reason: reason || '',
+    },
   }).catch(() => {});
 
   return { transaction: rejected };

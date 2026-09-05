@@ -14,6 +14,11 @@ const userSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true, select: false }, // لا يُرجَع افتراضيًا
     role: { type: String, enum: [ROLES.USER, ROLES.ADMIN], default: ROLES.USER },
 
+    // Card 110: نطاق مناطق الأدمن — قائمة مدن يقتصر عليها هذا الأدمن (مثل
+    // ['الوسطى','خانيونس','رفح'] لأدمن الوسطى والجنوب). فارغة = أدمن كامل الصلاحية
+    // يرى كل الطلبات. تُطبَّق كمرشّح على طلبات لوحة التحكم (مدينة الاستلام/التسليم).
+    regions: { type: [String], default: [] },
+
     // بيانات إضافية لصفحة "حسابي" (Card 17)
     avatarUrl: { type: String, default: '' }, // مسار الصورة الشخصية المرفوعة
     city: { type: String, default: '', trim: true }, // المدينة

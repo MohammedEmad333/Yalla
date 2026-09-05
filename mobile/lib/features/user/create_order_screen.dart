@@ -1,5 +1,5 @@
 // شاشة إنشاء طلب توصيل (تطبيق المستخدم) — نسخة بلا خريطة.
-// لكل نقطة (استلام/تسليم) يختار المستخدم "الحي" من أحياء مدينة غزة (Card 27)،
+// لكل نقطة (استلام/تسليم) يختار المستخدم "المدينة" ثمّ "الحي" (Card 109)،
 // ومنه تُشتقّ الإحداثيّات لحساب المسافة والسعر التقريبي (كل ٢٥٠م = ١ شيكل)،
 // ثم يكمل العنوان: الشارع ← العنوان بالتفاصيل ← الملاحظة (Card 21).
 // ملاحظة: يجب أن يكفي رصيد المحفظة للسعر التقريبي قبل تأكيد الطلب (يتحقّق الخادم).
@@ -10,19 +10,20 @@ import '../../core/network/api_client.dart';
 import '../../core/data/gaza_neighborhoods.dart';
 import '../../core/theme/app_theme.dart';
 
-// حقول عنوان نقطة واحدة (استلام أو تسليم) — الحي أصبح منسدلًا (Card 27)
+// حقول عنوان نقطة واحدة (استلام أو تسليم) — المدينة ثمّ الحي منسدلان (Card 109)
 class _AddressFields {
-  String? neighborhood; // الحي (من أحياء غزة) — يحدّد الإحداثيّات
+  String? city; // المدينة (غزة/شمال غزة/الوسطى/خانيونس/رفح) — تحدّد قائمة الأحياء
+  String? neighborhood; // الحي (يعتمد على المدينة) — يحدّد الإحداثيّات
   final street = TextEditingController(); // الشارع
   final details = TextEditingController(); // العنوان بالتفاصيل
   final note = TextEditingController(); // ملاحظة
 
-  // إحداثيّات النقطة مشتقّة من الحي المختار [lng, lat]
-  List<double>? get coords =>
-      neighborhood == null ? null : kGazaNeighborhoods[neighborhood];
+  // إحداثيّات النقطة مشتقّة من المدينة + الحي المختار [lng, lat]
+  List<double>? get coords => coordsOf(city, neighborhood);
 
   // حمولة الموقع المُرسَلة للخادم
   Map<String, dynamic> toJson() => {
+        'city': city ?? '',
         'neighborhood': neighborhood ?? '',
         'street': street.text.trim(),
         'details': details.text.trim(),
@@ -30,9 +31,10 @@ class _AddressFields {
         if (coords != null) 'location': {'type': 'Point', 'coordinates': coords},
       };
 
-  bool get isValid => neighborhood != null;
+  bool get isValid => city != null && neighborhood != null;
 
   void clear() {
+    city = null;
     neighborhood = null;
     street.clear();
     details.clear();
@@ -119,7 +121,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   Future<void> _submitOrder() async {
     if (!_pickup.isValid || !_dropoff.isValid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('اختر حي الاستلام وحي التسليم')),
+        const SnackBar(content: Text('اختر مدينة وحي الاستلام ومدينة وحي التسليم')),
       );
       return;
     }
@@ -246,8 +248,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     );
   }
 
-  // حقول عنوان نقطة: الحي (منسدل) ← الشارع ← التفاصيل ← الملاحظة
+  // حقول عنوان نقطة: المدينة (منسدل) ← الحي (منسدل) ← الشارع ← التفاصيل ← الملاحظة
   List<Widget> _addressInputs(_AddressFields f) => [
+        _cityPicker(f),
+        const SizedBox(height: 8),
         _neighborhoodPicker(f),
         const SizedBox(height: 8),
         TextField(
@@ -281,23 +285,51 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         ),
       ];
 
-  // منتقي الحي من أحياء غزة (Card 27) — يحدّد الإحداثيّات ويُحدّث التسعيرة
-  Widget _neighborhoodPicker(_AddressFields f) => DropdownButtonFormField<String>(
-        value: f.neighborhood,
+  // منتقي المدينة (Card 109) — قبل الحي. تغييرها يُصفّر الحي المختار.
+  Widget _cityPicker(_AddressFields f) => DropdownButtonFormField<String>(
+        value: f.city,
         isExpanded: true,
         decoration: const InputDecoration(
-          labelText: 'الحي',
+          labelText: 'المدينة',
           prefixIcon: Icon(Icons.location_city),
           border: OutlineInputBorder(),
         ),
-        items: gazaNeighborhoodNames
+        items: gazaCities
             .map((name) => DropdownMenuItem(value: name, child: Text(name)))
             .toList(),
         onChanged: (v) {
-          setState(() => f.neighborhood = v);
+          setState(() {
+            f.city = v;
+            f.neighborhood = null; // إعادة ضبط الحي عند تغيير المدينة
+          });
           _refreshQuote();
         },
       );
+
+  // منتقي الحي (Card 109) — عناصره تعتمد على المدينة المختارة، يحدّد الإحداثيّات
+  Widget _neighborhoodPicker(_AddressFields f) {
+    final names = neighborhoodsOf(f.city);
+    return DropdownButtonFormField<String>(
+      value: f.neighborhood,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: 'الحي',
+        prefixIcon: const Icon(Icons.holiday_village_outlined),
+        border: const OutlineInputBorder(),
+        hintText: f.city == null ? 'اختر المدينة أولًا' : null,
+      ),
+      items: names
+          .map((name) => DropdownMenuItem(value: name, child: Text(name)))
+          .toList(),
+      // معطّل حتى تُختار المدينة
+      onChanged: f.city == null
+          ? null
+          : (v) {
+              setState(() => f.neighborhood = v);
+              _refreshQuote();
+            },
+    );
+  }
 
   // عنوان قسم (نقطة استلام/تسليم)
   Widget _sectionLabel(String text, IconData icon) => Row(

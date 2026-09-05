@@ -292,6 +292,27 @@ async function createInApp(recipientId, recipientRole, payload) {
   }
 }
 
+/**
+ * Card 106/108: إشعار مستخدم/كابتن داخل التطبيق + Push لأجهزته المسجَّلة معًا.
+ * يُستخدم في أحداث المحفظة (قبول/رفض شحن) ليصل الإشعار حتى والتطبيق مغلق.
+ * آمن تمامًا: لا يرمي أخطاءً تُوقف التدفّق الأساسي، وPush يعمل كـ no-op بلا FCM.
+ * @param {string} recipientId
+ * @param {'user'|'captain'} recipientRole
+ * @param {{title:string, body:string, data?:object}} payload
+ */
+async function notifyUser(recipientId, recipientRole, payload = {}) {
+  await createInApp(recipientId, recipientRole, payload);
+  try {
+    const Model = recipientRole === ROLES.CAPTAIN ? Captain : User;
+    const doc = await Model.findById(recipientId).select('deviceTokens').lean();
+    if (doc?.deviceTokens?.length) {
+      await sendToTokens(doc.deviceTokens, payload);
+    }
+  } catch (err) {
+    logger.warn('تعذّر إرسال Push للمستخدم:', err.message);
+  }
+}
+
 // ── رسائل/إشعارات الأدمن الجماعية (Card 66) ───────────────────────
 
 // بناء مُرشِّح المستلِمين لفئة معيّنة حسب الجمهور والقائمة المحدّدة
@@ -472,6 +493,7 @@ module.exports = {
   newUserAdminPayload,
   newCaptainApplicationAdminPayload,
   createInApp,
+  notifyUser,
   notifyAdmins,
   sendBroadcast,
   listForRecipient,
