@@ -121,7 +121,7 @@ ThemeData buildYallaTheme() {
     ),
 
     // البطاقات: بيضاء بحدّ رفيع وظلّ خفيف جدًّا
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: YallaColors.card,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
@@ -256,7 +256,7 @@ ThemeData buildYallaTheme() {
     dividerTheme: const DividerThemeData(color: YallaColors.outline, thickness: 1, space: 1),
     progressIndicatorTheme: const ProgressIndicatorThemeData(color: YallaColors.primary),
 
-    dialogTheme: DialogTheme(
+    dialogTheme: DialogThemeData(
       backgroundColor: YallaColors.card,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(YallaRadii.xl)),
