@@ -67,6 +67,9 @@ jobs:
           cp "$RUNNER_TEMP/AndroidManifest.xml" android/app/src/main/AndroidManifest.xml
           mkdir -p android/app/src/main/res/xml
           cp "$RUNNER_TEMP/nsc.xml" android/app/src/main/res/xml/network_security_config.xml
+          # flutter create يولّد اختبار العدّاد الافتراضي (يشير إلى MyApp غير الموجود)
+          # — نحذفه حتى لا يُفشل `flutter test`؛ اختباراتنا في test/theme_test.dart.
+          rm -f test/widget_test.dart
 
       - name: تثبيت التبعيات
         run: flutter pub get
