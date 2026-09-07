@@ -88,3 +88,95 @@
   --z-modal: 80;
   --z-toast: 100;
 }
+
+/* ═══ الوضع الليلي ═══════════════════════════════════════════════════════════
+   يُطبَّق بطريقتين: (1) تلقائيًّا حسب إعداد النظام عبر prefers-color-scheme،
+   (2) يدويًّا عبر `data-theme="dark|light"` على <html> (يفوز على إعداد النظام).
+   نُعيد تعريف الرموز فقط — لا مكوّن يحتاج تعديلًا لأنّ كل الألوان تُشتقّ منها.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    /* الهوية: نُفتّح البرتقالي قليلًا ليبقى مقروءًا على خلفية داكنة */
+    --brand: #ff8124;
+    --brand-strong: #ff9445;
+    --brand-deep: #ffb37a;
+    --brand-tint: #3a2413;
+    --brand-tint-strong: #4d2f18;
+    --on-brand: #1a0e05;
+
+    --accent: #4da3ff;
+    --accent-deep: #8cc4ff;
+    --accent-tint: #14263a;
+
+    --success: #43c48a;
+    --success-tint: #14301f;
+    --warning: #e5a13a;
+    --warning-tint: #33260f;
+    --danger: #ff6b5e;
+    --danger-tint: #3a1a17;
+
+    /* الأسطح: رمادي مزرقّ داكن متدرّج (لا أسود صافٍ — أريح للعين) */
+    --bg: #14161a;
+    --bg-elevated: #1c1f24;
+    --bg-sunken: #24282e;
+    --bg-hover: #24282e;
+    --nav-bg: #1c1f24;
+
+    --text: #eef0f3;
+    --text-soft: #c2c7ce;
+    --text-muted: #8c939c;
+    --text-inverse: #14161a;
+
+    --border: #2c3138;
+    --border-strong: #3a4048;
+
+    /* ظلال أعمق وأوضح على الخلفيّة الداكنة */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+    --shadow-brand: 0 6px 16px rgba(255, 129, 36, 0.3);
+  }
+}
+
+/* الاختيار اليدوي «ليلي» — نفس القيم، ويفوز على إعداد النظام */
+:root[data-theme='dark'] {
+  --brand: #ff8124;
+  --brand-strong: #ff9445;
+  --brand-deep: #ffb37a;
+  --brand-tint: #3a2413;
+  --brand-tint-strong: #4d2f18;
+  --on-brand: #1a0e05;
+
+  --accent: #4da3ff;
+  --accent-deep: #8cc4ff;
+  --accent-tint: #14263a;
+
+  --success: #43c48a;
+  --success-tint: #14301f;
+  --warning: #e5a13a;
+  --warning-tint: #33260f;
+  --danger: #ff6b5e;
+  --danger-tint: #3a1a17;
+
+  --bg: #14161a;
+  --bg-elevated: #1c1f24;
+  --bg-sunken: #24282e;
+  --bg-hover: #24282e;
+  --nav-bg: #1c1f24;
+
+  --text: #eef0f3;
+  --text-soft: #c2c7ce;
+  --text-muted: #8c939c;
+  --text-inverse: #14161a;
+
+  --border: #2c3138;
+  --border-strong: #3a4048;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --shadow-brand: 0 6px 16px rgba(255, 129, 36, 0.3);
+}

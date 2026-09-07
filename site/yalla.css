@@ -232,3 +232,43 @@ footer {
   h1 { font-size: 22px; }
   h2 { font-size: 18px; }
 }
+
+/* ═══ الوضع الليلي (حسب إعداد نظام الزائر) ═══════════════════════════════
+   نُعيد تعريف الرموز فقط — بقيّة القواعد أعلاه تتبعها تلقائيًّا. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand: #ff8124;
+    --brand-strong: #ff9445;
+    --brand-deep: #ffb37a;
+
+    --bg: #14161a;
+    --card: #1c1f24;
+    --sunken: #24282e;
+
+    --ink: #eef0f3;
+    --soft: #c2c7ce;
+    --muted: #8c939c;
+    --line: #2c3138;
+    --line-strong: #3a4048;
+
+    --success: #43c48a;
+    --danger: #ff6b5e;
+
+    --shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  }
+
+  /* الترويسة تبقى برتقاليّة لكن أهدأ قليلًا على الخلفيّة الداكنة */
+  .hero { background: linear-gradient(135deg, #d95a00, #b34600); }
+  .hero .logo { background: #1c1f24; }
+
+  .note { background: #33210f; border-color: #4d3018; }
+  .note strong { color: var(--brand-deep); }
+
+  /* زرّ الترويسة الأبيض يصير داكنًا ليبقى مقروءًا */
+  .hero-btn { background: #1c1f24; color: var(--brand-deep); }
+  .hero-btn:hover { background: #24282e; }
+
+  .btn-install { background: var(--card); color: var(--brand-deep); border-color: var(--brand); }
+  .contact { background: #14301f; color: #6fd6a1; }
+  .contact:hover { background: #1a3d28; }
+}

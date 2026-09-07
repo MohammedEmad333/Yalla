@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import PullToRefresh from './components/PullToRefresh';
 import { Avatar, IconButton } from './components/ui';
+import { getThemeMode, setThemeMode, THEME_MODES } from './theme-mode';
 import {
   IconChart,
   IconChat,
@@ -21,6 +22,9 @@ import {
   IconSupport,
   IconUsers,
   IconWallet,
+  IconSun,
+  IconMoon,
+  IconAuto,
 } from './components/icons';
 
 import LoginPage from './pages/LoginPage';
@@ -78,6 +82,29 @@ const DEFAULT_PAGE = 'dashboard';
 function pageFromUrl() {
   const key = new URLSearchParams(window.location.search).get('page');
   return ALL_ITEMS.some((i) => i.key === key) ? key : DEFAULT_PAGE;
+}
+
+// مبدّل وضع العرض: حسب النظام ← فاتح ← ليلي (يدور بينها بضغطة واحدة)
+const THEME_META = {
+  system: { icon: IconAuto, label: 'حسب النظام' },
+  light: { icon: IconSun, label: 'الوضع الفاتح' },
+  dark: { icon: IconMoon, label: 'الوضع الليلي' },
+};
+
+function ThemeToggle() {
+  const [mode, setMode] = useState(getThemeMode);
+  const { icon: Icon, label } = THEME_META[mode];
+
+  function cycle() {
+    const next = THEME_MODES[(THEME_MODES.indexOf(mode) + 1) % THEME_MODES.length];
+    setMode(setThemeMode(next));
+  }
+
+  return (
+    <IconButton label={`المظهر: ${label} — اضغط للتبديل`} onClick={cycle}>
+      <Icon size={20} />
+    </IconButton>
+  );
 }
 
 function Console() {
@@ -171,6 +198,7 @@ function Console() {
             <b className="yl-truncate">{admin?.name || 'المدير'}</b>
             <span>{admin?.phone}</span>
           </div>
+          <ThemeToggle />
           <IconButton label="تسجيل الخروج" onClick={logout}>
             <IconLogout size={20} />
           </IconButton>
