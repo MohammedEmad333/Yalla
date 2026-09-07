@@ -9,6 +9,7 @@ import '../core/config/app_config.dart';
 import '../core/config/company.dart';
 import '../core/network/api_client.dart';
 import '../core/util/vehicles.dart';
+import '../core/widgets/ui.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ApiClient api;
@@ -190,7 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(

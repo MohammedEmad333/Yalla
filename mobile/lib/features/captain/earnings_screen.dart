@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
+import '../../core/widgets/ui.dart';
 
 class EarningsScreen extends StatefulWidget {
   final ApiClient api;
@@ -62,7 +63,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('أرباحي')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -113,7 +114,11 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   if (_orders.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(24),
-                      child: Center(child: Text('لا توجد توصيلات بعد')),
+                      child: EmptyStateView(
+                        icon: Icons.two_wheeler_outlined,
+                        title: 'لا توجد توصيلات بعد',
+                        message: 'ستظهر هنا توصيلاتك وأرباحك أوّلًا بأوّل.',
+                      ),
                     )
                   else
                     ..._orders.map((o) => _orderTile(o as Map<String, dynamic>)),

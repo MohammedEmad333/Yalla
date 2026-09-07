@@ -8,6 +8,7 @@ import '../../core/config/company.dart';
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/ui.dart';
 
 class SupportScreen extends StatefulWidget {
   final ApiClient api;
@@ -116,7 +117,7 @@ class _SupportScreenState extends State<SupportScreen> {
         children: [
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const LoadingView()
                 : _messages.isEmpty
                     ? _emptyState()
                     : ListView.builder(

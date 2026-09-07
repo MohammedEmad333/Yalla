@@ -9,6 +9,7 @@ import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../chat/chat_screen.dart';
+import '../../core/widgets/ui.dart';
 
 class ActiveOrderScreen extends StatefulWidget {
   final ApiClient api;
@@ -442,7 +443,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : RefreshIndicator(
               onRefresh: () async {
                 await _loadActiveOrder();
