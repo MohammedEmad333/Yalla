@@ -3,6 +3,7 @@
 const router = require('express').Router();
 const ctrl = require('../controllers/admin.controller');
 const support = require('../controllers/support.controller');
+const restaurantCtrl = require('../controllers/restaurant.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { uploadAvatar } = require('../middlewares/upload.middleware');
 const { ROLES } = require('../utils/constants');
@@ -19,6 +20,16 @@ router.patch('/settings', ctrl.updateSettings);
 
 // إرسال رسائل/إشعارات جماعية (Card 66): للجميع أو كباتن/زبائن محدّدين
 router.post('/notifications', ctrl.sendBroadcast);
+
+// Card 110: إدارة المطاعم وقوائم طعامها (إنشاء/تعديل/حذف)
+router.get('/restaurants', restaurantCtrl.adminListRestaurants);
+router.post('/restaurants', restaurantCtrl.createRestaurant);
+router.patch('/restaurants/:restaurantId', restaurantCtrl.updateRestaurant);
+router.delete('/restaurants/:restaurantId', restaurantCtrl.deleteRestaurant);
+router.get('/restaurants/:restaurantId/menu', restaurantCtrl.adminListMenu);
+router.post('/restaurants/:restaurantId/menu', restaurantCtrl.createMenuItem);
+router.patch('/menu-items/:itemId', restaurantCtrl.updateMenuItem);
+router.delete('/menu-items/:itemId', restaurantCtrl.deleteMenuItem);
 
 // إدارة المستخدمين
 router.get('/users', ctrl.listUsers);

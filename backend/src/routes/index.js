@@ -34,6 +34,8 @@ router.get('/governorates', (req, res) => res.json(listGovernorates()));
 
 router.use('/auth', require('./auth.routes'));
 router.use('/orders', require('./order.routes'));
+// Card 110: تصفّح المطاعم وقوائم طعامها (قراءة عامّة)
+router.use('/restaurants', require('./restaurant.routes'));
 router.use('/captains', require('./captain.routes'));
 router.use('/wallet', require('./wallet.routes'));
 router.use('/support', require('./support.routes'));

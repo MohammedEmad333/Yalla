@@ -36,6 +36,26 @@ const orderSchema = new mongoose.Schema(
     pickup: { type: locationSchema, required: true },
     dropoff: { type: locationSchema, required: true },
 
+    // طلب من مطعم (Card 110) — يبقى فارغًا في طلبات التوصيل العاديّة.
+    // عند الطلب من مطعم: نقطة الاستلام هي المطعم، ويحمل الطلب أصناف السلّة
+    // بأسعارها لحظة الطلب (نسخة ثابتة لا تتأثّر بتعديل القائمة لاحقًا).
+    store: {
+      restaurant: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', default: null },
+      name: { type: String, default: '' },          // اسم المطعم وقت الطلب
+      items: [
+        {
+          menuItem: { type: mongoose.Schema.Types.ObjectId, ref: 'MenuItem' },
+          name: { type: String, default: '' },
+          price: { type: Number, default: 0 },      // سعر الوحدة وقت الطلب
+          qty: { type: Number, default: 1 },
+          note: { type: String, default: '' },
+          _id: false,
+        },
+      ],
+      itemsTotal: { type: Number, default: 0 },     // قيمة الأصناف (بلا أجرة التوصيل)
+      note: { type: String, default: '' },          // ملاحظة الزبون للمطعم
+    },
+
     // تفاصيل الشحنة
     packageNote: { type: String, default: '' },   // وصف مختصر لما يُوصَّل
     price: { type: Number, default: 0 },           // السعر التقريبي (يُحسب من الحي عند الإنشاء)

@@ -58,6 +58,7 @@ function buildOpenApiSpec() {
       { name: 'Captains', description: 'الكباتن والأرباح والمحفظة' },
       { name: 'Admin', description: 'الإدارة والإحصائيات' },
       { name: 'Wallet', description: 'محفظة المستخدم وشحن الرصيد' },
+      { name: 'Restaurants', description: 'المطاعم وقوائم الطعام والطلب منها' },
       { name: 'Notifications', description: 'رموز أجهزة FCM' },
     ],
     paths: {
@@ -229,6 +230,45 @@ function buildOpenApiSpec() {
             401: { description: 'غير مصادَق' },
           },
         },
+      },
+
+      // ── Restaurants (Card 110) ──
+      '/restaurants': {
+        get: op({ summary: 'قائمة المطاعم (فلترة: city/category/q)', tags: ['Restaurants'], auth: false }),
+      },
+      '/restaurants/categories': {
+        get: op({ summary: 'تصنيفات المطاعم المتاحة', tags: ['Restaurants'], auth: false }),
+      },
+      '/restaurants/{restaurantId}': {
+        get: op({ summary: 'مطعم واحد مع قائمته', tags: ['Restaurants'], auth: false,
+          params: ['restaurantId'] }),
+      },
+      '/orders/restaurant': {
+        post: op({ summary: 'إنشاء طلب من مطعم (سلّة أصناف)', tags: ['Restaurants'], roles: ['user'],
+          body: { restaurantId: str, items: { type: 'array', items: { type: 'object' } },
+            dropoff: { type: 'object' }, note: str } }),
+      },
+      '/admin/restaurants': {
+        get: op({ summary: 'كل المطاعم', tags: ['Restaurants'], roles: ['admin'] }),
+        post: op({ summary: 'إضافة مطعم', tags: ['Restaurants'], roles: ['admin'],
+          body: { name: str, category: str, city: str, neighborhood: str, phone: str, minOrder: num } }),
+      },
+      '/admin/restaurants/{restaurantId}': {
+        patch: op({ summary: 'تعديل مطعم', tags: ['Restaurants'], roles: ['admin'],
+          params: ['restaurantId'], body: { name: str, isOpen: { type: 'boolean' } } }),
+        delete: op({ summary: 'حذف مطعم وقائمته', tags: ['Restaurants'], roles: ['admin'],
+          params: ['restaurantId'] }),
+      },
+      '/admin/restaurants/{restaurantId}/menu': {
+        get: op({ summary: 'أصناف قائمة مطعم', tags: ['Restaurants'], roles: ['admin'],
+          params: ['restaurantId'] }),
+        post: op({ summary: 'إضافة صنف للقائمة', tags: ['Restaurants'], roles: ['admin'],
+          params: ['restaurantId'], body: { name: str, price: num, category: str } }),
+      },
+      '/admin/menu-items/{itemId}': {
+        patch: op({ summary: 'تعديل صنف', tags: ['Restaurants'], roles: ['admin'], params: ['itemId'],
+          body: { name: str, price: num, available: { type: 'boolean' } } }),
+        delete: op({ summary: 'حذف صنف', tags: ['Restaurants'], roles: ['admin'], params: ['itemId'] }),
       },
 
       // ── Notifications ──

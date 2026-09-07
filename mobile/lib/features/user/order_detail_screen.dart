@@ -107,6 +107,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ),
                       ),
                     ),
+                    // Card 110: طلب من مطعم — أصناف الطلب وقيمتها
+                    if (_order!['store']?['restaurant'] != null) ...[
+                      const SizedBox(height: 16),
+                      _storeCard(),
+                    ],
                     const SizedBox(height: 16),
                     const Text('مسار الطلب', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
@@ -157,6 +162,62 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ),
       );
     }).toList();
+  }
+
+  // Card 110: بطاقة طلب المطعم — اسم المطعم وأصنافه وقيمتها الإجمالية
+  Widget _storeCard() {
+    final store = Map<String, dynamic>.from(_order!['store'] as Map);
+    final items = (store['items'] as List?) ?? const [];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.storefront, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    (store['name'] ?? '').toString(),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...items.map((raw) {
+              final item = Map<String, dynamic>.from(raw as Map);
+              final qty = item['qty'] ?? 1;
+              final price = item['price'] ?? 0;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Expanded(child: Text('$qty× ${item['name'] ?? ''}')),
+                    Text('${(price as num) * (qty as num)} ₪'),
+                  ],
+                ),
+              );
+            }),
+            if ((store['note'] ?? '').toString().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('ملاحظة: ${store['note']}', style: const TextStyle(color: Colors.grey)),
+            ],
+            const Divider(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('قيمة الأصناف', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text('${store['itemsTotal'] ?? 0} ₪',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _row(String label, String value) => Padding(
