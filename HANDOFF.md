@@ -15,7 +15,7 @@ Repo: `MohammedEmad333/Yalla`. **Work happens directly on `main`** (the user mad
 - **تشغيل يدوي بـ `docker run`** (ليس docker-compose): ثلاث حاويات — `yalla-mongo` (بيانات في volume `yalla_mongo_data`، مقفولة على `127.0.0.1`)، `yalla-api` (Node، `--network host` على :4000، env عبر `~/yalla.env`، يربط `~/fcm.json:/app/fcm.json:ro` و `yalla_uploads:/app/uploads`)، و `caddy` (HTTPS تلقائي، `~/caddy/Caddyfile` يوجّه `yalla-api.duckdns.org` → :4000).
 - **الواجهات على CDN:** لوحة الأدمن على **Vercel**، تطبيق الويب على **Cloudflare** — كلاهما يشير إلى `https://yalla-api.duckdns.org`.
 - **FCM مفعّل** عبر `~/fcm.json` (`FCM_CREDENTIALS_PATH`).
-- **تحديث الباك اند:** أعِد بناء `yalla-api` وأعِد إنشاء الحاوية — الأمر الكامل في `docs/12`. لا تشغّل `docker compose up` على السيرفر (يسبّب تعارضًا مع الحاويات اليدوية).
+- **تحديث الباك اند:** على السيرفر: `cd ~/Yalla && git pull origin main && bash tool/deploy-server.sh` — السكربت يبني الصورة ويعيد إنشاء الحاوية ويفحص `/api/health` ويتراجع تلقائيًّا عند الفشل (الخطوات اليدوية في `docs/12`). لا تشغّل `docker compose up` على السيرفر (يسبّب تعارضًا مع الحاويات اليدوية).
 - **الصور الشخصية** تُخزَّن في قاعدة البيانات (`FileAsset` + `/files/<id>`) لا على القرص — Card 102.
 
 > ملاحظة: قسم «Environment gotchas» أدناه يخصّ **جهاز التطوير المحلّي (Windows)** للمطوّر، لا الإنتاج.
