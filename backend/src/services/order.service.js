@@ -162,7 +162,10 @@ async function createOrder(userId, payload, idempotencyKey) {
     dropoff.location.coordinates,
     payload.vehicleType
   );
-  const etaMinutes = estimateEtaMinutes(distanceKm, payload.vehicleType);
+  // Card 110: طلبات المطاعم تُضيف زمن التحضير إلى الزمن المتوقّع للتوصيل
+  const etaMinutes =
+    estimateEtaMinutes(distanceKm, payload.vehicleType) +
+    Math.max(0, Number(payload.prepMinutes) || 0);
 
   // Card 27: يجب أن يغطّي رصيد محفظة المستخدم السعر التقريبي قبل إنشاء الطلب.
   const { balance } = await walletService.getWalletSummary(userId);
@@ -188,6 +191,8 @@ async function createOrder(userId, payload, idempotencyKey) {
       pickup,
       dropoff,
       packageNote: payload.packageNote,
+      // Card 110: تفاصيل طلب المطعم (المطعم + أصنافه + قيمتها) إن وُجدت
+      store: payload.store || undefined,
       etaMinutes,
       price,
       distanceKm,

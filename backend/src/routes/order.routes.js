@@ -2,6 +2,7 @@
 
 const router = require('express').Router();
 const ctrl = require('../controllers/order.controller');
+const restaurantCtrl = require('../controllers/restaurant.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { validateBody } = require('../middlewares/validate.middleware');
 const { V } = require('../utils/validate');
@@ -24,6 +25,11 @@ const adminCreateOrderSchema = {
   pickup: [V.required, V.neighborhoodLocation],
   dropoff: [V.required, V.neighborhoodLocation],
 };
+// Card 110: إنشاء طلب من مطعم — معرّف المطعم + سلّة أصناف + عنوان التسليم
+const restaurantOrderSchema = {
+  restaurantId: [V.required, V.string],
+  dropoff: [V.required, V.location],
+};
 const rateSchema = {
   stars: [V.required, V.number, V.inRange(1, 5)],
 };
@@ -39,6 +45,14 @@ router.post('/quote', authorize(ROLES.USER), validateBody(quoteSchema), ctrl.get
 router.post('/', authorize(ROLES.USER), validateBody(createOrderSchema), ctrl.createOrder);
 
 // المستخدم: سجلّ طلباتي (قبل مسار /:orderId لتفادي التعارض)
+// المستخدم: إنشاء طلب من مطعم (سلّة أصناف) — قبل مسار /:orderId
+router.post(
+  '/restaurant',
+  authorize(ROLES.USER),
+  validateBody(restaurantOrderSchema),
+  restaurantCtrl.createRestaurantOrder
+);
+
 router.get('/mine', authorize(ROLES.USER), ctrl.getMyOrders);
 
 // المستخدم: تقييم الكابتن بعد التسليم
