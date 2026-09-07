@@ -1,0 +1,90 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Yalla Console — رموز التصميم (Design Tokens)
+   مصدر واحد لكل الألوان والقياسات والظلال في لوحة الأدمن. لا يُكتب أي لون
+   خامّ (hex) داخل المكوّنات — كلّها تُشتقّ من هنا، فيبقى تغيير الهوية مركزيًّا.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── الهوية: برتقالي يلا (الطاقة/السرعة) + أزرق سماوي (الثقة) ── */
+  --brand: #ff6b00;
+  --brand-strong: #e05c00;
+  --brand-deep: #a04100;
+  --brand-tint: #fff1e6;
+  --brand-tint-strong: #ffe0cc;
+  --on-brand: #ffffff;
+
+  --accent: #0a84ff;
+  --accent-deep: #0060c9;
+  --accent-tint: #e7f1ff;
+
+  /* ── الحالات ── */
+  --success: #0f9d58;
+  --success-tint: #e6f6ed;
+  --warning: #b46b00;
+  --warning-tint: #fff3e0;
+  --danger: #d92d20;
+  --danger-tint: #fdecea;
+  --info: var(--accent);
+  --info-tint: var(--accent-tint);
+
+  /* ── الأسطح والنصوص (رمادي محايد) ── */
+  --bg: #f4f5f7;           /* خلفية الصفحة */
+  --bg-elevated: #ffffff;  /* البطاقات */
+  --bg-sunken: #eceef1;    /* حقول/مناطق غائرة */
+  --bg-hover: #f6f7f9;
+  --nav-bg: #ffffff;
+
+  --text: #14161a;         /* نصّ أساسي */
+  --text-soft: #4b5158;    /* نصّ ثانوي */
+  --text-muted: #767d86;   /* تسميات/تلميحات */
+  --text-inverse: #ffffff;
+
+  --border: #e4e7ec;
+  --border-strong: #d3d8de;
+
+  /* ── الحوافّ ── */
+  --r-xs: 8px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --r-pill: 999px;
+
+  /* ── الظلال ── */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.12);
+  --shadow-brand: 0 6px 16px rgba(255, 107, 0, 0.28);
+
+  /* ── المسافات ── */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+
+  /* ── القياسات ── */
+  --sidebar-w: 264px;
+  --topbar-h: 60px;
+  --content-max: 1240px;
+  --tap: 44px; /* أصغر هدف لمس مقبول */
+
+  /* ── الخطّ ── */
+  --font: 'IBM Plex Sans Arabic', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 26px;
+
+  /* ── الطبقات ── */
+  --z-nav: 30;
+  --z-drawer: 60;
+  --z-modal: 80;
+  --z-toast: 100;
+}

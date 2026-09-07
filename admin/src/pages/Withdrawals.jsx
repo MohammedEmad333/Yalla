@@ -1,12 +1,22 @@
-// صفحة سحب أموال الكباتن (Card 33)
-// يرى الأدمن تفاصيل كل طلب سحب (المبلغ، الطريقة، رقم الجوال) ونسبة الشركة،
-// وتفاصيل محفظة الكابتن، وخانة لكتابة إشعار التحويل يُرسَل للكابتن عند "تم التحويل".
+// صفحة السحوبات — تبويبان (Card 33 + Card 98):
+//  • سحب أموال الكباتن: تفاصيل الطلب ومحفظة الكابتن ونسبة الشركة وإشعار التحويل.
+//  • سحب رصيد الزبائن: وجهة التحويل ورقم الحساب، و«تم التحويل» يخصم ويُشعر.
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { theme } from '../theme';
+import {
+  Badge,
+  Button,
+  Chip,
+  EmptyState,
+  Input,
+  Modal,
+  PageHeader,
+  TableWrap,
+} from '../components/ui';
+import { IconCashOut } from '../components/icons';
 
-// نسبة الشركة الافتراضية (يُعرَض للأدمن كمرجع) — الكابتن يحصل على 80%
+// نسبة الشركة الافتراضية (تُعرَض للأدمن كمرجع) — الكابتن يحصل على 80%
 const COMPANY_SHARE_PCT = 20;
 
 const METHOD_AR = {
@@ -22,12 +32,9 @@ const WALLET_CAT_AR = {
   jawwal_pay: 'جوال باي',
   all: 'الكل',
 };
-const STATUS_AR = {
-  pending: 'معلّق',
-  done: 'تمّ التحويل',
-  rejected: 'مرفوض',
-};
-const STATUS_COLOR = { pending: '#f59e0b', done: '#16a34a', rejected: '#dc2626' };
+const STATUS_AR = { pending: 'معلّق', done: 'تمّ التحويل', rejected: 'مرفوض' };
+const STATUS_TONE = { pending: 'warning', done: 'success', rejected: 'danger' };
+const FILTERS = ['pending', 'done', 'rejected', 'all'];
 
 function fmtDate(d) {
   if (!d) return '—';
@@ -38,21 +45,50 @@ function fmtDate(d) {
   }
 }
 
-// Card 98: صفحة موحّدة بتبويبين — سحب أموال الكباتن وسحب رصيد الزبائن
+// شريط فلترة الحالة (مشترك بين التبويبين)
+function StatusFilter({ status, onChange }) {
+  return (
+    <div className="yl-chips" style={{ marginBottom: 'var(--s-4)' }}>
+      {FILTERS.map((s) => (
+        <Chip key={s} active={status === s} onClick={() => onChange(s)}>
+          {s === 'all' ? 'الكل' : STATUS_AR[s]}
+        </Chip>
+      ))}
+    </div>
+  );
+}
+
+// خليّة الإجراء: ملاحظة + زرّا التنفيذ (أو ملاحظة الأدمن السابقة)
+function ActionCell({ row, note, onNote, onProcess, placeholder }) {
+  if (row.status !== 'pending') return <span className="yl-muted">{row.adminNote || '—'}</span>;
+  return (
+    <div className="yl-stack yl-stack--sm">
+      <Input placeholder={placeholder} value={note || ''} onChange={(e) => onNote(e.target.value)} />
+      <div className="yl-btnrow">
+        <Button size="sm" variant="success" onClick={() => onProcess('done')}>تم التحويل</Button>
+        <Button size="sm" variant="danger" onClick={() => onProcess('rejected')}>رفض</Button>
+      </div>
+    </div>
+  );
+}
+
 export default function Withdrawals() {
   const [tab, setTab] = useState('captains'); // captains | customers
+
   return (
-    <div className="yl-page" style={styles.page}>
-      <div style={styles.tabs}>
-        <button style={styles.tab(tab === 'captains')} onClick={() => setTab('captains')}>
-          سحب أموال الكباتن
-        </button>
-        <button style={styles.tab(tab === 'customers')} onClick={() => setTab('customers')}>
-          سحب رصيد الزبائن
-        </button>
+    <>
+      <PageHeader
+        title="طلبات السحب"
+        subtitle="تحويل أموال الكباتن وسحب رصيد الزبائن إلى محافظهم أو بنوكهم"
+      />
+
+      <div className="yl-chips" style={{ marginBottom: 'var(--s-5)' }}>
+        <Chip active={tab === 'captains'} onClick={() => setTab('captains')}>سحب أموال الكباتن</Chip>
+        <Chip active={tab === 'customers'} onClick={() => setTab('customers')}>سحب رصيد الزبائن</Chip>
       </div>
+
       {tab === 'captains' ? <CaptainWithdrawals /> : <CustomerWithdrawals />}
-    </div>
+    </>
   );
 }
 
@@ -83,7 +119,7 @@ function CaptainWithdrawals() {
     }
   }
 
-  // عرض تفاصيل محفظة الكابتن (إجمالي/صافي/نسبة الشركة) — من نقطة نهاية المحفظة
+  // تفاصيل محفظة الكابتن (إجمالي/صافي/نسبة الشركة)
   async function showWallet(captainId, captainName) {
     try {
       const data = await api.get(`/admin/captains/${captainId}/wallet`);
@@ -94,102 +130,86 @@ function CaptainWithdrawals() {
   }
 
   return (
-    <div>
-      <h1 style={{ margin: '0 0 4px' }}>سحب أموال الكباتن</h1>
-      <p style={styles.subtitle}>
-        مراجعة طلبات السحب وتفاصيل الأموال · نسبة الشركة {COMPANY_SHARE_PCT}% · إرسال إشعار التحويل
+    <>
+      <p className="yl-muted" style={{ marginBottom: 'var(--s-3)' }}>
+        نسبة الشركة {COMPANY_SHARE_PCT}% · اضغط اسم الكابتن لعرض تفاصيل محفظته
       </p>
+      <StatusFilter status={status} onChange={setStatus} />
 
-      <div style={styles.filters}>
-        {['pending', 'done', 'rejected', 'all'].map((s) => (
-          <button key={s} style={styles.filter(status === s)} onClick={() => setStatus(s)}>
-            {s === 'all' ? 'الكل' : STATUS_AR[s]}
-          </button>
-        ))}
-        <button style={styles.reload} onClick={load}>تحديث</button>
-      </div>
-
-      <div className="yl-table-wrap">
-        <table style={styles.table}>
+      {items.length === 0 ? (
+        <EmptyState icon={<IconCashOut size={26} />} title="لا توجد طلبات في هذه الحالة" />
+      ) : (
+        <TableWrap>
           <thead>
             <tr>
-              <th>الكابتن</th><th>المبلغ</th><th>الطريقة</th><th>رقم الاستلام</th>
-              <th>التاريخ</th><th>الحالة</th><th>إشعار التحويل / إجراء</th>
+              <th>الكابتن</th>
+              <th>المبلغ</th>
+              <th>الطريقة</th>
+              <th>رقم الاستلام</th>
+              <th>التاريخ</th>
+              <th>الحالة</th>
+              <th>إشعار التحويل / إجراء</th>
             </tr>
           </thead>
           <tbody>
             {items.map((w) => (
               <tr key={w._id}>
-                <td>
-                  <button style={styles.linkBtn} onClick={() => showWallet(w.captain?._id, w.captain?.name)}>
+                <td data-label="الكابتن">
+                  <button className="yl-link" onClick={() => showWallet(w.captain?._id, w.captain?.name)}>
                     {w.captain?.name || '—'}
                   </button>
-                  <div style={styles.sub}>{w.captain?.phone || ''}</div>
-                  {/* Card 67: محافظ الكابتن الإلكترونية المحفوظة — وجهة التحويل الصحيحة */}
+                  <div className="yl-muted" style={{ fontSize: 'var(--fs-sm)' }}>{w.captain?.phone || ''}</div>
+                  {/* Card 67: محافظ الكابتن المحفوظة — وجهة التحويل الصحيحة */}
                   {Array.isArray(w.captain?.payoutWallets) && w.captain.payoutWallets.length > 0 && (
-                    <div style={styles.walletChips}>
+                    <div className="yl-btnrow" style={{ marginTop: 6 }}>
                       {w.captain.payoutWallets.map((pw, i) => (
-                        <span key={i} style={styles.walletChip} title={pw.ownerName || ''}>
-                          {WALLET_CAT_AR[pw.category] || pw.category}: <b>{pw.number}</b>
+                        <Badge key={i} tone="info">
+                          {WALLET_CAT_AR[pw.category] || pw.category}: {pw.number}
                           {pw.ownerName ? ` — ${pw.ownerName}` : ''}
-                        </span>
+                        </Badge>
                       ))}
                     </div>
                   )}
                 </td>
-                <td><b>{w.amount} ₪</b></td>
-                <td>{METHOD_AR[w.method] || w.method}</td>
-                <td>{w.phone}</td>
-                <td style={{ fontSize: 12 }}>{fmtDate(w.createdAt)}</td>
-                <td><span style={styles.pill(STATUS_COLOR[w.status])}>{STATUS_AR[w.status] || w.status}</span></td>
-                <td>
-                  {w.status === 'pending' ? (
-                    <div style={styles.actionCell}>
-                      <input
-                        style={styles.noteInput}
-                        placeholder="نص إشعار التحويل للكابتن (اختياري)"
-                        value={notes[w._id] || ''}
-                        onChange={(e) => setNotes((p) => ({ ...p, [w._id]: e.target.value }))}
-                      />
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button style={styles.btn2('#16a34a')} onClick={() => process(w, 'done')}>تم التحويل</button>
-                        <button style={styles.btn2('#dc2626')} onClick={() => process(w, 'rejected')}>رفض</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <span style={styles.sub}>{w.adminNote || '—'}</span>
-                  )}
+                <td data-label="المبلغ"><b className="yl-num">{w.amount} ₪</b></td>
+                <td data-label="الطريقة">{METHOD_AR[w.method] || w.method}</td>
+                <td data-label="رقم الاستلام" className="yl-num">{w.phone}</td>
+                <td data-label="التاريخ" className="yl-muted yl-nowrap" style={{ fontSize: 'var(--fs-sm)' }}>
+                  {fmtDate(w.createdAt)}
+                </td>
+                <td data-label="الحالة">
+                  <Badge tone={STATUS_TONE[w.status]}>{STATUS_AR[w.status] || w.status}</Badge>
+                </td>
+                <td data-label="إجراء" className="yl-td-actions">
+                  <ActionCell
+                    row={w}
+                    note={notes[w._id]}
+                    onNote={(v) => setNotes((p) => ({ ...p, [w._id]: v }))}
+                    onProcess={(action) => process(w, action)}
+                    placeholder="نص إشعار التحويل للكابتن (اختياري)"
+                  />
                 </td>
               </tr>
             ))}
-            {items.length === 0 && (
-              <tr><td colSpan={7} style={{ textAlign: 'center', color: theme.color.muted }}>لا توجد طلبات</td></tr>
-            )}
           </tbody>
-        </table>
-      </div>
-
-      {/* تفاصيل محفظة الكابتن (نسبة الشركة/الصافي) */}
-      {wallet && (
-        <div style={styles.panel}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3>محفظة {wallet.captainName || wallet.captain?.name}</h3>
-            <button style={styles.btn2('#64748b')} onClick={() => setWallet(null)}>إغلاق</button>
-          </div>
-          <div style={styles.walletGrid}>
-            <div style={styles.walletCell}><b>{wallet.deliveries ?? 0}</b><span>توصيلة</span></div>
-            <div style={styles.walletCell}><b>{wallet.gross ?? 0} ₪</b><span>إجمالي محصّل</span></div>
-            <div style={styles.walletCell}><b>{wallet.net ?? 0} ₪</b><span>صافي الكابتن</span></div>
-            <div style={styles.walletCell}><b>{wallet.commission ?? 0} ₪</b><span>نسبة الشركة</span></div>
-          </div>
-        </div>
+        </TableWrap>
       )}
-    </div>
+
+      {wallet && (
+        <Modal title={`محفظة ${wallet.captainName || wallet.captain?.name || ''}`} onClose={() => setWallet(null)}>
+          <div className="yl-grid yl-grid--stats">
+            <div className="yl-stat"><div><div className="yl-stat__value yl-num">{wallet.deliveries ?? 0}</div><div className="yl-stat__label">توصيلة</div></div></div>
+            <div className="yl-stat"><div><div className="yl-stat__value yl-num">{wallet.gross ?? 0} ₪</div><div className="yl-stat__label">إجمالي محصّل</div></div></div>
+            <div className="yl-stat"><div><div className="yl-stat__value yl-num">{wallet.net ?? 0} ₪</div><div className="yl-stat__label">صافي الكابتن</div></div></div>
+            <div className="yl-stat"><div><div className="yl-stat__value yl-num">{wallet.commission ?? 0} ₪</div><div className="yl-stat__label">نسبة الشركة</div></div></div>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
 
-// Card 98: طلبات سحب رصيد الزبائن — وجهة التحويل (محفظة/بنك) ورقم الحساب،
-// وتنفيذ "تم التحويل" (يخصم من رصيد الزبون ويُشعره) أو "رفض".
+// Card 98: طلبات سحب رصيد الزبائن
 function CustomerWithdrawals() {
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState('pending');
@@ -216,150 +236,61 @@ function CustomerWithdrawals() {
   }
 
   return (
-    <div>
-      <h1 style={{ margin: '0 0 4px' }}>سحب رصيد الزبائن</h1>
-      <p style={styles.subtitle}>
-        مراجعة طلبات سحب رصيد الزبائن إلى محافظهم الإلكترونية أو بنوكهم · "تم التحويل" يخصم من رصيد الزبون ويُشعره
+    <>
+      <p className="yl-muted" style={{ marginBottom: 'var(--s-3)' }}>
+        «تم التحويل» يخصم المبلغ من رصيد الزبون ويُرسل له إشعارًا
       </p>
+      <StatusFilter status={status} onChange={setStatus} />
 
-      <div style={styles.filters}>
-        {['pending', 'done', 'rejected', 'all'].map((s) => (
-          <button key={s} style={styles.filter(status === s)} onClick={() => setStatus(s)}>
-            {s === 'all' ? 'الكل' : STATUS_AR[s]}
-          </button>
-        ))}
-        <button style={styles.reload} onClick={load}>تحديث</button>
-      </div>
-
-      <div className="yl-table-wrap">
-        <table style={styles.table}>
+      {items.length === 0 ? (
+        <EmptyState icon={<IconCashOut size={26} />} title="لا توجد طلبات في هذه الحالة" />
+      ) : (
+        <TableWrap>
           <thead>
             <tr>
-              <th>الزبون</th><th>المبلغ</th><th>الوجهة</th><th>رقم الحساب</th>
-              <th>التاريخ</th><th>الحالة</th><th>إجراء</th>
+              <th>الزبون</th>
+              <th>المبلغ</th>
+              <th>الوجهة</th>
+              <th>رقم الحساب</th>
+              <th>التاريخ</th>
+              <th>الحالة</th>
+              <th>إجراء</th>
             </tr>
           </thead>
           <tbody>
             {items.map((w) => (
               <tr key={w._id}>
-                <td>
+                <td data-label="الزبون">
                   <b>{[w.user?.name, w.user?.lastName].filter(Boolean).join(' ') || '—'}</b>
-                  <div style={styles.sub}>{w.user?.phone || ''}</div>
+                  <div className="yl-muted" style={{ fontSize: 'var(--fs-sm)' }}>{w.user?.phone || ''}</div>
                 </td>
-                <td><b>{w.amount} ₪</b></td>
-                <td>
+                <td data-label="المبلغ"><b className="yl-num">{w.amount} ₪</b></td>
+                <td data-label="الوجهة">
                   {w.destination}
-                  {w.accountOwner ? <div style={styles.sub}>صاحب الحساب: {w.accountOwner}</div> : null}
-                  {w.note ? <div style={styles.sub}>ملاحظة: {w.note}</div> : null}
+                  {w.accountOwner && <div className="yl-muted" style={{ fontSize: 'var(--fs-sm)' }}>صاحب الحساب: {w.accountOwner}</div>}
+                  {w.note && <div className="yl-muted" style={{ fontSize: 'var(--fs-sm)' }}>ملاحظة: {w.note}</div>}
                 </td>
-                <td>{w.accountNumber}</td>
-                <td style={{ fontSize: 12 }}>{fmtDate(w.createdAt)}</td>
-                <td><span style={styles.pill(STATUS_COLOR[w.status])}>{STATUS_AR[w.status] || w.status}</span></td>
-                <td>
-                  {w.status === 'pending' ? (
-                    <div style={styles.actionCell}>
-                      <input
-                        style={styles.noteInput}
-                        placeholder="ملاحظة/سبب (اختياري)"
-                        value={notes[w._id] || ''}
-                        onChange={(e) => setNotes((p) => ({ ...p, [w._id]: e.target.value }))}
-                      />
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button style={styles.btn2('#16a34a')} onClick={() => process(w, 'done')}>تم التحويل</button>
-                        <button style={styles.btn2('#dc2626')} onClick={() => process(w, 'rejected')}>رفض</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <span style={styles.sub}>{w.adminNote || '—'}</span>
-                  )}
+                <td data-label="رقم الحساب" className="yl-num">{w.accountNumber}</td>
+                <td data-label="التاريخ" className="yl-muted yl-nowrap" style={{ fontSize: 'var(--fs-sm)' }}>
+                  {fmtDate(w.createdAt)}
+                </td>
+                <td data-label="الحالة">
+                  <Badge tone={STATUS_TONE[w.status]}>{STATUS_AR[w.status] || w.status}</Badge>
+                </td>
+                <td data-label="إجراء" className="yl-td-actions">
+                  <ActionCell
+                    row={w}
+                    note={notes[w._id]}
+                    onNote={(v) => setNotes((p) => ({ ...p, [w._id]: v }))}
+                    onProcess={(action) => process(w, action)}
+                    placeholder="ملاحظة/سبب (اختياري)"
+                  />
                 </td>
               </tr>
             ))}
-            {items.length === 0 && (
-              <tr><td colSpan={7} style={{ textAlign: 'center', color: theme.color.muted }}>لا توجد طلبات</td></tr>
-            )}
           </tbody>
-        </table>
-      </div>
-    </div>
+        </TableWrap>
+      )}
+    </>
   );
 }
-
-const styles = {
-  page: { direction: 'rtl', fontFamily: theme.font, padding: 32, maxWidth: 1200, margin: '0 auto' },
-  tabs: { display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' },
-  tab: (active) => ({
-    padding: '10px 22px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-    border: 'none',
-    fontSize: 15,
-    fontWeight: 700,
-    background: active ? theme.color.primary : theme.color.surfaceContainer,
-    color: active ? theme.color.onPrimary : theme.color.muted,
-  }),
-  subtitle: { color: theme.color.muted, margin: '0 0 16px', fontSize: 14 },
-  filters: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
-  filter: (active) => ({
-    padding: '8px 18px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-    border: 'none',
-    fontSize: 14,
-    background: active ? theme.color.primary : theme.color.surfaceContainer,
-    color: active ? theme.color.onPrimary : theme.color.muted,
-  }),
-  reload: {
-    marginInlineStart: 'auto',
-    padding: '8px 18px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-    border: `1px solid ${theme.color.outlineStrong}`,
-    background: theme.color.card,
-  },
-  table: { marginTop: 4 },
-  linkBtn: {
-    background: 'transparent',
-    border: 'none',
-    color: theme.color.primary,
-    cursor: 'pointer',
-    fontWeight: 700,
-    padding: 0,
-    fontSize: 14,
-  },
-  sub: { color: theme.color.muted, fontSize: 12 },
-  walletChips: { display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 },
-  walletChip: {
-    background: theme.color.secondarySoft,
-    color: theme.color.secondaryDeep,
-    padding: '2px 8px',
-    borderRadius: theme.radius.sm,
-    fontSize: 11,
-    whiteSpace: 'nowrap',
-  },
-  actionCell: { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 },
-  noteInput: {
-    padding: '8px 10px',
-    borderRadius: theme.radius.sm,
-    border: `1px solid ${theme.color.outlineStrong}`,
-    fontSize: 13,
-  },
-  btn2: (bg) => ({
-    background: bg, color: '#fff', border: 'none', padding: '7px 14px',
-    borderRadius: theme.radius.pill, cursor: 'pointer', fontSize: 13,
-  }),
-  pill: (bg) => ({
-    background: bg, color: '#fff', padding: '3px 12px', borderRadius: theme.radius.pill,
-    fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-  }),
-  panel: {
-    background: theme.color.card, borderRadius: theme.radius.lg, padding: 20, marginTop: 16,
-    boxShadow: theme.shadow.card,
-  },
-  walletGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10, margin: '14px 0' },
-  walletCell: {
-    background: theme.color.surface, borderRadius: theme.radius.md, padding: 14,
-    display: 'flex', flexDirection: 'column', gap: 4, textAlign: 'center',
-    border: `1px solid ${theme.color.outline}`,
-  },
-};

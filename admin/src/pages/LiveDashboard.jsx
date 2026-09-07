@@ -4,9 +4,37 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
-import { theme, orderStatusColor } from '../theme';
 import { vehicleLabel } from '../vehicles';
 import { useAuth } from '../auth/AuthContext';
+import { statusLabel, statusTone } from '../status';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  IconButton,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
+} from '../components/ui';
+import {
+  IconBike,
+  IconBolt,
+  IconCheck,
+  IconChevron,
+  IconClock,
+  IconClose,
+  IconEdit,
+  IconOrders,
+  IconPin,
+  IconPlus,
+  IconStar,
+  IconUsers,
+  IconWallet,
+} from '../components/icons';
 
 // Card 110: هل يقع الطلب ضمن نطاق مناطق الأدمن؟ (مدينة الاستلام أو التسليم)
 // نطاق فارغ = أدمن كامل الصلاحية يرى كل الطلبات.
@@ -20,16 +48,7 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 // اسم صاحب الطلب كاملًا (الاسم الأول + اسم العائلة إن وُجد)
 const fullName = (u) => [u?.name, u?.lastName].filter(Boolean).join(' ') || '—';
 
-const STATUS_AR = {
-  pending: 'بانتظار',
-  assigned: 'مُسنَد',
-  accepted: 'مقبول',
-  picked_up: 'جارٍ التوصيل',
-  delivered: 'مسلّم',
-  cancelled: 'ملغى',
-};
-
-// Card 52: هل الطلب مجدول لوقت لاحق لم يحن بعد؟ (يُميَّز عن الطلب الفوري ولا يُسنَد قبل موعده)
+// Card 52: هل الطلب مجدول لوقت لاحق لم يحن بعد؟
 const isScheduledPending = (o) =>
   o?.status === 'pending' &&
   o?.scheduledAt &&
@@ -45,7 +64,7 @@ const fmtTime = (iso) => {
   return `${two(d.getDate())}/${two(d.getMonth() + 1)} ${two(d.getHours())}:${two(d.getMinutes())}`;
 };
 
-// بناء أسطر العنوان المُفصّل (الحي/الشارع/التفاصيل/الملاحظة) لنقطة استلام أو تسليم
+// بناء أسطر العنوان المُفصّل (المدينة/الحي/الشارع/التفاصيل/الملاحظة)
 const addressLines = (loc) => {
   if (!loc) return [];
   const parts = [
@@ -59,8 +78,8 @@ const addressLines = (loc) => {
   return parts;
 };
 
-// لوحة كل تفاصيل الطلب (Card 29): تُعرض عند طلب الأدمن، وتضمّ الأسعار والمسافة
-// والزمن ووصف الشحنة والعناوين المُفصّلة والمخطط الزمني وسبب الإلغاء إن وُجد.
+// لوحة كل تفاصيل الطلب (Card 29): الأسعار والمسافة والزمن ووصف الشحنة
+// والعناوين المُفصّلة والمخطط الزمني وسبب الإلغاء إن وُجد.
 function OrderDetails({ order: o }) {
   const finalPrice = Number(o.finalPrice) || 0;
   const timeline = o.timeline || {};
@@ -76,9 +95,9 @@ function OrderDetails({ order: o }) {
   const money = (v) => `${Number(v) || 0} ₪`;
 
   return (
-    <div style={styles.details}>
+    <div className="yl-orderdetails">
       {/* الأرقام: الأسعار والمسافة والزمن */}
-      <div style={styles.detailGrid}>
+      <div className="yl-grid yl-grid--stats">
         <Detail label="السعر التقريبي" value={money(o.price)} />
         {finalPrice > 0 && <Detail label="السعر النهائي" value={money(finalPrice)} />}
         {(Number(o.commission) || 0) > 0 && <Detail label="عمولة الشركة" value={money(o.commission)} />}
@@ -89,63 +108,91 @@ function OrderDetails({ order: o }) {
 
       {/* Card 52: موعد الطلب المجدول (إن وُجد) */}
       {o.scheduledAt && (
-        <p style={styles.line}>
-          🕒 <b>مجدول للتنفيذ:</b> {fmtTime(o.scheduledAt)}
+        <p className="yl-soft">
+          <b>مجدول للتنفيذ:</b> {fmtTime(o.scheduledAt)}
           {o.scheduledActivated ? ' (حان موعده)' : ''}
         </p>
       )}
 
-      {o.packageNote && <p style={styles.line}>📦 <b>وصف الشحنة:</b> {o.packageNote}</p>}
+      {/* Card 110: أصناف طلب المطعم إن وُجدت */}
+      {o.store?.restaurant && (
+        <div className="yl-card yl-card--flat yl-card--pad" style={{ marginTop: 'var(--s-3)' }}>
+          <b>{o.store.name}</b>
+          <div className="yl-stack yl-stack--sm" style={{ marginTop: 'var(--s-2)' }}>
+            {(o.store.items || []).map((it, i) => (
+              <div className="yl-row yl-row--between" key={i}>
+                <span>{it.qty}× {it.name}</span>
+                <span className="yl-num">{(Number(it.price) || 0) * (Number(it.qty) || 0)} ₪</span>
+              </div>
+            ))}
+            <div className="yl-row yl-row--between">
+              <b>قيمة الأصناف</b>
+              <b className="yl-num">{o.store.itemsTotal || 0} ₪</b>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {o.packageNote && <p className="yl-soft"><b>وصف الشحنة:</b> {o.packageNote}</p>}
 
       {/* العناوين المُفصّلة لنقطتَي الاستلام والتسليم */}
-      <AddressBlock title="📍 تفاصيل الاستلام" loc={o.pickup} />
-      <AddressBlock title="🏁 تفاصيل التسليم" loc={o.dropoff} />
+      <div className="yl-split yl-split--even">
+        <AddressBlock title="تفاصيل الاستلام" loc={o.pickup} />
+        <AddressBlock title="تفاصيل التسليم" loc={o.dropoff} />
+      </div>
 
       {/* المخطط الزمني */}
       {steps.length > 0 && (
-        <div style={{ marginTop: 8 }}>
-          <b style={styles.detailHead}>المخطط الزمني</b>
-          {steps.map(([label, t]) => (
-            <p key={label} style={styles.timelineRow}>
-              <span>{label}</span>
-              <span style={styles.timelineTime}>{fmtTime(t)}</span>
-            </p>
-          ))}
+        <div style={{ marginTop: 'var(--s-3)' }}>
+          <b className="yl-label">المخطط الزمني</b>
+          <div className="yl-stack yl-stack--sm" style={{ marginTop: 'var(--s-2)' }}>
+            {steps.map(([label, t]) => (
+              <div className="yl-row yl-row--between" key={label}>
+                <span>{label}</span>
+                <span className="yl-muted yl-num">{fmtTime(t)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {o.status === 'cancelled' && o.cancelReason && (
-        <p style={styles.line}>🚫 <b>سبب الإلغاء:</b> {o.cancelReason}</p>
+        <Alert tone="error">سبب الإلغاء: {o.cancelReason}</Alert>
       )}
     </div>
   );
 }
 
-// سطر «تسمية: قيمة» داخل شبكة الأرقام
+// خليّة «تسمية: قيمة» داخل شبكة الأرقام
 function Detail({ label, value }) {
   return (
-    <div style={styles.detailCell}>
-      <span style={styles.detailLabel}>{label}</span>
-      <span style={styles.detailValue}>{value}</span>
+    <div className="yl-stat" style={{ padding: 'var(--s-3)' }}>
+      <div>
+        <div className="yl-stat__value yl-num" style={{ fontSize: 'var(--fs-lg)' }}>{value}</div>
+        <div className="yl-stat__label">{label}</div>
+      </div>
     </div>
   );
 }
 
-// كتلة عنوان مُفصّل (الحي/الشارع/التفاصيل/الملاحظة + جهة الاتصال إن وُجدت)
+// كتلة عنوان مُفصّل (+ جهة الاتصال إن وُجدت)
 function AddressBlock({ title, loc }) {
   const lines = addressLines(loc);
   if (lines.length === 0) return null;
   return (
-    <div style={{ marginTop: 8 }}>
-      <b style={styles.detailHead}>{title}</b>
-      {lines.map(([label, value]) => (
-        <p key={label} style={styles.line}><b>{label}:</b> {value}</p>
-      ))}
-      {(loc?.contactName || loc?.contactPhone) && (
-        <p style={styles.line}>
-          <b>جهة الاتصال:</b> {[loc.contactName, loc.contactPhone].filter(Boolean).join(' · ')}
-        </p>
-      )}
+    <div style={{ marginTop: 'var(--s-3)' }}>
+      <b className="yl-label">{title}</b>
+      <dl className="yl-deflist" style={{ marginTop: 'var(--s-2)' }}>
+        {lines.map(([label, value]) => (
+          <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+        ))}
+        {(loc?.contactName || loc?.contactPhone) && (
+          <div>
+            <dt>جهة الاتصال</dt>
+            <dd>{[loc.contactName, loc.contactPhone].filter(Boolean).join(' · ')}</dd>
+          </div>
+        )}
+      </dl>
     </div>
   );
 }
@@ -412,36 +459,60 @@ export default function LiveDashboard() {
   }
 
   return (
-    <div className="yl-page" style={styles.page}>
-      <header style={styles.header}>
-        <div>
-          <h1 style={{ margin: 0 }}>اللوحة اللحظية</h1>
-          <p style={styles.subtitle}>متابعة الطلبات النشطة وإسناد الكباتن في الوقت الفعلي</p>
-          {/* Card 110: شارة نطاق مناطق الأدمن (تظهر لأدمن المناطق فقط) */}
-          {regions.length > 0 && (
-            <span style={styles.regionBadge}>📍 أدمن مناطق: {regions.join('، ')}</span>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          {/* الإسناد التلقائي: مفتاح يبثّ الطلبات لكل الكباتن ليأخذها أوّل من يقبل */}
-          <button
-            style={styles.autoToggle(autoAssignOn)}
-            onClick={toggleAutoAssign}
-            disabled={autoBusy}
-            title="عند التفعيل تُرسَل الطلبات لكل الكباتن مع إشعار (حتى لو الهاتف مغلق)، ويأخذها أوّل من يقبل ثم تختفي من الباقين"
-          >
-            <span style={styles.autoDot(autoAssignOn)} />
-            {autoBusy ? '…' : `الإسناد التلقائي: ${autoAssignOn ? 'مفعّل' : 'متوقّف'}`}
-          </button>
-          {/* Card 68: إنشاء طلب من لوحة الأدمن */}
-          <button style={styles.createBtn} onClick={() => setShowCreate(true)}>
-            ＋ إنشاء طلب
-          </button>
-          <span style={styles.badge}>
-            <span style={styles.pulse} /> المتصلون: {onlineCount} / {captains.length}
+    <>
+      <PageHeader
+        title="اللوحة اللحظية"
+        subtitle="متابعة الطلبات النشطة وإسناد الكباتن في الوقت الفعلي"
+      >
+        {/* الإسناد التلقائي: يبثّ الطلبات لكل الكباتن ليأخذها أوّل من يقبل */}
+        <Button
+          variant={autoAssignOn ? 'success' : 'outline'}
+          onClick={toggleAutoAssign}
+          disabled={autoBusy}
+          title="عند التفعيل تُرسَل الطلبات لكل الكباتن مع إشعار (حتى لو الهاتف مغلق)، ويأخذها أوّل من يقبل ثم تختفي من الباقين"
+          icon={<IconBolt size={18} />}
+        >
+          {autoBusy ? '…' : `الإسناد التلقائي: ${autoAssignOn ? 'مفعّل' : 'متوقّف'}`}
+        </Button>
+        {/* Card 68: إنشاء طلب من لوحة الأدمن */}
+        <Button variant="primary" icon={<IconPlus size={18} />} onClick={() => setShowCreate(true)}>
+          إنشاء طلب
+        </Button>
+      </PageHeader>
+
+      {/* ملخّص سريع: الطلبات النشطة والكباتن المتصلون ونطاق الأدمن */}
+      <div className="yl-grid yl-grid--stats" style={{ marginBottom: 'var(--s-5)' }}>
+        <div className="yl-stat">
+          <span className="yl-stat__icon" style={{ background: 'var(--brand-tint)', color: 'var(--brand-deep)' }}>
+            <IconOrders size={22} />
           </span>
+          <div>
+            <div className="yl-stat__value yl-num">{orders.length}</div>
+            <div className="yl-stat__label">طلبات نشطة</div>
+          </div>
         </div>
-      </header>
+        <div className="yl-stat">
+          <span className="yl-stat__icon" style={{ background: 'var(--success-tint)', color: 'var(--success)' }}>
+            <IconUsers size={22} />
+          </span>
+          <div>
+            <div className="yl-stat__value yl-num">{onlineCount} / {captains.length}</div>
+            <div className="yl-stat__label">كباتن متصلون</div>
+          </div>
+        </div>
+        {/* Card 110: نطاق مناطق الأدمن (يظهر لأدمن المناطق فقط) */}
+        {regions.length > 0 && (
+          <div className="yl-stat">
+            <span className="yl-stat__icon" style={{ background: 'var(--accent-tint)', color: 'var(--accent-deep)' }}>
+              <IconPin size={22} />
+            </span>
+            <div>
+              <div className="yl-stat__value" style={{ fontSize: 'var(--fs-lg)' }}>{regions.join('، ')}</div>
+              <div className="yl-stat__label">نطاق الإشراف</div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Card 68: نافذة إنشاء طلب نيابةً عن صاحب الطلب */}
       {showCreate && (
@@ -452,257 +523,272 @@ export default function LiveDashboard() {
         />
       )}
 
-      {/* Card 54: تنبيه الطلبات التي لم يقبلها الكابتن خلال المهلة وعادت للمجمّع */}
+      {/* Card 54: طلبات لم يقبلها الكابتن خلال المهلة وعادت للمجمّع */}
       {Object.keys(timeouts).length > 0 && (
-        <div style={styles.timeoutBanner}>
-          <b>⏳ طلبات لم يقبلها الكابتن خلال المهلة ({Object.keys(timeouts).length})</b>
-          <span style={{ fontSize: 13 }}> — عادت بلا كابتن مُسنَد، يُرجى إعادة إسنادها.</span>
-          {Object.values(timeouts).map((t) => (
-            <div key={t.orderId} style={styles.delayItem}>
-              #{t.orderId?.slice(-5)}
-              {t.captain?.name ? ` · الكابتن: ${t.captain.name}${t.captain.phone ? ` (${t.captain.phone})` : ''}` : ''}
-              <button style={styles.delayDismiss} onClick={() => setTimeouts((p) => {
-                const n = { ...p }; delete n[t.orderId]; return n;
-              })}>تجاهل</button>
-            </div>
-          ))}
+        <div className="yl-alert yl-alert--warning yl-banner">
+          <div>
+            <b>طلبات لم يقبلها الكابتن خلال المهلة ({Object.keys(timeouts).length})</b>
+            <div>عادت بلا كابتن مُسنَد، يُرجى إعادة إسنادها.</div>
+            {Object.values(timeouts).map((t) => (
+              <div className="yl-row" key={t.orderId}>
+                <span>
+                  #{t.orderId?.slice(-5)}
+                  {t.captain?.name ? ` · الكابتن: ${t.captain.name}${t.captain.phone ? ` (${t.captain.phone})` : ''}` : ''}
+                </span>
+                <button
+                  className="yl-link"
+                  onClick={() => setTimeouts((p) => { const n = { ...p }; delete n[t.orderId]; return n; })}
+                >
+                  تجاهل
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Card 40: تنبيه الطلبات المتأخّرة عن زمنها التقديري */}
+      {/* Card 40: طلبات متأخّرة عن زمنها التقديري */}
       {Object.keys(delayed).length > 0 && (
-        <div style={styles.delayBanner}>
-          <b>⚠️ طلبات متأخّرة عن زمنها التقديري ({Object.keys(delayed).length})</b>
-          <span style={{ fontSize: 13 }}> — يُرجى مراجعة الكابتن المسؤول عن كل طلب.</span>
-          {Object.values(delayed).map((d) => (
-            <div key={d.orderId} style={styles.delayItem}>
-              #{d.orderId?.slice(-5)}
-              {d.captain?.name ? ` · الكابتن: ${d.captain.name}${d.captain.phone ? ` (${d.captain.phone})` : ''}` : ''}
-              <button style={styles.delayDismiss} onClick={() => setDelayed((p) => {
-                const n = { ...p }; delete n[d.orderId]; return n;
-              })}>تجاهل</button>
-            </div>
-          ))}
+        <div className="yl-alert yl-alert--error yl-banner">
+          <div>
+            <b>طلبات متأخّرة عن زمنها التقديري ({Object.keys(delayed).length})</b>
+            <div>يُرجى مراجعة الكابتن المسؤول عن كل طلب.</div>
+            {Object.values(delayed).map((d) => (
+              <div className="yl-row" key={d.orderId}>
+                <span>
+                  #{d.orderId?.slice(-5)}
+                  {d.captain?.name ? ` · الكابتن: ${d.captain.name}${d.captain.phone ? ` (${d.captain.phone})` : ''}` : ''}
+                </span>
+                <button
+                  className="yl-link"
+                  onClick={() => setDelayed((p) => { const n = { ...p }; delete n[d.orderId]; return n; })}
+                >
+                  تجاهل
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      <div className="yl-dashboard-grid" style={styles.grid}>
+      <div className="yl-split yl-split--rev">
         {/* عمود الطلبات النشطة */}
-        <section style={styles.col}>
-          <h2 style={styles.colTitle}>الطلبات النشطة ({orders.length})</h2>
-          {orders.length === 0 && <p style={styles.empty}>لا توجد طلبات حاليًا</p>}
+        <section className="yl-stack">
+          <h2 className="yl-section-title">الطلبات النشطة ({orders.length})</h2>
+          {orders.length === 0 && (
+            <EmptyState icon={<IconOrders size={26} />} title="لا توجد طلبات حاليًا" />
+          )}
 
           {orders.map((o) => (
-            <div key={o._id} style={styles.card(orderStatusColor(o.status))}>
-              <div style={styles.cardTop}>
-                <strong style={styles.orderId}>#{o._id?.slice(-5)}</strong>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={styles.status(orderStatusColor(o.status))}>
-                    {STATUS_AR[o.status] || o.status}
-                  </span>
-                  {/* Card 52: علامة الطلب المجدول لوقت لاحق مع موعده */}
+            <Card key={o._id} className="yl-order" data-status={o.status}>
+              <div className="yl-row yl-row--between" style={{ marginBottom: 'var(--s-3)' }}>
+                <div className="yl-row">
+                  <b className="yl-num" style={{ fontSize: 'var(--fs-lg)' }}>#{o._id?.slice(-5)}</b>
+                  <Badge tone={statusTone(o.status)} dot>{statusLabel(o.status)}</Badge>
+                  {/* Card 52: طلب مجدول لوقت لاحق */}
                   {isScheduledPending(o) && (
-                    <span style={styles.scheduledTag} title="طلب مجدول لوقت لاحق">
-                      🕒 مجدول · {fmtTime(o.scheduledAt)}
-                    </span>
+                    <Badge tone="info">مجدول · {fmtTime(o.scheduledAt)}</Badge>
                   )}
-                  {/* علامة الطلب المبثوث لكل الكباتن (الإسناد التلقائي) بانتظار من يقبله */}
-                  {o.broadcast && o.status === 'pending' && (
-                    <span style={styles.broadcastTag} title="مبثوث لكل الكباتن — بانتظار من يقبله أوّلًا">
-                      📢 مبثوث
-                    </span>
-                  )}
-                  {/* Card 40: علامة تأخّر الطلب */}
-                  {delayed[o._id] && <span style={styles.delayTag} title="تجاوز الزمن التقديري">⏱️ متأخّر</span>}
+                  {/* مبثوث لكل الكباتن (الإسناد التلقائي) */}
+                  {o.broadcast && o.status === 'pending' && <Badge tone="brand">مبثوث</Badge>}
+                  {/* Card 40: تأخّر الطلب */}
+                  {delayed[o._id] && <Badge tone="danger">متأخّر</Badge>}
+                </div>
+
+                <div className="yl-btnrow">
                   {/* إلغاء متاح قبل الاستلام فقط */}
                   {['pending', 'assigned', 'accepted'].includes(o.status) && (
-                    <button onClick={() => cancelOrder(o._id)} style={styles.cancelBtn} title="إلغاء الطلب">
-                      ✕ إلغاء
-                    </button>
+                    <Button size="sm" variant="danger" onClick={() => cancelOrder(o._id)} icon={<IconClose size={16} />}>
+                      إلغاء
+                    </Button>
                   )}
-                  {/* إغلاق إداريّ للطلبات العالقة (بعد الإسناد وقبل التسليم) — مفيد
-                      للطلبات القديمة التي لا تملك رمز تسليم فيتعذّر إغلاقها عاديًّا */}
+                  {/* إغلاق إداريّ للطلبات العالقة */}
                   {['assigned', 'accepted', 'picked_up'].includes(o.status) && (
-                    <button onClick={() => forceComplete(o._id)} style={styles.completeBtn} title="إغلاق الطلب إداريًّا (تم التسليم)">
-                      ✓ إغلاق
-                    </button>
+                    <Button size="sm" variant="success" onClick={() => forceComplete(o._id)} icon={<IconCheck size={16} />}>
+                      إغلاق
+                    </Button>
                   )}
                 </div>
               </div>
 
-              {o.user && (
-                <p style={styles.line}>
-                  👤 <b>صاحب الطلب:</b> {fullName(o.user)}
-                  {o.user?.phone ? ` · ${o.user.phone}` : ''}
-                </p>
-              )}
-              {/* Card 88: رصيد محفظة صاحب الطلب يظهر لكل الطلبات فور إنشائها */}
-              {o.user && (
-                <p style={styles.line}>
-                  💰 <b>رصيد صاحب الطلب:</b> {Number(o.user.balance) || 0} ₪
-                </p>
-              )}
-              <p style={styles.line}>📍 <b>استلام:</b> {o.pickup?.address}</p>
-              <p style={styles.line}>🏁 <b>تسليم:</b> {o.dropoff?.address}</p>
-              {o.captain && (
-                <p style={styles.line}>
-                  🧑‍✈️ <b>الكابتن:</b> {o.captain?.name}
-                  {o.captain?.phone ? ` · ${o.captain.phone}` : ''}
-                </p>
-              )}
+              <dl className="yl-deflist">
+                {o.user && (
+                  <div>
+                    <dt>صاحب الطلب</dt>
+                    <dd>{fullName(o.user)}{o.user?.phone ? ` · ${o.user.phone}` : ''}</dd>
+                  </div>
+                )}
+                {/* Card 88: رصيد محفظة صاحب الطلب */}
+                {o.user && (
+                  <div><dt>رصيده</dt><dd className="yl-num">{Number(o.user.balance) || 0} ₪</dd></div>
+                )}
+                <div><dt>استلام</dt><dd>{o.pickup?.address}</dd></div>
+                <div><dt>تسليم</dt><dd>{o.dropoff?.address}</dd></div>
+                {o.captain && (
+                  <div>
+                    <dt>الكابتن</dt>
+                    <dd>{o.captain?.name}{o.captain?.phone ? ` · ${o.captain.phone}` : ''}</dd>
+                  </div>
+                )}
+                {/* Card 73: رمز التسليم يظهر للأدمن ليعطيه لصاحب الطلب عند الحاجة */}
+                {o.deliveryCode && (
+                  <div>
+                    <dt>رمز التسليم</dt>
+                    <dd><span className="yl-code">{o.deliveryCode}</span></dd>
+                  </div>
+                )}
+              </dl>
 
-              {/* Card 73: رمز التسليم يظهر للأدمن مباشرةً ليعطيه لصاحب الطلب عند الحاجة */}
-              {o.deliveryCode && (
-                <p style={styles.line}>
-                  🔑 <b>رمز التسليم:</b>{' '}
-                  <span style={styles.deliveryCode}>{o.deliveryCode}</span>
-                </p>
-              )}
-
-              {/* Card 74: السعر التقريبي (السقف) قابل للتعديل من الأدمن.
-                  بعد الحفظ يصبح السقف الرسمي ولا يستطيع الكابتن طلب أكثر منه. */}
-              <div style={styles.priceRow}>
-                💰 <b>السعر التقريبي (السقف):</b>
+              {/* Card 74: السعر التقريبي (السقف) قابل للتعديل من الأدمن */}
+              <div className="yl-row" style={{ marginTop: 'var(--s-3)' }}>
+                <span className="yl-label">السعر التقريبي (السقف)</span>
                 {priceEdit[o._id] === undefined ? (
                   <>
-                    <span style={styles.priceValue}>{o.price} ₪</span>
-                    <button
-                      style={styles.priceEditBtn}
+                    <b className="yl-num">{o.price} ₪</b>
+                    <IconButton
+                      label="تعديل السعر التقريبي"
+                      small
                       onClick={() => setPriceEdit((p) => ({ ...p, [o._id]: String(o.price) }))}
-                      title="تعديل السعر التقريبي"
                     >
-                      ✎ تعديل
-                    </button>
+                      <IconEdit size={16} />
+                    </IconButton>
                   </>
                 ) : (
                   <>
-                    <input
+                    <Input
                       type="number"
                       min="1"
-                      style={styles.priceInput}
+                      style={{ width: 110 }}
                       value={priceEdit[o._id]}
                       onChange={(e) => setPriceEdit((p) => ({ ...p, [o._id]: e.target.value }))}
                       onKeyDown={(e) => e.key === 'Enter' && savePrice(o._id)}
                       autoFocus
                     />
-                    <button style={styles.priceSaveBtn} onClick={() => savePrice(o._id)}>حفظ</button>
-                    <button
-                      style={styles.priceCancelBtn}
+                    <Button size="sm" variant="primary" onClick={() => savePrice(o._id)}>حفظ</Button>
+                    <Button
+                      size="sm"
                       onClick={() => setPriceEdit((p) => { const n = { ...p }; delete n[o._id]; return n; })}
                     >
                       إلغاء
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>
 
-              {/* Card 81 + 82: إجراءات الطلبات الخارجية وإرسال الرمز للكابتن */}
+              {/* Card 81 + 82 + 87: إجراءات الحسابات الخارجية وإرسال الرمز للكابتن */}
               {(o.user?.isExternal || (o.captain && o.deliveryCode)) && (
-                <div style={styles.actionRow}>
+                <div className="yl-btnrow" style={{ marginTop: 'var(--s-3)' }}>
                   {o.user?.isExternal && (
-                    <button style={styles.creditBtn} onClick={() => creditExternal(o)} title="حساب خارجي مؤقّت — أضف رصيدًا كافيًا للطلب">
-                      💳 أضف رصيدًا لصاحب الطلب
-                    </button>
+                    <Button size="sm" variant="success" icon={<IconWallet size={16} />} onClick={() => creditExternal(o)}>
+                      أضف رصيدًا لصاحب الطلب
+                    </Button>
                   )}
-                  {/* Card 87: تعديل الرصيد المضاف للحساب الخارجي على قيمة محدّدة */}
                   {o.user?.isExternal && (
-                    <button style={styles.editBalanceBtn} onClick={() => editBalance(o)} title="تعديل رصيد الحساب الخارجي على قيمة محدّدة">
-                      ✎ تعديل الرصيد
-                    </button>
+                    <Button size="sm" variant="soft" icon={<IconEdit size={16} />} onClick={() => editBalance(o)}>
+                      تعديل الرصيد
+                    </Button>
                   )}
                   {o.captain && o.deliveryCode && (
-                    <button style={styles.sendCodeBtn} onClick={() => sendCode(o._id)} title="إرسال رمز التسليم إلى إشعارات الكابتن">
-                      🔑 أرسل الرمز للكابتن
-                    </button>
+                    <Button size="sm" variant="soft" onClick={() => sendCode(o._id)}>
+                      أرسل الرمز للكابتن
+                    </Button>
                   )}
                 </div>
               )}
 
-              {/* زرّ إظهار/إخفاء كل تفاصيل الطلب (Card 29) */}
+              {/* Card 29: إظهار/إخفاء كل تفاصيل الطلب */}
               <button
+                className="yl-disclosure"
                 onClick={() => setExpanded((p) => ({ ...p, [o._id]: !p[o._id] }))}
-                style={styles.detailsToggle}
               >
-                {expanded[o._id] ? '▲ إخفاء التفاصيل' : '▼ عرض كل التفاصيل'}
+                <IconChevron
+                  size={16}
+                  style={{ transform: expanded[o._id] ? 'rotate(90deg)' : 'rotate(-90deg)' }}
+                />
+                {expanded[o._id] ? 'إخفاء التفاصيل' : 'عرض كل التفاصيل'}
               </button>
 
               {expanded[o._id] && <OrderDetails order={o} />}
 
-              {/* Card 52: الطلب المجدول لوقت لاحق لا يُسنَد قبل موعده — نُظهر ملاحظة بدل أدوات الإسناد */}
+              {/* Card 52: الطلب المجدول لا يُسنَد قبل موعده */}
               {isScheduledPending(o) && (
-                <p style={styles.scheduledNote}>
-                  🕒 هذا الطلب مجدول للتنفيذ في {fmtTime(o.scheduledAt)} — ستُتاح أدوات الإسناد تلقائيًا عند حلول موعده.
-                </p>
+                <Alert tone="info">
+                  هذا الطلب مجدول للتنفيذ في {fmtTime(o.scheduledAt)} — ستُتاح أدوات الإسناد تلقائيًا عند حلول موعده.
+                </Alert>
               )}
 
-              {/* الإسناد متاح فقط للطلبات في حالة الانتظار (وغير المجدولة مستقبلًا) */}
+              {/* الإسناد متاح فقط للطلبات المعلّقة (وغير المجدولة مستقبلًا) */}
               {o.status === 'pending' && !isScheduledPending(o) && (
-                <div style={styles.assignRow}>
-                  <select
+                <div className="yl-assign">
+                  <Select
                     value={selected[o._id] || ''}
                     onChange={(e) => setSelected((p) => ({ ...p, [o._id]: e.target.value }))}
-                    style={styles.select}
                   >
                     <option value="">— اختر كابتن —</option>
-                    {/* Card 34/35: يُسمح بإسناد كابتن غير متصل (يُوقَظ بالإشعار).
-                        Card 95: يجوز إسناد أكثر من طلب لنفس الكابتن (تحت الحدّ الأقصى)،
-                        ونُظهر عدد طلباته النشطة الحالية. */}
+                    {/* Card 34/35: يجوز إسناد كابتن غير متصل (يُوقَظ بالإشعار).
+                        Card 95: يجوز إسناد أكثر من طلب لنفس الكابتن تحت الحدّ الأقصى. */}
                     {captains.filter((c) => c.assignable).map((c) => (
                       <option key={c._id} value={c._id}>
-                        {c.online ? '🟢' : '⚪'} {c.name} ({vehicleLabel(c.vehicleType)})
-                        {c.activeOrdersCount > 0 ? ` — 📦 ${c.activeOrdersCount} طلبات` : ''}
+                        {c.online ? '● ' : '○ '}{c.name} ({vehicleLabel(c.vehicleType)})
+                        {c.activeOrdersCount > 0 ? ` — ${c.activeOrdersCount} طلبات` : ''}
                         {c.online ? '' : ' — غير متصل'}
                       </option>
                     ))}
-                  </select>
-                  <button onClick={() => assign(o._id)} style={styles.btn}>إسناد</button>
-                  {/* زر الإسناد التلقائي لأقرب كابتن */}
-                  <button onClick={() => autoAssign(o._id)} style={styles.btnAuto} title="أقرب كابتن متاح">
-                    ⚡ تلقائي
-                  </button>
+                  </Select>
+                  <Button variant="primary" onClick={() => assign(o._id)}>إسناد</Button>
+                  <Button variant="soft" icon={<IconBolt size={16} />} onClick={() => autoAssign(o._id)} title="أقرب كابتن متاح">
+                    تلقائي
+                  </Button>
                 </div>
               )}
-            </div>
+            </Card>
           ))}
         </section>
 
         {/* عمود الكباتن — كلّهم مع علامة تمييز الحالة (Card 35) */}
-        <aside style={styles.col}>
-          <h2 style={styles.colTitle}>الكباتن ({captains.length})</h2>
-          {captains.length === 0 && <p style={styles.empty}>لا يوجد كباتن معتمَدون</p>}
-          {captains.map((c) => {
-            // Card 95: الكابتن مشغول إن كان لديه طلب نشط واحد على الأقل
-            const activeCount = c.activeOrdersCount || 0;
-            const busy = c.status === 'busy' || activeCount > 0;
-            const dotColor = busy ? '#f59e0b' : c.online ? theme.color.success : '#94a3b8';
-            const label = busy ? 'مشغول' : c.online ? 'متصل' : 'غير متصل';
-            return (
-              <div key={c._id} style={styles.captainCard}>
-                <span style={{ ...styles.dot, background: dotColor, boxShadow: `0 0 0 3px ${dotColor}22` }} />
-                <div style={{ flex: 1 }}>
-                  <strong>{c.name}</strong>
-                  <div style={styles.captainMeta}>
-                    {vehicleLabel(c.vehicleType)} · ⭐ {c.rating} · {label}
-                  </div>
-                </div>
-                {/* Card 95: علامة عدد الطلبات النشطة المُسنَدة للكابتن */}
-                {activeCount > 0 && (
-                  <span style={styles.orderBadge} title={`${activeCount} طلب نشط مُسنَد`}>
-                    📦 {activeCount}
-                  </span>
-                )}
+        <aside className="yl-stack">
+          <h2 className="yl-section-title">الكباتن ({captains.length})</h2>
+          <Card pad={false}>
+            {captains.length === 0 ? (
+              <EmptyState icon={<IconUsers size={26} />} title="لا يوجد كباتن معتمَدون" />
+            ) : (
+              <div className="yl-list" style={{ padding: 'var(--s-2)' }}>
+                {captains.map((c) => {
+                  // Card 95: الكابتن مشغول إن كان لديه طلب نشط واحد على الأقل
+                  const activeCount = c.activeOrdersCount || 0;
+                  const busy = c.status === 'busy' || activeCount > 0;
+                  const tone = busy ? 'warning' : c.online ? 'success' : 'neutral';
+                  const label = busy ? 'مشغول' : c.online ? 'متصل' : 'غير متصل';
+                  return (
+                    <div className="yl-listitem" key={c._id}>
+                      <span className="yl-avatar" style={{ background: 'var(--bg-sunken)', color: 'var(--text-soft)' }}>
+                        <IconBike size={20} />
+                      </span>
+                      <span className="yl-listitem__main">
+                        <span className="yl-listitem__title">{c.name}</span>
+                        <span className="yl-listitem__sub">
+                          {vehicleLabel(c.vehicleType)} · <IconStar size={12} /> {c.rating}
+                        </span>
+                      </span>
+                      <div className="yl-stack yl-stack--sm" style={{ alignItems: 'flex-end' }}>
+                        <Badge tone={tone} dot>{label}</Badge>
+                        {/* Card 95: عدد الطلبات النشطة المُسنَدة للكابتن */}
+                        {activeCount > 0 && <span className="yl-hint">{activeCount} طلب نشط</span>}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            )}
+          </Card>
         </aside>
       </div>
-    </div>
+    </>
   );
 }
 
 // Card 68: نافذة إنشاء طلب من الأدمن — اسم صاحب الطلب وهاتفه + تفاصيل نقطتَي
-// الاستلام والتسليم (الحي/الشارع/التفاصيل/الملاحظة). يُنشأ الطلب pending فيظهر
-// في لوحة الإسناد فورًا عبر حدث order:created (لا حاجة لتحديث الحالة يدويًا).
+// الاستلام والتسليم. يُنشأ الطلب pending فيظهر في اللوحة فورًا عبر order:created.
 function CreateOrderModal({ token, neighborhoods, onClose }) {
   // Card 109: neighborhoods = {المدينة: [الأحياء]}؛ نختار المدينة ثمّ الحي
   const cities = Object.keys(neighborhoods || {});
@@ -740,450 +826,77 @@ function CreateOrderModal({ token, neighborhoods, onClose }) {
     }
   }
 
+  // حقول نقطة (استلام/تسليم): المدينة ← الحي ← الشارع ← التفاصيل ← ملاحظة
   const pointFields = (label, point, setPoint) => (
-    <div style={styles.pointBlock}>
-      <b style={styles.pointTitle}>{label}</b>
+    <div className="yl-stack yl-stack--sm">
+      <b className="yl-label">{label}</b>
       {/* Card 109: المدينة قبل الحي — تغيير المدينة يُصفّر الحي */}
-      <select
+      <Select
         value={point.city}
         onChange={(e) => setPoint((p) => ({ ...p, city: e.target.value, neighborhood: '' }))}
-        style={styles.modalInput}
       >
         <option value="">— اختر المدينة —</option>
         {cities.map((c) => (
           <option key={c} value={c}>{c}</option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         value={point.neighborhood}
         onChange={(e) => setPoint((p) => ({ ...p, neighborhood: e.target.value }))}
-        style={styles.modalInput}
         disabled={!point.city}
       >
         <option value="">— اختر الحي —</option>
         {(neighborhoods[point.city] || []).map((n) => (
           <option key={n} value={n}>{n}</option>
         ))}
-      </select>
-      <input style={styles.modalInput} placeholder="الشارع"
-        value={point.street} onChange={(e) => setPoint((p) => ({ ...p, street: e.target.value }))} />
-      <input style={styles.modalInput} placeholder="العنوان بالتفاصيل"
-        value={point.details} onChange={(e) => setPoint((p) => ({ ...p, details: e.target.value }))} />
-      <input style={styles.modalInput} placeholder="ملاحظة (اختياري)"
-        value={point.note} onChange={(e) => setPoint((p) => ({ ...p, note: e.target.value }))} />
+      </Select>
+      <Input placeholder="الشارع" value={point.street}
+        onChange={(e) => setPoint((p) => ({ ...p, street: e.target.value }))} />
+      <Input placeholder="العنوان بالتفاصيل" value={point.details}
+        onChange={(e) => setPoint((p) => ({ ...p, details: e.target.value }))} />
+      <Input placeholder="ملاحظة (اختياري)" value={point.note}
+        onChange={(e) => setPoint((p) => ({ ...p, note: e.target.value }))} />
     </div>
   );
 
   return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div style={styles.modalHead}>
-          <h2 style={{ margin: 0 }}>إنشاء طلب جديد</h2>
-          <button style={styles.modalClose} onClick={onClose}>✕</button>
-        </div>
-
-        <label style={styles.modalLabel}>بيانات صاحب الطلب</label>
-        <input style={styles.modalInput} placeholder="اسم صاحب الطلب"
-          value={contactName} onChange={(e) => setContactName(e.target.value)} />
-        <input style={styles.modalInput} placeholder="رقم الجوال"
-          value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
-
-        <div style={styles.pointsRow}>
-          {pointFields('📍 نقطة الاستلام', pickup, setPickup)}
-          {pointFields('🏁 نقطة التسليم', dropoff, setDropoff)}
-        </div>
-
-        <label style={styles.modalLabel}>وصف الشحنة (اختياري)</label>
-        <input style={styles.modalInput} placeholder="وصف مختصر لما يُوصَّل"
-          value={packageNote} onChange={(e) => setPackageNote(e.target.value)} />
-
-        {error && <div style={styles.modalError}>{error}</div>}
-
-        <div style={styles.modalActions}>
-          <button style={styles.modalCancel} onClick={onClose}>إلغاء</button>
-          <button style={styles.modalSubmit} onClick={submit} disabled={saving}>
+    <Modal
+      title="إنشاء طلب جديد"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="primary" onClick={submit} disabled={saving} loading={saving}>
             {saving ? 'جارٍ الإنشاء…' : 'إنشاء الطلب'}
-          </button>
+          </Button>
+          <Button onClick={onClose}>إلغاء</Button>
+        </>
+      }
+    >
+      <div className="yl-stack">
+        <div className="yl-formgrid">
+          <Field label="اسم صاحب الطلب">
+            <Input value={contactName} onChange={(e) => setContactName(e.target.value)} />
+          </Field>
+          <Field label="رقم الجوال">
+            <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} inputMode="tel" />
+          </Field>
         </div>
+
+        <div className="yl-split yl-split--even">
+          {pointFields('نقطة الاستلام', pickup, setPickup)}
+          {pointFields('نقطة التسليم', dropoff, setDropoff)}
+        </div>
+
+        <Field label="وصف الشحنة (اختياري)">
+          <Input
+            placeholder="وصف مختصر لما يُوصَّل"
+            value={packageNote}
+            onChange={(e) => setPackageNote(e.target.value)}
+          />
+        </Field>
+
+        {error && <Alert tone="error">{error}</Alert>}
       </div>
-    </div>
+    </Modal>
   );
 }
-
-const styles = {
-  page: { fontFamily: theme.font, direction: 'rtl', padding: 32, maxWidth: 1200, margin: '0 auto' },
-  createBtn: {
-    background: theme.color.primary,
-    color: theme.color.onPrimary,
-    border: 'none',
-    padding: '9px 18px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-    fontSize: 14,
-    fontWeight: 600,
-    boxShadow: theme.shadow.float,
-  },
-  // مفتاح الإسناد التلقائي في الترويسة — أخضر عند التفعيل ورماديّ عند التوقّف
-  autoToggle: (on) => ({
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-    background: on ? theme.color.success : theme.color.card,
-    color: on ? '#fff' : theme.color.onSurfaceVariant,
-    border: `1px solid ${on ? theme.color.success : theme.color.outlineStrong}`,
-    padding: '9px 16px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-    fontSize: 14,
-    fontWeight: 600,
-    whiteSpace: 'nowrap',
-  }),
-  autoDot: (on) => ({
-    width: 9,
-    height: 9,
-    borderRadius: '50%',
-    background: on ? '#fff' : theme.color.muted,
-    boxShadow: on ? '0 0 0 3px rgba(255,255,255,0.35)' : 'none',
-  }),
-  // علامة الطلب المبثوث لكل الكباتن
-  broadcastTag: {
-    background: '#dc2626',
-    color: '#fff',
-    padding: '3px 10px',
-    borderRadius: theme.radius.pill,
-    fontSize: 12,
-    fontWeight: 600,
-    whiteSpace: 'nowrap',
-  },
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.45)',
-    display: 'grid',
-    placeItems: 'center',
-    zIndex: 50,
-    padding: 16,
-  },
-  modal: {
-    background: theme.color.card,
-    borderRadius: theme.radius.lg,
-    padding: 24,
-    width: '100%',
-    maxWidth: 640,
-    maxHeight: '90vh',
-    overflowY: 'auto',
-    boxShadow: theme.shadow.float,
-    direction: 'rtl',
-  },
-  modalHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  modalClose: {
-    background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: theme.color.muted,
-  },
-  modalLabel: { display: 'block', fontSize: 14, fontWeight: 600, margin: '12px 0 6px', color: theme.color.onSurface },
-  modalInput: {
-    width: '100%',
-    boxSizing: 'border-box',
-    padding: '9px 12px',
-    borderRadius: theme.radius.sm,
-    border: `1px solid ${theme.color.outlineStrong}`,
-    fontSize: 14,
-    fontFamily: theme.font,
-    marginBottom: 8,
-  },
-  pointsRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginTop: 12 },
-  pointBlock: {
-    border: `1px solid ${theme.color.outline}`, borderRadius: theme.radius.md, padding: 12,
-  },
-  pointTitle: { display: 'block', marginBottom: 8, fontSize: 14 },
-  modalError: {
-    background: '#fee2e2', color: '#991b1b', borderRadius: theme.radius.sm,
-    padding: '8px 12px', fontSize: 13, marginTop: 8,
-  },
-  modalActions: { display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 },
-  modalCancel: {
-    background: theme.color.card, color: theme.color.onSurfaceVariant,
-    border: `1px solid ${theme.color.outlineStrong}`, padding: '9px 18px',
-    borderRadius: theme.radius.pill, cursor: 'pointer', fontSize: 14,
-  },
-  modalSubmit: {
-    background: theme.color.primary, color: theme.color.onPrimary, border: 'none',
-    padding: '9px 20px', borderRadius: theme.radius.pill, cursor: 'pointer', fontSize: 14, fontWeight: 600,
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 24,
-    gap: 16,
-    flexWrap: 'wrap',
-  },
-  subtitle: { color: theme.color.muted, margin: '4px 0 0', fontSize: 14 },
-  regionBadge: {
-    display: 'inline-block', marginTop: 8, padding: '4px 12px', fontSize: 13, fontWeight: 700,
-    background: theme.color.primary, color: theme.color.onPrimary, borderRadius: theme.radius.pill,
-  },
-  badge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-    background: theme.color.secondarySoft,
-    color: theme.color.secondaryDeep,
-    padding: '8px 14px',
-    borderRadius: theme.radius.pill,
-    fontWeight: 600,
-    fontSize: 14,
-    whiteSpace: 'nowrap',
-  },
-  pulse: { width: 8, height: 8, borderRadius: '50%', background: theme.color.secondary, boxShadow: `0 0 0 3px ${theme.color.secondary}33` },
-  // Card 54: بانر تنبيه الطلبات التي انتهت مهلة قبولها
-  timeoutBanner: {
-    background: '#fee2e2',
-    border: '1px solid #ef4444',
-    color: '#991b1b',
-    borderRadius: theme.radius.md,
-    padding: '12px 16px',
-    marginBottom: 20,
-  },
-  // Card 40: بانر تنبيه الطلبات المتأخّرة
-  delayBanner: {
-    background: '#fef3c7',
-    border: '1px solid #f59e0b',
-    color: '#92400e',
-    borderRadius: theme.radius.md,
-    padding: '12px 16px',
-    marginBottom: 20,
-  },
-  delayItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 6,
-    fontSize: 13,
-  },
-  delayDismiss: {
-    background: 'transparent',
-    border: '1px solid #92400e',
-    color: '#92400e',
-    borderRadius: theme.radius.pill,
-    padding: '2px 10px',
-    cursor: 'pointer',
-    fontSize: 12,
-    marginInlineStart: 'auto',
-  },
-  delayTag: {
-    background: '#f59e0b',
-    color: '#fff',
-    padding: '3px 10px',
-    borderRadius: theme.radius.pill,
-    fontSize: 12,
-    fontWeight: 600,
-  },
-  // Card 52: علامة الطلب المجدول
-  scheduledTag: {
-    background: '#6366f1',
-    color: '#fff',
-    padding: '3px 10px',
-    borderRadius: theme.radius.pill,
-    fontSize: 12,
-    fontWeight: 600,
-    whiteSpace: 'nowrap',
-  },
-  scheduledNote: {
-    marginTop: 12,
-    background: '#eef2ff',
-    border: '1px solid #6366f1',
-    color: '#3730a3',
-    borderRadius: theme.radius.md,
-    padding: '10px 12px',
-    fontSize: 13,
-  },
-  grid: { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 },
-  col: { display: 'flex', flexDirection: 'column', gap: 12 },
-  colTitle: { fontSize: 18, margin: '0 0 4px' },
-  empty: {
-    color: theme.color.muted,
-    background: theme.color.card,
-    borderRadius: theme.radius.md,
-    padding: 20,
-    textAlign: 'center',
-    border: `1px dashed ${theme.color.outlineStrong}`,
-  },
-  // البطاقة بخطّ حالة على الحافّة الأمامية (اليمنى في RTL) — كما في دليل التصميم
-  card: (statusColor) => ({
-    background: theme.color.card,
-    borderRadius: theme.radius.lg,
-    padding: 18,
-    boxShadow: theme.shadow.card,
-    borderRight: `4px solid ${statusColor}`,
-  }),
-  cardTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  orderId: { fontSize: 16, color: theme.color.onSurface },
-  cancelBtn: {
-    background: 'transparent',
-    color: theme.color.error,
-    border: `1px solid ${theme.color.error}`,
-    padding: '4px 10px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-    fontSize: 12,
-  },
-  // إغلاق إداريّ للطلبات العالقة (تم التسليم) — أخضر ليتمايز عن الإلغاء الأحمر
-  completeBtn: {
-    background: 'transparent',
-    color: theme.color.success,
-    border: `1px solid ${theme.color.success}`,
-    padding: '4px 10px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-    fontSize: 12,
-  },
-  status: (bg) => ({
-    color: theme.color.onPrimary,
-    background: bg,
-    padding: '3px 12px',
-    borderRadius: theme.radius.pill,
-    fontSize: 12,
-    fontWeight: 600,
-  }),
-  line: { margin: '4px 0', fontSize: 14, color: theme.color.onSurfaceVariant },
-  // Card 73: رمز التسليم بخطّ بارز واضح ليقرأه الأدمن بسهولة
-  deliveryCode: {
-    display: 'inline-block',
-    background: '#eef2ff',
-    color: '#3730a3',
-    border: '1px solid #c7d2fe',
-    borderRadius: theme.radius.md,
-    padding: '1px 10px',
-    fontWeight: 700,
-    letterSpacing: 2,
-    fontSize: 15,
-  },
-  // Card 74: صفّ تعديل السعر التقريبي
-  priceRow: {
-    display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-    margin: '6px 0', fontSize: 14, color: theme.color.onSurfaceVariant,
-  },
-  priceValue: { fontWeight: 700 },
-  priceInput: {
-    width: 90, padding: '5px 8px', borderRadius: theme.radius.md,
-    border: `1px solid ${theme.color.outlineStrong}`,
-  },
-  priceEditBtn: {
-    background: theme.color.surfaceContainer, color: theme.color.onSurfaceVariant,
-    border: 'none', borderRadius: theme.radius.pill, padding: '3px 12px', cursor: 'pointer', fontSize: 12,
-  },
-  priceSaveBtn: {
-    background: theme.color.primary, color: theme.color.onPrimary,
-    border: 'none', borderRadius: theme.radius.pill, padding: '5px 14px', cursor: 'pointer', fontSize: 12,
-  },
-  priceCancelBtn: {
-    background: 'transparent', color: theme.color.muted,
-    border: `1px solid ${theme.color.outline}`, borderRadius: theme.radius.pill,
-    padding: '5px 12px', cursor: 'pointer', fontSize: 12,
-  },
-  // Card 81 + 82: صفّ إجراءات إضافية
-  actionRow: { display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' },
-  creditBtn: {
-    background: '#0d9488', color: '#fff', border: 'none',
-    borderRadius: theme.radius.pill, padding: '7px 14px', cursor: 'pointer', fontSize: 12,
-  },
-  // Card 87: زرّ تعديل الرصيد
-  editBalanceBtn: {
-    background: '#0891b2', color: '#fff', border: 'none',
-    borderRadius: theme.radius.pill, padding: '7px 14px', cursor: 'pointer', fontSize: 12,
-  },
-  sendCodeBtn: {
-    background: '#4f46e5', color: '#fff', border: 'none',
-    borderRadius: theme.radius.pill, padding: '7px 14px', cursor: 'pointer', fontSize: 12,
-  },
-  // زرّ إظهار/إخفاء التفاصيل (Card 29)
-  detailsToggle: {
-    marginTop: 10,
-    background: 'transparent',
-    color: theme.color.primary,
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer',
-    fontSize: 13,
-    fontWeight: 600,
-  },
-  // لوحة كل التفاصيل (Card 29)
-  details: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTop: `1px dashed ${theme.color.outlineStrong}`,
-  },
-  detailGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-    gap: 8,
-    marginBottom: 8,
-  },
-  detailCell: {
-    display: 'flex',
-    flexDirection: 'column',
-    background: theme.color.secondarySoft,
-    borderRadius: theme.radius.sm,
-    padding: '6px 10px',
-  },
-  detailLabel: { color: theme.color.muted, fontSize: 12 },
-  detailValue: { color: theme.color.onSurface, fontSize: 15, fontWeight: 700 },
-  detailHead: { display: 'block', fontSize: 13, color: theme.color.onSurface, margin: '2px 0 4px' },
-  timelineRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    margin: '2px 0',
-    fontSize: 13,
-    color: theme.color.onSurfaceVariant,
-  },
-  timelineTime: { color: theme.color.muted },
-  // Card 6: يلتفّ على الجوّال فلا يُقصّ زرّ "تلقائي" خارج الشاشة
-  assignRow: { display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' },
-  select: { flex: '1 1 160px', minWidth: 0, padding: 10, borderRadius: theme.radius.sm, border: `1px solid ${theme.color.outlineStrong}` },
-  btn: {
-    background: theme.color.primary,
-    color: theme.color.onPrimary,
-    border: 'none',
-    padding: '9px 18px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-  },
-  btnAuto: {
-    background: theme.color.secondary,
-    color: theme.color.onSecondary,
-    border: 'none',
-    padding: '9px 14px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  },
-  captainCard: {
-    background: theme.color.card,
-    borderRadius: theme.radius.lg,
-    padding: 14,
-    display: 'flex',
-    gap: 12,
-    alignItems: 'center',
-    boxShadow: theme.shadow.card,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: '50%',
-    background: theme.color.success,
-    boxShadow: `0 0 0 3px ${theme.color.successSoft}`,
-    flexShrink: 0,
-  },
-  captainMeta: { color: theme.color.muted, fontSize: 13, marginTop: 2 },
-  // Card 95: علامة عدد الطلبات النشطة المُسنَدة للكابتن
-  orderBadge: {
-    background: '#f59e0b',
-    color: '#fff',
-    borderRadius: 999,
-    padding: '2px 10px',
-    fontSize: 13,
-    fontWeight: 700,
-    flexShrink: 0,
-    whiteSpace: 'nowrap',
-  },
-};

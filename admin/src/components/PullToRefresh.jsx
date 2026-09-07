@@ -12,7 +12,6 @@
 // التمرير الصاعد (لأعلى الإصبع) لا يُفعّل أيّ حالة، فلا يتأثّر التمرير العاديّ أبدًا.
 
 import { useEffect, useRef, useState } from 'react';
-import { theme } from '../theme';
 
 const THRESHOLD = 64; // مسافة السحب (px) اللازمة لإطلاق التحديث
 const MAX_PULL = 96; // أقصى إزاحة بصريّة للمحتوى أثناء السحب
@@ -146,8 +145,8 @@ export default function PullToRefresh({ onRefresh, children }) {
             width: 34,
             height: 34,
             borderRadius: '50%',
-            background: theme.color.card,
-            boxShadow: theme.shadow.card,
+            background: 'var(--bg-elevated)',
+            boxShadow: 'var(--shadow-md)',
             display: 'grid',
             placeItems: 'center',
           }}
@@ -158,8 +157,8 @@ export default function PullToRefresh({ onRefresh, children }) {
               width: 18,
               height: 18,
               borderRadius: '50%',
-              border: `2.5px solid ${theme.color.outline}`,
-              borderTopColor: theme.color.primary,
+              border: '2.5px solid var(--border)',
+              borderTopColor: 'var(--brand)',
               display: 'block',
               transform: refreshing ? 'none' : `rotate(${progress * 270}deg)`,
               opacity: refreshing ? 1 : 0.4 + progress * 0.6,

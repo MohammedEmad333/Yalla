@@ -1,0 +1,794 @@
+/* ═══ مكتبة المكوّنات (CSS) — تُستخدم عبر الأصناف من كلّ الصفحات ══════════ */
+
+/* ── ترويسة الصفحة ────────────────────────────────────────────────────── */
+.yl-pagehead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--s-5);
+}
+.yl-pagehead h1 { font-size: var(--fs-2xl); }
+.yl-pagehead__sub {
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+  margin-top: 2px;
+}
+.yl-pagehead__actions {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+@media (max-width: 560px) {
+  .yl-pagehead h1 { font-size: var(--fs-xl); }
+  .yl-pagehead__actions { width: 100%; }
+  /* زرّ واحد يبقى بحجمه؛ عدّة أزرار تتقاسم السطر */
+  .yl-pagehead__actions > *:not(:only-child) { flex: 1 1 auto; }
+}
+
+/* ── الأزرار ──────────────────────────────────────────────────────────── */
+.yl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  padding: 0 var(--s-5);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease,
+    transform 0.06s ease;
+}
+.yl-btn:not(:disabled):active { transform: translateY(1px); }
+
+.yl-btn--primary { background: var(--brand); color: var(--on-brand); box-shadow: var(--shadow-brand); }
+.yl-btn--primary:not(:disabled):hover { background: var(--brand-strong); }
+
+.yl-btn--secondary { background: var(--text); color: var(--text-inverse); }
+.yl-btn--secondary:not(:disabled):hover { background: #000; }
+
+.yl-btn--outline { background: var(--bg-elevated); color: var(--text-soft); border-color: var(--border-strong); }
+.yl-btn--outline:not(:disabled):hover { background: var(--bg-hover); color: var(--text); }
+
+.yl-btn--ghost { background: transparent; color: var(--text-soft); }
+.yl-btn--ghost:not(:disabled):hover { background: var(--bg-sunken); color: var(--text); }
+
+.yl-btn--soft { background: var(--accent-tint); color: var(--accent-deep); }
+.yl-btn--soft:not(:disabled):hover { background: #d8e8fd; }
+
+.yl-btn--success { background: var(--success-tint); color: var(--success); }
+.yl-btn--success:not(:disabled):hover { background: #d6f0e1; }
+
+.yl-btn--danger { background: var(--danger-tint); color: var(--danger); }
+.yl-btn--danger:not(:disabled):hover { background: #fbdcd9; }
+
+.yl-btn--warning { background: var(--warning-tint); color: var(--warning); }
+.yl-btn--warning:not(:disabled):hover { background: #ffe8cc; }
+
+.yl-btn--sm { min-height: 34px; padding: 0 var(--s-3); font-size: var(--fs-sm); border-radius: var(--r-pill); }
+.yl-btn--lg { min-height: 52px; padding: 0 var(--s-6); font-size: var(--fs-lg); }
+.yl-btn--block { width: 100%; }
+
+/* زرّ أيقونة مربّع (قائمة، تحديث، إغلاق) */
+.yl-iconbtn {
+  display: inline-grid;
+  place-items: center;
+  width: var(--tap);
+  height: var(--tap);
+  border-radius: var(--r-md);
+  color: var(--text-soft);
+  background: transparent;
+  flex: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.yl-iconbtn:hover { background: var(--bg-sunken); color: var(--text); }
+.yl-iconbtn--sm { width: 34px; height: 34px; border-radius: var(--r-sm); }
+
+/* صفّ أزرار يلتفّ عند الضيق */
+.yl-btnrow { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+
+/* ── البطاقات ─────────────────────────────────────────────────────────── */
+.yl-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.yl-card--pad { padding: var(--s-5); }
+.yl-card--flat { box-shadow: none; }
+
+.yl-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+  padding: var(--s-4) var(--s-5);
+  border-bottom: 1px solid var(--border);
+}
+.yl-card__title { font-size: var(--fs-lg); font-weight: 700; display: flex; align-items: center; gap: var(--s-2); }
+.yl-card__body { padding: var(--s-5); }
+.yl-card__foot { padding: var(--s-4) var(--s-5); border-top: 1px solid var(--border); }
+@media (max-width: 560px) {
+  .yl-card__head, .yl-card__body, .yl-card__foot { padding: var(--s-4); }
+  .yl-card--pad { padding: var(--s-4); }
+}
+
+/* ── الشبكات والتخطيطات المساعدة ──────────────────────────────────────── */
+.yl-stack { display: flex; flex-direction: column; gap: var(--s-4); }
+.yl-stack--sm { gap: var(--s-2); }
+.yl-row { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
+.yl-row--between { justify-content: space-between; }
+.yl-spacer { flex: 1; }
+
+/* شبكة تتكيّف تلقائيًّا: أعمدة بحدٍّ أدنى للعرض ثمّ عمود واحد على الجوال */
+.yl-grid { display: grid; gap: var(--s-4); grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); }
+.yl-grid--wide { grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); }
+.yl-grid--stats { grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr)); }
+
+/* عمودان على الحاسوب، مكدّسان على الجوال (قائمة + تفاصيل) */
+.yl-split { display: grid; gap: var(--s-4); grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 1024px) {
+  .yl-split { grid-template-columns: minmax(280px, 360px) 1fr; }
+  .yl-split--even { grid-template-columns: 1fr 1fr; }
+  .yl-split--sticky > :first-child { position: sticky; top: calc(var(--topbar-h) + var(--s-4)); }
+}
+
+/* ── الحقول والنماذج ──────────────────────────────────────────────────── */
+.yl-field { display: grid; gap: 6px; min-width: 0; }
+.yl-label { font-size: var(--fs-sm); font-weight: 600; color: var(--text-soft); }
+.yl-hint { font-size: var(--fs-xs); color: var(--text-muted); }
+
+.yl-input,
+.yl-select,
+.yl-textarea {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 10px var(--s-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  color: var(--text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.yl-textarea { min-height: 96px; padding: var(--s-3); resize: vertical; line-height: 1.6; }
+.yl-select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(var(--s-4) - 4px) calc(50% + 2px), calc(var(--s-4) + 1px) calc(50% + 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-inline-end: var(--s-8);
+}
+.yl-input:focus,
+.yl-select:focus,
+.yl-textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.16);
+}
+.yl-input:disabled,
+.yl-select:disabled,
+.yl-textarea:disabled { background: var(--bg-sunken); color: var(--text-muted); }
+
+/* شبكة نموذج: عمودان على الشاشات الواسعة، عمود واحد على الجوال */
+.yl-formgrid { display: grid; gap: var(--s-4); grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
+
+/* حقل بحث بأيقونة */
+.yl-search { position: relative; flex: 1 1 220px; min-width: 0; }
+.yl-search .yl-input { padding-inline-start: var(--s-10); }
+.yl-search__icon {
+  position: absolute;
+  inset-inline-start: var(--s-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  display: grid;
+}
+
+/* مفتاح تبديل (Switch) */
+.yl-switch { display: inline-flex; align-items: center; gap: var(--s-3); cursor: pointer; min-height: var(--tap); }
+.yl-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.yl-switch__track {
+  width: 46px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  background: var(--border-strong);
+  padding: 3px;
+  flex: none;
+  transition: background 0.18s ease;
+}
+.yl-switch__thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease;
+}
+.yl-switch input:checked + .yl-switch__track { background: var(--brand); }
+[dir='rtl'] .yl-switch input:checked + .yl-switch__track .yl-switch__thumb { transform: translateX(-18px); }
+.yl-switch input:checked + .yl-switch__track .yl-switch__thumb { transform: translateX(18px); }
+.yl-switch input:focus-visible + .yl-switch__track { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* مربّع اختيار مع تسمية */
+.yl-check { display: inline-flex; align-items: center; gap: var(--s-2); min-height: var(--tap); cursor: pointer; font-size: var(--fs-md); }
+.yl-check input { width: 18px; height: 18px; accent-color: var(--brand); }
+
+/* ── الشارات والرقائق ─────────────────────────────────────────────────── */
+.yl-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--bg-sunken);
+  color: var(--text-soft);
+}
+.yl-badge--success { background: var(--success-tint); color: var(--success); }
+.yl-badge--danger { background: var(--danger-tint); color: var(--danger); }
+.yl-badge--warning { background: var(--warning-tint); color: var(--warning); }
+.yl-badge--info { background: var(--accent-tint); color: var(--accent-deep); }
+.yl-badge--brand { background: var(--brand-tint); color: var(--brand-deep); }
+.yl-badge__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* رقائق فلترة أفقية قابلة للتمرير على الجوال */
+.yl-chips {
+  display: flex;
+  gap: var(--s-2);
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.yl-chips::-webkit-scrollbar { display: none; }
+.yl-chip {
+  flex: none;
+  min-height: 36px;
+  padding: 0 var(--s-4);
+  border-radius: var(--r-pill);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--text-soft);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.yl-chip:hover { background: var(--bg-hover); }
+.yl-chip[aria-pressed='true'] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--on-brand);
+}
+
+/* ── الجداول ──────────────────────────────────────────────────────────── */
+.yl-tablewrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+}
+.yl-table { width: 100%; border-collapse: collapse; }
+.yl-table th,
+.yl-table td { padding: 12px var(--s-4); text-align: start; font-size: var(--fs-md); vertical-align: middle; }
+.yl-table thead th {
+  background: var(--bg-sunken);
+  color: var(--text-soft);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.yl-table tbody tr + tr { border-top: 1px solid var(--border); }
+.yl-table tbody tr:hover { background: var(--bg-hover); }
+.yl-table td b { font-weight: 600; }
+
+/* على الجوال: كلّ صفّ يصير بطاقة مكدّسة "عنوان: قيمة" بدل التمرير الأفقي */
+@media (max-width: 720px) {
+  .yl-tablewrap--cards {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
+  .yl-tablewrap--cards .yl-table thead { display: none; }
+  .yl-tablewrap--cards .yl-table,
+  .yl-tablewrap--cards .yl-table tbody,
+  .yl-tablewrap--cards .yl-table tr,
+  .yl-tablewrap--cards .yl-table td { display: block; width: 100%; }
+  .yl-tablewrap--cards .yl-table tr {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: var(--s-3);
+    padding: var(--s-2) var(--s-4);
+  }
+  .yl-tablewrap--cards .yl-table tbody tr + tr { border-top: 1px solid var(--border); }
+  .yl-tablewrap--cards .yl-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-4);
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    text-align: end;
+  }
+  .yl-tablewrap--cards .yl-table td:last-child { border-bottom: none; }
+  .yl-tablewrap--cards .yl-table td::before {
+    content: attr(data-label);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--text-muted);
+    white-space: nowrap;
+    text-align: start;
+  }
+  /* خليّة الإجراءات: العنوان أعلى والأزرار تحته بعرض كامل */
+  .yl-tablewrap--cards .yl-table td.yl-td-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--s-2);
+  }
+  .yl-tablewrap--cards .yl-table td.yl-td-actions .yl-btnrow > * { flex: 1 1 auto; }
+}
+
+/* ── قائمة عناصر (بديل الجدول للشاشات الصغيرة) ───────────────────────── */
+.yl-list { display: flex; flex-direction: column; }
+.yl-listitem {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  padding: var(--s-3) var(--s-4);
+  min-height: 60px;
+  text-align: start;
+  border-radius: var(--r-md);
+  transition: background 0.15s ease;
+}
+.yl-listitem:hover { background: var(--bg-hover); }
+.yl-listitem[aria-current='true'] { background: var(--brand-tint); }
+.yl-listitem__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.yl-listitem__title { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.yl-listitem__sub { display: block; font-size: var(--fs-sm); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── الصورة الرمزيّة ──────────────────────────────────────────────────── */
+.yl-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--brand-tint);
+  color: var(--brand-deep);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  flex: none;
+  object-fit: cover;
+  overflow: hidden;
+}
+.yl-avatar--sm { width: 32px; height: 32px; font-size: var(--fs-sm); }
+.yl-avatar--lg { width: 56px; height: 56px; font-size: var(--fs-lg); }
+
+/* ── بطاقة مؤشّر (KPI) ────────────────────────────────────────────────── */
+.yl-stat {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-4);
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  box-shadow: var(--shadow-sm);
+}
+.yl-stat__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  flex: none;
+}
+.yl-stat__value { font-size: var(--fs-xl); font-weight: 700; line-height: 1.2; }
+.yl-stat__label { font-size: var(--fs-sm); color: var(--text-muted); }
+
+/* ── التنبيهات ────────────────────────────────────────────────────────── */
+.yl-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-md);
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
+.yl-alert--error { background: var(--danger-tint); color: var(--danger); }
+.yl-alert--success { background: var(--success-tint); color: var(--success); }
+.yl-alert--warning { background: var(--warning-tint); color: var(--warning); }
+.yl-alert--info { background: var(--accent-tint); color: var(--accent-deep); }
+
+/* ── الحالة الفارغة ───────────────────────────────────────────────────── */
+.yl-empty {
+  display: grid;
+  place-items: center;
+  gap: var(--s-2);
+  text-align: center;
+  padding: var(--s-10) var(--s-5);
+  color: var(--text-muted);
+}
+.yl-empty__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg-sunken);
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  margin-bottom: var(--s-2);
+}
+.yl-empty__title { font-size: var(--fs-lg); font-weight: 700; color: var(--text-soft); }
+
+/* ── مؤشّر التحميل والهياكل العظميّة ──────────────────────────────────── */
+.yl-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: yl-spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes yl-spin { to { transform: rotate(360deg); } }
+
+.yl-skeleton {
+  background: linear-gradient(90deg, var(--bg-sunken) 25%, var(--bg-hover) 37%, var(--bg-sunken) 63%);
+  background-size: 400% 100%;
+  animation: yl-shimmer 1.3s ease infinite;
+  border-radius: var(--r-sm);
+  height: 14px;
+}
+@keyframes yl-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+/* ── النوافذ المنبثقة: مركزيّة على الحاسوب، ورقة سفليّة على الجوال ────── */
+.yl-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-4);
+  background: rgba(16, 24, 40, 0.5);
+  animation: yl-fade 0.15s ease;
+}
+.yl-modal__panel {
+  background: var(--bg-elevated);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-lg);
+  width: min(560px, 100%);
+  max-height: min(86vh, 100%);
+  overflow-y: auto;
+  animation: yl-pop 0.18s ease;
+}
+@keyframes yl-pop { from { transform: scale(0.97); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (max-width: 640px) {
+  .yl-modal { align-items: flex-end; padding: 0; }
+  .yl-modal__panel {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: yl-sheet 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes yl-sheet { from { transform: translateY(100%); } to { transform: translateY(0); } }
+}
+
+/* ── شريط أدوات (بحث + فلاتر) ─────────────────────────────────────────── */
+.yl-toolbar {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--s-4);
+}
+.yl-toolbar > .yl-select { width: auto; min-width: 140px; flex: 0 1 auto; }
+
+/* ── فقاعات المحادثة ──────────────────────────────────────────────────── */
+.yl-thread { display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-4); overflow-y: auto; }
+.yl-bubble {
+  max-width: min(78%, 520px);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-lg);
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  position: relative;
+  word-break: break-word;
+}
+.yl-bubble--in { background: var(--bg-sunken); color: var(--text); align-self: flex-start; border-end-start-radius: var(--r-xs); }
+.yl-bubble--out { background: var(--brand); color: var(--on-brand); align-self: flex-end; border-end-end-radius: var(--r-xs); }
+.yl-bubble__meta { display: block; font-size: 11px; opacity: 0.75; margin-top: 4px; }
+
+/* ── أدوات مساعدة ─────────────────────────────────────────────────────── */
+.yl-muted { color: var(--text-muted); }
+.yl-soft { color: var(--text-soft); }
+.yl-nowrap { white-space: nowrap; }
+.yl-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.yl-num { font-variant-numeric: tabular-nums; }
+.yl-mono { font-feature-settings: 'tnum'; letter-spacing: 0.02em; }
+.yl-hide-sm { display: initial; }
+@media (max-width: 720px) { .yl-hide-sm { display: none !important; } }
+
+/* إظهار/إخفاء حسب المقاس (يُستخدم لزرّ إغلاق الدرج الظاهر على الجوال فقط) */
+.yl-hide-lg { display: inline-flex; }
+@media (min-width: 1024px) { .yl-hide-lg { display: none !important; } }
+.yl-burger { display: inline-flex; }
+
+/* ── صفحة الدخول ──────────────────────────────────────────────────────── */
+.yl-login {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+  padding: var(--s-5);
+  padding-top: calc(var(--s-5) + env(safe-area-inset-top));
+  padding-bottom: calc(var(--s-5) + env(safe-area-inset-bottom));
+  overflow: hidden;
+  background: var(--bg);
+}
+/* هالة برتقاليّة ناعمة خلف البطاقة (عمق بلا صور) */
+.yl-login__glow {
+  position: absolute;
+  inset-block-start: -220px;
+  width: 620px;
+  height: 620px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 107, 0, 0.22), transparent 65%);
+  pointer-events: none;
+}
+.yl-login__card {
+  position: relative;
+  width: min(420px, 100%);
+  padding: var(--s-6);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--r-xl);
+}
+.yl-login__brand { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-5); }
+.yl-login__brand img { border-radius: var(--r-md); object-fit: cover; }
+.yl-login__name { font-size: var(--fs-xl); font-weight: 700; color: var(--brand-deep); line-height: 1.1; }
+.yl-login__title { font-size: var(--fs-xl); }
+.yl-login__foot { position: relative; font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* ── صورة مصغّرة قابلة للتكبير + عارض الصور ──────────────────────────── */
+.yl-thumb {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  padding: 0;
+  background: var(--bg-sunken);
+  cursor: zoom-in;
+  flex: none;
+}
+.yl-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.yl-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--s-5);
+  background: rgba(0, 0, 0, 0.82);
+  cursor: zoom-out;
+  animation: yl-fade 0.15s ease;
+}
+.yl-lightbox img {
+  max-width: 94vw;
+  max-height: 90dvh;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ── قائمة تعريفات (تسمية: قيمة) داخل البطاقات ───────────────────────── */
+.yl-deflist { margin: 0; display: grid; gap: 6px; }
+.yl-deflist > div { display: flex; align-items: baseline; gap: var(--s-3); }
+.yl-deflist dt { font-size: var(--fs-sm); color: var(--text-muted); min-width: 92px; }
+.yl-deflist dd { margin: 0; font-weight: 600; color: var(--text); }
+
+/* ── مستند/صورة مصغّرة (توثيق الكباتن) ───────────────────────────────── */
+.yl-doc {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+}
+.yl-doc--big { width: 104px; height: 104px; }
+.yl-doc img { width: 100%; height: 100%; object-fit: cover; }
+
+/* نصّ يختفي على الشاشات الضيّقة جدًّا (تبقى الأيقونة وحدها) */
+@media (max-width: 420px) { .yl-hide-xs { display: none; } }
+
+/* زرّ يبدو كرابط (لفتح تفاصيل من داخل جدول) */
+.yl-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-deep);
+  font-weight: 600;
+  font-size: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.yl-link:hover { text-decoration: underline; }
+
+/* ── ترقيم الصفحات ────────────────────────────────────────────────────── */
+.yl-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+  margin-top: var(--s-5);
+  flex-wrap: wrap;
+}
+
+/* ── تخطيط المحادثات (الدعم/الدردشات) ────────────────────────────────────
+   الحاسوب: عمودان (قائمة + نافذة المحادثة). الجوال: نعرض القائمة، وعند فتح
+   محادثة نعرض نافذتها وحدها مع زرّ رجوع — كتطبيق المراسلة. */
+.yl-convo { display: grid; gap: var(--s-4); grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 1024px) {
+  .yl-convo { grid-template-columns: minmax(280px, 340px) 1fr; }
+}
+@media (max-width: 1023px) {
+  .yl-convo[data-open='true'] .yl-convo__list { display: none; }
+  .yl-convo[data-open='false'] .yl-convo__panel { display: none; }
+}
+.yl-convo__list { max-height: min(70dvh, 640px); overflow-y: auto; }
+.yl-convo__panel { display: flex; flex-direction: column; min-height: min(70dvh, 640px); }
+.yl-convo__body { flex: 1; overflow-y: auto; max-height: min(56dvh, 520px); }
+.yl-convo__composer {
+  display: flex;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+.yl-convo__composer .yl-input { flex: 1; }
+
+/* عدّاد الرسائل غير المقروءة */
+.yl-unread {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--brand);
+  color: var(--on-brand);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  display: inline-grid;
+  place-items: center;
+}
+
+/* زرّ حذف صغير داخل فقاعة المحادثة */
+.yl-bubble__del {
+  background: none;
+  border: none;
+  padding: 2px;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  display: inline-grid;
+}
+.yl-bubble__del:hover { opacity: 1; }
+
+/* قائمة منتقي المستلِمين (الرسائل الجماعية) */
+.yl-picker__list {
+  max-height: 260px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  padding-bottom: var(--s-2);
+}
+
+/* شريط نسبة (توزيع التقييمات) */
+.yl-bar { flex: 1; height: 8px; border-radius: var(--r-pill); background: var(--bg-sunken); overflow: hidden; }
+.yl-bar__fill { height: 100%; background: var(--brand); border-radius: var(--r-pill); }
+
+/* هوامش مساعدة */
+.yl-mb-4 { margin-bottom: var(--s-4); }
+
+/* ── اللوحة اللحظية ───────────────────────────────────────────────────── */
+.yl-section-title { font-size: var(--fs-lg); font-weight: 700; margin-bottom: var(--s-1); }
+
+/* بطاقة طلب: شريط لوني رفيع على حافّة البداية حسب حالة الطلب */
+.yl-order { position: relative; overflow: hidden; padding: var(--s-4); }
+.yl-order::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 4px;
+  background: var(--text-muted);
+}
+.yl-order[data-status='pending']::before { background: var(--text-muted); }
+.yl-order[data-status='assigned']::before { background: var(--accent); }
+.yl-order[data-status='accepted']::before,
+.yl-order[data-status='picked_up']::before { background: var(--brand); }
+.yl-order[data-status='delivered']::before { background: var(--success); }
+.yl-order[data-status='cancelled']::before { background: var(--danger); }
+
+/* رمز التسليم — أرقام واضحة ومتباعدة */
+.yl-code {
+  font-weight: 700;
+  letter-spacing: 2px;
+  background: var(--bg-sunken);
+  border-radius: var(--r-xs);
+  padding: 2px 8px;
+}
+
+/* زرّ إظهار/إخفاء التفاصيل */
+.yl-disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--s-3);
+  padding: 6px 0;
+  color: var(--accent-deep);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  background: none;
+  border: none;
+}
+.yl-orderdetails {
+  margin-top: var(--s-3);
+  padding-top: var(--s-3);
+  border-top: 1px dashed var(--border-strong);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+/* شريط تنبيه ممتدّ (طلبات متأخّرة/تجاوزت المهلة) */
+.yl-banner { margin-bottom: var(--s-4); }
+.yl-banner > div { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+
+/* عكس ترتيب عمودَي اللوحة على الحاسوب: الطلبات (أعرض) ثمّ الكباتن */
+@media (min-width: 1024px) {
+  .yl-split--rev { grid-template-columns: 1fr minmax(280px, 340px); }
+}
+
+/* صفّ إسناد الطلب: المنتقي يأخذ السطر كاملًا على الجوال، والأزرار تحته */
+.yl-assign {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: var(--s-4);
+}
+.yl-assign .yl-select { flex: 1 1 200px; min-width: 0; }
+@media (max-width: 560px) {
+  .yl-assign .yl-select { flex-basis: 100%; }
+  .yl-assign .yl-btn { flex: 1 1 auto; }
+}

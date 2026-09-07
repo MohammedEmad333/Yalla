@@ -1,14 +1,21 @@
-// صفحة البحث والفلترة في الطلبات (لوحة الأدمن) مع ترقيم.
+// صفحة البحث والفلترة في الطلبات مع ترقيم وتصدير CSV.
 
 import { useEffect, useState } from 'react';
 import { api, API } from '../api/client';
-import { theme, orderStatusColor } from '../theme';
+import { statusLabel, statusTone, ORDER_STATUS_AR } from '../status';
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Modal,
+  PageHeader,
+  SearchInput,
+  Select,
+  TableWrap,
+} from '../components/ui';
+import { IconDownload, IconOrders, IconSearch } from '../components/icons';
 
 const STATUSES = ['', 'pending', 'assigned', 'accepted', 'picked_up', 'delivered', 'cancelled'];
-const STATUS_AR = {
-  '': 'كل الحالات', pending: 'بانتظار', assigned: 'مُسنَد', accepted: 'مقبول',
-  picked_up: 'جارٍ التوصيل', delivered: 'مسلّم', cancelled: 'ملغى',
-};
 
 // تنسيق وقت مختصر لعرض وقت الرفض
 function fmtTime(d) {
@@ -65,178 +72,117 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="yl-page" style={styles.page}>
-      <h1 style={{ margin: '0 0 4px' }}>بحث الطلبات</h1>
-      <p style={styles.subtitle}>فلترة الطلبات وتصديرها</p>
+    <>
+      <PageHeader title="بحث الطلبات" subtitle={`الإجمالي: ${data.total} طلب`}>
+        <Button variant="soft" icon={<IconDownload size={18} />} onClick={exportCsv}>
+          تصدير CSV
+        </Button>
+      </PageHeader>
 
       {/* شريط الفلاتر */}
-      <div style={styles.filters}>
-        <select style={styles.input} value={status} onChange={(e) => setStatus(e.target.value)}>
-          {STATUSES.map((s) => <option key={s} value={s}>{STATUS_AR[s]}</option>)}
-        </select>
-        <input
-          style={{ ...styles.input, flex: 1, minWidth: 200 }}
-          placeholder="بحث في العناوين/الملاحظة"
+      <div className="yl-toolbar">
+        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>{ORDER_STATUS_AR[s]}</option>
+          ))}
+        </Select>
+        <SearchInput
+          placeholder="بحث في العناوين أو الملاحظة"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && load(1)}
         />
-        <button style={styles.btn} onClick={() => load(1)}>بحث</button>
-        <button style={styles.exportBtn} onClick={exportCsv}>⬇ تصدير CSV</button>
+        <Button variant="primary" icon={<IconSearch size={18} />} onClick={() => load(1)}>
+          بحث
+        </Button>
       </div>
 
-      <p style={styles.count}>الإجمالي: <b>{data.total}</b> طلب</p>
-
-      <div className="yl-table-wrap" style={styles.tableWrap}>
-        <table>
+      {data.items.length === 0 ? (
+        <EmptyState icon={<IconOrders size={26} />} title="لا نتائج مطابقة">
+          جرّب تغيير الحالة أو كلمة البحث.
+        </EmptyState>
+      ) : (
+        <TableWrap>
           <thead>
-            <tr><th>#</th><th>الحالة</th><th>صاحب الطلب</th><th>الاستلام</th><th>التسليم</th><th>الكابتن</th><th>رمز التسليم</th><th>السعر</th></tr>
+            <tr>
+              <th>#</th>
+              <th>الحالة</th>
+              <th>صاحب الطلب</th>
+              <th>الاستلام</th>
+              <th>التسليم</th>
+              <th>الكابتن</th>
+              <th>رمز التسليم</th>
+              <th>السعر</th>
+            </tr>
           </thead>
           <tbody>
             {data.items.map((o) => (
               <tr key={o._id}>
-                <td style={{ fontWeight: 600 }}>#{o._id.slice(-5)}</td>
-                <td>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
-                    <span style={styles.pill(orderStatusColor(o.status))}>{STATUS_AR[o.status] || o.status}</span>
+                <td data-label="رقم الطلب"><b className="yl-num">#{o._id.slice(-5)}</b></td>
+                <td data-label="الحالة">
+                  <div className="yl-stack yl-stack--sm" style={{ alignItems: 'flex-start' }}>
+                    <Badge tone={statusTone(o.status)} dot>{statusLabel(o.status)}</Badge>
                     {/* Card 47: علامة رفض الكابتن مع زر لعرض السبب */}
                     {o.rejections?.length > 0 && (
-                      <button style={styles.rejectBadge} onClick={() => setRejectModal(o)} title="عرض سبب الرفض">
-                        🚫 مرفوض ({o.rejections.length}) — عرض السبب
+                      <button className="yl-link" onClick={() => setRejectModal(o)} title="عرض سبب الرفض">
+                        مرفوض ({o.rejections.length}) — عرض السبب
                       </button>
                     )}
                   </div>
                 </td>
-                <td>{[o.user?.name, o.user?.lastName].filter(Boolean).join(' ') || '—'}</td>
-                <td>{o.pickup?.address}</td>
-                <td>{o.dropoff?.address}</td>
-                <td>{o.captain?.name || '—'}</td>
-                {/* Card 73: رمز التسليم — يظهر للأدمن فقط ليعطيه لصاحب الطلب عند الحاجة */}
-                <td style={{ fontWeight: 700, letterSpacing: 1 }}>{o.deliveryCode || '—'}</td>
+                <td data-label="صاحب الطلب">
+                  {[o.user?.name, o.user?.lastName].filter(Boolean).join(' ') || '—'}
+                </td>
+                <td data-label="الاستلام">{o.pickup?.address}</td>
+                <td data-label="التسليم">{o.dropoff?.address}</td>
+                <td data-label="الكابتن">{o.captain?.name || '—'}</td>
+                {/* Card 73: رمز التسليم — للأدمن فقط ليعطيه لصاحب الطلب عند الحاجة */}
+                <td data-label="رمز التسليم">
+                  <b className="yl-num" style={{ letterSpacing: 1 }}>{o.deliveryCode || '—'}</b>
+                </td>
                 {/* Card 28: بعد التسليم نعرض السعر الحقيقي (finalPrice) لا التقريبي */}
-                <td style={{ fontWeight: 600 }}>
-                  {(o.status === 'delivered' && Number(o.finalPrice) > 0 ? o.finalPrice : o.price)} ₪
+                <td data-label="السعر">
+                  <b className="yl-num">
+                    {o.status === 'delivered' && Number(o.finalPrice) > 0 ? o.finalPrice : o.price} ₪
+                  </b>
                 </td>
               </tr>
             ))}
-            {data.items.length === 0 && (
-              <tr><td colSpan={8} style={{ textAlign: 'center', color: theme.color.muted, padding: 20 }}>لا نتائج</td></tr>
-            )}
           </tbody>
-        </table>
-      </div>
-
-      {/* Card 47: نافذة عرض أسباب رفض الكباتن للطلب */}
-      {rejectModal && (
-        <div style={styles.overlay} onClick={() => setRejectModal(null)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHead}>
-              <b>أسباب رفض الطلب #{rejectModal._id.slice(-5)}</b>
-              <button style={styles.modalClose} onClick={() => setRejectModal(null)}>✕</button>
-            </div>
-            <div style={styles.modalBody}>
-              {rejectModal.rejections.map((r, i) => (
-                <div key={i} style={styles.rejectRow}>
-                  <div style={{ fontWeight: 600 }}>
-                    🧑‍✈️ {r.captain?.name || 'كابتن'}
-                    {r.captain?.phone ? ` · ${r.captain.phone}` : ''}
-                  </div>
-                  <div style={styles.rejectReason}>
-                    {r.reason ? `السبب: ${r.reason}` : 'لم يُذكر سبب'}
-                  </div>
-                  {r.at && <div style={styles.rejectAt}>{fmtTime(r.at)}</div>}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        </TableWrap>
       )}
 
       {/* ترقيم */}
-      <div style={styles.pager}>
-        <button style={styles.pageBtn} disabled={data.page <= 1} onClick={() => load(data.page - 1)}>السابق</button>
-        <span style={styles.pageInfo}>صفحة {data.page} من {data.pages}</span>
-        <button style={styles.pageBtn} disabled={data.page >= data.pages} onClick={() => load(data.page + 1)}>التالي</button>
-      </div>
-    </div>
+      {data.pages > 1 && (
+        <div className="yl-pager">
+          <Button disabled={data.page <= 1} onClick={() => load(data.page - 1)}>السابق</Button>
+          <span className="yl-muted">صفحة {data.page} من {data.pages}</span>
+          <Button disabled={data.page >= data.pages} onClick={() => load(data.page + 1)}>التالي</Button>
+        </div>
+      )}
+
+      {/* Card 47: نافذة عرض أسباب رفض الكباتن للطلب */}
+      {rejectModal && (
+        <Modal
+          title={`أسباب رفض الطلب #${rejectModal._id.slice(-5)}`}
+          onClose={() => setRejectModal(null)}
+        >
+          <div className="yl-stack">
+            {rejectModal.rejections.map((r, i) => (
+              <div className="yl-card yl-card--flat yl-card--pad" key={i}>
+                <b>
+                  {r.captain?.name || 'كابتن'}
+                  {r.captain?.phone ? ` · ${r.captain.phone}` : ''}
+                </b>
+                <p className="yl-soft" style={{ marginTop: 4 }}>
+                  {r.reason ? `السبب: ${r.reason}` : 'لم يُذكر سبب'}
+                </p>
+                {r.at && <p className="yl-hint" style={{ marginTop: 4 }}>{fmtTime(r.at)}</p>}
+              </div>
+            ))}
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
-
-const styles = {
-  page: { direction: 'rtl', fontFamily: theme.font, padding: 32, maxWidth: 1200, margin: '0 auto' },
-  subtitle: { color: theme.color.muted, margin: '0 0 16px', fontSize: 14 },
-  filters: { display: 'flex', gap: 8, margin: '16px 0', flexWrap: 'wrap' },
-  input: { padding: '11px 14px', borderRadius: theme.radius.md, border: `1px solid ${theme.color.outlineStrong}` },
-  btn: {
-    background: theme.color.primary,
-    color: theme.color.onPrimary,
-    border: 'none',
-    padding: '11px 22px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-  },
-  exportBtn: {
-    background: theme.color.secondary,
-    color: theme.color.onSecondary,
-    border: 'none',
-    padding: '11px 20px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-  },
-  count: { color: theme.color.muted, fontSize: 14 },
-  tableWrap: { overflowX: 'auto' },
-  // Card 47: زر علامة الرفض داخل خلية الحالة
-  rejectBadge: {
-    background: '#fee2e2',
-    color: '#991b1b',
-    border: '1px solid #ef4444',
-    borderRadius: theme.radius.pill,
-    padding: '2px 10px',
-    fontSize: 11,
-    fontWeight: 600,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  },
-  // Card 47: نافذة عرض أسباب الرفض
-  overlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-    display: 'grid', placeItems: 'center', zIndex: 50, padding: 16,
-  },
-  modal: {
-    background: theme.color.card, borderRadius: theme.radius.lg, width: '100%',
-    maxWidth: 480, boxShadow: theme.shadow.float, direction: 'rtl',
-  },
-  modalHead: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '14px 18px', borderBottom: `1px solid ${theme.color.outline}`,
-  },
-  modalClose: {
-    background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: theme.color.muted,
-  },
-  modalBody: { padding: 18, display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '60vh', overflowY: 'auto' },
-  rejectRow: {
-    border: `1px solid ${theme.color.outline}`, borderRadius: theme.radius.md,
-    padding: 12, background: theme.color.surface,
-  },
-  rejectReason: { marginTop: 4, color: theme.color.onSurfaceVariant, fontSize: 14 },
-  rejectAt: { marginTop: 4, color: theme.color.muted, fontSize: 12 },
-  pill: (bg) => ({
-    background: bg,
-    color: theme.color.onPrimary,
-    padding: '3px 12px',
-    borderRadius: theme.radius.pill,
-    fontSize: 12,
-    fontWeight: 600,
-    whiteSpace: 'nowrap',
-  }),
-  pager: { display: 'flex', gap: 16, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
-  pageInfo: { color: theme.color.onSurfaceVariant, fontSize: 14 },
-  pageBtn: {
-    padding: '9px 18px',
-    borderRadius: theme.radius.pill,
-    border: `1px solid ${theme.color.outlineStrong}`,
-    background: theme.color.card,
-    color: theme.color.onSurfaceVariant,
-    cursor: 'pointer',
-  },
-};

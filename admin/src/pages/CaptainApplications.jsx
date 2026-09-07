@@ -1,13 +1,21 @@
 // Card 79: توثيق الكباتن — تبويبان:
 //  (1) طلبات التوثيق: طلبات التسجيل من التطبيق مع مستنداتها، قبول (إنشاء حساب)
 //      أو رفض (حذف الطلب نهائيًا).
-//  (2) بيانات الكباتن: البيانات الحسّاسة (رقم الهوية/تاريخ الميلاد/المستندات)
-//      للأدمن فقط.
+//  (2) بيانات الكباتن: البيانات الحسّاسة (رقم الهوية/تاريخ الميلاد/المستندات).
 
 import { useEffect, useState } from 'react';
 import { api, API } from '../api/client';
-import { theme } from '../theme';
 import { vehicleLabel } from '../vehicles';
+import {
+  Badge,
+  Button,
+  Card,
+  Chip,
+  EmptyState,
+  PageHeader,
+  TableWrap,
+} from '../components/ui';
+import { IconCheck, IconClose, IconIdCard, IconImage } from '../components/icons';
 
 function fmtDate(d) {
   if (!d) return '—';
@@ -21,31 +29,49 @@ function fmtDate(d) {
 // عنوان صورة كامل من مسار نسبيّ
 const imgUrl = (u) => (!u ? '' : u.startsWith('http') ? u : `${API}${u}`);
 
-// معاينة صورة قابلة للتكبير (فتح في تبويب جديد)
-function DocThumb({ url, label }) {
-  if (!url) return <span style={{ color: theme.color.muted }}>—</span>;
-  const full = imgUrl(url);
+// معاينة مستند قابلة للفتح في تبويب جديد
+function DocThumb({ url, label, big }) {
+  if (!url) {
+    return (
+      <span className="yl-doc yl-doc--empty" title={label}>
+        <IconImage size={20} />
+      </span>
+    );
+  }
   return (
-    <a href={full} target="_blank" rel="noopener noreferrer" title={`فتح ${label}`}>
-      <img src={full} alt={label} style={styles.thumb} loading="lazy" />
+    <a
+      className={`yl-doc ${big ? 'yl-doc--big' : ''}`}
+      href={imgUrl(url)}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`فتح ${label}`}
+    >
+      <img src={imgUrl(url)} alt={label} loading="lazy" />
     </a>
   );
 }
 
 export default function CaptainApplications() {
   const [tab, setTab] = useState('applications'); // applications | data
-  return (
-    <div className="yl-page" style={styles.page}>
-      <h1 style={{ margin: '0 0 4px' }}>توثيق الكباتن</h1>
-      <p style={styles.subtitle}>مراجعة طلبات تسجيل الكباتن من التطبيق واعتمادها، وبياناتهم الحسّاسة</p>
 
-      <div style={styles.tabs}>
-        <button style={styles.tab(tab === 'applications')} onClick={() => setTab('applications')}>طلبات التوثيق</button>
-        <button style={styles.tab(tab === 'data')} onClick={() => setTab('data')}>بيانات الكباتن</button>
+  return (
+    <>
+      <PageHeader
+        title="توثيق الكباتن"
+        subtitle="مراجعة طلبات تسجيل الكباتن من التطبيق واعتمادها، وبياناتهم الحسّاسة"
+      />
+
+      <div className="yl-chips" style={{ marginBottom: 'var(--s-4)' }}>
+        <Chip active={tab === 'applications'} onClick={() => setTab('applications')}>
+          طلبات التوثيق
+        </Chip>
+        <Chip active={tab === 'data'} onClick={() => setTab('data')}>
+          بيانات الكباتن
+        </Chip>
       </div>
 
       {tab === 'applications' ? <ApplicationsTab /> : <CaptainsDataTab />}
-    </div>
+    </>
   );
 }
 
@@ -84,34 +110,60 @@ function ApplicationsTab() {
   }
 
   if (apps.length === 0) {
-    return <p style={{ color: theme.color.muted }}>لا توجد طلبات توثيق معلّقة.</p>;
+    return (
+      <EmptyState icon={<IconIdCard size={26} />} title="لا توجد طلبات توثيق معلّقة">
+        ستظهر هنا طلبات الكباتن الجدد القادمة من التطبيق.
+      </EmptyState>
+    );
   }
 
   return (
-    <div style={styles.cards}>
+    <div className="yl-grid yl-grid--wide">
       {apps.map((a) => (
-        <div key={a.id} style={styles.card}>
-          <div style={styles.cardHead}>
-            <b>{a.fullName}</b>
-            <span style={styles.pill('#f59e0b')}>قيد التوثيق</span>
+        <Card key={a.id}>
+          <div className="yl-row yl-row--between" style={{ marginBottom: 'var(--s-3)' }}>
+            <b style={{ fontSize: 'var(--fs-lg)' }}>{a.fullName}</b>
+            <Badge tone="warning">قيد التوثيق</Badge>
           </div>
-          <p style={styles.line}><b>الهاتف:</b> {a.phone}</p>
-          <p style={styles.line}><b>رقم الهوية:</b> {a.nationalId}</p>
-          <p style={styles.line}><b>تاريخ الميلاد:</b> {fmtDate(a.birthDate)}</p>
-          <p style={styles.line}><b>المركبة:</b> {vehicleLabel(a.vehicleType)}</p>
-          <div style={styles.docsRow}>
-            <div style={styles.docCell}><span style={styles.docLabel}>صورة الهوية</span><DocThumb url={a.idPhotoUrl} label="صورة الهوية" /></div>
-            <div style={styles.docCell}><span style={styles.docLabel}>سيلفي مع الهوية</span><DocThumb url={a.selfieUrl} label="السيلفي" /></div>
+
+          <dl className="yl-deflist">
+            <div><dt>الهاتف</dt><dd className="yl-num">{a.phone}</dd></div>
+            <div><dt>رقم الهوية</dt><dd className="yl-num">{a.nationalId}</dd></div>
+            <div><dt>تاريخ الميلاد</dt><dd>{fmtDate(a.birthDate)}</dd></div>
+            <div><dt>المركبة</dt><dd>{vehicleLabel(a.vehicleType)}</dd></div>
+          </dl>
+
+          <div className="yl-row" style={{ margin: 'var(--s-4) 0' }}>
+            <div className="yl-stack yl-stack--sm" style={{ alignItems: 'center' }}>
+              <span className="yl-hint">صورة الهوية</span>
+              <DocThumb url={a.idPhotoUrl} label="صورة الهوية" big />
+            </div>
+            <div className="yl-stack yl-stack--sm" style={{ alignItems: 'center' }}>
+              <span className="yl-hint">سيلفي مع الهوية</span>
+              <DocThumb url={a.selfieUrl} label="السيلفي" big />
+            </div>
           </div>
-          <div style={styles.actions}>
-            <button style={styles.btn('#16a34a')} disabled={busy === a.id} onClick={() => approve(a)}>
-              {busy === a.id ? '...' : '✓ قبول وإنشاء الحساب'}
-            </button>
-            <button style={styles.btn('#dc2626')} disabled={busy === a.id} onClick={() => reject(a)}>
-              ✕ رفض وحذف
-            </button>
+
+          <div className="yl-btnrow">
+            <Button
+              variant="success"
+              icon={<IconCheck size={18} />}
+              disabled={busy === a.id}
+              onClick={() => approve(a)}
+              style={{ flex: 1 }}
+            >
+              قبول وإنشاء الحساب
+            </Button>
+            <Button
+              variant="danger"
+              icon={<IconClose size={18} />}
+              disabled={busy === a.id}
+              onClick={() => reject(a)}
+            >
+              رفض
+            </Button>
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   );
@@ -122,60 +174,42 @@ function CaptainsDataTab() {
   const [rows, setRows] = useState([]);
   useEffect(() => { api.get('/admin/captains/data').then(setRows); }, []);
 
+  if (rows.length === 0) {
+    return <EmptyState icon={<IconIdCard size={26} />} title="لا يوجد كباتن" />;
+  }
+
   return (
-    <div className="yl-table-wrap">
-      <table className="yl-rtable" style={{ marginTop: 4 }}>
-        <thead>
-          <tr>
-            <th>الاسم</th><th>الهاتف</th><th>رقم الهوية</th><th>تاريخ الميلاد</th>
-            <th>المصدر</th><th>الهوية</th><th>السيلفي</th><th>الانضمام</th>
+    <TableWrap>
+      <thead>
+        <tr>
+          <th>الاسم</th>
+          <th>الهاتف</th>
+          <th>رقم الهوية</th>
+          <th>تاريخ الميلاد</th>
+          <th>المصدر</th>
+          <th>الهوية</th>
+          <th>السيلفي</th>
+          <th>الانضمام</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((c) => (
+          <tr key={c.id}>
+            <td data-label="الاسم"><b>{c.name}</b></td>
+            <td data-label="الهاتف" className="yl-num">{c.phone}</td>
+            <td data-label="رقم الهوية" className="yl-num">{c.nationalId || '—'}</td>
+            <td data-label="تاريخ الميلاد">{fmtDate(c.birthDate)}</td>
+            <td data-label="المصدر">
+              <Badge tone={c.createdVia === 'app' ? 'info' : 'neutral'}>
+                {c.createdVia === 'app' ? 'التطبيق' : 'الأدمن'}
+              </Badge>
+            </td>
+            <td data-label="الهوية"><DocThumb url={c.idPhotoUrl} label="صورة الهوية" /></td>
+            <td data-label="السيلفي"><DocThumb url={c.selfieUrl} label="السيلفي" /></td>
+            <td data-label="الانضمام">{fmtDate(c.createdAt)}</td>
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((c) => (
-            <tr key={c.id}>
-              <td data-label="الاسم">{c.name}</td>
-              <td data-label="الهاتف">{c.phone}</td>
-              <td data-label="رقم الهوية">{c.nationalId || '—'}</td>
-              <td data-label="تاريخ الميلاد">{fmtDate(c.birthDate)}</td>
-              <td data-label="المصدر">
-                <span style={styles.pill(c.createdVia === 'app' ? '#2563eb' : '#64748b')}>
-                  {c.createdVia === 'app' ? 'التطبيق' : 'الأدمن'}
-                </span>
-              </td>
-              <td data-label="الهوية"><DocThumb url={c.idPhotoUrl} label="صورة الهوية" /></td>
-              <td data-label="السيلفي"><DocThumb url={c.selfieUrl} label="السيلفي" /></td>
-              <td data-label="الانضمام">{fmtDate(c.createdAt)}</td>
-            </tr>
-          ))}
-          {rows.length === 0 && (
-            <tr><td colSpan={8} style={{ textAlign: 'center', color: theme.color.muted }}>لا يوجد كباتن</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </TableWrap>
   );
 }
-
-const styles = {
-  page: { direction: 'rtl', fontFamily: theme.font, padding: 32, maxWidth: 1200, margin: '0 auto' },
-  subtitle: { color: theme.color.muted, margin: '0 0 16px', fontSize: 14 },
-  tabs: { display: 'flex', gap: 8, marginBottom: 16 },
-  tab: (active) => ({
-    padding: '9px 22px', borderRadius: theme.radius.pill, cursor: 'pointer', border: 'none', fontSize: 14,
-    background: active ? theme.color.primary : theme.color.surfaceContainer,
-    color: active ? theme.color.onPrimary : theme.color.muted,
-    boxShadow: active ? theme.shadow.float : 'none',
-  }),
-  cards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 },
-  card: { background: theme.color.card, borderRadius: theme.radius.lg, padding: 18, boxShadow: theme.shadow.card },
-  cardHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  line: { margin: '3px 0', fontSize: 14, color: theme.color.onSurfaceVariant },
-  docsRow: { display: 'flex', gap: 12, margin: '12px 0' },
-  docCell: { display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' },
-  docLabel: { fontSize: 12, color: theme.color.muted },
-  thumb: { width: 90, height: 90, objectFit: 'cover', borderRadius: theme.radius.md, border: `1px solid ${theme.color.outline}`, cursor: 'pointer' },
-  actions: { display: 'flex', gap: 8, marginTop: 8 },
-  btn: (bg) => ({ background: bg, color: '#fff', border: 'none', padding: '9px 14px', borderRadius: theme.radius.pill, cursor: 'pointer', fontSize: 13, flex: 1 }),
-  pill: (bg) => ({ background: bg, color: '#fff', padding: '3px 12px', borderRadius: theme.radius.pill, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }),
-};

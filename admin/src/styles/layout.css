@@ -1,0 +1,192 @@
+/* ═══ هيكل التطبيق: شريط جانبي + شريط علوي + منطقة المحتوى ════════════════
+   الجوال (< 1024px): الشريط الجانبي درج منزلق فوق المحتوى + شريط علويّ ثابت.
+   الحاسوب (≥ 1024px): شريط جانبي ثابت دائم بجانب المحتوى.
+   التخطيط RTL: الجانبي على اليمين، والدرج ينزلق من اليمين.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.yl-app {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+/* ── الشريط الجانبي ───────────────────────────────────────────────────── */
+.yl-side {
+  position: fixed;
+  inset-block: 0;
+  /* الجانب المنطقي "البداية" = اليمين في RTL (واليسار في LTR) */
+  inset-inline-start: 0;
+  width: min(86vw, 300px);
+  display: flex;
+  flex-direction: column;
+  background: var(--nav-bg);
+  border-inline-start: 1px solid var(--border);
+  z-index: var(--z-drawer);
+  transform: translateX(-100%); /* RTL: مخفيّ خارج الحافّة اليمنى */
+  transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+[dir='rtl'] .yl-side { transform: translateX(100%); }
+.yl-side[data-open='true'] { transform: translateX(0); box-shadow: var(--shadow-lg); }
+
+.yl-side__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  min-height: var(--topbar-h);
+  border-bottom: 1px solid var(--border);
+}
+.yl-side__logo {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+  flex: none;
+}
+.yl-side__name {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--brand-deep);
+  letter-spacing: -0.02em;
+}
+.yl-side__tag {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  display: block;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.yl-side__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--s-3) var(--s-3) var(--s-5);
+  -webkit-overflow-scrolling: touch;
+}
+
+.yl-navgroup + .yl-navgroup { margin-top: var(--s-4); }
+.yl-navgroup__title {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: var(--s-2) var(--s-3);
+  letter-spacing: 0.02em;
+}
+
+.yl-navlink {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 11px var(--s-3);
+  min-height: var(--tap);
+  border-radius: var(--r-md);
+  color: var(--text-soft);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  text-align: start;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.yl-navlink:hover { background: var(--bg-hover); color: var(--text); }
+.yl-navlink[aria-current='page'] {
+  background: var(--brand-tint);
+  color: var(--brand-deep);
+}
+.yl-navlink__icon {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: currentColor;
+}
+.yl-navlink__label { flex: 1; min-width: 0; }
+
+.yl-side__foot {
+  border-top: 1px solid var(--border);
+  padding: var(--s-3) var(--s-4);
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.yl-side__user { flex: 1; min-width: 0; }
+.yl-side__user b { display: block; font-size: var(--fs-md); }
+.yl-side__user span { font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* حجاب معتم خلف الدرج على الجوال */
+.yl-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 24, 40, 0.45);
+  z-index: calc(var(--z-drawer) - 1);
+  border: none;
+  animation: yl-fade 0.2s ease;
+}
+@keyframes yl-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── العمود الرئيسي ───────────────────────────────────────────────────── */
+.yl-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.yl-topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-nav);
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: var(--topbar-h);
+  padding: var(--s-2) var(--s-4);
+  padding-top: calc(var(--s-2) + env(safe-area-inset-top));
+  background: color-mix(in srgb, var(--nav-bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.yl-topbar__title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yl-content {
+  flex: 1;
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding: var(--s-5) var(--s-4);
+  padding-bottom: calc(var(--s-8) + env(safe-area-inset-bottom));
+}
+
+/* ── الحاسوب: شريط جانبي دائم ─────────────────────────────────────────── */
+@media (min-width: 1024px) {
+  .yl-side {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    width: var(--sidebar-w);
+    transform: none !important;
+    box-shadow: none;
+  }
+  .yl-scrim { display: none; }
+  .yl-burger { display: none !important; }
+  .yl-content { padding: var(--s-6) var(--s-6); }
+  .yl-topbar { padding-inline: var(--s-6); }
+}
+
+/* ── شاشات صغيرة جدًّا ────────────────────────────────────────────────── */
+@media (max-width: 400px) {
+  .yl-content { padding: var(--s-4) var(--s-3); }
+  .yl-topbar { padding-inline: var(--s-3); }
+}
