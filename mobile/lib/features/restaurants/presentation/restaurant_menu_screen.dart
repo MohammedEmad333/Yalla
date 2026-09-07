@@ -152,17 +152,17 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 color: YallaColors.errorContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.info_outline, color: YallaColors.error),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('المطعم مغلق حاليًا — لا يمكن إتمام الطلب الآن')),
+                  const SizedBox(width: 8),
+                  const Expanded(child: Text('المطعم مغلق حاليًا — لا يمكن إتمام الطلب الآن')),
                 ],
               ),
             ),
           if (_restaurant.description.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Text(_restaurant.description, style: const TextStyle(color: YallaColors.muted)),
+            Text(_restaurant.description, style: TextStyle(color: YallaColors.muted)),
           ],
           const SizedBox(height: 8),
           Wrap(
@@ -213,7 +213,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                         item.description,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: YallaColors.muted, fontSize: 12),
+                        style: TextStyle(color: YallaColors.muted, fontSize: 12),
                       ),
                     const SizedBox(height: 4),
                     Text(
@@ -242,7 +242,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                           Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold)),
                           IconButton(
                             onPressed: () => setState(() => _cart.add(item)),
-                            icon: const Icon(Icons.add_circle, color: YallaColors.primary),
+                            icon: Icon(Icons.add_circle, color: YallaColors.primary),
                           ),
                         ],
                       ),
@@ -279,7 +279,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   Widget _imageFallback() => Container(
         color: YallaColors.primaryContainer,
         alignment: Alignment.center,
-        child: const Icon(Icons.restaurant, size: 44, color: YallaColors.primaryDeep),
+        child: Icon(Icons.restaurant, size: 44, color: YallaColors.primaryDeep),
       );
 
   Widget _meta(IconData icon, String text) => Row(
@@ -287,7 +287,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         children: [
           Icon(icon, size: 15, color: YallaColors.muted),
           const SizedBox(width: 4),
-          Text(text, style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+          Text(text, style: TextStyle(color: YallaColors.muted, fontSize: 12)),
         ],
       );
 }

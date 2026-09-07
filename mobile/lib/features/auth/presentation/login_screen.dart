@@ -95,10 +95,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     shape: BoxShape.circle,
                     border: Border.all(color: YallaColors.primary.withValues(alpha: 0.25)),
                   ),
-                  child: const Icon(Icons.two_wheeler, size: 42, color: YallaColors.primary),
+                  child: Icon(Icons.two_wheeler, size: 42, color: YallaColors.primary),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Yalla',
                   style: TextStyle(
                     fontSize: 40,
@@ -110,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 4),
                 Text(
                   _isRegister ? 'أنشئ حسابك للبدء' : 'سجّل دخولك للمتابعة',
-                  style: const TextStyle(color: YallaColors.muted, fontSize: 15),
+                  style: TextStyle(color: YallaColors.muted, fontSize: 15),
                 ),
                 const SizedBox(height: 28),
 
@@ -193,10 +193,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.error_outline, color: YallaColors.error, size: 20),
+                        Icon(Icons.error_outline, color: YallaColors.error, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(_error!, style: const TextStyle(color: YallaColors.error)),
+                          child: Text(_error!, style: TextStyle(color: YallaColors.error)),
                         ),
                       ],
                     ),

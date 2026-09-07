@@ -465,17 +465,17 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             Row(
-              children: const [
+              children: [
                 Icon(Icons.campaign, color: YallaColors.success),
-                SizedBox(width: 8),
-                Text(
+                const SizedBox(width: 8),
+                const Text(
                   'طلبات متاحة — سارع بالقبول',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'يأخذ الطلب أوّل كابتن يقبله.',
               style: TextStyle(color: YallaColors.muted, fontSize: 13),
             ),
@@ -488,12 +488,12 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           const SizedBox(height: 120),
-          const Icon(Icons.local_shipping_outlined, size: 64, color: YallaColors.muted),
+          Icon(Icons.local_shipping_outlined, size: 64, color: YallaColors.muted),
           const SizedBox(height: 16),
           Center(
             child: Text(
               _isOnline ? 'بانتظار طلب جديد…' : 'فعّل الاتصال لاستقبال الطلبات',
-              style: const TextStyle(color: YallaColors.muted, fontSize: 16),
+              style: TextStyle(color: YallaColors.muted, fontSize: 16),
             ),
           ),
         ],
@@ -542,7 +542,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
             isThreeLine: senderPhone.isNotEmpty,
             trailing: senderPhone.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.call, color: YallaColors.success),
+                    icon: Icon(Icons.call, color: YallaColors.success),
                     tooltip: 'اتصال بصاحب الطلب',
                     onPressed: () => _callSender(senderPhone),
                   )

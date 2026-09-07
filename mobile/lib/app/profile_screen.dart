@@ -10,6 +10,8 @@ import '../core/config/company.dart';
 import '../core/network/api_client.dart';
 import '../core/util/vehicles.dart';
 import '../core/widgets/ui.dart';
+import '../core/theme/theme_controller.dart';
+import '../main.dart' show themeController;
 
 class ProfileScreen extends StatefulWidget {
   final ApiClient api;
@@ -243,6 +245,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   const Divider(height: 32),
 
+                  // وضع العرض: فاتح / ليلي / حسب النظام (يُحفظ على الجهاز)
+                  ValueListenableBuilder<ThemeMode>(
+                    valueListenable: themeController.mode,
+                    builder: (context, mode, _) => ListTile(
+                      leading: Icon(themeModeIcon(mode)),
+                      title: const Text('المظهر'),
+                      subtitle: Text(themeModeLabel(mode)),
+                      trailing: SegmentedButton<ThemeMode>(
+                        showSelectedIcon: false,
+                        style: SegmentedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                        ),
+                        segments: const [
+                          ButtonSegment(
+                            value: ThemeMode.light,
+                            icon: Icon(Icons.light_mode_outlined, size: 18),
+                            tooltip: 'فاتح',
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.system,
+                            icon: Icon(Icons.brightness_auto_outlined, size: 18),
+                            tooltip: 'حسب النظام',
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.dark,
+                            icon: Icon(Icons.dark_mode_outlined, size: 18),
+                            tooltip: 'ليلي',
+                          ),
+                        ],
+                        selected: {mode},
+                        onSelectionChanged: (s) => themeController.set(s.first),
+                      ),
+                    ),
+                  ),
+
                   // تغيير كلمة سر الحساب (Card 72)
                   ListTile(
                     leading: const Icon(Icons.lock_outline),
@@ -255,7 +293,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ListTile(
                     leading: const Icon(Icons.chat, color: Color(0xFF25D366)),
                     title: const Text('تواصل عبر واتس اب'),
-                    subtitle: Text('+${Company.whatsappNumber}'),
+                    subtitle: const Text('+${Company.whatsappNumber}'),
                     trailing: const Icon(Icons.open_in_new, size: 18),
                     onTap: _openWhatsapp,
                   ),

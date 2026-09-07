@@ -117,7 +117,7 @@ class _WalletScreenState extends State<WalletScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [YallaColors.primary, YallaColors.primaryDeep],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
@@ -191,7 +191,7 @@ class _WalletScreenState extends State<WalletScreen> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: YallaColors.outline),
+        side: BorderSide(color: YallaColors.outline),
       ),
       child: ListTile(
         leading: CircleAvatar(
@@ -204,13 +204,13 @@ class _WalletScreenState extends State<WalletScreen> {
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(desc, style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+                  Text(desc, style: TextStyle(color: YallaColors.muted, fontSize: 12)),
                   const SizedBox(height: 2),
                   Text('سبب الرفض: $reason',
-                      style: const TextStyle(color: YallaColors.error, fontSize: 12)),
+                      style: TextStyle(color: YallaColors.error, fontSize: 12)),
                 ],
               )
-            : Text(desc, style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+            : Text(desc, style: TextStyle(color: YallaColors.muted, fontSize: 12)),
         isThreeLine: showReason,
         trailing: StatusPill(label, tone: tone),
       ),

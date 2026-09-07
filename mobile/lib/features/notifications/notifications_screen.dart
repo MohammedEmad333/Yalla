@@ -95,7 +95,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         title: Text(_unread > 0 ? 'الإشعارات ($_unread)' : 'الإشعارات'),
         actions: [
           if (_unread > 0)
-            TextButton(onPressed: _markAll, child: const Text('تعليم الكلّ', style: TextStyle(color: Colors.white))),
+            TextButton(onPressed: _markAll, child: const Text('تعليم الكلّ')),
         ],
       ),
       body: _loading

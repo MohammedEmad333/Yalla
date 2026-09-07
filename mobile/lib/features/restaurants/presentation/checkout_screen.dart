@@ -184,11 +184,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'الزمن المتوقّع للوصول: ~$_etaMinutes دقيقة',
-                      style: const TextStyle(color: YallaColors.muted, fontSize: 12),
+                      style: TextStyle(color: YallaColors.muted, fontSize: 12),
                     ),
                   ],
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'أجرة التوصيل تُخصم من محفظتك، وقيمة الأصناف تُدفع للكابتن عند الاستلام.',
                     style: TextStyle(color: YallaColors.muted, fontSize: 12),
                     textAlign: TextAlign.center,
@@ -235,7 +235,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Text('${line.qty}', style: const TextStyle(fontWeight: FontWeight.bold)),
               IconButton(
                 onPressed: () => setState(() => _cart.add(line.item)),
-                icon: const Icon(Icons.add_circle, color: YallaColors.primary),
+                icon: Icon(Icons.add_circle, color: YallaColors.primary),
               ),
               SizedBox(
                 width: 56,
@@ -263,7 +263,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             children: [
               Text(
                 '$_deliveryOriginal ₪',
-                style: const TextStyle(
+                style: TextStyle(
                   decoration: TextDecoration.lineThrough,
                   color: YallaColors.muted,
                 ),
@@ -271,7 +271,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(width: 8),
               Text(
                 '$_deliveryPrice ₪',
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: YallaColors.primary,
                 ),

@@ -139,9 +139,9 @@ class _SupportScreenState extends State<SupportScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.support_agent, size: 64, color: YallaColors.muted),
+              Icon(Icons.support_agent, size: 64, color: YallaColors.muted),
               const SizedBox(height: 12),
-              const Text('اكتب لنا وسنردّ عليك في أقرب وقت',
+              Text('اكتب لنا وسنردّ عليك في أقرب وقت',
                   style: TextStyle(color: YallaColors.muted), textAlign: TextAlign.center),
               const SizedBox(height: 16),
               OutlinedButton.icon(

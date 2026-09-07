@@ -165,7 +165,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                                       if (isStore)
                                         Text(
                                           '${o['store']['name']}',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             color: YallaColors.muted,
                                             fontSize: 12,
                                           ),
@@ -180,14 +180,14 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.route_outlined, size: 16, color: YallaColors.muted),
+                                Icon(Icons.route_outlined, size: 16, color: YallaColors.muted),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
                                     '${o['pickup']?['address']} ← ${o['dropoff']?['address']}',
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: YallaColors.onSurfaceVariant,
                                       fontSize: 13,
                                     ),
@@ -200,11 +200,11 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                               const SizedBox(height: 6),
                               Row(
                                 children: [
-                                  const Icon(Icons.person_outline, size: 16, color: YallaColors.muted),
+                                  Icon(Icons.person_outline, size: 16, color: YallaColors.muted),
                                   const SizedBox(width: 6),
                                   Text(
                                     'الكابتن: ${firstName(o['captain']?['name'])}',
-                                    style: const TextStyle(color: YallaColors.muted, fontSize: 13),
+                                    style: TextStyle(color: YallaColors.muted, fontSize: 13),
                                   ),
                                 ],
                               ),
@@ -234,12 +234,12 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                                         const SizedBox(width: 4),
                                         Text(
                                           'تقييمك: ${o['rating']['stars']}',
-                                          style: const TextStyle(color: YallaColors.muted, fontSize: 13),
+                                          style: TextStyle(color: YallaColors.muted, fontSize: 13),
                                         ),
                                       ],
                                     ),
                                   const Spacer(),
-                                  const Icon(Icons.chevron_left, color: YallaColors.muted),
+                                  Icon(Icons.chevron_left, color: YallaColors.muted),
                                 ],
                               ),
                             ],

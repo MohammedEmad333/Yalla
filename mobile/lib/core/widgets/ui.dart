@@ -64,7 +64,7 @@ class SectionTitle extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: YallaColors.onSurface,
@@ -89,22 +89,23 @@ class StatusPill extends StatelessWidget {
 
   const StatusPill(this.text, {super.key, this.tone = PillTone.neutral, this.dot = true});
 
-  static const _bg = {
-    PillTone.neutral: YallaColors.surfaceContainer,
-    PillTone.brand: YallaColors.primaryContainer,
-    PillTone.info: YallaColors.secondaryContainer,
-    PillTone.success: YallaColors.successContainer,
-    PillTone.warning: YallaColors.warningContainer,
-    PillTone.danger: YallaColors.errorContainer,
-  };
-  static const _fg = {
-    PillTone.neutral: YallaColors.onSurfaceVariant,
-    PillTone.brand: YallaColors.primaryDeep,
-    PillTone.info: YallaColors.secondaryDeep,
-    PillTone.success: YallaColors.success,
-    PillTone.warning: YallaColors.warning,
-    PillTone.danger: YallaColors.error,
-  };
+  // خلفيّة/لون كل نغمة — دوال لأنّ ألوان الوضعين (فاتح/ليلي) تُشتقّ وقت البناء
+  static Map<PillTone, Color> get _bg => {
+        PillTone.neutral: YallaColors.surfaceContainer,
+        PillTone.brand: YallaColors.primaryContainer,
+        PillTone.info: YallaColors.secondaryContainer,
+        PillTone.success: YallaColors.successContainer,
+        PillTone.warning: YallaColors.warningContainer,
+        PillTone.danger: YallaColors.errorContainer,
+      };
+  static Map<PillTone, Color> get _fg => {
+        PillTone.neutral: YallaColors.onSurfaceVariant,
+        PillTone.brand: YallaColors.primaryDeep,
+        PillTone.info: YallaColors.secondaryDeep,
+        PillTone.success: YallaColors.success,
+        PillTone.warning: YallaColors.warning,
+        PillTone.danger: YallaColors.error,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -157,12 +158,12 @@ class InfoRow extends StatelessWidget {
           ],
           SizedBox(
             width: 96,
-            child: Text(label, style: const TextStyle(color: YallaColors.muted, fontSize: 13)),
+            child: Text(label, style: TextStyle(color: YallaColors.muted, fontSize: 13)),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w600, color: YallaColors.onSurface),
+              style: TextStyle(fontWeight: FontWeight.w600, color: YallaColors.onSurface),
             ),
           ),
         ],
@@ -197,7 +198,7 @@ class EmptyStateView extends StatelessWidget {
             Container(
               width: 64,
               height: 64,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: YallaColors.surfaceContainer,
                 shape: BoxShape.circle,
               ),
@@ -207,7 +208,7 @@ class EmptyStateView extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: YallaColors.onSurfaceVariant,
@@ -218,7 +219,7 @@ class EmptyStateView extends StatelessWidget {
               Text(
                 message!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: YallaColors.muted, fontSize: 13),
+                style: TextStyle(color: YallaColors.muted, fontSize: 13),
               ),
             ],
             if (action != null) ...[const SizedBox(height: 16), action!],
@@ -246,7 +247,7 @@ class LoadingView extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2.5),
           ),
           const SizedBox(height: 12),
-          Text(label, style: const TextStyle(color: YallaColors.muted)),
+          Text(label, style: TextStyle(color: YallaColors.muted)),
         ],
       ),
     );
@@ -258,18 +259,20 @@ class StatTile extends StatelessWidget {
   final IconData icon;
   final String value;
   final String label;
-  final Color color;
+  /// لون الأيقونة — يعود إلى برتقالي العلامة إن لم يُحدَّد.
+  final Color? color;
 
   const StatTile({
     super.key,
     required this.icon,
     required this.value,
     required this.label,
-    this.color = YallaColors.primary,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
+    final color = this.color ?? YallaColors.primary;
     return YallaCard(
       padding: const EdgeInsets.all(14),
       child: Row(
@@ -291,13 +294,13 @@ class StatTile extends StatelessWidget {
               children: [
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w700,
                     color: YallaColors.onSurface,
                   ),
                 ),
-                Text(label, style: const TextStyle(fontSize: 12, color: YallaColors.muted)),
+                Text(label, style: TextStyle(fontSize: 12, color: YallaColors.muted)),
               ],
             ),
           ),

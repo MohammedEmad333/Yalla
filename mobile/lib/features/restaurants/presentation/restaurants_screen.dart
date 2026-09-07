@@ -227,7 +227,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                         r.description,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: YallaColors.muted, fontSize: 13),
+                        style: TextStyle(color: YallaColors.muted, fontSize: 13),
                       ),
                     ],
                     const SizedBox(height: 8),
@@ -253,7 +253,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   Widget _imageFallback() => Container(
         color: YallaColors.primaryContainer,
         alignment: Alignment.center,
-        child: const Icon(Icons.restaurant, size: 44, color: YallaColors.primaryDeep),
+        child: Icon(Icons.restaurant, size: 44, color: YallaColors.primaryDeep),
       );
 
   Widget _meta(IconData icon, String text) => Row(
@@ -261,7 +261,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         children: [
           Icon(icon, size: 15, color: YallaColors.muted),
           const SizedBox(width: 4),
-          Text(text, style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+          Text(text, style: TextStyle(color: YallaColors.muted, fontSize: 12)),
         ],
       );
 
