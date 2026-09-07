@@ -187,7 +187,17 @@ docker logs caddy             # حالة الشهادة
 ~/backup-mongo.sh             # نسخة احتياطية يدويّة
 ```
 
-**تحديث الـ Backend بعد سحب كود جديد:**
+**تحديث الـ Backend — الطريقة الموصى بها (أمر واحد):**
+```bash
+ssh ubuntu@<SERVER_IP>
+cd ~/Yalla && git pull origin main && bash tool/deploy-server.sh
+# اختياريًّا مع مطاعم تجريبية:  SEED_RESTAURANTS=1 bash tool/deploy-server.sh
+```
+السكربت يسحب الكود، يبني الصورة، يستبدل الحاوية بنفس أعلام الإنتاج، يفحص
+`/api/health`، ويتراجع تلقائيًّا إلى الصورة السابقة (`yalla-api:previous`) إن فشل
+الفحص. لا يلمس حاويتَي `yalla-mongo` و`caddy` ولا قاعدة البيانات.
+
+**الطريقة اليدويّة (نفس الخطوات خطوةً خطوة):**
 ```bash
 cd ~/Yalla && git checkout main && git pull origin main
 docker tag yalla-api yalla-api:backup            # نسخة للتراجع عند الحاجة
