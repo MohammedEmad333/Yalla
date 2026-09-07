@@ -16,6 +16,7 @@ import Withdrawals from './pages/Withdrawals';
 import Chats from './pages/Chats';
 import Support from './pages/Support';
 import Broadcast from './pages/Broadcast';
+import Restaurants from './pages/Restaurants';
 
 const TABS = [
   { key: 'dashboard', label: 'اللوحة اللحظية' },
@@ -23,6 +24,7 @@ const TABS = [
   { key: 'chats', label: 'المحادثات' },
   { key: 'support', label: 'الدعم' },
   { key: 'broadcast', label: 'الرسائل' },
+  { key: 'restaurants', label: 'المطاعم' },
   { key: 'wallet', label: 'شحن الرصيد' },
   { key: 'withdrawals', label: 'سحب الكباتن' },
   { key: 'users', label: 'إدارة المستخدمين' },
@@ -81,6 +83,7 @@ function Gate() {
           {page === 'chats' && <Chats />}
           {page === 'support' && <Support />}
           {page === 'broadcast' && <Broadcast />}
+          {page === 'restaurants' && <Restaurants />}
           {page === 'wallet' && <WalletTopups />}
           {page === 'withdrawals' && <Withdrawals />}
           {page === 'users' && <UsersManagement />}
