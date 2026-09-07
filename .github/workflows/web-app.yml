@@ -77,6 +77,11 @@ jobs:
             echo "لا تغييرات في web-app/ — تخطّي الدفع."
           else
             git commit -m "بناء تطبيق الويب تلقائيًا (CI) [skip ci]"
+            # قد تُدفَع كوميتات جديدة للفرع أثناء البناء؛ نُعيد الأساس ثمّ ندفع
+            # (وإلّا رُفض الدفع بـ non-fast-forward وفشلت المهمّة بلا سبب حقيقي).
+            # --autostash: بناء Flutter يخلّف ملفّات غير مُدرَجة (مثل .dart_tool)
+            # فيرفض rebase العمل بدونها.
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 

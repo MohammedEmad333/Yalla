@@ -207,7 +207,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                               const Text('السعر التقريبي: '),
                               Text(
                                 '$_quoteOriginal ₪',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   decoration: TextDecoration.lineThrough,
                                   color: YallaColors.muted,
                                 ),
@@ -215,7 +215,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                               const SizedBox(width: 8),
                               Text(
                                 '$_quotePrice ₪',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: YallaColors.primary,
                                 ),

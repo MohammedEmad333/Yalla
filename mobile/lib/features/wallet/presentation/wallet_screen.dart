@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/realtime/socket_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/ui.dart';
 import '../data/wallet_repository.dart';
 import 'topup_screen.dart';
 import 'withdraw_screen.dart';
@@ -93,9 +94,16 @@ class _WalletScreenState extends State<WalletScreen> {
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             if (_loading)
-              const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+              const Padding(padding: EdgeInsets.all(24), child: LoadingView())
             else if (_transactions.isEmpty)
-              _emptyState()
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: EmptyStateView(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: 'لا توجد عمليات بعد',
+                  message: 'ستظهر هنا عمليات الشحن والدفع والسحب.',
+                ),
+              )
             else
               ..._transactions.map(_txTile),
           ],
@@ -109,12 +117,19 @@ class _WalletScreenState extends State<WalletScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [YallaColors.primary, YallaColors.primaryDeep],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(YallaRadii.xl),
+        boxShadow: [
+          BoxShadow(
+            color: YallaColors.primary.withValues(alpha: 0.28),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,7 +180,7 @@ class _WalletScreenState extends State<WalletScreen> {
     // Card 28: نصف الحركة حسب نوعها لا حسب طريقة الدفع فقط، حتى لا يظهر
     // خصمُ قيمة طلبٍ على أنه «شحن رصيد».
     final desc = _txDescription(tx['type'] as String?, tx['method'] as String?);
-    final (label, color) = _statusMeta(status);
+    final (label, color, tone) = _statusMeta(status);
     final isCredit = (tx['direction'] as String?) == 'credit';
     // Card 106: سبب رفض طلب الشحن يظهر في التطبيق أسفل وصف الحركة
     final reason = (tx['rejectionReason'] as String?)?.trim() ?? '';
@@ -176,7 +191,7 @@ class _WalletScreenState extends State<WalletScreen> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: YallaColors.outline),
+        side: BorderSide(color: YallaColors.outline),
       ),
       child: ListTile(
         leading: CircleAvatar(
@@ -189,36 +204,18 @@ class _WalletScreenState extends State<WalletScreen> {
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(desc, style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+                  Text(desc, style: TextStyle(color: YallaColors.muted, fontSize: 12)),
                   const SizedBox(height: 2),
                   Text('سبب الرفض: $reason',
-                      style: const TextStyle(color: YallaColors.error, fontSize: 12)),
+                      style: TextStyle(color: YallaColors.error, fontSize: 12)),
                 ],
               )
-            : Text(desc, style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+            : Text(desc, style: TextStyle(color: YallaColors.muted, fontSize: 12)),
         isThreeLine: showReason,
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
-        ),
+        trailing: StatusPill(label, tone: tone),
       ),
     );
   }
-
-  Widget _emptyState() => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 40),
-        child: Column(
-          children: [
-            Icon(Icons.account_balance_wallet_outlined, size: 56, color: YallaColors.muted),
-            SizedBox(height: 12),
-            Text('لا توجد عمليات بعد', style: TextStyle(color: YallaColors.muted)),
-          ],
-        ),
-      );
 
   // وصف الحركة حسب نوعها (Card 28): خصم قيمة طلب لا يُعرض كـ«شحن رصيد».
   String _txDescription(String? type, String? method) => switch (type) {
@@ -237,10 +234,10 @@ class _WalletScreenState extends State<WalletScreen> {
         _ => 'شحن رصيد',
       };
 
-  (String, Color) _statusMeta(String s) => switch (s) {
-        'pending' => ('قيد المراجعة', YallaColors.statusInTransit),
-        'approved' => ('مقبولة', YallaColors.success),
-        'rejected' => ('مرفوضة', YallaColors.error),
-        _ => (s, YallaColors.muted),
+  (String, Color, PillTone) _statusMeta(String s) => switch (s) {
+        'pending' => ('قيد المراجعة', YallaColors.statusInTransit, PillTone.warning),
+        'approved' => ('مقبولة', YallaColors.success, PillTone.success),
+        'rejected' => ('مرفوضة', YallaColors.error, PillTone.danger),
+        _ => (s, YallaColors.muted, PillTone.neutral),
       };
 }

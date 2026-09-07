@@ -86,22 +86,32 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('🛵', style: TextStyle(fontSize: 40)),
-                    const SizedBox(width: 8),
-                    Text('Yalla',
-                        style: TextStyle(
-                          fontSize: 44,
-                          fontWeight: FontWeight.bold,
-                          color: YallaColors.primaryDeep,
-                        )),
-                  ],
+                // شعار العلامة داخل دائرة برتقالية ناعمة
+                Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    color: YallaColors.primaryContainer,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: YallaColors.primary.withValues(alpha: 0.25)),
+                  ),
+                  child: Icon(Icons.two_wheeler, size: 42, color: YallaColors.primary),
                 ),
-                const SizedBox(height: 8),
-                Text(_isRegister ? 'إنشاء حساب جديد' : 'سجّل دخولك للمتابعة',
-                    style: const TextStyle(color: YallaColors.muted, fontSize: 15)),
+                const SizedBox(height: 16),
+                Text(
+                  'Yalla',
+                  style: TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.w800,
+                    color: YallaColors.primaryDeep,
+                    letterSpacing: -1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _isRegister ? 'أنشئ حسابك للبدء' : 'سجّل دخولك للمتابعة',
+                  style: TextStyle(color: YallaColors.muted, fontSize: 15),
+                ),
                 const SizedBox(height: 28),
 
                 // الاسم واسم العائلة (للتسجيل فقط)
@@ -173,8 +183,24 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
 
                 if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(_error!, style: const TextStyle(color: YallaColors.error), textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: YallaColors.errorContainer,
+                      borderRadius: BorderRadius.circular(YallaRadii.md),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: YallaColors.error, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(_error!, style: TextStyle(color: YallaColors.error)),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
 
                 const SizedBox(height: 24),

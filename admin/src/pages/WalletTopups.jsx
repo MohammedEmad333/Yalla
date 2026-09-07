@@ -1,10 +1,20 @@
-// صفحة مراجعة طلبات شحن الرصيد (لوحة الأدمن — المرحلة 1)
+// صفحة مراجعة طلبات شحن الرصيد (المرحلة 1)
 // تعرض الطلبات حسب الحالة، وتتيح فتح صورة الإيصال ثم الموافقة/الرفض.
 // الموافقة تضيف الرصيد تلقائيًّا لمحفظة المستخدم في الخادم.
 
 import { useEffect, useState } from 'react';
 import { api, API } from '../api/client';
-import { theme } from '../theme';
+import {
+  Alert,
+  Badge,
+  Button,
+  Chip,
+  EmptyState,
+  Loading,
+  PageHeader,
+  TableWrap,
+} from '../components/ui';
+import { IconRefresh, IconWallet } from '../components/icons';
 
 const STATUS_TABS = [
   { key: 'pending', label: 'قيد المراجعة' },
@@ -17,6 +27,12 @@ const METHOD_LABELS = {
   bank_of_palestine: 'بنك فلسطين',
   jawwal_pay: 'جوال باي',
   palpay: 'بال باي',
+};
+
+const STATUS_META = {
+  pending: { tone: 'warning', label: 'قيد المراجعة' },
+  approved: { tone: 'success', label: 'مقبولة' },
+  rejected: { tone: 'danger', label: 'مرفوضة' },
 };
 
 export default function WalletTopups() {
@@ -62,129 +78,92 @@ export default function WalletTopups() {
   }
 
   return (
-    <div className="yl-page" style={styles.page}>
-      <h1 style={{ margin: '0 0 4px' }}>شحن الرصيد</h1>
-      <p style={styles.subtitle}>مراجعة طلبات شحن المحافظ والموافقة عليها</p>
+    <>
+      <PageHeader title="شحن الرصيد" subtitle="مراجعة طلبات شحن المحافظ والموافقة عليها">
+        <Button icon={<IconRefresh size={18} />} onClick={load} aria-label="تحديث">
+          <span className="yl-hide-xs">تحديث</span>
+        </Button>
+      </PageHeader>
 
-      <div style={styles.tabs}>
+      <div className="yl-chips" style={{ marginBottom: 'var(--s-4)' }}>
         {STATUS_TABS.map((t) => (
-          <button key={t.key} style={styles.tab(status === t.key)} onClick={() => setStatus(t.key)}>
+          <Chip key={t.key} active={status === t.key} onClick={() => setStatus(t.key)}>
             {t.label}
-          </button>
+          </Chip>
         ))}
-        <button style={styles.refresh} onClick={load}>↻ تحديث</button>
       </div>
 
-      {error && <p style={styles.error}>{error}</p>}
-      {loading && <p style={styles.muted}>...جارٍ التحميل</p>}
-      {!loading && items.length === 0 && <p style={styles.muted}>لا توجد طلبات</p>}
+      {error && <Alert tone="error">{error}</Alert>}
+      {loading && <Loading />}
 
-      <div className="yl-table-wrap">
-        <table style={styles.table}>
+      {!loading && items.length === 0 && (
+        <EmptyState icon={<IconWallet size={26} />} title="لا توجد طلبات في هذه الحالة" />
+      )}
+
+      {!loading && items.length > 0 && (
+        <TableWrap>
           <thead>
             <tr>
-              <th>العميل</th><th>المبلغ</th><th>الطريقة</th><th>رقم العملية</th>
-              <th>الإيصال</th><th>التاريخ</th><th>الحالة</th><th>إجراء</th>
+              <th>العميل</th>
+              <th>المبلغ</th>
+              <th>الطريقة</th>
+              <th>رقم العملية</th>
+              <th>الإيصال</th>
+              <th>التاريخ</th>
+              <th>الحالة</th>
+              <th>إجراء</th>
             </tr>
           </thead>
           <tbody>
-            {items.map((tx) => (
-              <tr key={tx._id}>
-                <td>
-                  {tx.user?.name} {tx.user?.lastName || ''}
-                  <div style={styles.phone}>{tx.user?.phone}</div>
-                </td>
-                <td><b>{tx.amount} ₪</b></td>
-                <td>{METHOD_LABELS[tx.method] || tx.method}</td>
-                <td>{tx.proof?.referenceNumber || '—'}</td>
-                <td>
-                  {tx.proof?.imageUrl ? (
-                    <img
-                      src={`${API}${tx.proof.imageUrl}`}
-                      alt="إيصال"
-                      style={styles.thumb}
-                      onClick={() => setPreview(`${API}${tx.proof.imageUrl}`)}
-                    />
-                  ) : '—'}
-                </td>
-                <td style={styles.date}>{new Date(tx.createdAt).toLocaleString('ar')}</td>
-                <td><span style={styles.pill(tx.status)}>{statusLabel(tx.status)}</span></td>
-                <td>
-                  {tx.status === 'pending' ? (
-                    <>
-                      <button style={styles.btn2('#16a34a')} onClick={() => approve(tx)}>موافقة</button>
-                      <button style={{ ...styles.btn2('#dc2626'), marginInlineStart: 6 }} onClick={() => reject(tx)}>رفض</button>
-                    </>
-                  ) : (
-                    <span style={styles.muted}>{tx.rejectionReason || '—'}</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {items.map((tx) => {
+              const meta = STATUS_META[tx.status] || { tone: 'neutral', label: tx.status };
+              return (
+                <tr key={tx._id}>
+                  <td data-label="العميل">
+                    <b>{tx.user?.name} {tx.user?.lastName || ''}</b>
+                    <div className="yl-muted" style={{ fontSize: 'var(--fs-sm)' }}>{tx.user?.phone}</div>
+                  </td>
+                  <td data-label="المبلغ"><b className="yl-num">{tx.amount} ₪</b></td>
+                  <td data-label="الطريقة">{METHOD_LABELS[tx.method] || tx.method}</td>
+                  <td data-label="رقم العملية" className="yl-num">{tx.proof?.referenceNumber || '—'}</td>
+                  <td data-label="الإيصال">
+                    {tx.proof?.imageUrl ? (
+                      <button
+                        className="yl-thumb"
+                        onClick={() => setPreview(`${API}${tx.proof.imageUrl}`)}
+                        aria-label="تكبير الإيصال"
+                      >
+                        <img src={`${API}${tx.proof.imageUrl}`} alt="إيصال" />
+                      </button>
+                    ) : '—'}
+                  </td>
+                  <td data-label="التاريخ" className="yl-muted yl-nowrap" style={{ fontSize: 'var(--fs-sm)' }}>
+                    {new Date(tx.createdAt).toLocaleString('ar')}
+                  </td>
+                  <td data-label="الحالة"><Badge tone={meta.tone}>{meta.label}</Badge></td>
+                  <td data-label="إجراء" className="yl-td-actions">
+                    {tx.status === 'pending' ? (
+                      <div className="yl-btnrow">
+                        <Button size="sm" variant="success" onClick={() => approve(tx)}>موافقة</Button>
+                        <Button size="sm" variant="danger" onClick={() => reject(tx)}>رفض</Button>
+                      </div>
+                    ) : (
+                      <span className="yl-muted">{tx.rejectionReason || '—'}</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
-        </table>
-      </div>
+        </TableWrap>
+      )}
 
       {/* معاينة مكبّرة لصورة الإيصال */}
       {preview && (
-        <div style={styles.overlay} onClick={() => setPreview(null)}>
-          <img src={preview} alt="إيصال" style={styles.previewImg} />
+        <div className="yl-lightbox" onClick={() => setPreview(null)} role="dialog" aria-modal="true">
+          <img src={preview} alt="إيصال" />
         </div>
       )}
-    </div>
+    </>
   );
 }
-
-function statusLabel(s) {
-  return { pending: 'قيد المراجعة', approved: 'مقبولة', rejected: 'مرفوضة' }[s] || s;
-}
-
-const STATUS_COLORS = { pending: '#f59e0b', approved: '#16a34a', rejected: '#dc2626' };
-
-const styles = {
-  page: { direction: 'rtl', fontFamily: theme.font, padding: 32, maxWidth: 1200, margin: '0 auto' },
-  subtitle: { color: theme.color.muted, margin: '0 0 16px', fontSize: 14 },
-  tabs: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' },
-  tab: (active) => ({
-    padding: '9px 22px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-    border: 'none',
-    fontSize: 14,
-    background: active ? theme.color.primary : theme.color.surfaceContainer,
-    color: active ? theme.color.onPrimary : theme.color.muted,
-    boxShadow: active ? theme.shadow.float : 'none',
-  }),
-  refresh: {
-    marginInlineStart: 'auto',
-    background: theme.color.card,
-    border: `1px solid ${theme.color.outlineStrong}`,
-    color: theme.color.onSurfaceVariant,
-    padding: '8px 14px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-    fontSize: 13,
-  },
-  table: { marginTop: 4 },
-  phone: { fontSize: 12, color: theme.color.muted },
-  date: { fontSize: 12, color: theme.color.muted, whiteSpace: 'nowrap' },
-  thumb: {
-    width: 44, height: 44, objectFit: 'cover', borderRadius: 8, cursor: 'pointer',
-    border: `1px solid ${theme.color.outline}`,
-  },
-  btn2: (bg) => ({
-    background: bg, color: '#fff', border: 'none', padding: '7px 14px',
-    borderRadius: theme.radius.pill, cursor: 'pointer', fontSize: 13,
-  }),
-  pill: (s) => ({
-    background: STATUS_COLORS[s] || '#94a3b8', color: '#fff', padding: '3px 12px',
-    borderRadius: theme.radius.pill, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-  }),
-  muted: { color: theme.color.muted, fontSize: 13 },
-  error: { color: '#dc2626', fontSize: 14 },
-  overlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'grid',
-    placeItems: 'center', zIndex: 50, cursor: 'zoom-out', padding: 24,
-  },
-  previewImg: { maxWidth: '90vw', maxHeight: '90vh', borderRadius: 12, boxShadow: '0 8px 40px rgba(0,0,0,0.5)' },
-};

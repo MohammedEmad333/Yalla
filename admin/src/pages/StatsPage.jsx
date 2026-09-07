@@ -1,88 +1,92 @@
-// صفحة الإحصائيات (لوحة الأدمن) — بطاقات مؤشّرات الأداء الرئيسية.
+// صفحة الإحصائيات — بطاقات مؤشّرات الأداء الرئيسية (KPIs).
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { theme } from '../theme';
+import { Alert, Button, EmptyState, Loading, PageHeader } from '../components/ui';
+import {
+  IconBike,
+  IconBolt,
+  IconCheck,
+  IconChart,
+  IconClock,
+  IconClose,
+  IconOrders,
+  IconRefresh,
+  IconUsers,
+  IconWallet,
+} from '../components/icons';
+
+// تعريف البطاقات: التسمية، مفتاح القيمة، اللاحقة، الأيقونة، ولون الحالة
+const CARDS = [
+  { key: 'totalOrders', label: 'إجمالي الطلبات', icon: IconOrders, tone: 'info' },
+  { key: 'todayOrders', label: 'طلبات اليوم', icon: IconBolt, tone: 'brand' },
+  { key: 'active', label: 'طلبات نشطة', icon: IconBike, tone: 'warning' },
+  { key: 'delivered', label: 'تم التسليم', icon: IconCheck, tone: 'success' },
+  { key: 'cancelled', label: 'ملغاة', icon: IconClose, tone: 'danger' },
+  { key: 'revenue', label: 'الإيرادات', icon: IconWallet, tone: 'success', suffix: ' ₪' },
+  { key: 'avgDeliveryMinutes', label: 'متوسّط زمن التوصيل', icon: IconClock, tone: 'info', suffix: ' دقيقة' },
+  { key: 'onlineCaptains', label: 'كباتن متصلون', icon: IconUsers, tone: 'brand' },
+];
+
+// ألوان الأيقونة حسب النغمة (مشتقّة من رموز التصميم)
+const TONE = {
+  brand: { bg: 'var(--brand-tint)', fg: 'var(--brand-deep)' },
+  info: { bg: 'var(--accent-tint)', fg: 'var(--accent-deep)' },
+  success: { bg: 'var(--success-tint)', fg: 'var(--success)' },
+  warning: { bg: 'var(--warning-tint)', fg: 'var(--warning)' },
+  danger: { bg: 'var(--danger-tint)', fg: 'var(--danger)' },
+};
 
 export default function StatsPage() {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState('');
 
-  const load = () =>
+  const load = () => {
+    setError('');
     api.get('/admin/stats').then(setStats).catch((e) => setError(e.message));
+  };
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  if (error) return <div style={styles.page}><p style={styles.err}>{error}</p></div>;
-  if (!stats) return <div style={{ ...styles.page, color: theme.color.muted }}>...جارٍ التحميل</div>;
-
-  const C = theme.color;
-  // تعريف البطاقات (تسمية، قيمة، أيقونة، لون من نظام Velocity)
-  const cards = [
-    { label: 'إجمالي الطلبات', value: stats.totalOrders, icon: '📦', color: C.secondary },
-    { label: 'طلبات اليوم', value: stats.todayOrders, icon: '📅', color: C.secondaryDeep },
-    { label: 'طلبات نشطة', value: stats.active, icon: '🚴', color: C.primary },
-    { label: 'تم التسليم', value: stats.delivered, icon: '✅', color: C.success },
-    { label: 'ملغاة', value: stats.cancelled, icon: '❌', color: C.error },
-    { label: 'الإيرادات', value: `${stats.revenue} ₪`, icon: '💰', color: C.primaryDeep },
-    { label: 'متوسّط زمن التوصيل', value: `${stats.avgDeliveryMinutes} دق`, icon: '⏱️', color: C.warning },
-    { label: 'كباتن متصلون', value: stats.onlineCaptains, icon: '🧑‍✈️', color: C.secondary },
-  ];
+  useEffect(load, []);
 
   return (
-    <div className="yl-page" style={styles.page}>
-      <div style={styles.headerRow}>
-        <div>
-          <h1 style={{ margin: 0 }}>الإحصائيات</h1>
-          <p style={styles.subtitle}>نظرة عامّة على أداء المنظومة</p>
-        </div>
-        <button style={styles.refresh} onClick={load}>↻ تحديث</button>
-      </div>
+    <>
+      <PageHeader title="الإحصائيات" subtitle="نظرة عامّة على أداء المنظومة">
+        <Button icon={<IconRefresh size={18} />} onClick={load} aria-label="تحديث">
+          <span className="yl-hide-xs">تحديث</span>
+        </Button>
+      </PageHeader>
 
-      <div style={styles.grid}>
-        {cards.map((c) => (
-          <div key={c.label} style={styles.card(c.color)}>
-            <div style={{ ...styles.iconWrap, background: `${c.color}1a` }}>
-              <span style={{ fontSize: 24 }}>{c.icon}</span>
-            </div>
-            <div>
-              <div style={styles.value}>{c.value}</div>
-              <div style={styles.label}>{c.label}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+      {error && <Alert tone="error">{error}</Alert>}
+
+      {!stats && !error && <Loading />}
+
+      {stats && (
+        <div className="yl-grid yl-grid--stats">
+          {CARDS.map(({ key, label, icon: Icon, tone, suffix = '' }) => {
+            const value = stats[key];
+            if (value === undefined || value === null) return null;
+            const c = TONE[tone];
+            return (
+              <div className="yl-stat" key={key}>
+                <span className="yl-stat__icon" style={{ background: c.bg, color: c.fg }}>
+                  <Icon size={22} />
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div className="yl-stat__value yl-num">
+                    {value}
+                    {suffix}
+                  </div>
+                  <div className="yl-stat__label">{label}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {stats && Object.keys(stats).length === 0 && (
+        <EmptyState icon={<IconChart size={26} />} title="لا توجد بيانات بعد" />
+      )}
+    </>
   );
 }
-
-const styles = {
-  page: { direction: 'rtl', fontFamily: theme.font, padding: 32, maxWidth: 1200, margin: '0 auto' },
-  headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 16, flexWrap: 'wrap' },
-  subtitle: { color: theme.color.muted, margin: '4px 0 0', fontSize: 14 },
-  err: { color: theme.color.error, background: theme.color.errorSoft, padding: 14, borderRadius: theme.radius.md },
-  refresh: {
-    padding: '9px 18px',
-    borderRadius: theme.radius.pill,
-    border: `1px solid ${theme.color.outlineStrong}`,
-    background: theme.color.card,
-    color: theme.color.onSurfaceVariant,
-    cursor: 'pointer',
-  },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 16 },
-  card: (accent) => ({
-    background: theme.color.card,
-    borderRadius: theme.radius.lg,
-    padding: 20,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14,
-    boxShadow: theme.shadow.card,
-    borderRight: `4px solid ${accent}`,
-  }),
-  iconWrap: { width: 52, height: 52, borderRadius: theme.radius.md, display: 'grid', placeItems: 'center', flexShrink: 0 },
-  value: { fontSize: 24, fontWeight: 700, color: theme.color.onSurface },
-  label: { color: theme.color.muted, fontSize: 13, marginTop: 2 },
-};

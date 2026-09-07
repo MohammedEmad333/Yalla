@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
+import '../../core/widgets/ui.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final ApiClient api;
@@ -94,13 +95,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         title: Text(_unread > 0 ? 'الإشعارات ($_unread)' : 'الإشعارات'),
         actions: [
           if (_unread > 0)
-            TextButton(onPressed: _markAll, child: const Text('تعليم الكلّ', style: TextStyle(color: Colors.white))),
+            TextButton(onPressed: _markAll, child: const Text('تعليم الكلّ')),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _items.isEmpty
-              ? const Center(child: Text('لا توجد إشعارات'))
+              ? const EmptyStateView(
+                  icon: Icons.notifications_none,
+                  title: 'لا توجد إشعارات',
+                  message: 'ستصلك هنا تحديثات طلباتك ورسائل الإدارة.',
+                )
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView.separated(

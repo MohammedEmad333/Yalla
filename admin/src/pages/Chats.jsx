@@ -1,27 +1,38 @@
 // مراقبة محادثات الطلبات (Card 32 + Card 45)
 // يعرض الأدمن المحادثات الجارية بين الزبائن والكباتن، يدخل أيّها، يشارك برسالة
-// تظهر بأيقونة أدمن خاصّة 🛡️، ويصدّر نسخة CSV من المحادثة (حتى بعد انتهائها).
+// تظهر بشارة «الإدارة»، ويصدّر نسخة CSV من المحادثة (حتى بعد انتهائها).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
-import { theme } from '../theme';
 import { API } from '../api/client';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  IconButton,
+  Input,
+  PageHeader,
+} from '../components/ui';
+import { IconChat, IconChevron, IconDownload, IconPhone, IconSend, IconTrash } from '../components/icons';
 
+// دور المُرسِل: التسمية ونغمة الشارة وموضع الفقاعة
 const ROLE_META = {
-  user: { icon: '👤', label: 'صاحب الطلب', bg: '#eff6ff', me: false },
-  captain: { icon: '🧑‍✈️', label: 'الكابتن', bg: '#f0fdf4', me: false },
-  admin: { icon: '🛡️', label: 'الأدمن', bg: '#fef9c3', me: true }, // أيقونة الأدمن الخاصّة
+  user: { label: 'صاحب الطلب', tone: 'info', me: false },
+  captain: { label: 'الكابتن', tone: 'success', me: false },
+  admin: { label: 'الإدارة', tone: 'brand', me: true },
 };
 
-// Card 93: طرف محادثة (أيقونة + اسم) مع زرّ اتصال هاتفي مباشر إن توفّر رقمه.
-function Party({ icon, name, phone }) {
+// Card 93: طرف محادثة (اسم + زرّ اتصال هاتفي مباشر إن توفّر رقمه)
+function Party({ label, name, phone }) {
   return (
-    <span style={styles.party}>
-      <span>{icon}</span>
-      <span>{name || '—'}</span>
+    <span className="yl-row" style={{ gap: 6 }}>
+      <span className="yl-hint">{label}:</span>
+      <b>{name || '—'}</b>
       {phone && (
-        <a href={`tel:${phone}`} style={styles.callBtn} title={`اتصال بـ ${name || ''} (${phone})`}>
-          📞 اتصال
+        <a className="yl-btn yl-btn--soft yl-btn--sm" href={`tel:${phone}`} title={`اتصال بـ ${name || ''}`}>
+          <IconPhone size={16} />
+          اتصال
         </a>
       )}
     </span>
@@ -138,162 +149,105 @@ export default function Chats() {
   const activeChat = chats.find((c) => c.orderId === active);
 
   return (
-    <div className="yl-page" style={styles.page}>
-      <h1 style={{ margin: '0 0 4px' }}>محادثات الطلبات</h1>
-      <p style={styles.subtitle}>متابعة المحادثات الجارية بين الزبائن والكباتن والمشاركة فيها وتصديرها</p>
+    <>
+      <PageHeader
+        title="محادثات الطلبات"
+        subtitle="متابعة المحادثات الجارية بين الزبائن والكباتن والمشاركة فيها وتصديرها"
+      />
 
-      <div className="yl-two-col" style={styles.grid}>
+      <div className="yl-convo" data-open={!!active}>
         {/* قائمة المحادثات (Card 45) */}
-        <aside style={styles.list}>
-          <div style={styles.listHead}>
-            المحادثات الجارية ({chats.length})
-            <button style={styles.reload} onClick={loadChats}>تحديث</button>
-          </div>
-          {chats.length === 0 && <p style={styles.empty}>لا توجد محادثات جارية</p>}
-          {chats.map((c) => (
-            <button
-              key={c.orderId}
-              style={styles.chatItem(active === c.orderId)}
-              onClick={() => openChat(c.orderId)}
-            >
-              <div style={styles.chatItemTop}>
-                <b>#{c.orderId.slice(-5)}</b>
-                <span style={styles.count}>{c.messages}</span>
-              </div>
-              <div style={styles.parties}>
-                {ROLE_META.user.icon} {c.user?.name || '—'} ↔ {ROLE_META.captain.icon} {c.captain?.name || '—'}
-              </div>
-              <div style={styles.preview}>{c.lastText}</div>
-            </button>
-          ))}
-        </aside>
+        <Card className="yl-convo__list" title={`المحادثات الجارية (${chats.length})`} pad={false}>
+          {chats.length === 0 ? (
+            <EmptyState icon={<IconChat size={26} />} title="لا توجد محادثات جارية" />
+          ) : (
+            <div className="yl-list" style={{ padding: 'var(--s-2)' }}>
+              {chats.map((c) => (
+                <button
+                  key={c.orderId}
+                  className="yl-listitem"
+                  aria-current={active === c.orderId}
+                  onClick={() => openChat(c.orderId)}
+                >
+                  <span className="yl-listitem__main">
+                    <span className="yl-listitem__title">
+                      #{c.orderId.slice(-5)} · {c.user?.name || '—'} ↔ {c.captain?.name || '—'}
+                    </span>
+                    <span className="yl-listitem__sub">{c.lastText}</span>
+                  </span>
+                  {c.messages > 0 && <span className="yl-unread">{c.messages}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
 
         {/* نافذة المحادثة */}
-        <section style={styles.thread}>
-          {!active && <div style={styles.placeholder}>اختر محادثة لعرضها</div>}
-          {active && (
+        <Card className="yl-convo__panel" pad={false}>
+          {!active ? (
+            <EmptyState icon={<IconChat size={26} />} title="اختر محادثة لعرضها" />
+          ) : (
             <>
-              <div style={styles.threadHead}>
+              <header className="yl-card__head">
                 <div>
-                  <b>طلب #{active.slice(-5)}</b>
-                  {/* Card 93: أيقونة واسم كل طرف + زرّ اتصال هاتفي مباشر بجانبه */}
-                  <div style={styles.partiesRow}>
-                    <Party icon={ROLE_META.user.icon} name={activeChat?.user?.name} phone={activeChat?.user?.phone} />
-                    <span style={styles.partySep}>↔</span>
-                    <Party icon={ROLE_META.captain.icon} name={activeChat?.captain?.name} phone={activeChat?.captain?.phone} />
+                  <div className="yl-row">
+                    <span className="yl-hide-lg">
+                      <IconButton label="رجوع للقائمة" small onClick={() => setActive(null)}>
+                        <IconChevron size={18} style={{ transform: 'scaleX(-1)' }} />
+                      </IconButton>
+                    </span>
+                    <b>طلب #{active.slice(-5)}</b>
+                  </div>
+                  {/* Card 93: كل طرف مع زرّ اتصال هاتفي مباشر */}
+                  <div className="yl-row" style={{ marginTop: 6, gap: 'var(--s-4)' }}>
+                    <Party label="الزبون" name={activeChat?.user?.name} phone={activeChat?.user?.phone} />
+                    <Party label="الكابتن" name={activeChat?.captain?.name} phone={activeChat?.captain?.phone} />
                   </div>
                 </div>
-                <button style={styles.exportBtn} onClick={() => exportCsv(active)}>⬇ تصدير CSV</button>
-              </div>
+                <Button size="sm" variant="soft" icon={<IconDownload size={16} />} onClick={() => exportCsv(active)}>
+                  تصدير CSV
+                </Button>
+              </header>
 
-              <div style={styles.messages}>
-                {messages.length === 0 && <p style={styles.empty}>لا رسائل</p>}
+              <div className="yl-thread yl-convo__body">
+                {messages.length === 0 && <p className="yl-muted">لا رسائل</p>}
                 {messages.map((m) => {
                   const meta = ROLE_META[m.senderRole] || ROLE_META.user;
                   return (
-                    <div key={m._id} style={styles.msgRow(meta.me)}>
-                      <div style={styles.bubble(meta.bg, meta.me)}>
-                        <div style={styles.bubbleHead}>
-                          <span style={styles.msgSender}>{meta.icon} {meta.label}</span>
-                          {/* Card 94: حذف أي رسالة عن طريق الأدمن */}
-                          <button
-                            style={styles.msgDelete}
-                            title="حذف الرسالة نهائيًا"
-                            onClick={() => deleteMessage(m.order || active, m._id)}
-                          >
-                            🗑
-                          </button>
-                        </div>
-                        <div>{m.text}</div>
-                        <div style={styles.msgTime}>{fmtTime(m.createdAt)}</div>
+                    <div key={m._id} className={`yl-bubble ${meta.me ? 'yl-bubble--out' : 'yl-bubble--in'}`}>
+                      <div className="yl-row yl-row--between" style={{ gap: 'var(--s-3)' }}>
+                        <Badge tone={meta.me ? 'neutral' : meta.tone}>{meta.label}</Badge>
+                        {/* Card 94: حذف أي رسالة عن طريق الأدمن */}
+                        <button
+                          className="yl-bubble__del"
+                          title="حذف الرسالة نهائيًا"
+                          onClick={() => deleteMessage(m.order || active, m._id)}
+                        >
+                          <IconTrash size={14} />
+                        </button>
                       </div>
+                      <div style={{ marginTop: 4 }}>{m.text}</div>
+                      <span className="yl-bubble__meta">{fmtTime(m.createdAt)}</span>
                     </div>
                   );
                 })}
                 <div ref={bottomRef} />
               </div>
 
-              <form onSubmit={send} style={styles.composer}>
-                <input
-                  style={styles.input}
+              <form onSubmit={send} className="yl-convo__composer">
+                <Input
                   placeholder="اكتب رسالة كأدمن…"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                 />
-                <button type="submit" style={styles.sendBtn}>إرسال</button>
+                <Button type="submit" variant="primary" icon={<IconSend size={18} />} aria-label="إرسال">
+                  <span className="yl-hide-xs">إرسال</span>
+                </Button>
               </form>
             </>
           )}
-        </section>
+        </Card>
       </div>
-    </div>
+    </>
   );
 }
-
-const styles = {
-  page: { direction: 'rtl', fontFamily: theme.font, padding: 32, maxWidth: 1200, margin: '0 auto' },
-  subtitle: { color: theme.color.muted, margin: '0 0 16px', fontSize: 14 },
-  grid: { display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16, alignItems: 'start' },
-  list: { display: 'flex', flexDirection: 'column', gap: 8 },
-  listHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 700, marginBottom: 4 },
-  reload: {
-    padding: '5px 12px', borderRadius: theme.radius.pill, cursor: 'pointer',
-    border: `1px solid ${theme.color.outlineStrong}`, background: theme.color.card, fontSize: 12,
-  },
-  empty: {
-    color: theme.color.muted, background: theme.color.card, borderRadius: theme.radius.md,
-    padding: 16, textAlign: 'center', border: `1px dashed ${theme.color.outlineStrong}`,
-  },
-  chatItem: (active) => ({
-    textAlign: 'right', cursor: 'pointer', border: `1px solid ${active ? theme.color.primary : theme.color.outline}`,
-    background: active ? theme.color.secondarySoft : theme.color.card, borderRadius: theme.radius.md,
-    padding: 12, display: 'flex', flexDirection: 'column', gap: 4,
-  }),
-  chatItemTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  count: { background: theme.color.primary, color: '#fff', borderRadius: theme.radius.pill, padding: '1px 8px', fontSize: 11 },
-  parties: { fontSize: 13, color: theme.color.onSurfaceVariant },
-  preview: { fontSize: 12, color: theme.color.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  thread: {
-    background: theme.color.card, borderRadius: theme.radius.lg, boxShadow: theme.shadow.card,
-    minHeight: 420, display: 'flex', flexDirection: 'column',
-  },
-  placeholder: { margin: 'auto', color: theme.color.muted, padding: 40 },
-  threadHead: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: 16, borderBottom: `1px solid ${theme.color.outline}`,
-  },
-  sub: { color: theme.color.muted, fontSize: 12, marginTop: 2 },
-  // Card 93: صفّ أطراف المحادثة مع أزرار الاتصال
-  partiesRow: { display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, flexWrap: 'wrap' },
-  party: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: theme.color.onSurfaceVariant },
-  partySep: { color: theme.color.muted },
-  callBtn: {
-    display: 'inline-flex', alignItems: 'center', gap: 4,
-    background: theme.color.success || '#16a34a', color: '#fff', textDecoration: 'none',
-    padding: '3px 10px', borderRadius: theme.radius.pill, fontSize: 12, whiteSpace: 'nowrap',
-  },
-  exportBtn: {
-    background: theme.color.secondary, color: theme.color.onSecondary, border: 'none',
-    padding: '8px 14px', borderRadius: theme.radius.pill, cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap',
-  },
-  messages: { flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 460 },
-  msgRow: (me) => ({ display: 'flex', justifyContent: me ? 'flex-start' : 'flex-end' }),
-  bubble: (bg, me) => ({
-    background: bg, borderRadius: theme.radius.md, padding: '8px 12px', maxWidth: '75%',
-    border: `1px solid ${me ? theme.color.warning || '#eab308' : theme.color.outline}`,
-  }),
-  bubbleHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  msgSender: { fontSize: 11, color: theme.color.muted, marginBottom: 2 },
-  // Card 94: زرّ حذف الرسالة
-  msgDelete: {
-    background: 'transparent', border: 'none', cursor: 'pointer',
-    fontSize: 13, lineHeight: 1, opacity: 0.6, padding: 0,
-  },
-  msgTime: { fontSize: 10, color: theme.color.muted, marginTop: 2, textAlign: 'left' },
-  composer: { display: 'flex', gap: 8, padding: 16, borderTop: `1px solid ${theme.color.outline}` },
-  input: { flex: 1, padding: '10px 14px', borderRadius: theme.radius.pill, border: `1px solid ${theme.color.outlineStrong}` },
-  sendBtn: {
-    background: theme.color.primary, color: theme.color.onPrimary, border: 'none',
-    padding: '10px 20px', borderRadius: theme.radius.pill, cursor: 'pointer',
-  },
-};

@@ -1,0 +1,103 @@
+/* ═══ الأساس: إعادة ضبط + طباعة + عناصر النماذج ═══════════════════════════ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  overflow-x: hidden; /* يمنع أي تمدّد أفقي عرضيّ يكسر التخطيط على الجوال */
+}
+
+body {
+  font-family: var(--font);
+  font-size: var(--fs-md);
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent; /* إحساس تطبيق أصليّ على أندرويد */
+}
+
+h1, h2, h3, h4 {
+  margin: 0;
+  color: var(--text);
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+h1 { font-size: var(--fs-2xl); font-weight: 700; }
+h2 { font-size: var(--fs-xl); font-weight: 700; }
+h3 { font-size: var(--fs-lg); font-weight: 600; }
+p { margin: 0; }
+
+a { color: var(--accent-deep); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* عناصر التحكّم ترث الخطّ دائمًا (وإلّا يعود المتصفّح لخطّه الافتراضي) */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: var(--fs-md);
+  color: var(--text);
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* منع تكبير iOS التلقائي عند التركيز على حقل (خطّ ≥16px على الجوال) */
+@media (max-width: 720px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+img { max-width: 100%; display: block; }
+
+/* شريط تمرير خفيف ومتناسق */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-pill);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
+
+::placeholder { color: var(--text-muted); opacity: 1; }
+
+/* تركيز واضح للوحة المفاتيح (وصوليّة) دون إزعاج مستخدم الفأرة */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* حركة مخفَّضة لمن يطلبها من إعدادات نظامه */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

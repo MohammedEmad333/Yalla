@@ -280,10 +280,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         '${deadline.hour.toString().padLeft(2, '0')}:${deadline.minute.toString().padLeft(2, '0')}';
 
     return Card(
-      color: late ? const Color(0xFFFEF3C7) : Theme.of(context).colorScheme.surface,
+      color: late ? YallaColors.warningContainer : YallaColors.card,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: late ? const Color(0xFFF59E0B) : YallaColors.outline),
+        side: BorderSide(color: late ? YallaColors.warning : YallaColors.outline),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -293,13 +293,13 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             Row(
               children: [
                 Icon(late ? Icons.warning_amber : Icons.timer,
-                    color: late ? const Color(0xFF92400E) : YallaColors.primary),
+                    color: late ? YallaColors.warning : YallaColors.primary),
                 const SizedBox(width: 10),
                 Text(
                   late ? 'تأخّر عن الوقت المتوقّع' : 'الوصول المتوقّع خلال',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: late ? const Color(0xFF92400E) : YallaColors.onSurface,
+                    color: late ? YallaColors.warning : YallaColors.onSurface,
                   ),
                 ),
               ],
@@ -310,17 +310,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               style: TextStyle(
                 fontSize: 30,
                 fontWeight: FontWeight.w800,
-                color: late ? const Color(0xFF92400E) : YallaColors.primary,
+                color: late ? YallaColors.warning : YallaColors.primary,
               ),
             ),
             const SizedBox(height: 4),
             Text('الوقت التقديري للوصول: $arriveAt',
-                style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+                style: TextStyle(color: YallaColors.muted, fontSize: 12)),
             if (late) ...[
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'قد لا يصل الطلب في الوقت المتوقّع — يمكنك مراسلة الكابتن للاطمئنان.',
-                style: TextStyle(color: Color(0xFF92400E), fontSize: 13),
+                style: TextStyle(color: YallaColors.warning, fontSize: 13),
               ),
             ],
           ],

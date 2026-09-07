@@ -8,6 +8,7 @@ import '../../core/config/company.dart';
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/ui.dart';
 
 class SupportScreen extends StatefulWidget {
   final ApiClient api;
@@ -116,7 +117,7 @@ class _SupportScreenState extends State<SupportScreen> {
         children: [
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const LoadingView()
                 : _messages.isEmpty
                     ? _emptyState()
                     : ListView.builder(
@@ -138,9 +139,9 @@ class _SupportScreenState extends State<SupportScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.support_agent, size: 64, color: YallaColors.muted),
+              Icon(Icons.support_agent, size: 64, color: YallaColors.muted),
               const SizedBox(height: 12),
-              const Text('اكتب لنا وسنردّ عليك في أقرب وقت',
+              Text('اكتب لنا وسنردّ عليك في أقرب وقت',
                   style: TextStyle(color: YallaColors.muted), textAlign: TextAlign.center),
               const SizedBox(height: 16),
               OutlinedButton.icon(

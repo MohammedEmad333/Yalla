@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/ui.dart';
 import '../../core/util/names.dart';
 import '../chat/chat_screen.dart';
 import 'order_detail_screen.dart';
@@ -94,15 +95,15 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       const ['assigned', 'accepted', 'picked_up'].contains(o['status']) &&
       o['captain'] != null;
 
-  // نصّ ولون لكل حالة
-  (String, Color) _statusMeta(String s) => switch (s) {
-        'pending' => ('بانتظار كابتن', YallaColors.statusPending),
-        'assigned' => ('تم التعيين', YallaColors.statusAssigned),
-        'accepted' => ('في الطريق', YallaColors.statusInTransit),
-        'picked_up' => ('جارٍ التوصيل', YallaColors.statusInTransit),
-        'delivered' => ('تم التسليم', YallaColors.statusDelivered),
-        'cancelled' => ('ملغى', YallaColors.statusCancelled),
-        _ => (s, YallaColors.muted),
+  // نصّ ولون ونغمة شارة لكل حالة
+  (String, Color, PillTone) _statusMeta(String s) => switch (s) {
+        'pending' => ('بانتظار كابتن', YallaColors.statusPending, PillTone.neutral),
+        'assigned' => ('تم التعيين', YallaColors.statusAssigned, PillTone.info),
+        'accepted' => ('في الطريق', YallaColors.statusInTransit, PillTone.brand),
+        'picked_up' => ('جارٍ التوصيل', YallaColors.statusInTransit, PillTone.brand),
+        'delivered' => ('تم التسليم', YallaColors.statusDelivered, PillTone.success),
+        'cancelled' => ('ملغى', YallaColors.statusCancelled, PillTone.danger),
+        _ => (s, YallaColors.muted, PillTone.neutral),
       };
 
   @override
@@ -112,67 +113,137 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const LoadingView()
             : _orders.isEmpty
-                ? const Center(child: Text('لا توجد طلبات بعد'))
+                ? const EmptyStateView(
+                    icon: Icons.receipt_long_outlined,
+                    title: 'لا توجد طلبات بعد',
+                    message: 'أنشئ طلب توصيل أو اطلب من أحد المطاعم لتظهر طلباتك هنا.',
+                  )
                 : ListView.separated(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                     itemCount: _orders.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (_, i) {
                       final o = _orders[i] as Map<String, dynamic>;
-                      final (label, color) = _statusMeta(o['status'] ?? '');
+                      final (label, color, tone) = _statusMeta(o['status'] ?? '');
                       final delivered = o['status'] == 'delivered';
                       final rated = o['rating']?['stars'] != null;
+                      final id = o['_id'] as String;
+                      final isStore = o['store']?['restaurant'] != null;
 
-                      return Card(
-                        child: ListTile(
-                          // Card 2: الضغط على الطلب يفتح صفحة تفاصيله الكاملة.
-                          onTap: () => _openDetail(o),
-                          leading: CircleAvatar(
-                            backgroundColor: color.withValues(alpha: 0.15),
-                            child: Icon(Icons.receipt_long, color: color),
-                          ),
-                          // Card 28: بعد التسليم نعرض السعر الحقيقي (finalPrice) لا التقريبي.
-                          title: Text('#${(o['_id'] as String).substring(o['_id'].length - 5)}'
-                              ' · ${_shownPrice(o)} ₪'),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('${o['pickup']?['address']} ← ${o['dropoff']?['address']}',
-                                  maxLines: 1, overflow: TextOverflow.ellipsis),
-                              // Card 48: اسم الكابتن لكل طلب مُسنَد (الاسم الأول فقط — Card 51)
-                              if (o['captain'] != null &&
-                                  firstName(o['captain']?['name']).isNotEmpty)
-                                Text('الكابتن: ${firstName(o['captain']?['name'])}',
-                                    style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
-                              Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+                      return YallaCard(
+                        // Card 2: الضغط على الطلب يفتح صفحة تفاصيله الكاملة.
+                        onTap: () => _openDetail(o),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: color.withValues(alpha: 0.12),
+                                  child: Icon(
+                                    isStore ? Icons.restaurant : Icons.receipt_long,
+                                    color: color,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        // Card 28: بعد التسليم نعرض السعر الحقيقي لا التقريبي
+                                        '#${id.substring(id.length - 5)} · ${_shownPrice(o)} ₪',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      if (isStore)
+                                        Text(
+                                          '${o['store']['name']}',
+                                          style: TextStyle(
+                                            color: YallaColors.muted,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                StatusPill(label, tone: tone),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.route_outlined, size: 16, color: YallaColors.muted),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    '${o['pickup']?['address']} ← ${o['dropoff']?['address']}',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: YallaColors.onSurfaceVariant,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // Card 48/51: اسم الكابتن الأول لكل طلب مُسنَد
+                            if (o['captain'] != null && firstName(o['captain']?['name']).isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Icon(Icons.person_outline, size: 16, color: YallaColors.muted),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'الكابتن: ${firstName(o['captain']?['name'])}',
+                                    style: TextStyle(color: YallaColors.muted, fontSize: 13),
+                                  ),
+                                ],
+                              ),
                             ],
-                          ),
-                          // زر الدردشة للطلب الجاري توصيله (Card 26)،
-                          // أو زر التقييم/عرض النجوم للطلب المسلّم.
-                          trailing: _canChat(o)
-                              ? IconButton(
-                                  tooltip: 'الدردشة مع الكابتن',
-                                  icon: const Icon(Icons.chat_bubble_outline,
-                                      color: YallaColors.primary),
-                                  onPressed: () => _openChat(o),
-                                )
-                              : (delivered && !rated)
-                                  ? TextButton.icon(
+                            // إجراءات: دردشة أثناء التوصيل (Card 26)، أو تقييم بعد التسليم
+                            if (_canChat(o) || (delivered && !rated) || rated) ...[
+                              const Divider(height: 20),
+                              Row(
+                                children: [
+                                  if (_canChat(o))
+                                    TextButton.icon(
+                                      onPressed: () => _openChat(o),
+                                      icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                                      label: const Text('محادثة الكابتن'),
+                                    ),
+                                  if (delivered && !rated)
+                                    TextButton.icon(
                                       onPressed: () => _rate(o),
-                                      icon: const Icon(Icons.star_border),
-                                      label: const Text('قيّم'),
-                                    )
-                                  : rated
-                                      ? Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(Icons.star, size: 16, color: Colors.amber),
-                                            Text('${o['rating']['stars']}'),
-                                          ],
-                                        )
-                                      : null,
+                                      icon: const Icon(Icons.star_border, size: 18),
+                                      label: const Text('قيّم الكابتن'),
+                                    ),
+                                  if (rated)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.star, size: 16, color: Colors.amber),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'تقييمك: ${o['rating']['stars']}',
+                                          style: TextStyle(color: YallaColors.muted, fontSize: 13),
+                                        ),
+                                      ],
+                                    ),
+                                  const Spacer(),
+                                  Icon(Icons.chevron_left, color: YallaColors.muted),
+                                ],
+                              ),
+                            ],
+                          ],
                         ),
                       );
                     },

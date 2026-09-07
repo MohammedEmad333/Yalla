@@ -104,16 +104,16 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: YallaColors.error.withValues(alpha: 0.4)),
       ),
-      child: const Column(
+      child: Column(
         children: [
           Icon(Icons.warning_amber_rounded, color: YallaColors.error, size: 48),
-          SizedBox(height: 12),
-          Text(
+          const SizedBox(height: 12),
+          const Text(
             'لا يمكنك سحب رصيدك أثناء وجود طلب جارٍ',
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             'بإمكانك طلب سحب الرصيد بعد اكتمال توصيل طلبك وخصم قيمته من رصيدك.',
             style: TextStyle(color: YallaColors.muted),
@@ -138,7 +138,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.account_balance_wallet_outlined, color: YallaColors.primaryDeep),
+                Icon(Icons.account_balance_wallet_outlined, color: YallaColors.primaryDeep),
                 const SizedBox(width: 10),
                 Text('الرصيد المتاح للسحب: $_available ₪',
                     style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -198,7 +198,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           ),
           if (_error != null) ...[
             const SizedBox(height: 14),
-            Text(_error!, style: const TextStyle(color: YallaColors.error), textAlign: TextAlign.center),
+            Text(_error!, style: TextStyle(color: YallaColors.error), textAlign: TextAlign.center),
           ],
           const SizedBox(height: 24),
           FilledButton.icon(

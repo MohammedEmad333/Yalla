@@ -9,7 +9,8 @@
   <!-- أيقونات وهوية PWA (Card 53) -->
   <link rel="icon" type="image/png" href="icon-192.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#FF6B00" />
+  <meta name="theme-color" content="#FF6B00" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)" />
 
   <!-- دعم "أضف إلى الشاشة الرئيسية" على iOS ليفتح كتطبيق مستقلّ -->
   <link rel="apple-touch-icon" href="icon-192.png" />
@@ -17,87 +18,11 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Yalla" />
 
-  <style>
-    :root {
-      --brand: #FF6B00;
-      --brand2: #ff9245;
-      --ink: #1a1a1a;
-      --muted: #5a5a5a;
-      --line: #e8e8e8;
-      --bg: #ffffff;
-      --soft: #fff7f0;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: #f4f5f7;
-      color: var(--ink);
-      font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", "Cairo", system-ui, sans-serif;
-      line-height: 1.8;
-      font-size: 17px;
-    }
-    .wrap { max-width: 720px; margin: 0 auto; padding: 0 18px 56px; }
-    header.hero {
-      background: linear-gradient(135deg, var(--brand), var(--brand2));
-      color: #fff;
-      padding: 40px 18px 30px;
-      text-align: center;
-    }
-    header.hero img.logo {
-      width: 104px; height: 104px; border-radius: 24px;
-      background: #fff; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18);
-    }
-    header.hero .brand { font-size: 30px; font-weight: 800; margin: 14px 0 4px; }
-    header.hero p { margin: 0; font-size: 17px; opacity: .96; }
-
-    .card {
-      background: var(--bg);
-      margin-top: -20px;
-      border-radius: 16px;
-      box-shadow: 0 8px 30px rgba(0,0,0,.08);
-      padding: 26px 22px;
-    }
-    /* زرّ التحميل من Google Play — في الأعلى وبارز (Card 53) */
-    .cta-primary {
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      width: 100%;
-      background: #111; color: #fff; text-decoration: none;
-      padding: 15px 18px; border-radius: 14px;
-      font-size: 18px; font-weight: 700;
-      box-shadow: 0 6px 18px rgba(0,0,0,.18);
-    }
-    .cta-primary:active { transform: translateY(1px); }
-    .cta-primary .gp { font-size: 22px; }
-    .cta-sub { text-align: center; color: var(--muted); font-size: 14px; margin: 10px 0 0; }
-
-    .divider { display: flex; align-items: center; gap: 12px; color: var(--muted); margin: 24px 0; }
-    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-
-    h2 { font-size: 19px; margin: 0 0 10px; color: var(--brand); }
-    .webapp-box {
-      background: var(--soft); border: 1px solid #ffd9bd; border-radius: 14px; padding: 18px 16px;
-    }
-    .btn-install {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: var(--brand); color: #fff; border: none; cursor: pointer;
-      padding: 12px 18px; border-radius: 12px; font-size: 16px; font-weight: 700;
-      margin-top: 6px;
-    }
-    .btn-install[disabled] { opacity: .55; cursor: default; }
-    ol.steps { margin: 12px 0 0; padding-inline-start: 20px; }
-    ol.steps li { margin: 6px 0; }
-    .ios-only, .android-hint { display: none; }
-
-    .contact {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: #25D366; color: #fff; text-decoration: none;
-      padding: 11px 16px; border-radius: 12px; font-weight: 700; font-size: 15px;
-      margin-top: 14px;
-    }
-    footer { text-align: center; color: var(--muted); font-size: 14px; margin-top: 24px; }
-    footer a { color: var(--brand); }
-    @media (max-width: 480px) { body { font-size: 16px; } .card { padding: 20px 16px; } }
-  </style>
+  <!-- خطّ الهوية: IBM Plex Sans Arabic (نفس خطّ التطبيق ولوحة التحكّم) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="yalla.css" />
 </head>
 <body>
   <header class="hero">

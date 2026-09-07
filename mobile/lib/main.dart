@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_controller.dart';
 import 'core/network/api_client.dart';
 import 'core/realtime/socket_service.dart';
 import 'core/storage/token_storage.dart';
@@ -19,6 +20,8 @@ final apiClient = ApiClient(tokenStorage);
 final socketService = SocketService(tokenStorage);
 final authRepository = AuthRepository(apiClient, tokenStorage);
 final pushService = PushService(apiClient);
+// وضع العرض (فاتح/ليلي/حسب النظام) — يُستعاد عند الإقلاع
+final themeController = ThemeController();
 
 // تسجيل الخروج مع إلغاء رمز الإشعارات أولًا (قبل مسح التوكن ليمرّ الطلب مصادَقًا).
 Future<void> handleLogout() async {
@@ -30,6 +33,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // تهيئة إشعارات FCM (آمنة: لا تُعطّل الإقلاع إن لم يُهيّأ Firebase بعد) — Card 22
   await PushService.initialize();
+  // استعادة وضع العرض المحفوظ قبل أوّل رسم (يمنع وميض الأبيض ليلًا).
+  // بمهلة قصيرة: لا يجوز أن يتعطّل إقلاع التطبيق إن تأخّر المخزن أو لم يتوفّر
+  // (كما في نسخة الويب)؛ يبقى الوضع «حسب النظام» حتى تصل القيمة المحفوظة.
+  await themeController.restore().timeout(
+    const Duration(milliseconds: 800),
+    onTimeout: () {},
+  );
   // عند توفّر جلسة (دخول/استعادة) نسجّل رمز الجهاز في الخادم لاستقبال الإشعارات
   authRepository.session.addListener(() {
     if (authRepository.session.value != null) pushService.registerAfterLogin();
@@ -37,15 +47,53 @@ void main() async {
   runApp(const YallaApp());
 }
 
-class YallaApp extends StatelessWidget {
+class YallaApp extends StatefulWidget {
   const YallaApp({super.key});
 
   @override
+  State<YallaApp> createState() => _YallaAppState();
+}
+
+class _YallaAppState extends State<YallaApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    // نراقب تغيّر وضع النظام (فاتح/ليلي) لنتبعه عند اختيار «حسب النظام»
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() => setState(() {});
+
+  @override
   Widget build(BuildContext context) {
+    // نعيد البناء عند تبديل وضع العرض، ونضبط سطوع لوحة الألوان قبل بناء الشجرة
+    // حتى تُقرأ ألوان YallaColors الصحيحة في كل الشاشات.
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeController.mode,
+      builder: (context, mode, _) {
+        final systemDark = WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+            Brightness.dark;
+        final isDark = mode == ThemeMode.dark || (mode == ThemeMode.system && systemDark);
+        YallaColors.brightness = isDark ? Brightness.dark : Brightness.light;
+        return _buildApp(mode);
+      },
+    );
+  }
+
+  Widget _buildApp(ThemeMode mode) {
     return MaterialApp(
       title: 'Yalla',
       debugShowCheckedModeBanner: false,
-      theme: buildYallaTheme(),
+      theme: buildYallaTheme(Brightness.light),
+      darkTheme: buildYallaTheme(Brightness.dark),
+      themeMode: mode,
       // فرض RTL + غلاف متجاوب يجعل التطبيق مناسبًا لكل الشاشات (Card 60):
       // على الشاشات العريضة (ويب/سطح المكتب) يُعرض المحتوى في عمود بعرض جوال
       // موسَّط بدل التمدّد على كامل العرض، وعلى الجوّالات يبقى بكامل العرض.

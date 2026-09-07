@@ -131,7 +131,7 @@ class _CaptainSignupScreenState extends State<CaptainSignupScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 'سجّل بياناتك ومستنداتك ليتمّ توثيق حسابك من الإدارة.',
                 style: TextStyle(color: YallaColors.muted),
               ),
@@ -209,7 +209,7 @@ class _CaptainSignupScreenState extends State<CaptainSignupScreen> {
 
               if (_error != null) ...[
                 const SizedBox(height: 12),
-                Text(_error!, style: const TextStyle(color: YallaColors.error), textAlign: TextAlign.center),
+                Text(_error!, style: TextStyle(color: YallaColors.error), textAlign: TextAlign.center),
               ],
 
               const SizedBox(height: 24),

@@ -71,6 +71,10 @@ jobs:
       - name: تثبيت التبعيات
         run: flutter pub get
 
+      # اختبارات الوحدة/الواجهة (نظام الألوان والوضع الليلي) قبل البناء
+      - name: اختبارات Flutter
+        run: flutter test
+
       # تفعيل core library desugaring في سقالة Android المولّدة — تتطلّبه حزمة
       # flutter_local_notifications (إشعارات شاشة القفل/heads-up)، وإلّا يفشل البناء.
       - name: تفعيل desugaring (flutter_local_notifications)

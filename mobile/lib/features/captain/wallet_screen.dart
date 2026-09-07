@@ -88,7 +88,7 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
       final add = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.account_balance_wallet, color: YallaColors.primary, size: 36),
+          icon: Icon(Icons.account_balance_wallet, color: YallaColors.primary, size: 36),
           title: const Text('أضِف محفظتك الإلكترونية'),
           content: const Text(
             'لسحب أموالك أضِف محفظة إلكترونية واحدة على الأقلّ (رقم المحفظة واسم صاحبها) '
@@ -139,8 +139,8 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
             if (_loading)
               const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
             else if (_withdrawals.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
                 child: Center(child: Text('لا توجد طلبات سحب بعد', style: TextStyle(color: YallaColors.muted))),
               )
             else
@@ -155,7 +155,7 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [YallaColors.primary, YallaColors.primaryDeep],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
@@ -210,7 +210,7 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.account_balance_wallet, color: YallaColors.primary),
+              Icon(Icons.account_balance_wallet, color: YallaColors.primary),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text('محافظي الإلكترونية',
@@ -225,8 +225,8 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
           ),
           const SizedBox(height: 4),
           if (_payoutWallets.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
               child: Text(
                 'أضِف رقم محفظتك الإلكترونية واسم صاحبها ليحوّل لك الأدمن أموالك بسهولة.',
                 style: TextStyle(color: YallaColors.muted, fontSize: 13),
@@ -246,7 +246,7 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(_walletCategories[cat] ?? cat,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: YallaColors.primaryDeep, fontSize: 12, fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(width: 10),
@@ -258,7 +258,7 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
                               style: const TextStyle(fontWeight: FontWeight.w600)),
                           if ((w['ownerName'] as String?)?.isNotEmpty ?? false)
                             Text('${w['ownerName']}',
-                                style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+                                style: TextStyle(color: YallaColors.muted, fontSize: 12)),
                         ],
                       ),
                     ),
@@ -296,7 +296,7 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: YallaColors.outline),
+        side: BorderSide(color: YallaColors.outline),
       ),
       child: ListTile(
         leading: CircleAvatar(
@@ -305,7 +305,7 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
         ),
         title: Text('${w['amount'] ?? 0} ₪', style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Text('${_methods[w['method']] ?? w['method'] ?? ''} · ${w['phone'] ?? ''}',
-            style: const TextStyle(color: YallaColors.muted, fontSize: 12)),
+            style: TextStyle(color: YallaColors.muted, fontSize: 12)),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
@@ -423,7 +423,7 @@ class _WithdrawFormState extends State<_WithdrawForm> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded, color: YallaColors.error, size: 36),
+        icon: Icon(Icons.warning_amber_rounded, color: YallaColors.error, size: 36),
         title: const Text('المبلغ أقلّ من الحدّ الأدنى'),
         content: Text(
           'المبلغ المطلوب ($amount ₪) أقلّ من الحدّ الأدنى للسحب '
@@ -442,7 +442,7 @@ class _WithdrawFormState extends State<_WithdrawForm> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded, color: YallaColors.error, size: 36),
+        icon: Icon(Icons.warning_amber_rounded, color: YallaColors.error, size: 36),
         title: const Text('رصيدك غير كافٍ'),
         content: Text(
           'المبلغ المطلوب ($amount ₪) أكبر من رصيدك المتاح للسحب '
@@ -469,7 +469,7 @@ class _WithdrawFormState extends State<_WithdrawForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('سحب الأموال', style: Theme.of(context).textTheme.titleLarge),
-          Text('المتاح: ${widget.available} ₪', style: const TextStyle(color: YallaColors.muted)),
+          Text('المتاح: ${widget.available} ₪', style: TextStyle(color: YallaColors.muted)),
           const SizedBox(height: 16),
           TextField(
             controller: _amount,
@@ -512,13 +512,13 @@ class _WithdrawFormState extends State<_WithdrawForm> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.info_outline, size: 16, color: YallaColors.muted),
+                Icon(Icons.info_outline, size: 16, color: YallaColors.muted),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     'سيُحوَّل إلى: ${_selectedWallet!['number'] ?? ''}'
                     '${(_selectedWallet!['ownerName'] as String?)?.isNotEmpty ?? false ? ' — ${_selectedWallet!['ownerName']}' : ''}',
-                    style: const TextStyle(color: YallaColors.muted, fontSize: 12),
+                    style: TextStyle(color: YallaColors.muted, fontSize: 12),
                   ),
                 ),
               ],
@@ -616,7 +616,7 @@ class _PayoutWalletsFormState extends State<_PayoutWalletsForm> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('محافظي الإلكترونية', style: Theme.of(context).textTheme.titleLarge),
-            const Text('أدخل رقم المحفظة واسم صاحبها لكل تصنيف تستخدمه.',
+            Text('أدخل رقم المحفظة واسم صاحبها لكل تصنيف تستخدمه.',
                 style: TextStyle(color: YallaColors.muted, fontSize: 13)),
             const SizedBox(height: 16),
             for (final entry in _walletCategories.entries) ...[

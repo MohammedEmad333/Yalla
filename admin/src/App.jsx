@@ -1,10 +1,32 @@
-// جذر تطبيق لوحة الأدمن — يربط المصادقة بالبوابة (Login Gate)
-// مع تنقّل بسيط بين اللوحة اللحظية وإدارة المستخدمين.
+// جذر لوحة الأدمن (Yalla Console) — بوابة مصادقة + هيكل تطبيق متجاوب:
+// الجوال: شريط علويّ ثابت + درج تنقّل منزلق. الحاسوب: شريط جانبي دائم.
+// الصفحة الحاليّة محفوظة في عنوان المتصفّح (?page=) ليعمل زرّ الرجوع والمشاركة.
 
-import { useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './auth/AuthContext';
-import { theme } from './theme';
 import PullToRefresh from './components/PullToRefresh';
+import { Avatar, IconButton } from './components/ui';
+import { getThemeMode, setThemeMode, THEME_MODES } from './theme-mode';
+import {
+  IconChart,
+  IconChat,
+  IconCashOut,
+  IconDashboard,
+  IconIdCard,
+  IconLogout,
+  IconMegaphone,
+  IconMenu,
+  IconOrders,
+  IconRefresh,
+  IconStore,
+  IconSupport,
+  IconUsers,
+  IconWallet,
+  IconSun,
+  IconMoon,
+  IconAuto,
+} from './components/icons';
+
 import LoginPage from './pages/LoginPage';
 import LiveDashboard from './pages/LiveDashboard';
 import UsersManagement from './pages/UsersManagement';
@@ -18,139 +40,209 @@ import Support from './pages/Support';
 import Broadcast from './pages/Broadcast';
 import Restaurants from './pages/Restaurants';
 
-const TABS = [
-  { key: 'dashboard', label: 'اللوحة اللحظية' },
-  { key: 'orders', label: 'بحث الطلبات' },
-  { key: 'chats', label: 'المحادثات' },
-  { key: 'support', label: 'الدعم' },
-  { key: 'broadcast', label: 'الرسائل' },
-  { key: 'restaurants', label: 'المطاعم' },
-  { key: 'wallet', label: 'شحن الرصيد' },
-  { key: 'withdrawals', label: 'سحب الكباتن' },
-  { key: 'users', label: 'إدارة المستخدمين' },
-  { key: 'captainDocs', label: 'توثيق الكباتن' },
-  { key: 'stats', label: 'الإحصائيات' },
+// أقسام التنقّل — مجموعات مسمّاة بدل شريط تبويبات طويل يلتفّ على الجوال
+const NAV = [
+  {
+    group: 'العمليات',
+    items: [
+      { key: 'dashboard', label: 'اللوحة اللحظية', icon: IconDashboard, Page: LiveDashboard },
+      { key: 'orders', label: 'بحث الطلبات', icon: IconOrders, Page: OrdersPage },
+      { key: 'restaurants', label: 'المطاعم', icon: IconStore, Page: Restaurants },
+    ],
+  },
+  {
+    group: 'التواصل',
+    items: [
+      { key: 'chats', label: 'المحادثات', icon: IconChat, Page: Chats },
+      { key: 'support', label: 'الدعم', icon: IconSupport, Page: Support },
+      { key: 'broadcast', label: 'الرسائل الجماعية', icon: IconMegaphone, Page: Broadcast },
+    ],
+  },
+  {
+    group: 'المال',
+    items: [
+      { key: 'wallet', label: 'شحن الرصيد', icon: IconWallet, Page: WalletTopups },
+      { key: 'withdrawals', label: 'طلبات السحب', icon: IconCashOut, Page: Withdrawals },
+    ],
+  },
+  {
+    group: 'الأشخاص والتقارير',
+    items: [
+      { key: 'users', label: 'إدارة المستخدمين', icon: IconUsers, Page: UsersManagement },
+      { key: 'captainDocs', label: 'توثيق الكباتن', icon: IconIdCard, Page: CaptainApplications },
+      { key: 'stats', label: 'الإحصائيات', icon: IconChart, Page: StatsPage },
+    ],
+  },
 ];
 
-function Gate() {
-  const { admin, loading, logout } = useAuth();
-  const [page, setPage] = useState('dashboard'); // dashboard | orders | users | stats
-  // مفتاح إعادة التركيب: السحب-للتحديث يُعيد تركيب الصفحة الحاليّة فتُعيد كلّ صفحة
-  // تحميل بياناتها (عبر useEffect) دون منطق خاصّ بكلّ صفحة.
+const ALL_ITEMS = NAV.flatMap((g) => g.items);
+const DEFAULT_PAGE = 'dashboard';
+
+// قراءة الصفحة من عنوان المتصفّح (مع التحقّق من صلاحيّتها)
+function pageFromUrl() {
+  const key = new URLSearchParams(window.location.search).get('page');
+  return ALL_ITEMS.some((i) => i.key === key) ? key : DEFAULT_PAGE;
+}
+
+// مبدّل وضع العرض: حسب النظام ← فاتح ← ليلي (يدور بينها بضغطة واحدة)
+const THEME_META = {
+  system: { icon: IconAuto, label: 'حسب النظام' },
+  light: { icon: IconSun, label: 'الوضع الفاتح' },
+  dark: { icon: IconMoon, label: 'الوضع الليلي' },
+};
+
+function ThemeToggle() {
+  const [mode, setMode] = useState(getThemeMode);
+  const { icon: Icon, label } = THEME_META[mode];
+
+  function cycle() {
+    const next = THEME_MODES[(THEME_MODES.indexOf(mode) + 1) % THEME_MODES.length];
+    setMode(setThemeMode(next));
+  }
+
+  return (
+    <IconButton label={`المظهر: ${label} — اضغط للتبديل`} onClick={cycle}>
+      <Icon size={20} />
+    </IconButton>
+  );
+}
+
+function Console() {
+  const { admin, logout } = useAuth();
+  const [page, setPage] = useState(pageFromUrl);
+  const [drawer, setDrawer] = useState(false);
+  // مفتاح إعادة التركيب: السحب-للتحديث (أو زرّ التحديث) يُعيد تركيب الصفحة
+  // الحاليّة فتُعيد جلب بياناتها عبر useEffect دون منطق خاصّ بكلّ صفحة.
   const [refreshKey, setRefreshKey] = useState(0);
-  const handleRefresh = useCallback(async () => {
+
+  const current = ALL_ITEMS.find((i) => i.key === page) || ALL_ITEMS[0];
+
+  // مزامنة العنوان + دعم زرّ الرجوع في المتصفّح
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('page') !== page) {
+      url.searchParams.set('page', page);
+      window.history.pushState({ page }, '', url);
+    }
+    document.title = `${current.label} · Yalla`;
+  }, [page, current.label]);
+
+  useEffect(() => {
+    const onPop = () => setPage(pageFromUrl());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // إغلاق الدرج بمفتاح Escape
+  useEffect(() => {
+    if (!drawer) return undefined;
+    const onKey = (e) => e.key === 'Escape' && setDrawer(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawer]);
+
+  const refresh = useCallback(async () => {
     setRefreshKey((k) => k + 1);
     // مهلة قصيرة لإبقاء المؤشّر ظاهرًا ريثما تُعيد الصفحة المُركّبة جلب بياناتها
     await new Promise((r) => setTimeout(r, 650));
   }, []);
 
-  // أثناء استعادة الجلسة نعرض مؤشّر تحميل
-  if (loading) return <div style={styles.loading}>...جارٍ التحميل</div>;
+  function go(key) {
+    setPage(key);
+    setDrawer(false);
+    window.scrollTo({ top: 0 });
+  }
 
-  // غير مسجّل → صفحة الدخول
-  if (!admin) return <LoginPage />;
+  const { Page } = current;
 
-  // مسجّل → شريط تنقّل + الصفحة المختارة
   return (
-    <div style={{ direction: 'rtl', minHeight: '100vh', background: theme.color.surface }}>
-      <nav className="yl-nav" style={styles.nav}>
-        <div style={styles.brandBlock}>
-          <img src="/logo.png" alt="Yalla" style={styles.logoMark} />
-          <span style={styles.logo}>Yalla</span>
-          <div className="yl-tabs" style={styles.tabs}>
-            {TABS.map((t) => (
-              <button key={t.key} style={styles.link(page === t.key)} onClick={() => setPage(t.key)}>
-                {t.label}
-              </button>
-            ))}
+    <div className="yl-app">
+      <aside className="yl-side" data-open={drawer}>
+        <div className="yl-side__brand">
+          <img className="yl-side__logo" src="/logo.png" alt="" />
+          <div style={{ flex: 1 }}>
+            <span className="yl-side__name">Yalla</span>
+            <span className="yl-side__tag">لوحة التحكّم</span>
           </div>
-        </div>
-
-        <div style={styles.userBlock}>
-          <span style={styles.hello}>
-            مرحبًا، <b style={{ color: theme.color.onSurface }}>{admin.name}</b>
+          <span className="yl-hide-lg">
+            <IconButton label="إغلاق القائمة" onClick={() => setDrawer(false)} small>
+              <IconMenu size={18} />
+            </IconButton>
           </span>
-          <button onClick={logout} style={styles.logout}>
-            خروج
-          </button>
         </div>
-      </nav>
 
-      <PullToRefresh onRefresh={handleRefresh}>
-        <div key={`${page}-${refreshKey}`}>
-          {page === 'dashboard' && <LiveDashboard />}
-          {page === 'orders' && <OrdersPage />}
-          {page === 'chats' && <Chats />}
-          {page === 'support' && <Support />}
-          {page === 'broadcast' && <Broadcast />}
-          {page === 'restaurants' && <Restaurants />}
-          {page === 'wallet' && <WalletTopups />}
-          {page === 'withdrawals' && <Withdrawals />}
-          {page === 'users' && <UsersManagement />}
-          {page === 'captainDocs' && <CaptainApplications />}
-          {page === 'stats' && <StatsPage />}
+        <nav className="yl-side__nav">
+          {NAV.map((g) => (
+            <div className="yl-navgroup" key={g.group}>
+              <div className="yl-navgroup__title">{g.group}</div>
+              {g.items.map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  className="yl-navlink"
+                  aria-current={key === page ? 'page' : undefined}
+                  onClick={() => go(key)}
+                >
+                  <span className="yl-navlink__icon">
+                    <Icon size={20} />
+                  </span>
+                  <span className="yl-navlink__label">{label}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        <div className="yl-side__foot">
+          <Avatar name={admin?.name} size="sm" />
+          <div className="yl-side__user">
+            <b className="yl-truncate">{admin?.name || 'المدير'}</b>
+            <span>{admin?.phone}</span>
+          </div>
+          <ThemeToggle />
+          <IconButton label="تسجيل الخروج" onClick={logout}>
+            <IconLogout size={20} />
+          </IconButton>
         </div>
-      </PullToRefresh>
+      </aside>
+
+      {drawer && <button className="yl-scrim" aria-label="إغلاق القائمة" onClick={() => setDrawer(false)} />}
+
+      <div className="yl-main">
+        <header className="yl-topbar">
+          <span className="yl-burger">
+            <IconButton label="القائمة" onClick={() => setDrawer(true)}>
+              <IconMenu />
+            </IconButton>
+          </span>
+          <span className="yl-topbar__title">{current.label}</span>
+          <IconButton label="تحديث" onClick={refresh}>
+            <IconRefresh />
+          </IconButton>
+        </header>
+
+        <PullToRefresh onRefresh={refresh}>
+          <main className="yl-content" key={`${page}-${refreshKey}`}>
+            <Page />
+          </main>
+        </PullToRefresh>
+      </div>
     </div>
   );
 }
 
-const styles = {
-  loading: {
-    display: 'grid',
-    placeItems: 'center',
-    height: '100vh',
-    direction: 'rtl',
-    color: theme.color.muted,
-    fontFamily: theme.font,
-  },
-  nav: {
-    direction: 'rtl',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '12px 32px',
-    background: 'rgba(255,255,255,0.85)',
-    backdropFilter: 'blur(12px)',
-    borderBottom: `1px solid ${theme.color.outline}`,
-    position: 'sticky',
-    top: 0,
-    zIndex: 10,
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  brandBlock: { display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' },
-  logoMark: { width: 32, height: 32, borderRadius: 8, objectFit: 'cover', display: 'block' },
-  logo: {
-    fontSize: 22,
-    fontWeight: 700,
-    color: theme.color.primaryDeep,
-    letterSpacing: '-0.02em',
-    marginInlineStart: -8,
-  },
-  tabs: { display: 'flex', gap: 4, flexWrap: 'wrap' },
-  link: (active) => ({
-    padding: '9px 18px',
-    borderRadius: theme.radius.pill,
-    cursor: 'pointer',
-    border: 'none',
-    fontSize: 14,
-    background: active ? theme.color.primary : 'transparent',
-    color: active ? theme.color.onPrimary : theme.color.muted,
-    boxShadow: active ? theme.shadow.float : 'none',
-  }),
-  userBlock: { display: 'flex', alignItems: 'center', gap: 12 },
-  hello: { color: theme.color.muted, fontSize: 14 },
-  logout: {
-    cursor: 'pointer',
-    border: `1px solid ${theme.color.outlineStrong}`,
-    background: theme.color.card,
-    color: theme.color.onSurfaceVariant,
-    padding: '8px 16px',
-    borderRadius: theme.radius.pill,
-    fontSize: 14,
-  },
-};
+function Gate() {
+  const { admin, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="yl-empty" style={{ minHeight: '100dvh' }}>
+        <span className="yl-spinner" style={{ color: 'var(--brand)' }} />
+        <span>...جارٍ التحميل</span>
+      </div>
+    );
+  }
+  return admin ? <Console /> : <LoginPage />;
+}
 
 export default function App() {
   return (

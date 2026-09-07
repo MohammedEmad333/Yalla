@@ -1,0 +1,274 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Yalla — نمط موحّد لصفحات الموقع الثابتة (الخصوصية، التطبيق، حذف الحساب).
+   مطابق لهوية لوحة التحكّم والتطبيق: أسطح رماديّة محايدة، بطاقات بيضاء بحدّ
+   رفيع، برتقالي العلامة للفعل الأساسي، وخطّ IBM Plex Sans Arabic.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --brand: #ff6b00;
+  --brand-strong: #e05c00;
+  --brand-deep: #a04100;
+  --brand-tint: #fff1e6;
+
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --sunken: #eceef1;
+
+  --ink: #14161a;
+  --soft: #4b5158;
+  --muted: #767d86;
+  --line: #e4e7ec;
+  --line-strong: #d3d8de;
+
+  --success: #0f9d58;
+  --danger: #d92d20;
+
+  --r-md: 14px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --shadow: 0 4px 16px rgba(16, 24, 40, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.8;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1, h2, h3 { line-height: 1.4; color: var(--ink); }
+h1 { font-size: 26px; font-weight: 700; margin: 0 0 8px; }
+h2 { font-size: 20px; font-weight: 700; margin: 28px 0 10px; }
+h3 { font-size: 17px; font-weight: 600; margin: 20px 0 8px; }
+p { margin: 0 0 12px; }
+ul, ol { padding-inline-start: 22px; margin: 0 0 12px; }
+li { margin-bottom: 6px; }
+
+a { color: var(--brand-deep); text-decoration: none; font-weight: 600; }
+a:hover { text-decoration: underline; }
+
+/* ── الترويسة (Hero) ─────────────────────────────────────────────────── */
+.hero {
+  background: linear-gradient(135deg, var(--brand), #ff9245);
+  color: #fff;
+  text-align: center;
+  padding: 44px 18px 46px;
+  padding-top: max(44px, env(safe-area-inset-top));
+}
+.hero .logo {
+  width: 96px;
+  height: 96px;
+  border-radius: var(--r-xl);
+  background: #fff;
+  padding: 8px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+  display: block;
+  margin: 0 auto;
+}
+.hero .brand {
+  font-size: 30px;
+  font-weight: 800;
+  margin: 14px 0 4px;
+  letter-spacing: -0.5px;
+}
+.hero p { margin: 0; opacity: 0.95; }
+.hero h1 { color: #fff; margin: 6px 0 0; }
+
+/* زرّ داخل الترويسة (تحميل التطبيق) */
+.hero-btn {
+  display: inline-block;
+  margin-top: 16px;
+  background: #fff;
+  color: var(--brand);
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+}
+.hero-btn:hover { background: #fff8f2; text-decoration: none; }
+
+/* ── التخطيط والبطاقة ────────────────────────────────────────────────── */
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 16px 56px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow);
+  padding: 28px 24px;
+  margin-top: -26px;
+}
+
+/* ── عناصر مساعدة ────────────────────────────────────────────────────── */
+.updated { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+
+.note {
+  background: var(--brand-tint);
+  border: 1px solid #ffd9bd;
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  margin: 18px 0;
+  color: var(--soft);
+}
+.note strong { color: var(--brand-deep); }
+
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 14px 0; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 420px;
+  font-size: 15px;
+}
+th, td { padding: 11px 14px; text-align: start; border-bottom: 1px solid var(--line); }
+thead th {
+  background: var(--sunken);
+  color: var(--soft);
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: none; }
+
+footer {
+  margin-top: 32px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* ── صفحة التحميل (app.html) ─────────────────────────────────────────── */
+.cta-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  padding: 16px 20px;
+  border-radius: 999px;
+  box-shadow: 0 8px 20px rgba(255, 107, 0, 0.32);
+  text-decoration: none;
+}
+.cta-primary:hover { background: var(--brand-strong); text-decoration: none; }
+.cta-primary .gp { font-size: 20px; line-height: 1; }
+.cta-sub { text-align: center; color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+
+/* فاصل «أو» بخطّين */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  margin: 26px 0;
+}
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.webapp-box {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 20px 18px;
+}
+.webapp-box h2 { margin-top: 0; font-size: 18px; }
+
+.btn-install {
+  width: 100%;
+  min-height: 50px;
+  margin: 14px 0 4px;
+  background: var(--card);
+  color: var(--brand-deep);
+  border: 1px solid var(--brand);
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-install:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* تعليمات المنصّات — يُظهرها السكربت حسب الجهاز */
+.steps.ios-only { display: none; margin-top: 14px; }
+.android-hint { display: none; color: var(--soft); font-size: 15px; margin-top: 14px; }
+
+.contact {
+  display: block;
+  text-align: center;
+  margin-top: 22px;
+  padding: 14px 18px;
+  border-radius: 999px;
+  background: #e6f6ed;
+  color: #0b7a44;
+  font-weight: 700;
+  text-decoration: none;
+}
+.contact:hover { background: #d6f0e1; text-decoration: none; }
+
+/* ── شاشات ضيّقة ─────────────────────────────────────────────────────── */
+@media (max-width: 520px) {
+  body { font-size: 15px; }
+  /* الجداول تنكمش وتلتفّ بدل التمرير الأفقي المزعج */
+  table { min-width: 0; font-size: 14px; }
+  th, td { padding: 9px 8px; }
+  .cta-primary { font-size: 16px; padding: 15px 16px; }
+  .hero { padding: 34px 16px 40px; }
+  .hero .logo { width: 82px; height: 82px; }
+  .hero .brand { font-size: 26px; }
+  .card { padding: 22px 16px; border-radius: var(--r-lg); }
+  h1 { font-size: 22px; }
+  h2 { font-size: 18px; }
+}
+
+/* ═══ الوضع الليلي (حسب إعداد نظام الزائر) ═══════════════════════════════
+   نُعيد تعريف الرموز فقط — بقيّة القواعد أعلاه تتبعها تلقائيًّا. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand: #ff8124;
+    --brand-strong: #ff9445;
+    --brand-deep: #ffb37a;
+
+    --bg: #14161a;
+    --card: #1c1f24;
+    --sunken: #24282e;
+
+    --ink: #eef0f3;
+    --soft: #c2c7ce;
+    --muted: #8c939c;
+    --line: #2c3138;
+    --line-strong: #3a4048;
+
+    --success: #43c48a;
+    --danger: #ff6b5e;
+
+    --shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  }
+
+  /* الترويسة تبقى برتقاليّة لكن أهدأ قليلًا على الخلفيّة الداكنة */
+  .hero { background: linear-gradient(135deg, #d95a00, #b34600); }
+  .hero .logo { background: #1c1f24; }
+
+  .note { background: #33210f; border-color: #4d3018; }
+  .note strong { color: var(--brand-deep); }
+
+  /* زرّ الترويسة الأبيض يصير داكنًا ليبقى مقروءًا */
+  .hero-btn { background: #1c1f24; color: var(--brand-deep); }
+  .hero-btn:hover { background: #24282e; }
+
+  .btn-install { background: var(--card); color: var(--brand-deep); border-color: var(--brand); }
+  .contact { background: #14301f; color: #6fd6a1; }
+  .contact:hover { background: #1a3d28; }
+}

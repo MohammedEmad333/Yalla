@@ -227,7 +227,7 @@ class _TopupScreenState extends State<TopupScreen> {
           ),
           const SizedBox(height: 10),
           Text(_selected!['instructions'] as String? ?? '',
-              style: const TextStyle(color: YallaColors.onSurface, height: 1.5)),
+              style: TextStyle(color: YallaColors.onSurface, height: 1.5)),
           Divider(height: 20, color: color.withValues(alpha: 0.25)),
           if (account['name'] != null) _accountRow('الاسم', account['name'].toString(), color),
           if (account['number'] != null) _accountRow('الحساب/الرقم', account['number'].toString(), color),
@@ -242,7 +242,7 @@ class _TopupScreenState extends State<TopupScreen> {
         child: Row(
           children: [
             Text('$label: ', style: TextStyle(fontWeight: FontWeight.w700, color: color)),
-            Expanded(child: SelectableText(value, style: const TextStyle(color: YallaColors.onSurface))),
+            Expanded(child: SelectableText(value, style: TextStyle(color: YallaColors.onSurface))),
           ],
         ),
       );
@@ -261,11 +261,11 @@ class _TopupScreenState extends State<TopupScreen> {
           border: Border.all(color: YallaColors.outline),
         ),
         child: _receipt == null
-            ? const Column(
+            ? Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.upload_file, size: 36, color: YallaColors.muted),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text('ارفع صورة الإيصال (إجباري)', style: TextStyle(color: YallaColors.muted)),
                 ],
               )
