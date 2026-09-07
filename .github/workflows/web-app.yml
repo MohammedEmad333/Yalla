@@ -77,6 +77,9 @@ jobs:
             echo "لا تغييرات في web-app/ — تخطّي الدفع."
           else
             git commit -m "بناء تطبيق الويب تلقائيًا (CI) [skip ci]"
+            # قد تُدفَع كوميتات جديدة للفرع أثناء البناء؛ نُعيد الأساس ثمّ ندفع
+            # (وإلّا رُفض الدفع بـ non-fast-forward وفشلت المهمّة بلا سبب حقيقي).
+            git pull --rebase origin "${GITHUB_REF_NAME}"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
