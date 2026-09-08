@@ -6,10 +6,12 @@
 const FileAsset = require('../models/FileAsset');
 const { FILE_URL_RE, fileIdFromUrl } = require('./avatarUrl');
 
-// يحفظ صورة (file من multer.memoryStorage) ويُرجع رابطها الثابت /files/<id>
-async function saveAvatar(file, { owner, ownerRole } = {}) {
+// يحفظ صورة (file من multer.memoryStorage) في قاعدة البيانات ويُرجع رابطها
+// الثابت /files/<id>. الوسيط kind يميّز نوع الأصل (avatar / restaurant / menu-item)
+// ليبقى التخزين موحّدًا لكلّ الصور مع إمكانية التنظيف حسب النوع لاحقًا.
+async function saveImage(file, { kind = 'image', owner, ownerRole } = {}) {
   const asset = await FileAsset.create({
-    kind: 'avatar',
+    kind,
     data: file.buffer,
     contentType: file.mimetype || 'image/jpeg',
     size: file.size || (file.buffer ? file.buffer.length : 0),
@@ -19,12 +21,24 @@ async function saveAvatar(file, { owner, ownerRole } = {}) {
   return `/files/${asset._id}`;
 }
 
-// يحذف الصورة القديمة من قاعدة البيانات إن كان رابطها يشير إلى /files/<id>
-async function deleteAvatarByUrl(url) {
+// يحفظ صورة شخصية (توافقيّة مع النداءات القديمة) — نوعها avatar.
+async function saveAvatar(file, opts = {}) {
+  return saveImage(file, { ...opts, kind: 'avatar' });
+}
+
+// يحذف صورة من قاعدة البيانات إن كان رابطها يشير إلى /files/<id> (لأيّ نوع).
+async function deleteFileByUrl(url) {
   const id = fileIdFromUrl(url);
   if (id) {
     await FileAsset.findByIdAndDelete(id).catch(() => {});
   }
 }
 
-module.exports = { saveAvatar, deleteAvatarByUrl, FILE_URL_RE };
+module.exports = {
+  saveImage,
+  saveAvatar,
+  deleteFileByUrl,
+  // اسم قديم متوافق مع النداءات الحاليّة (auth/admin controllers)
+  deleteAvatarByUrl: deleteFileByUrl,
+  FILE_URL_RE,
+};

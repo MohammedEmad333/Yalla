@@ -3,6 +3,7 @@
 const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
 const orderService = require('./order.service');
+const { saveImage, deleteFileByUrl } = require('../utils/avatarStore');
 const { composeAddress } = require('../utils/address');
 const { coordsForNeighborhood } = require('../utils/neighborhoods');
 const {
@@ -225,8 +226,60 @@ async function updateRestaurant(restaurantId, payload = {}) {
 async function deleteRestaurant(restaurantId) {
   const deleted = await Restaurant.findByIdAndDelete(restaurantId).catch(() => null);
   if (!deleted) throw httpError('المطعم غير موجود', 404);
+  // تنظيف صور الأصناف والغلاف المخزّنة في قاعدة البيانات قبل حذف الأصناف
+  const items = await MenuItem.find({ restaurant: restaurantId }).select('imageUrl').lean();
+  await Promise.all([
+    deleteFileByUrl(deleted.imageUrl),
+    ...items.map((it) => deleteFileByUrl(it.imageUrl)),
+  ]);
   await MenuItem.deleteMany({ restaurant: restaurantId });
   return { message: 'تم حذف المطعم وقائمته' };
+}
+
+/**
+ * رفع صورة غلاف للمطعم من الجهاز (Card 111): تُخزَّن في قاعدة البيانات (FileAsset)
+ * لتبقى دائمة على استضافة Oracle، ويُحدَّث imageUrl إلى الرابط الثابت /files/<id>،
+ * مع حذف الصورة القديمة إن كانت مخزّنة عندنا (لا نحذف الروابط الخارجية http).
+ * @param {string} restaurantId
+ * @param {object} file ملفّ multer (memoryStorage)
+ */
+async function setRestaurantImage(restaurantId, file) {
+  if (!file) throw httpError('أرفق صورة', 400);
+  const restaurant = await Restaurant.findById(restaurantId).catch(() => null);
+  if (!restaurant) throw httpError('المطعم غير موجود', 404);
+
+  const url = await saveImage(file, {
+    kind: 'restaurant',
+    owner: restaurant._id,
+    ownerRole: 'restaurant',
+  });
+  const previous = restaurant.imageUrl;
+  restaurant.imageUrl = url;
+  await restaurant.save();
+  await deleteFileByUrl(previous);
+  return restaurant;
+}
+
+/**
+ * رفع صورة لصنف من الجهاز (Card 111) — نفس منطق صورة المطعم.
+ * @param {string} itemId
+ * @param {object} file ملفّ multer (memoryStorage)
+ */
+async function setMenuItemImage(itemId, file) {
+  if (!file) throw httpError('أرفق صورة', 400);
+  const item = await MenuItem.findById(itemId).catch(() => null);
+  if (!item) throw httpError('الصنف غير موجود', 404);
+
+  const url = await saveImage(file, {
+    kind: 'menu-item',
+    owner: item._id,
+    ownerRole: 'menu-item',
+  });
+  const previous = item.imageUrl;
+  item.imageUrl = url;
+  await item.save();
+  await deleteFileByUrl(previous);
+  return item;
 }
 
 /** أصناف قائمة مطعم (للوحة الأدمن — تشمل غير المتاحة). */
@@ -269,6 +322,7 @@ async function updateMenuItem(itemId, payload = {}) {
 async function deleteMenuItem(itemId) {
   const deleted = await MenuItem.findByIdAndDelete(itemId).catch(() => null);
   if (!deleted) throw httpError('الصنف غير موجود', 404);
+  await deleteFileByUrl(deleted.imageUrl);
   return { message: 'تم حذف الصنف' };
 }
 
@@ -281,9 +335,11 @@ module.exports = {
   createRestaurant,
   updateRestaurant,
   deleteRestaurant,
+  setRestaurantImage,
   adminListMenu,
   createMenuItem,
   updateMenuItem,
   deleteMenuItem,
+  setMenuItemImage,
   normalizeRestaurantPayload,
 };

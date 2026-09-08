@@ -48,6 +48,13 @@ const uploadAvatar = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: imageFileFilter,
 });
+// Card 111: رافع صور عامّ في الذاكرة (غلاف المطعم / صورة الصنف) — تُخزَّن بعده في
+// قاعدة البيانات (FileAsset) لتبقى دائمة على استضافة Oracle (نفس منطق الصورة الشخصية).
+const uploadImage = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: imageFileFilter,
+});
 // Card 79: رافع مستندات توثيق الكابتن — حقلان: idPhoto (الهوية) + selfie (سيلفي)
 const uploadCaptainDocs = makeImageUploader(IDS_DIR, 'id').fields([
   { name: 'idPhoto', maxCount: 1 },
@@ -68,6 +75,7 @@ function idDocUrlFor(filename) {
 module.exports = {
   uploadReceipt,
   uploadAvatar,
+  uploadImage,
   uploadCaptainDocs,
   publicUrlFor,
   avatarUrlFor,

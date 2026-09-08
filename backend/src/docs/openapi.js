@@ -259,6 +259,27 @@ function buildOpenApiSpec() {
         delete: op({ summary: 'حذف مطعم وقائمته', tags: ['Restaurants'], roles: ['admin'],
           params: ['restaurantId'] }),
       },
+      '/admin/restaurants/{restaurantId}/image': {
+        post: {
+          summary: 'رفع صورة غلاف المطعم من الجهاز (تُخزَّن في قاعدة البيانات)',
+          tags: ['Restaurants'],
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'restaurantId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'multipart/form-data': {
+                schema: { type: 'object', properties: { image: { type: 'string', format: 'binary' } } },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'تم — يُعيد imageUrl (/files/<id>)' },
+            400: { description: 'لم تُرفق صورة / نوع غير مدعوم' },
+            404: { description: 'المطعم غير موجود' },
+          },
+        },
+      },
       '/admin/restaurants/{restaurantId}/menu': {
         get: op({ summary: 'أصناف قائمة مطعم', tags: ['Restaurants'], roles: ['admin'],
           params: ['restaurantId'] }),
@@ -269,6 +290,27 @@ function buildOpenApiSpec() {
         patch: op({ summary: 'تعديل صنف', tags: ['Restaurants'], roles: ['admin'], params: ['itemId'],
           body: { name: str, price: num, available: { type: 'boolean' } } }),
         delete: op({ summary: 'حذف صنف', tags: ['Restaurants'], roles: ['admin'], params: ['itemId'] }),
+      },
+      '/admin/menu-items/{itemId}/image': {
+        post: {
+          summary: 'رفع صورة صنف من الجهاز (تُخزَّن في قاعدة البيانات)',
+          tags: ['Restaurants'],
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'itemId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'multipart/form-data': {
+                schema: { type: 'object', properties: { image: { type: 'string', format: 'binary' } } },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'تم — يُعيد imageUrl (/files/<id>)' },
+            400: { description: 'لم تُرفق صورة / نوع غير مدعوم' },
+            404: { description: 'الصنف غير موجود' },
+          },
+        },
       },
 
       // ── Notifications ──
