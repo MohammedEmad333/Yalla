@@ -4,6 +4,7 @@ const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
 const orderService = require('./order.service');
 const { saveImage, deleteFileByUrl } = require('../utils/avatarStore');
+const { isOpenBySchedule } = require('../utils/restaurantHours');
 const { composeAddress } = require('../utils/address');
 const { coordsForNeighborhood } = require('../utils/neighborhoods');
 const {
@@ -26,7 +27,18 @@ function httpError(message, statusCode = 400) {
 
 // الحقول المُعادة للزبون (نُخفي حقول الإدارة غير الضرورية)
 const PUBLIC_FIELDS =
-  'name description category imageUrl phone city neighborhood street address location minOrder prepMinutes isOpen sortOrder';
+  'name description category imageUrl phone city neighborhood street address location minOrder prepMinutes isOpen openTime closeTime sortOrder';
+
+// يطبّع وقتًا إلى صيغة "HH:MM" (٢٤ ساعة) أو '' إن كان فارغًا/غير صالح.
+function normalizeTime(value) {
+  const s = (value ?? '').toString().trim();
+  if (!s) return '';
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return '';
+  const h = Math.min(23, Math.max(0, parseInt(m[1], 10)));
+  const min = Math.min(59, Math.max(0, parseInt(m[2], 10)));
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
 
 /**
  * تطبيع مدخلات المطعم القادمة من لوحة الأدمن: تركيب العنوان الموحّد واشتقاق
@@ -54,6 +66,8 @@ function normalizeRestaurantPayload(payload = {}) {
       ? { prepMinutes: Math.max(0, Number(payload.prepMinutes) || 0) }
       : {}),
     ...(payload.isOpen !== undefined ? { isOpen: !!payload.isOpen } : {}),
+    ...(payload.openTime !== undefined ? { openTime: normalizeTime(payload.openTime) } : {}),
+    ...(payload.closeTime !== undefined ? { closeTime: normalizeTime(payload.closeTime) } : {}),
     ...(payload.active !== undefined ? { active: !!payload.active } : {}),
     ...(payload.sortOrder !== undefined ? { sortOrder: Number(payload.sortOrder) || 0 } : {}),
   };
@@ -145,6 +159,9 @@ async function createRestaurantOrder(userId, payload = {}, idempotencyKey) {
   const restaurant = await Restaurant.findById(payload.restaurantId).catch(() => null);
   if (!restaurant || !restaurant.active) throw httpError('المطعم غير موجود', 404);
   if (!restaurant.isOpen) throw httpError('المطعم مغلق حاليًا — جرّب لاحقًا', 400);
+  if (!isOpenBySchedule(restaurant.openTime, restaurant.closeTime)) {
+    throw httpError('المطعم خارج مواعيد العمل حاليًا — جرّب لاحقًا', 400);
+  }
 
   const cart = normalizeCartItems(payload.items);
   if (cart.length === 0) throw httpError('السلّة فارغة — اختر أصنافًا أولًا', 400);
