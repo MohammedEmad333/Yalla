@@ -17,7 +17,7 @@
 cd mobile
 # نحفظ المانيفست ثم نُعيد توليد السقالة ثم نُعيده (لأن flutter create يُعيد كتابته)
 cp android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml
-flutter create --platforms=android,ios,web .
+flutter create --platforms=android,ios,web --org com.mohammedemad333 --project-name yalla .
 cp /tmp/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
 ```
 > لو عدّل `pubspec.yaml` استعده من git: `git checkout pubspec.yaml`.
