@@ -83,6 +83,17 @@ async function deleteRestaurant(req, res, next) {
   }
 }
 
+// رفع/تغيير صورة غلاف المطعم من الجهاز (الملفّ في req.file عبر multer)
+async function uploadRestaurantImage(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'أرفق صورة' });
+    const restaurant = await restaurantService.setRestaurantImage(req.params.restaurantId, req.file);
+    res.json({ ok: true, imageUrl: restaurant.imageUrl, restaurant });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function adminListMenu(req, res, next) {
   try {
     res.json(await restaurantService.adminListMenu(req.params.restaurantId));
@@ -107,6 +118,17 @@ async function updateMenuItem(req, res, next) {
   }
 }
 
+// رفع/تغيير صورة صنف من الجهاز (الملفّ في req.file عبر multer)
+async function uploadMenuItemImage(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'أرفق صورة' });
+    const item = await restaurantService.setMenuItemImage(req.params.itemId, req.file);
+    res.json({ ok: true, imageUrl: item.imageUrl, item });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function deleteMenuItem(req, res, next) {
   try {
     res.json(await restaurantService.deleteMenuItem(req.params.itemId));
@@ -124,8 +146,10 @@ module.exports = {
   createRestaurant,
   updateRestaurant,
   deleteRestaurant,
+  uploadRestaurantImage,
   adminListMenu,
   createMenuItem,
   updateMenuItem,
   deleteMenuItem,
+  uploadMenuItemImage,
 };

@@ -3,7 +3,7 @@
 // ما يُحفظ هنا يظهر فورًا في تبويب «المطاعم» داخل تطبيق الزبون.
 
 import { useEffect, useRef, useState } from 'react';
-import { api } from '../api/client';
+import { api, API } from '../api/client';
 import {
   Alert,
   Badge,
@@ -15,11 +15,30 @@ import {
   IconButton,
   Input,
   Loading,
+  Modal,
   PageHeader,
   Select,
   TableWrap,
 } from '../components/ui';
 import { IconPlus, IconStore, IconTrash } from '../components/icons';
+
+// الصور تُخزَّن في قاعدة البيانات وتُخدَم من /files/<id> — نضيف عنوان الـ API
+// للمسار النسبيّ (تمامًا كما في صفحة المستخدمين)، ونترك الروابط الخارجيّة كما هي.
+const imageSrc = (url) => (url ? (url.startsWith('http') ? url : `${API}${url}`) : '');
+
+// رفع صورة (multipart) إلى مسار أدمن ويُعيد رابطها — مشترك بين المطعم والصنف.
+async function uploadImageTo(path, file) {
+  const fd = new FormData();
+  fd.append('image', file);
+  const res = await fetch(`${API}/api${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    body: fd,
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.message || 'تعذّر رفع الصورة');
+  return data.imageUrl;
+}
 
 // قالب مطعم جديد فارغ
 const EMPTY_RESTAURANT = {
@@ -48,6 +67,8 @@ export default function Restaurants() {
   const [item, setItem] = useState(EMPTY_ITEM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [coverBusy, setCoverBusy] = useState(false); // رفع صورة الغلاف جارٍ
+  const [editingItem, setEditingItem] = useState(null); // الصنف المفتوح للتعديل (Modal)
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const editorRef = useRef(null);
@@ -127,6 +148,33 @@ export default function Restaurants() {
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  // رفع صورة غلاف المطعم من الجهاز (تُحفظ في قاعدة البيانات) — يتطلّب حفظ المطعم أولًا
+  async function uploadCover(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // نسمح بإعادة اختيار الملفّ نفسه لاحقًا
+    if (!file) return;
+    if (!selected) return setError('احفظ المطعم أولًا ثمّ ارفع صورته');
+    setError('');
+    setMessage('');
+    setCoverBusy(true);
+    try {
+      const imageUrl = await uploadImageTo(`/admin/restaurants/${selected._id}/image`, file);
+      setForm((f) => ({ ...f, imageUrl }));
+      setMessage('تم تحديث صورة المطعم');
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setCoverBusy(false);
+    }
+  }
+
+  // إعادة جلب قائمة المطعم المفتوح
+  async function reloadMenu() {
+    if (!selected) return;
+    setMenu(await api.get(`/admin/restaurants/${selected._id}/menu`));
   }
 
   async function addItem() {
@@ -284,8 +332,41 @@ export default function Restaurants() {
               <Field label="زمن التحضير (دقيقة)">
                 <Input type="number" min="0" value={form.prepMinutes} onChange={set('prepMinutes')} />
               </Field>
-              <Field label="رابط صورة الغلاف">
-                <Input value={form.imageUrl} onChange={set('imageUrl')} placeholder="https://..." dir="ltr" />
+              <Field label="صورة الغلاف" hint={selected ? 'ارفع من الجهاز أو الصق رابطًا' : 'احفظ المطعم أولًا لرفع صورة'}>
+                <div className="yl-row" style={{ gap: 'var(--s-3)', alignItems: 'center' }}>
+                  {imageSrc(form.imageUrl) ? (
+                    <img
+                      src={imageSrc(form.imageUrl)}
+                      alt=""
+                      style={{ width: 56, height: 56, borderRadius: 'var(--r-2)', objectFit: 'cover', flex: 'none' }}
+                    />
+                  ) : (
+                    <span className="yl-avatar" style={{ width: 56, height: 56 }}>
+                      <IconStore size={22} />
+                    </span>
+                  )}
+                  <label
+                    className="yl-btn yl-btn--outline yl-btn--sm"
+                    aria-disabled={!selected || coverBusy}
+                    style={!selected || coverBusy ? { opacity: 0.55, pointerEvents: 'none' } : undefined}
+                  >
+                    {coverBusy ? '...جارٍ الرفع' : 'رفع من الجهاز'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={uploadCover}
+                      disabled={!selected || coverBusy}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
+                <Input
+                  value={form.imageUrl}
+                  onChange={set('imageUrl')}
+                  placeholder="https://... (اختياري)"
+                  dir="ltr"
+                  style={{ marginTop: 'var(--s-2)' }}
+                />
               </Field>
               <Field label="الوصف">
                 <Input value={form.description} onChange={set('description')} placeholder="وصف مختصر يظهر للزبون" />
@@ -362,12 +443,27 @@ export default function Restaurants() {
                         {menu.map((it) => (
                           <tr key={it._id}>
                             <td data-label="الصنف">
-                              <b>{it.name}</b>
-                              {it.description && (
-                                <div className="yl-muted" style={{ fontSize: 'var(--fs-sm)' }}>
-                                  {it.description}
-                                </div>
-                              )}
+                              <div className="yl-row" style={{ gap: 'var(--s-3)', alignItems: 'center' }}>
+                                {imageSrc(it.imageUrl) ? (
+                                  <img
+                                    src={imageSrc(it.imageUrl)}
+                                    alt=""
+                                    style={{ width: 40, height: 40, borderRadius: 'var(--r-2)', objectFit: 'cover', flex: 'none' }}
+                                  />
+                                ) : (
+                                  <span className="yl-avatar" style={{ width: 40, height: 40 }}>
+                                    <IconStore size={16} />
+                                  </span>
+                                )}
+                                <span>
+                                  <b>{it.name}</b>
+                                  {it.description && (
+                                    <div className="yl-muted" style={{ fontSize: 'var(--fs-sm)' }}>
+                                      {it.description}
+                                    </div>
+                                  )}
+                                </span>
+                              </div>
                             </td>
                             <td data-label="القسم">{it.category || '—'}</td>
                             <td data-label="السعر" className="yl-num">{it.price} ₪</td>
@@ -378,6 +474,9 @@ export default function Restaurants() {
                             </td>
                             <td data-label="إجراءات" className="yl-td-actions">
                               <div className="yl-btnrow">
+                                <Button size="sm" onClick={() => setEditingItem(it)}>
+                                  تعديل
+                                </Button>
                                 <Button size="sm" onClick={() => toggleItem(it)}>
                                   {it.available ? 'إيقاف' : 'تفعيل'}
                                 </Button>
@@ -397,6 +496,131 @@ export default function Restaurants() {
           </Card>
         </div>
       </div>
+
+      {editingItem && (
+        <MenuItemModal
+          item={editingItem}
+          onClose={() => setEditingItem(null)}
+          onSaved={async () => {
+            setEditingItem(null);
+            await reloadMenu();
+          }}
+        />
+      )}
     </>
+  );
+}
+
+// نافذة تعديل صنف: تعدّل الاسم/السعر/القسم/الوصف/التوفّر، وترفع صورة للصنف من الجهاز.
+function MenuItemModal({ item, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name: item.name || '',
+    price: item.price ?? '',
+    category: item.category || '',
+    description: item.description || '',
+    available: item.available !== false,
+  });
+  const [imageUrl, setImageUrl] = useState(item.imageUrl || '');
+  const [busy, setBusy] = useState(false);
+  const [imgBusy, setImgBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const upd = (key) => (e) => {
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setForm((f) => ({ ...f, [key]: value }));
+  };
+
+  async function uploadItemImage(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setError('');
+    setImgBusy(true);
+    try {
+      const url = await uploadImageTo(`/admin/menu-items/${item._id}/image`, file);
+      setImageUrl(url);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImgBusy(false);
+    }
+  }
+
+  async function save(e) {
+    e.preventDefault();
+    setError('');
+    if (!form.name.trim()) return setError('اسم الصنف مطلوب');
+    if (!(Number(form.price) > 0)) return setError('سعر الصنف مطلوب');
+    setBusy(true);
+    try {
+      await api.patch(`/admin/menu-items/${item._id}`, {
+        name: form.name.trim(),
+        price: Number(form.price),
+        category: form.category.trim(),
+        description: form.description.trim(),
+        available: form.available,
+        imageUrl,
+      });
+      await onSaved();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title={`تعديل الصنف: ${item.name}`} onClose={onClose}>
+      <form onSubmit={save} className="yl-stack">
+        {error && <Alert tone="error">{error}</Alert>}
+
+        <div className="yl-row" style={{ gap: 'var(--s-3)', alignItems: 'center' }}>
+          {imageSrc(imageUrl) ? (
+            <img
+              src={imageSrc(imageUrl)}
+              alt=""
+              style={{ width: 64, height: 64, borderRadius: 'var(--r-2)', objectFit: 'cover', flex: 'none' }}
+            />
+          ) : (
+            <span className="yl-avatar" style={{ width: 64, height: 64 }}>
+              <IconStore size={24} />
+            </span>
+          )}
+          <label
+            className="yl-btn yl-btn--outline yl-btn--sm"
+            aria-disabled={imgBusy}
+            style={imgBusy ? { opacity: 0.55, pointerEvents: 'none' } : undefined}
+          >
+            {imgBusy ? '...جارٍ الرفع' : 'رفع صورة من الجهاز'}
+            <input type="file" accept="image/*" onChange={uploadItemImage} disabled={imgBusy} style={{ display: 'none' }} />
+          </label>
+        </div>
+
+        <div className="yl-formgrid">
+          <Field label="اسم الصنف">
+            <Input value={form.name} onChange={upd('name')} required />
+          </Field>
+          <Field label="السعر (₪)">
+            <Input type="number" min="0" value={form.price} onChange={upd('price')} required />
+          </Field>
+          <Field label="القسم">
+            <Input value={form.category} onChange={upd('category')} placeholder="ساندويشات" />
+          </Field>
+          <Field label="الوصف">
+            <Input value={form.description} onChange={upd('description')} />
+          </Field>
+        </div>
+
+        <Checkbox checked={form.available} onChange={upd('available')} label="متاح للطلب" />
+
+        <div className="yl-row" style={{ gap: 'var(--s-3)', justifyContent: 'flex-end' }}>
+          <Button type="button" onClick={onClose}>
+            إلغاء
+          </Button>
+          <Button type="submit" variant="primary" disabled={busy} loading={busy}>
+            {busy ? '...جارٍ الحفظ' : 'حفظ التعديلات'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

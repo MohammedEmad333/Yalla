@@ -5,7 +5,7 @@ const ctrl = require('../controllers/admin.controller');
 const support = require('../controllers/support.controller');
 const restaurantCtrl = require('../controllers/restaurant.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
-const { uploadAvatar } = require('../middlewares/upload.middleware');
+const { uploadAvatar, uploadImage } = require('../middlewares/upload.middleware');
 const { ROLES } = require('../utils/constants');
 
 // كل مسارات الإدارة للأدمن فقط
@@ -26,10 +26,22 @@ router.get('/restaurants', restaurantCtrl.adminListRestaurants);
 router.post('/restaurants', restaurantCtrl.createRestaurant);
 router.patch('/restaurants/:restaurantId', restaurantCtrl.updateRestaurant);
 router.delete('/restaurants/:restaurantId', restaurantCtrl.deleteRestaurant);
+// Card 111: رفع صورة غلاف المطعم من الجهاز (تُخزَّن في قاعدة البيانات)
+router.post(
+  '/restaurants/:restaurantId/image',
+  uploadImage.single('image'),
+  restaurantCtrl.uploadRestaurantImage
+);
 router.get('/restaurants/:restaurantId/menu', restaurantCtrl.adminListMenu);
 router.post('/restaurants/:restaurantId/menu', restaurantCtrl.createMenuItem);
 router.patch('/menu-items/:itemId', restaurantCtrl.updateMenuItem);
 router.delete('/menu-items/:itemId', restaurantCtrl.deleteMenuItem);
+// Card 111: رفع صورة صنف من الجهاز (تُخزَّن في قاعدة البيانات)
+router.post(
+  '/menu-items/:itemId/image',
+  uploadImage.single('image'),
+  restaurantCtrl.uploadMenuItemImage
+);
 
 // إدارة المستخدمين
 router.get('/users', ctrl.listUsers);
