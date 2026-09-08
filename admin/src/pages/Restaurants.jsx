@@ -52,9 +52,26 @@ const EMPTY_RESTAURANT = {
   street: '',
   minOrder: 0,
   prepMinutes: 15,
+  openTime: '',
+  closeTime: '',
   isOpen: true,
   active: true,
 };
+
+// تصنيفات مقترحة للمطاعم (قابلة للكتابة الحرّة أيضًا) — تظهر كرقائق فلترة في التطبيق.
+const CATEGORY_SUGGESTIONS = [
+  'مطاعم',
+  'مشاوي',
+  'شاورما',
+  'بيتزا',
+  'برجر',
+  'دجاج',
+  'حلويات',
+  'كافيه',
+  'مخبوزات',
+  'سوبرماركت',
+  'عصائر ومشروبات',
+];
 
 const EMPTY_ITEM = { name: '', description: '', category: '', price: '', available: true };
 
@@ -301,8 +318,18 @@ export default function Restaurants() {
               <Field label="الاسم">
                 <Input value={form.name} onChange={set('name')} placeholder="مثال: مشاوي الفروج" />
               </Field>
-              <Field label="التصنيف">
-                <Input value={form.category} onChange={set('category')} placeholder="مشاوي، بيتزا، حلويات..." />
+              <Field label="التصنيف" hint="اختر أو اكتب تصنيفًا">
+                <Input
+                  value={form.category}
+                  onChange={set('category')}
+                  placeholder="مطاعم، كافيه، مخبوزات..."
+                  list="yl-restaurant-categories"
+                />
+                <datalist id="yl-restaurant-categories">
+                  {CATEGORY_SUGGESTIONS.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
               </Field>
               <Field label="المدينة">
                 <Select value={form.city} onChange={set('city')}>
@@ -331,6 +358,12 @@ export default function Restaurants() {
               </Field>
               <Field label="زمن التحضير (دقيقة)">
                 <Input type="number" min="0" value={form.prepMinutes} onChange={set('prepMinutes')} />
+              </Field>
+              <Field label="وقت الفتح" hint="اتركه فارغًا لِ«طوال اليوم»">
+                <Input type="time" value={form.openTime || ''} onChange={set('openTime')} dir="ltr" />
+              </Field>
+              <Field label="وقت الإغلاق">
+                <Input type="time" value={form.closeTime || ''} onChange={set('closeTime')} dir="ltr" />
               </Field>
               <Field label="صورة الغلاف" hint={selected ? 'ارفع من الجهاز أو الصق رابطًا' : 'احفظ المطعم أولًا لرفع صورة'}>
                 <div className="yl-row" style={{ gap: 'var(--s-3)', alignItems: 'center' }}>

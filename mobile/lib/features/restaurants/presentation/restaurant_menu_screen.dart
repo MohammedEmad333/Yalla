@@ -1,7 +1,9 @@
-// قائمة طعام مطعم (Card 110) — تعرض أصناف المطعم مجمّعة بالأقسام مع أزرار
-// إضافة/إنقاص للسلّة، وشريط سفلي يعرض عدد القطع وقيمتها وزرّ "إتمام الطلب".
+// قائمة طعام مطعم (Card 110 + Card 112) — تعرض أصناف المطعم مجمّعة بالأقسام مع
+// أزرار إضافة/إنقاص للسلّة، وشريط سفلي للسلّة. الأقسام تظهر كتبويبات مثبّتة أعلى
+// الصفحة (sticky): الضغط على قسم ينزل إليه، والتمرير يحرّك التبويب النشط تلقائيًّا.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
@@ -18,9 +20,18 @@ class RestaurantMenuScreen extends StatefulWidget {
 }
 
 class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
+  static const double _tabBarHeight = 54;
+
   late final RestaurantRepository _repo = RestaurantRepository(widget.api);
   late Restaurant _restaurant = widget.restaurant;
   late final Cart _cart = Cart(widget.restaurant);
+
+  final ScrollController _scroll = ScrollController();
+  final ScrollController _tabScroll = ScrollController();
+  List<GlobalKey> _sectionKeys = [];
+  List<GlobalKey> _tabKeys = [];
+  int _active = 0;
+  bool _lockSpy = false; // نوقف مراقبة التمرير أثناء الانتقال المبرمَج لتفادي التذبذب
 
   List<MenuSection> _menu = [];
   bool _loading = true;
@@ -29,7 +40,16 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_onScroll);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    _tabScroll.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -43,6 +63,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       setState(() {
         _restaurant = restaurant;
         _menu = menu;
+        _sectionKeys = List.generate(menu.length, (_) => GlobalKey());
+        _tabKeys = List.generate(menu.length, (_) => GlobalKey());
+        _active = 0;
       });
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -53,9 +76,68 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     }
   }
 
-  // الانتقال لإتمام الطلب — نُعيد نتيجة "تم" للأعلى لإغلاق الشاشة بعد النجاح
+  // ── التمرير والتبويبات ──────────────────────────────────────────────────
+
+  double _revealOffset(GlobalKey key) {
+    final ctx = key.currentContext;
+    if (ctx == null) return -1;
+    final box = ctx.findRenderObject();
+    if (box is! RenderBox) return -1;
+    final viewport = RenderAbstractViewport.of(box);
+    return viewport.getOffsetToReveal(box, 0).offset;
+  }
+
+  void _onScroll() {
+    if (_lockSpy || _sectionKeys.isEmpty) return;
+    final current = _scroll.offset + _tabBarHeight + 1;
+    int active = 0;
+    for (var i = 0; i < _sectionKeys.length; i++) {
+      final reveal = _revealOffset(_sectionKeys[i]);
+      if (reveal >= 0 && current >= reveal) active = i;
+    }
+    if (active != _active) {
+      setState(() => _active = active);
+      _syncTab(active);
+    }
+  }
+
+  Future<void> _scrollToSection(int i) async {
+    final reveal = _revealOffset(_sectionKeys[i]);
+    if (reveal < 0) return;
+    setState(() {
+      _active = i;
+      _lockSpy = true;
+    });
+    _syncTab(i);
+    final target = (reveal - _tabBarHeight)
+        .clamp(0.0, _scroll.position.maxScrollExtent)
+        .toDouble();
+    await _scroll.animateTo(
+      target,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
+    );
+    if (mounted) _lockSpy = false;
+  }
+
+  // نُبقي التبويب النشط ظاهرًا داخل الشريط الأفقي
+  void _syncTab(int i) {
+    if (i < 0 || i >= _tabKeys.length) return;
+    final ctx = _tabKeys[i].currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  // ── الطلب ───────────────────────────────────────────────────────────────
+
   Future<void> _checkout() async {
-    if (!_restaurant.isOpen) {
+    if (!_restaurant.openNow) {
       _snack('المطعم مغلق حاليًا');
       return;
     }
@@ -67,7 +149,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       MaterialPageRoute(builder: (_) => CheckoutScreen(api: widget.api, cart: _cart)),
     );
     if (!mounted) return;
-    // نجح الطلب → نغلق القائمة ونعود لصفحة المطاعم؛ وإلّا نحدّث شريط السلّة
     if (placed == true) {
       Navigator.of(context).pop();
     } else {
@@ -102,103 +183,210 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      children: [
-        _header(),
-        const SizedBox(height: 16),
-        if (_menu.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 40),
-            child: Center(child: Text('لا توجد أصناف في هذه القائمة بعد')),
-          ),
-        for (final section in _menu) ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8, top: 8),
-            child: Text(
-              section.category,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+    return CustomScrollView(
+      controller: _scroll,
+      slivers: [
+        SliverToBoxAdapter(child: _header()),
+        if (_menu.length > 1)
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _TabBarDelegate(
+              height: _tabBarHeight,
+              child: _tabBar(),
             ),
           ),
-          ...section.items.map(_menuTile),
-        ],
+        if (_menu.isEmpty)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 40),
+              child: Center(child: Text('لا توجد أصناف في هذه القائمة بعد')),
+            ),
+          ),
+        for (var i = 0; i < _menu.length; i++) _sectionSliver(i),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
       ],
     );
   }
 
-  // ترويسة المطعم: صورة + وصف + معلومات سريعة + تنبيه الإغلاق
-  Widget _header() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: SizedBox(
-              height: 150,
-              width: double.infinity,
-              child: _restaurant.fullImageUrl != null
-                  ? Image.network(
-                      _restaurant.fullImageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _imageFallback(),
-                    )
-                  : _imageFallback(),
-            ),
-          ),
-          if (!_restaurant.isOpen)
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: YallaColors.errorContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
+  // ترويسة المطعم: صورة غلاف أطول + الموعد + الحالة + معلومات سريعة
+  Widget _header() {
+    final open = _restaurant.openNow;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 200,
+          width: double.infinity,
+          child: _restaurant.fullImageUrl != null
+              ? Image.network(
+                  _restaurant.fullImageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _imageFallback(),
+                )
+              : _imageFallback(),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // الموعد + حالة الفتح
+              Row(
                 children: [
-                  Icon(Icons.info_outline, color: YallaColors.error),
-                  const SizedBox(width: 8),
-                  const Expanded(child: Text('المطعم مغلق حاليًا — لا يمكن إتمام الطلب الآن')),
+                  _statusPill(open),
+                  if (_restaurant.scheduleLabel.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Icon(Icons.access_time, size: 16, color: YallaColors.muted),
+                    const SizedBox(width: 4),
+                    Text(
+                      _restaurant.scheduleLabel,
+                      style: TextStyle(color: YallaColors.muted, fontWeight: FontWeight.w600),
+                    ),
+                  ],
                 ],
               ),
-            ),
-          if (_restaurant.description.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(_restaurant.description, style: TextStyle(color: YallaColors.muted)),
-          ],
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 14,
-            runSpacing: 6,
-            children: [
-              if (_restaurant.address.isNotEmpty)
-                _meta(Icons.place_outlined, _restaurant.address),
-              if (_restaurant.prepMinutes > 0)
-                _meta(Icons.timer_outlined, '~${_restaurant.prepMinutes} دقيقة تحضير'),
-              if (_restaurant.minOrder > 0)
-                _meta(Icons.shopping_basket_outlined, 'الحدّ الأدنى ${_restaurant.minOrder} ₪'),
+              if (!open && _restaurant.opensAtLabel.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: YallaColors.errorContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: YallaColors.error, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text('المطعم مغلق حاليًا — ${_restaurant.opensAtLabel}'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (_restaurant.description.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(_restaurant.description, style: TextStyle(color: YallaColors.muted)),
+              ],
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 14,
+                runSpacing: 6,
+                children: [
+                  if (_restaurant.address.isNotEmpty)
+                    _meta(Icons.place_outlined, _restaurant.address),
+                  if (_restaurant.prepMinutes > 0)
+                    _meta(Icons.timer_outlined, '~${_restaurant.prepMinutes} دقيقة تحضير'),
+                  if (_restaurant.minOrder > 0)
+                    _meta(Icons.shopping_basket_outlined,
+                        'الحدّ الأدنى ${_restaurant.minOrder} ₪'),
+                ],
+              ),
             ],
           ),
-        ],
+        ),
+      ],
+    );
+  }
+
+  Widget _statusPill(bool open) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: open ? YallaColors.successContainer : YallaColors.errorContainer,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: open ? YallaColors.success : YallaColors.error,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              open ? 'مفتوح الآن' : 'مغلق',
+              style: TextStyle(
+                color: open ? YallaColors.success : YallaColors.error,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
       );
+
+  // شريط التبويبات المثبّت — يبني رقائق الأقسام
+  Widget _tabBar() => Container(
+        height: _tabBarHeight,
+        color: Theme.of(context).scaffoldBackgroundColor,
+        alignment: Alignment.centerRight,
+        child: ListView.separated(
+          controller: _tabScroll,
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          itemCount: _menu.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (_, i) {
+            final selected = i == _active;
+            final section = _menu[i];
+            return ChoiceChip(
+              key: _tabKeys[i],
+              label: Text('${section.category} (${section.items.length})'),
+              selected: selected,
+              onSelected: (_) => _scrollToSection(i),
+            );
+          },
+        ),
+      );
+
+  Widget _sectionSliver(int i) {
+    final section = _menu[i];
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              key: _sectionKeys[i],
+              padding: const EdgeInsets.only(top: 16, bottom: 8),
+              child: Text(
+                '${section.category} (${section.items.length})',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ...section.items.map(_menuTile),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _menuTile(MenuItemModel item) {
     final qty = _cart.qtyOf(item.id);
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 10),
       child: Opacity(
         opacity: item.available ? 1.0 : 0.5,
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               if (item.fullImageUrl != null) ...[
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   child: Image.network(
                     item.fullImageUrl!,
-                    width: 60,
-                    height: 60,
+                    width: 92,
+                    height: 92,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    errorBuilder: (_, __, ___) => _tileImageFallback(),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -207,25 +395,30 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    if (item.description.isNotEmpty)
+                    Text(item.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    if (item.description.isNotEmpty) ...[
+                      const SizedBox(height: 2),
                       Text(
                         item.description,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: YallaColors.muted, fontSize: 12),
                       ),
-                    const SizedBox(height: 4),
+                    ],
+                    const SizedBox(height: 6),
                     Text(
                       item.available ? '${item.price} ₪' : 'غير متوفّر حاليًا',
                       style: TextStyle(
                         color: item.available ? YallaColors.primary : YallaColors.error,
                         fontWeight: FontWeight.bold,
+                        fontSize: 15,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               if (item.available)
                 qty == 0
                     ? IconButton.filled(
@@ -253,7 +446,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     );
   }
 
-  // شريط السلّة السفلي — يظهر فور إضافة أوّل صنف
   Widget _cartBar() => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -282,6 +474,14 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         child: Icon(Icons.restaurant, size: 44, color: YallaColors.primaryDeep),
       );
 
+  Widget _tileImageFallback() => Container(
+        width: 92,
+        height: 92,
+        color: YallaColors.primaryContainer,
+        alignment: Alignment.center,
+        child: Icon(Icons.restaurant_menu, size: 28, color: YallaColors.primaryDeep),
+      );
+
   Widget _meta(IconData icon, String text) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -290,4 +490,29 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           Text(text, style: TextStyle(color: YallaColors.muted, fontSize: 12)),
         ],
       );
+}
+
+// مندوب الشريط المثبّت للأقسام
+class _TabBarDelegate extends SliverPersistentHeaderDelegate {
+  final double height;
+  final Widget child;
+  const _TabBarDelegate({required this.height, required this.child});
+
+  @override
+  double get minExtent => height;
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      elevation: overlapsContent ? 2 : 0,
+      child: child,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_TabBarDelegate oldDelegate) =>
+      oldDelegate.child != child || oldDelegate.height != height;
 }

@@ -46,7 +46,10 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
       }
       final list = await _repo.list(category: _category, q: _searchController.text);
       if (!mounted) return;
-      setState(() => _restaurants = list);
+      // المطاعم المفتوحة الآن أوّلًا، والمغلقة آخر القائمة (مع الحفاظ على ترتيب الخادم داخل كلّ مجموعة).
+      final open = list.where((r) => r.openNow).toList();
+      final closed = list.where((r) => !r.openNow).toList();
+      setState(() => _restaurants = [...open, ...closed]);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
@@ -172,7 +175,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
             children: [
               // صورة الغلاف (أو بديل بلون العلامة إن لم تُضبط صورة)
               SizedBox(
-                height: 130,
+                height: 170,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -184,17 +187,29 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                       )
                     else
                       _imageFallback(),
-                    if (!r.isOpen)
+                    if (!r.openNow)
                       Container(
                         color: Colors.black54,
                         alignment: Alignment.center,
-                        child: const Text(
-                          'مغلق حاليًا',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'مغلق حاليًا',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (r.opensAtLabel.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                r.opensAtLabel,
+                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                   ],
@@ -235,6 +250,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                       spacing: 12,
                       runSpacing: 4,
                       children: [
+                        if (r.scheduleLabel.isNotEmpty)
+                          _meta(Icons.access_time, r.scheduleLabel),
                         if (r.address.isNotEmpty) _meta(Icons.place_outlined, r.address),
                         if (r.prepMinutes > 0)
                           _meta(Icons.timer_outlined, '~${r.prepMinutes} دقيقة تحضير'),

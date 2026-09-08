@@ -251,11 +251,13 @@ function buildOpenApiSpec() {
       '/admin/restaurants': {
         get: op({ summary: 'كل المطاعم', tags: ['Restaurants'], roles: ['admin'] }),
         post: op({ summary: 'إضافة مطعم', tags: ['Restaurants'], roles: ['admin'],
-          body: { name: str, category: str, city: str, neighborhood: str, phone: str, minOrder: num } }),
+          body: { name: str, category: str, city: str, neighborhood: str, phone: str, minOrder: num,
+            openTime: str, closeTime: str } }),
       },
       '/admin/restaurants/{restaurantId}': {
         patch: op({ summary: 'تعديل مطعم', tags: ['Restaurants'], roles: ['admin'],
-          params: ['restaurantId'], body: { name: str, isOpen: { type: 'boolean' } } }),
+          params: ['restaurantId'],
+          body: { name: str, isOpen: { type: 'boolean' }, openTime: str, closeTime: str } }),
         delete: op({ summary: 'حذف مطعم وقائمته', tags: ['Restaurants'], roles: ['admin'],
           params: ['restaurantId'] }),
       },

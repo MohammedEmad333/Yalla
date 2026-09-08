@@ -39,6 +39,12 @@ const restaurantSchema = new mongoose.Schema(
     // مفتوح الآن؟ (يتحكّم به الأدمن) — المغلق يظهر في القائمة بلا إمكانية طلب
     isOpen: { type: Boolean, default: true },
 
+    // مواعيد العمل (Card 112): وقت الفتح والإغلاق بصيغة "HH:MM" (٢٤ ساعة، توقيت محلّي).
+    // فارغة تعني «طوال اليوم». يحسب التطبيق حالة الفتح الفعليّة من هذه المواعيد + isOpen،
+    // ويُنزل المطعم المغلق آخر القائمة مع عبارة «يفتح ٩ صباحًا».
+    openTime: { type: String, default: '' },
+    closeTime: { type: String, default: '' },
+
     // مفعّل؟ (المعطّل لا يظهر للزبائن إطلاقًا)
     active: { type: Boolean, default: true, index: true },
 

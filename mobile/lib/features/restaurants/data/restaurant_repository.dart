@@ -19,6 +19,8 @@ class Restaurant {
   final num minOrder;
   final num prepMinutes;
   final bool isOpen;
+  final String openTime; // "HH:MM" أو '' (طوال اليوم)
+  final String closeTime;
 
   const Restaurant({
     required this.id,
@@ -34,6 +36,8 @@ class Restaurant {
     required this.minOrder,
     required this.prepMinutes,
     required this.isOpen,
+    required this.openTime,
+    required this.closeTime,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
@@ -55,6 +59,8 @@ class Restaurant {
       minOrder: (json['minOrder'] as num?) ?? 0,
       prepMinutes: (json['prepMinutes'] as num?) ?? 0,
       isOpen: json['isOpen'] != false,
+      openTime: (json['openTime'] ?? '').toString(),
+      closeTime: (json['closeTime'] ?? '').toString(),
     );
   }
 
@@ -62,6 +68,65 @@ class Restaurant {
   String? get fullImageUrl {
     if (imageUrl.isEmpty) return null;
     return imageUrl.startsWith('http') ? imageUrl : '${AppConfig.origin}$imageUrl';
+  }
+
+  // ── مواعيد العمل (Card 112) ──────────────────────────────────────────────
+  // نحسب الحالة على الجهاز (توقيت المستخدم المحلّي) لتفادي فوارق المناطق الزمنيّة.
+
+  static int? _minutes(String hhmm) {
+    final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(hhmm.trim());
+    if (m == null) return null;
+    final h = int.parse(m.group(1)!);
+    final min = int.parse(m.group(2)!);
+    if (h > 23 || min > 59) return null;
+    return h * 60 + min;
+  }
+
+  /// هل للمطعم مواعيد محدّدة صالحة؟ (وإلّا يُعتبر مفتوحًا طوال اليوم)
+  bool get hasSchedule {
+    final o = _minutes(openTime), c = _minutes(closeTime);
+    return o != null && c != null && o != c;
+  }
+
+  bool get _withinSchedule {
+    final o = _minutes(openTime), c = _minutes(closeTime);
+    if (o == null || c == null || o == c) return true;
+    final n = DateTime.now();
+    final now = n.hour * 60 + n.minute;
+    return c > o ? (now >= o && now < c) : (now >= o || now < c); // فترة تعبر منتصف الليل
+  }
+
+  /// مفتوح فعليًّا الآن = المفتاح اليدوي + ضمن المواعيد.
+  bool get openNow => isOpen && _withinSchedule;
+
+  // تنسيق دقائق اليوم إلى ١٢ ساعة عربيّة مختصرة، مثل «11ص» أو «9:30م».
+  static String _fmt12(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    final suffix = h < 12 ? 'ص' : 'م';
+    var hr = h % 12;
+    if (hr == 0) hr = 12;
+    return m == 0 ? '$hr$suffix' : '$hr:${m.toString().padLeft(2, '0')}$suffix';
+  }
+
+  /// عبارة الموعد مثل «11ص - 11م»، أو '' إن بلا مواعيد.
+  String get scheduleLabel {
+    final o = _minutes(openTime), c = _minutes(closeTime);
+    if (o == null || c == null || o == c) return '';
+    return '${_fmt12(o)} - ${_fmt12(c)}';
+  }
+
+  /// عبارة تُعرض حين الإغلاق مثل «يفتح 9 صباحًا»، أو '' إن بلا مواعيد.
+  String get opensAtLabel {
+    final o = _minutes(openTime);
+    if (o == null) return '';
+    final h = o ~/ 60;
+    final m = o % 60;
+    final period = h < 12 ? 'صباحًا' : (h < 17 ? 'ظهرًا' : 'مساءً');
+    var hr = h % 12;
+    if (hr == 0) hr = 12;
+    final t = m == 0 ? '$hr' : '$hr:${m.toString().padLeft(2, '0')}';
+    return 'يفتح $t $period';
   }
 }
 
