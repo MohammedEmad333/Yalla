@@ -1,10 +1,8 @@
-// Card 75: شرح تعريفي للمميزات — يُعرض مرّة واحدة بعد أوّل دخول للحساب،
-// وبعد كل تحديث رسميّ يُعرض شرح الميزات الجديدة فقط دون إعادة شرح القديمة.
+// Card 75: شرح تعريفي للمميزات — يُعرض مرّة واحدة فقط لكلّ دور على الجهاز.
 //
-// الفكرة: لكلّ ميزة رقم إصدار (version) تصاعديّ. نخزّن محلّيًا (لكلّ دور) أعلى
-// إصدار شاهده المستخدم. عند فتح الشاشة الرئيسية نعرض الميزات ذات الإصدار الأعلى
-// من المخزَّن فقط: أوّل دخول (المخزَّن = 0) يعرض كلّ المميزات (جولة كاملة)، وبعد
-// إضافة ميزات بإصدار أعلى يعرض الجديد فقط. التخزين محلّي على الجهاز (بلا خادم).
+// نحفظ علامة دائمة بعد إغلاق الجولة أو تخطّيها، ولا نربطها برقم إصدار التطبيق؛
+// لذلك لا تعود النافذة بعد تحديث APK. حذف التطبيق بالكامل يمسح بياناته، وعندها
+// تظهر الجولة مرّة واحدة بعد التثبيت الجديد.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -68,26 +66,60 @@ const List<OnboardingFeature> captainFeatures = [
   ),
 ];
 
-/// تخزين محلّي لأعلى إصدار شرح شاهده المستخدم (لكلّ دور).
+/// يقبل الصيغة الجديدة ('true') وصيغة الإصدارات القديمة ('1' فأعلى).
+bool isOnboardingSeenValue(String? raw) =>
+    raw == 'true' || (int.tryParse(raw ?? '') ?? 0) > 0;
+
+/// تخزين محلّي دائم لعلامة مشاهدة الشرح (لكلّ دور).
 class OnboardingStorage {
-  final _storage = const FlutterSecureStorage();
+  static const _androidOptions = AndroidOptions(encryptedSharedPreferences: true);
+  static const _iosOptions =
+      IOSOptions(accessibility: KeychainAccessibility.first_unlock);
+
+  final _storage = const FlutterSecureStorage(
+    aOptions: _androidOptions,
+    iOptions: _iosOptions,
+  );
+  // يُستخدم لترحيل القيمة التي كتبتها النسخ القديمة بإعدادات التخزين الافتراضية.
+  final _legacyStorage = const FlutterSecureStorage();
+
   String _key(String role) => 'yalla_onboarding_seen_$role';
 
-  /// أعلى إصدار شُوهد (0 إن لم يُشاهد شيء بعد — أوّل دخول).
-  Future<int> seenVersion(String role) async {
+  Future<bool> hasSeen(String role) async {
+    final key = _key(role);
     try {
-      final raw = await _storage.read(key: _key(role));
-      return int.tryParse(raw ?? '') ?? 0;
+      final current = await _storage.read(
+        key: key,
+        aOptions: _androidOptions,
+        iOptions: _iosOptions,
+      );
+      if (isOnboardingSeenValue(current)) return true;
     } catch (_) {
-      return 0;
+      // نحاول قراءة التخزين القديم أدناه.
     }
+
+    try {
+      final legacy = await _legacyStorage.read(key: key);
+      if (isOnboardingSeenValue(legacy)) {
+        await markSeen(role);
+        return true;
+      }
+    } catch (_) {
+      // لا توجد قيمة قديمة قابلة للقراءة.
+    }
+    return false;
   }
 
-  Future<void> setSeenVersion(String role, int version) async {
+  Future<void> markSeen(String role) async {
     try {
-      await _storage.write(key: _key(role), value: '$version');
+      await _storage.write(
+        key: _key(role),
+        value: 'true',
+        aOptions: _androidOptions,
+        iOptions: _iosOptions,
+      );
     } catch (_) {
-      // فشل التخزين لا يجب أن يعطّل التطبيق — أسوأ حالة: يُعاد العرض لاحقًا
+      // فشل التخزين لا يجب أن يعطّل التطبيق.
     }
   }
 }
@@ -96,28 +128,21 @@ class OnboardingStorage {
 List<OnboardingFeature> featuresForRole(String role) =>
     role == 'captain' ? captainFeatures : userFeatures;
 
-/// أعلى إصدار ميزة متوفّر لدورٍ معيّن.
-int latestVersionForRole(String role) {
-  final list = featuresForRole(role);
-  return list.isEmpty ? 0 : list.map((f) => f.version).reduce((a, b) => a > b ? a : b);
-}
-
-/// يعرض الشرح التعريفي إن وُجدت ميزات لم تُشاهَد بعد، ثم يحفظ أنّها شوهدت.
-/// آمن للاستدعاء عند فتح الشاشة الرئيسية؛ لا يفعل شيئًا إن لا جديد.
+/// يعرض الشرح التعريفي مرّة واحدة فقط، ثم يحفظ علامة المشاهدة الدائمة.
 Future<void> maybeShowOnboarding(BuildContext context, String role) async {
   final storage = OnboardingStorage();
-  final seen = await storage.seenVersion(role);
-  final unseen = featuresForRole(role).where((f) => f.version > seen).toList();
-  if (unseen.isEmpty) return;
-  if (!context.mounted) return;
+  if (await storage.hasSeen(role)) return;
+
+  final features = featuresForRole(role);
+  if (features.isEmpty || !context.mounted) return;
 
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => OnboardingDialog(features: unseen),
+    builder: (_) => OnboardingDialog(features: features),
   );
 
-  await storage.setSeenVersion(role, latestVersionForRole(role));
+  await storage.markSeen(role);
 }
 
 /// نافذة الشرح التعريفي — عرض شرائح المميزات مع زرّ تالٍ/إنهاء.

@@ -30,7 +30,7 @@ class _UserHomeState extends State<UserHome> {
   void initState() {
     super.initState();
     widget.socket.connect(); // اتصال لحظي لاستقبال تحديثات الطلبات
-    // Card 75: شرح تعريفي لمرة واحدة (وبعد كل تحديث للميزات الجديدة فقط)
+    // Card 75: شرح تعريفي يظهر مرّة واحدة فقط على هذا الجهاز
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) maybeShowOnboarding(context, 'user');
     });
