@@ -42,7 +42,7 @@ test('quote: يُرجع مسافة وسعر وعملة صحيحة', () => {
 
 // نموذج التسعير المطلوب (Card 55): "سعر المئتين وخمسين مترًا = ١ شيكل"
 test('calculatePrice: كل ٢٥٠ مترًا = ١ شيكل', () => {
-  // ٢٥٠ مترًا = ٠.٢٥ كم → ١ ₪ (لكنّ الحدّ الأدنى ٣ ₪ يرفعه)
+  // ٢٥٠ مترًا = ٠.٢٥ كم → ١ ₪ (لكنّ الحدّ الأدنى ٨ ₪ يرفعه)
   assert.equal(pricing.calculatePrice(0.25), pricing.TARIFF.minFare);
   // ٢٥٠٠ مترًا = ٢.٥ كم → ٢٥٠٠ ÷ ٢٥٠ = ١٠ ₪
   assert.equal(pricing.calculatePrice(2.5), 10);
@@ -58,16 +58,16 @@ test('METERS_PER_SHEKEL = ٢٥٠', () => {
   assert.equal(pricing.METERS_PER_SHEKEL, 250);
 });
 
-// Card 89: عرض السقف ٨ شيكل خلال فترة العرض
-test('applyOffer: يخفّض السعر الأعلى من ٨ إلى ٨ خلال العرض ويحفظ الأصلي', () => {
+// Card 89: عرض السقف ١٠ شيكل خلال فترة العرض
+test('applyOffer: يخفّض السعر الأعلى من ١٠ إلى ١٠ خلال العرض ويحفظ الأصلي', () => {
   const during = new Date('2026-09-01T00:00:00Z'); // ضمن فترة العرض
   const r = pricing.applyOffer(20, during);
-  assert.equal(r.price, 8);
+  assert.equal(r.price, 10);
   assert.equal(r.originalPrice, 20);
   assert.equal(r.offerApplied, true);
 });
 
-test('applyOffer: لا يغيّر السعر الأقلّ من أو يساوي ٨', () => {
+test('applyOffer: لا يغيّر السعر الأقلّ من أو يساوي ١٠', () => {
   const during = new Date('2026-09-01T00:00:00Z');
   const r = pricing.applyOffer(6, during);
   assert.equal(r.price, 6);
