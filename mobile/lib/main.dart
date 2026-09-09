@@ -2,6 +2,7 @@
 // يهيّئ الخدمات، يفرض RTL، ويقود الواجهة بحالة الجلسة (صفحة دخول واحدة للجميع).
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
@@ -31,6 +32,16 @@ Future<void> handleLogout() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // عرض التطبيق حتى حواف الشاشة على Android 15 وما قبله، مع إبقاء
+  // ألوان شريطي الحالة والتنقّل شفافة لتنسجم مع واجهة Yalla.
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarDividerColor: Colors.transparent,
+    systemStatusBarContrastEnforced: false,
+    systemNavigationBarContrastEnforced: false,
+  ));
   // تهيئة إشعارات FCM (آمنة: لا تُعطّل الإقلاع إن لم يُهيّأ Firebase بعد) — Card 22
   await PushService.initialize();
   // استعادة وضع العرض المحفوظ قبل أوّل رسم (يمنع وميض الأبيض ليلًا).

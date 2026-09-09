@@ -62,9 +62,12 @@ jobs:
         run: |
           cp android/app/src/main/AndroidManifest.xml "$RUNNER_TEMP/AndroidManifest.xml"
           cp android/app/src/main/res/xml/network_security_config.xml "$RUNNER_TEMP/nsc.xml"
+          cp android/app/src/main/kotlin/com/mohammedemad333/yalla/MainActivity.kt "$RUNNER_TEMP/MainActivity.kt"
           rm -rf android
           flutter create --platforms=android --org com.mohammedemad333 --project-name yalla .
           cp "$RUNNER_TEMP/AndroidManifest.xml" android/app/src/main/AndroidManifest.xml
+          mkdir -p android/app/src/main/kotlin/com/mohammedemad333/yalla
+          cp "$RUNNER_TEMP/MainActivity.kt" android/app/src/main/kotlin/com/mohammedemad333/yalla/MainActivity.kt
           mkdir -p android/app/src/main/res/xml
           cp "$RUNNER_TEMP/nsc.xml" android/app/src/main/res/xml/network_security_config.xml
           # flutter create يولّد اختبار العدّاد الافتراضي (يشير إلى MyApp غير الموجود)
