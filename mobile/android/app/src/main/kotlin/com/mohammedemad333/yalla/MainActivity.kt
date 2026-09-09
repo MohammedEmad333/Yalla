@@ -1,13 +1,14 @@
 package com.mohammedemad333.yalla
 
 import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
 import io.flutter.embedding.android.FlutterActivity
 
 class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        // يفعّل العرض حتى حواف الشاشة على Android 15 والإصدارات الأقدم.
-        enableEdgeToEdge()
+        // FlutterActivity ليست ComponentActivity، لذا نفعّل Edge-to-Edge عبر
+        // WindowCompat مباشرةً قبل إنشاء واجهة Flutter.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         super.onCreate(savedInstanceState)
     }
 }
