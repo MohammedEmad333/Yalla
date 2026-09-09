@@ -69,7 +69,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   // التسعيرة التقديرية القادمة من الخادم
   num? _quotePrice;
   num? _quoteOriginal; // Card 89: السعر قبل العرض (يُعرض مشطوبًا)
-  bool _offerApplied = false; // Card 89: هل طُبّق عرض السقف (٨ شيكل)؟
+  bool _offerApplied = false; // Card 89: هل طُبّق عرض السقف (١٠ شيكل)؟
   num? _quoteDistance;
   num? _quoteEta;
   bool _loadingQuote = false;
@@ -226,7 +226,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 subtitle: _quoteDistance != null
                     ? Text('المسافة: ~$_quoteDistance كم'
                         '${_quoteEta != null ? ' · الزمن المتوقّع: ~$_quoteEta دقيقة' : ''}'
-                        '${_offerApplied ? '\n🎉 عرض لفترة محدودة: أقصى سعر ٨ ₪' : ''}'
+                        '${_offerApplied ? '\n🎉 عرض لفترة محدودة: أقصى سعر ١٠ ₪' : ''}'
                         '\nالسعر النهائي يحدّده الكابتن عند التسليم (لا يتجاوز التقريبي)')
                     : null,
                 isThreeLine: _quoteDistance != null,
