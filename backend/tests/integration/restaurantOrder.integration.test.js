@@ -52,6 +52,16 @@ test('إنشاء مطعم: يشتقّ الإحداثيّات والعنوان م
   assert.notEqual(r.location.coordinates[0], 0);
 });
 
+test('إنشاء مطعم: الحي يتغلّب على إحداثيّات الإدارة الخاطئة', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const r = await makeRestaurant({
+    city: 'غزة',
+    neighborhood: 'الرمال الجنوبي',
+    location: { type: 'Point', coordinates: [0.1, 0.1] },
+  });
+  assert.deepEqual(r.location.coordinates, [34.44, 31.515]);
+});
+
 test('قائمة المطاعم: تُظهر المفعّلة فقط وتدعم الفلترة بالتصنيف', async (t) => {
   if (!state.dbReady) return t.skip('لا قاعدة بيانات');
   await makeRestaurant();
@@ -108,6 +118,34 @@ test('طلب من مطعم: يُنشئ طلب توصيل استلامه من ا�
   assert.match(order.packageNote, /مطعم يلا/);
   assert.ok(order.price > 0); // أجرة التوصيل تُحسب كأي طلب
   assert.ok(order.etaMinutes >= 10); // يشمل زمن التحضير
+});
+
+test('طلب من مطعم: يصحّح موقعًا قديمًا فاسدًا من الحي قبل التسعير', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const user = await makeUser();
+  const r = await makeRestaurant({
+    city: 'غزة',
+    neighborhood: 'الرمال الجنوبي',
+  });
+  // نحاكي سجلًا قديمًا فاسدًا دخل قاعدة البيانات قبل إصلاح التطبيع.
+  await Restaurant.findByIdAndUpdate(r._id, {
+    location: { type: 'Point', coordinates: [0.1, 0.1] },
+  });
+  const item = await restaurantService.createMenuItem(r._id, {
+    name: 'وجبة',
+    price: 20,
+  });
+
+  const order = await restaurantService.createRestaurantOrder(user._id, {
+    restaurantId: String(r._id),
+    items: [{ menuItemId: String(item._id), qty: 1 }],
+    dropoff: { city: 'غزة', neighborhood: 'تل الهوا' },
+  });
+
+  assert.deepEqual(order.pickup.location.coordinates, [34.44, 31.515]);
+  assert.ok(order.distanceKm < 5, `المسافة غير منطقية: ${order.distanceKm}`);
+  assert.ok(order.price <= 10, `السعر غير منطقي: ${order.price}`);
+  assert.ok(order.etaMinutes < 60, `الوقت غير منطقي: ${order.etaMinutes}`);
 });
 
 test('طلب من مطعم: يُرفض تحت الحدّ الأدنى أو من مطعم مغلق أو بسلّة فارغة', async (t) => {

@@ -41,9 +41,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Cart get _cart => widget.cart;
   List<double>? get _dropoffCoords => coordsOf(_city, _neighborhood);
 
+  // المدينة والحي هما مصدر موقع المطعم. نرجع للإحداثيّات القادمة من الخادم فقط
+  // إذا كان الحي غير موجود في القائمة، دعمًا للسجلات/المناطق المخصّصة.
+  List<double>? get _pickupCoords {
+    final fromNeighborhood = coordsOf(
+      _cart.restaurant.city,
+      _cart.restaurant.neighborhood,
+    );
+    if (fromNeighborhood != null) return fromNeighborhood;
+
+    final stored = _cart.restaurant.coords;
+    if (stored == null || stored.length != 2) return null;
+    final lng = stored[0], lat = stored[1];
+    if (lng < -180 || lng > 180 || lat < -90 || lat > 90) return null;
+    return stored;
+  }
+
   // تسعيرة التوصيل من المطعم إلى عنوان الزبون
   Future<void> _refreshQuote() async {
-    final pickup = _cart.restaurant.coords;
+    final pickup = _pickupCoords;
     final dropoff = _dropoffCoords;
     if (pickup == null || dropoff == null) return;
     setState(() => _loadingQuote = true);
@@ -93,8 +109,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       Navigator.of(context).pop(true); // نُعلم شاشة القائمة بنجاح الطلب
     } on ApiException catch (e) {
-      // يشمل: رصيد المحفظة لا يكفي، المطعم مغلق، صنف لم يعد متاحًا
-      if (mounted) _snack(e.message);
+      // نحافظ على رسالة الخادم الدقيقة؛ ونوحّد أخطاء الرصيد القديمة إن أعادها
+      // خادم لم يُحدَّث بعد بصيغة مختصرة.
+      final message = e.message == 'الرصيد غير كافٍ'
+          ? 'رصيد محفظتك غير كافٍ لإتمام الطلب — اشحن المحفظة ثم حاول مرة أخرى'
+          : e.message;
+      if (mounted) _snack(message);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

@@ -8,6 +8,7 @@ const assert = require('node:assert/strict');
 
 const { haversineKm } = require('../src/utils/geo');
 const pricing = require('../src/services/pricing.service');
+const { coordsForNeighborhood } = require('../src/utils/neighborhoods');
 
 // نقطتان معروفتان: ميدان التحرير ← الأهرامات (~13 كم خط مستقيم)
 const TAHRIR = [31.2357, 30.0444]; // [lng, lat]
@@ -85,4 +86,12 @@ test('quote: يرفق السعر الأصلي وحالة العرض والسقف
   const q = pricing.quote(TAHRIR, GIZA);
   assert.equal(q.offerCap, pricing.OFFER_PRICE_CAP);
   assert.ok(q.originalPrice >= q.price);
+});
+
+test('quote: الرمال الجنوبي إلى تل الهوا يُحسب من مركزي الحيّين', () => {
+  const pickup = coordsForNeighborhood('الرمال الجنوبي', 'غزة');
+  const dropoff = coordsForNeighborhood('تل الهوا', 'غزة');
+  const q = pricing.quote(pickup, dropoff);
+  assert.equal(q.distanceKm, 1.57);
+  assert.equal(q.price, pricing.TARIFF.minFare);
 });

@@ -171,7 +171,7 @@ async function createOrder(userId, payload, idempotencyKey) {
   const { balance } = await walletService.getWalletSummary(userId);
   if (balance < price) {
     throw httpError(
-      `رصيد محفظتك (${balance} ₪) لا يكفي للسعر التقريبي (${price} ₪) — اشحن محفظتك أولًا`,
+      `رصيد محفظتك غير كافٍ لإتمام الطلب: رصيدك ${balance} ₪ وأجرة التوصيل ${price} ₪ — اشحن المحفظة ثم حاول مرة أخرى`,
       400
     );
   }

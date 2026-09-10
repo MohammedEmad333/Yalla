@@ -25,6 +25,38 @@ function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
 }
 
+/**
+ * موقع المطعم مصدره المدينة والحي، لا الإحداثيّات القديمة المحفوظة.
+ * بعض السجلات القديمة تحتوي إحداثيّات معكوسة/بعيدة جدًا رغم أن الحي صحيح؛
+ * لذلك نعتمد مركز الحي متى كان معروفًا، ونرجع للموقع المحفوظ للتوافق فقط.
+ */
+function restaurantCoordinates(restaurant = {}) {
+  const fromNeighborhood = coordsForNeighborhood(
+    restaurant.neighborhood,
+    restaurant.city
+  );
+  if (fromNeighborhood) return fromNeighborhood;
+
+  const stored = restaurant.location?.coordinates;
+  if (
+    Array.isArray(stored) &&
+    stored.length === 2 &&
+    stored.every((n) => Number.isFinite(Number(n)))
+  ) {
+    return stored.map(Number);
+  }
+  return [0, 0];
+}
+
+function withNeighborhoodLocation(restaurant) {
+  if (!restaurant) return restaurant;
+  const coordinates = restaurantCoordinates(restaurant);
+  return {
+    ...restaurant,
+    location: { type: 'Point', coordinates },
+  };
+}
+
 // الحقول المُعادة للزبون (نُخفي حقول الإدارة غير الضرورية)
 const PUBLIC_FIELDS =
   'name description category imageUrl phone city neighborhood street address location minOrder prepMinutes isOpen openTime closeTime sortOrder';
@@ -83,13 +115,18 @@ function normalizeRestaurantPayload(payload = {}) {
     doc.address = (payload.address || '').toString().trim();
   }
 
-  // الإحداثيّات: من العميل إن أُرسلت صالحة، وإلّا من الحي المختار
+  // عند وجود حي معروف فهو مصدر الحقيقة. هذا يصلح تلقائيًا أي إحداثيّات قديمة
+  // أو معكوسة أرسلها نموذج الإدارة.
   const sent = payload.location?.coordinates;
-  if (Array.isArray(sent) && sent.length === 2 && sent.every((n) => typeof n === 'number')) {
-    doc.location = { type: 'Point', coordinates: sent };
-  } else if (neighborhood) {
+  if (neighborhood) {
     const coords = coordsForNeighborhood(neighborhood, city);
     if (coords) doc.location = { type: 'Point', coordinates: coords };
+  } else if (
+    Array.isArray(sent) &&
+    sent.length === 2 &&
+    sent.every((n) => Number.isFinite(Number(n)))
+  ) {
+    doc.location = { type: 'Point', coordinates: sent.map(Number) };
   }
 
   return doc;
@@ -117,11 +154,12 @@ async function listRestaurants(query = {}) {
 
   const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 60));
 
-  return Restaurant.find(filter)
+  const restaurants = await Restaurant.find(filter)
     .select(PUBLIC_FIELDS)
     .sort({ isOpen: -1, sortOrder: 1, name: 1 })
     .limit(limit)
     .lean();
+  return restaurants.map(withNeighborhoodLocation);
 }
 
 /** تصنيفات المطاعم المتاحة فعليًّا (لعرضها كرقائق فلترة في التطبيق). */
@@ -142,7 +180,11 @@ async function getRestaurantWithMenu(restaurantId) {
     .sort({ sortOrder: 1, name: 1 })
     .lean();
 
-  return { restaurant, menu: groupMenuByCategory(items), items };
+  return {
+    restaurant: withNeighborhoodLocation(restaurant),
+    menu: groupMenuByCategory(items),
+    items,
+  };
 }
 
 /**
@@ -181,7 +223,9 @@ async function createRestaurantOrder(userId, payload = {}, idempotencyKey) {
 
   const note = (payload.note || '').toString().trim();
 
-  // نقطة الاستلام = المطعم (عنوانه وإحداثيّاته المحفوظة)
+  // نقطة الاستلام = المطعم. المدينة والحي هما مصدر الإحداثيّات حتى لا تؤدي
+  // إحداثيّات قديمة فاسدة إلى سعر ووقت وصول غير منطقيين.
+  const pickupCoordinates = restaurantCoordinates(restaurant);
   const pickup = {
     address: restaurant.address || restaurant.name,
     city: restaurant.city,
@@ -193,7 +237,7 @@ async function createRestaurantOrder(userId, payload = {}, idempotencyKey) {
     contactPhone: restaurant.phone || '',
     location: {
       type: 'Point',
-      coordinates: restaurant.location?.coordinates || [0, 0],
+      coordinates: pickupCoordinates,
     },
   };
 
