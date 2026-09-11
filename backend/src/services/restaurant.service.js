@@ -171,12 +171,7 @@ async function listRestaurants(query = {}) {
     if (!q || err?.code !== 27) throw err;
     const fallback = { ...filter };
     delete fallback.$text;
-    const safe = q.replace(/[.*+?^${}()|[\]\\]/g, '\\  const restaurants = await Restaurant.find(filter)
-    .select(PUBLIC_FIELDS)
-    .sort({ isOpen: -1, sortOrder: 1, name: 1 })
-    .limit(limit)
-    .lean();
-  return restaurants.map(withNeighborhoodLocation);');
+    const safe = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     fallback.$or = [
       { name: new RegExp(safe, 'i') },
       { description: new RegExp(safe, 'i') },
