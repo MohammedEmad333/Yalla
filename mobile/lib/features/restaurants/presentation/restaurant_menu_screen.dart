@@ -2,6 +2,7 @@
 // أزرار إضافة/إنقاص للسلّة، وشريط سفلي للسلّة. الأقسام تظهر كتبويبات مثبّتة أعلى
 // الصفحة (sticky): الضغط على قسم ينزل إليه، والتمرير يحرّك التبويب النشط تلقائيًّا.
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -230,10 +231,14 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           height: 200,
           width: double.infinity,
           child: _restaurant.fullImageUrl != null
-              ? Image.network(
-                  _restaurant.fullImageUrl!,
+              ? CachedNetworkImage(
+                  imageUrl: _restaurant.fullImageUrl!,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _imageFallback(),
+                  memCacheWidth: 900,
+                  maxWidthDiskCache: 1200,
+                  fadeInDuration: const Duration(milliseconds: 180),
+                  placeholder: (_, __) => _imageLoading(),
+                  errorWidget: (_, __, ___) => _imageFallback(),
                 )
               : _imageFallback(),
         ),
@@ -393,12 +398,18 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               if (item.fullImageUrl != null) ...[
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    item.fullImageUrl!,
+                  child: CachedNetworkImage(
+                    imageUrl: item.fullImageUrl!,
                     width: 92,
                     height: 92,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _tileImageFallback(),
+                    memCacheWidth: 276,
+                    memCacheHeight: 276,
+                    maxWidthDiskCache: 420,
+                    maxHeightDiskCache: 420,
+                    fadeInDuration: const Duration(milliseconds: 150),
+                    placeholder: (_, __) => _tileImageLoading(),
+                    errorWidget: (_, __, ___) => _tileImageFallback(),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -477,6 +488,28 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               ],
             ),
           ),
+        ),
+      );
+
+  Widget _imageLoading() => Container(
+        color: YallaColors.primaryContainer,
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+
+  Widget _tileImageLoading() => Container(
+        width: 92,
+        height: 92,
+        color: YallaColors.primaryContainer,
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
         ),
       );
 

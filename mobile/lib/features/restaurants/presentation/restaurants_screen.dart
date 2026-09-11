@@ -2,6 +2,9 @@
 // تعرض بحثًا بالاسم، رقائق تصنيف (مشاوي/شاورما/بيتزا/حلويات...)، وقائمة بطاقات
 // المطاعم مع صورة وتصنيف والحدّ الأدنى وزمن التحضير وحالة الفتح/الإغلاق.
 
+import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
@@ -20,11 +23,14 @@ class RestaurantsScreen extends StatefulWidget {
 class _RestaurantsScreenState extends State<RestaurantsScreen> {
   late final RestaurantRepository _repo = RestaurantRepository(widget.api);
   final _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  int _requestSerial = 0;
 
   List<Restaurant> _restaurants = [];
   List<String> _categories = [];
   String _category = 'الكل';
   bool _loading = true;
+  bool _searching = false;
   String _error = '';
 
   @override
@@ -34,28 +40,56 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   }
 
   Future<void> _load() async {
+    final requestId = ++_requestSerial;
+    final hasContent = _restaurants.isNotEmpty;
     setState(() {
-      _loading = true;
+      _loading = !hasContent;
+      _searching = hasContent;
       _error = '';
     });
+
     try {
-      // التصنيفات تُجلب مرّة واحدة (لا تتغيّر مع الفلترة)
+      List<String>? categories;
+      late final List<Restaurant> list;
+
+      // عند الفتح لأول مرة نطلب التصنيفات والمطاعم بالتوازي بدل انتظار
+      // استجابة التصنيفات قبل بدء طلب القائمة.
       if (_categories.isEmpty) {
-        final cats = await _repo.categories();
-        if (mounted) setState(() => _categories = cats);
+        final results = await Future.wait<Object>([
+          _repo.categories(),
+          _repo.list(category: _category, q: _searchController.text),
+        ]);
+        categories = (results[0] as List).cast<String>();
+        list = (results[1] as List).cast<Restaurant>();
+      } else {
+        list = await _repo.list(category: _category, q: _searchController.text);
       }
-      final list = await _repo.list(category: _category, q: _searchController.text);
-      if (!mounted) return;
-      // المطاعم المفتوحة الآن أوّلًا، والمغلقة آخر القائمة (مع الحفاظ على ترتيب الخادم داخل كلّ مجموعة).
+
+      // إذا سبق هذا الطلب طلب أحدث (كتابة سريعة في البحث) نتجاهل نتيجته
+      // حتى لا تظهر نتائج قديمة بعد النتائج الجديدة.
+      if (!mounted || requestId != _requestSerial) return;
+
       final open = list.where((r) => r.openNow).toList();
       final closed = list.where((r) => !r.openNow).toList();
-      setState(() => _restaurants = [...open, ...closed]);
+      setState(() {
+        if (categories != null) _categories = categories!;
+        _restaurants = [...open, ...closed];
+      });
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted && requestId == _requestSerial) {
+        setState(() => _error = e.message);
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = 'تعذّر تحميل المطاعم — تحقّق من الاتصال');
+      if (mounted && requestId == _requestSerial) {
+        setState(() => _error = 'تعذّر تحميل المطاعم — تحقّق من الاتصال');
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && requestId == _requestSerial) {
+        setState(() {
+          _loading = false;
+          _searching = false;
+        });
+      }
     }
   }
 
@@ -78,8 +112,18 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
             child: TextField(
               controller: _searchController,
               textInputAction: TextInputAction.search,
-              onChanged: (_) => setState(() {}), // لإظهار/إخفاء زرّ المسح
-              onSubmitted: (_) => _load(),
+              onChanged: (_) {
+                setState(() {}); // لإظهار/إخفاء زرّ المسح
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(
+                  const Duration(milliseconds: 350),
+                  _load,
+                );
+              },
+              onSubmitted: (_) {
+                _searchDebounce?.cancel();
+                _load();
+              },
               decoration: InputDecoration(
                 hintText: 'ابحث عن مطعم...',
                 prefixIcon: const Icon(Icons.search),
@@ -88,6 +132,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                     : IconButton(
                         icon: const Icon(Icons.close),
                         onPressed: () {
+                          _searchDebounce?.cancel();
                           _searchController.clear();
                           _load();
                         },
@@ -95,6 +140,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
               ),
             ),
           ),
+
+          if (_searching) const LinearProgressIndicator(minHeight: 2),
 
           // رقائق التصنيف
           if (_categories.isNotEmpty)
@@ -111,6 +158,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                       label: Text(c),
                       selected: selected,
                       onSelected: (_) {
+                        _searchDebounce?.cancel();
                         setState(() => _category = c);
                         _load();
                       },
@@ -180,10 +228,14 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   fit: StackFit.expand,
                   children: [
                     if (r.fullImageUrl != null)
-                      Image.network(
-                        r.fullImageUrl!,
+                      CachedNetworkImage(
+                        imageUrl: r.fullImageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _imageFallback(),
+                        memCacheWidth: 900,
+                        maxWidthDiskCache: 1200,
+                        fadeInDuration: const Duration(milliseconds: 180),
+                        placeholder: (_, __) => _imageLoading(),
+                        errorWidget: (_, __, ___) => _imageFallback(),
                       )
                     else
                       _imageFallback(),
@@ -267,6 +319,16 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         ),
       );
 
+  Widget _imageLoading() => Container(
+        color: YallaColors.primaryContainer,
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+
   Widget _imageFallback() => Container(
         color: YallaColors.primaryContainer,
         alignment: Alignment.center,
@@ -284,6 +346,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }

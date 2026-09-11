@@ -147,9 +147,9 @@ async function listRestaurants(query = {}) {
 
   const q = (query.q || '').toString().trim();
   if (q) {
-    // بحث بسيط بالاسم/الوصف (نهرب الرموز الخاصّة لتفادي تعبير نمطي غير صالح)
-    const safe = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    filter.$or = [{ name: new RegExp(safe, 'i') }, { description: new RegExp(safe, 'i') }];
+    // نستفيد من فهرس MongoDB النصّي الموجود على name/description بدل مسح
+    // كل المطاعم بتعبير RegExp غير مفهرس في كل عملية بحث.
+    filter.$text = { $search: q };
   }
 
   const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 60));

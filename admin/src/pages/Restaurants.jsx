@@ -26,10 +26,46 @@ import { IconPlus, IconStore, IconTrash } from '../components/icons';
 // للمسار النسبيّ (تمامًا كما في صفحة المستخدمين)، ونترك الروابط الخارجيّة كما هي.
 const imageSrc = (url) => (url ? (url.startsWith('http') ? url : `${API}${url}`) : '');
 
+// نصغّر الصورة ونحوّلها إلى WebP قبل الرفع. هذا يمنع تخزين صور كاميرا
+// بحجم عدّة ميغابايت بينما التطبيق يعرضها داخل بطاقة صغيرة.
+async function optimizeImage(file, maxDimension = 1400, quality = 0.78) {
+  if (!file?.type?.startsWith('image/')) throw new Error('اختر ملف صورة صالحًا');
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) {
+      bitmap.close?.();
+      return file;
+    }
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, 'image/webp', quality)
+    );
+    if (!blob) return file;
+
+    const baseName = (file.name || 'image').replace(/\.[^.]+$/, '');
+    return new File([blob], `${baseName}.webp`, {
+      type: 'image/webp',
+      lastModified: Date.now(),
+    });
+  } catch {
+    // بعض الأجهزة لا تفكّ HEIC داخل المتصفح؛ نرسل الأصل ليعالجه الخادم كما كان.
+    return file;
+  }
+}
+
 // رفع صورة (multipart) إلى مسار أدمن ويُعيد رابطها — مشترك بين المطعم والصنف.
 async function uploadImageTo(path, file) {
+  const optimized = await optimizeImage(file);
   const fd = new FormData();
-  fd.append('image', file);
+  fd.append('image', optimized);
   const res = await fetch(`${API}/api${path}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
