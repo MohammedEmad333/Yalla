@@ -120,18 +120,30 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     if (mounted) _lockSpy = false;
   }
 
-  // نُبقي التبويب النشط ظاهرًا داخل الشريط الأفقي
+  // نُبقي التبويب النشط ظاهرًا بتحريك الشريط الأفقي وحده.
+  //
+  // لا نستخدم Scrollable.ensureVisible هنا لأن التبويبات داخل CustomScrollView
+  // عمودي؛ ensureVisible يمرّر جميع الـ Scrollables الأب، فيعيد قائمة المطعم
+  // إلى أعلى كلما تغيّر القسم النشط أثناء تمرير المستخدم.
   void _syncTab(int i) {
-    if (i < 0 || i >= _tabKeys.length) return;
+    if (i < 0 || i >= _tabKeys.length || !_tabScroll.hasClients) return;
     final ctx = _tabKeys[i].currentContext;
-    if (ctx != null) {
-      Scrollable.ensureVisible(
-        ctx,
-        alignment: 0.5,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
+    final box = ctx?.findRenderObject();
+    if (box is! RenderBox) return;
+
+    final viewport = RenderAbstractViewport.of(box);
+    final target = viewport
+        .getOffsetToReveal(box, 0.5)
+        .offset
+        .clamp(0.0, _tabScroll.position.maxScrollExtent)
+        .toDouble();
+
+    if ((target - _tabScroll.offset).abs() < 1) return;
+    _tabScroll.animateTo(
+      target,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   // ── الطلب ───────────────────────────────────────────────────────────────
