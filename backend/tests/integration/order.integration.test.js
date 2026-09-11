@@ -226,7 +226,7 @@ test('إنشاء الطلب: يُرفض إن لم يكفِ رصيد المحفظ
 
   await assert.rejects(
     () => orderService.createOrder(poor._id, orderPayload()),
-    /لا يكفي|اشحن محفظتك/
+    /رصيد محفظتك غير كافٍ|اشحن المحفظة/
   );
 });
 
