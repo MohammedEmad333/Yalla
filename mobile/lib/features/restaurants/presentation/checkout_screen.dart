@@ -70,7 +70,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _deliveryPrice = q['price'] as num?;
         _deliveryOriginal = q['originalPrice'] as num?;
         _offerApplied = q['offerApplied'] == true;
-        _etaMinutes = q['etaMinutes'] as num?;
+        final deliveryEta = (q['etaMinutes'] as num?) ?? 0;
+        // الخادم يضيف هامش 5 دقائق إلى وقت الطريق؛ نضيف هنا وقت تحضير المطعم.
+        _etaMinutes = deliveryEta + _cart.restaurant.prepMinutes;
       });
     } on ApiException {
       // نتجاهل خطأ التسعيرة — السعر النهائي يُحسب في الخادم عند الإنشاء
@@ -209,7 +211,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ],
                   const SizedBox(height: 8),
                   Text(
-                    'أجرة التوصيل تُخصم من محفظتك، وقيمة الأصناف تُدفع للكابتن عند الاستلام.',
+                    'يجب أن يغطي رصيد محفظتك كامل المبلغ. عند التسليم تُخصم قيمة الأصناف وأجرة التوصيل من المحفظة تلقائيًا.',
                     style: TextStyle(color: YallaColors.muted, fontSize: 12),
                     textAlign: TextAlign.center,
                   ),

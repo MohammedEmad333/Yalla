@@ -11,6 +11,7 @@ const adminService = require('../services/admin.service');
 const settingsService = require('../services/settings.service');
 const chatService = require('../services/chat.service');
 const notificationService = require('../services/notification.service');
+const adminWalletService = require('../services/adminWallet.service');
 const { validateBroadcast } = require('../utils/broadcast');
 const { excelUnicodeBuffer } = require('../utils/csv');
 const { saveAvatar, deleteAvatarByUrl } = require('../utils/avatarStore');
@@ -21,6 +22,23 @@ async function getStats(req, res, next) {
   try {
     const stats = await statsService.getDashboardStats();
     res.json(stats);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function resetStats(req, res, next) {
+  try {
+    const settings = await settingsService.resetStats();
+    res.json({ ok: true, statsResetAt: settings.statsResetAt });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getAdminWallet(req, res, next) {
+  try {
+    res.json(await adminWalletService.getWallet(req.query));
   } catch (err) {
     next(err);
   }
@@ -526,6 +544,8 @@ async function updateSettings(req, res, next) {
 
 module.exports = {
   getStats,
+  resetStats,
+  getAdminWallet,
   getSettings,
   updateSettings,
   sendBroadcast,

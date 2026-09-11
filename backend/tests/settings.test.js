@@ -22,5 +22,5 @@ test('settings: DEFAULTS ثابتة ومكشوفة', () => {
 test('settings: getCached يعود للافتراضيّات بلا مخبّأ محمّل', () => {
   settings._clearCache();
   const cached = settings.getCached();
-  assert.deepEqual(cached, { autoAssignBroadcast: false });
+  assert.deepEqual(cached, { autoAssignBroadcast: false, statsResetAt: null });
 });

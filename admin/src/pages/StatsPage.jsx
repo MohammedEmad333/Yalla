@@ -40,6 +40,7 @@ const TONE = {
 export default function StatsPage() {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState('');
+  const [resetting, setResetting] = useState(false);
 
   const load = () => {
     setError('');
@@ -48,9 +49,26 @@ export default function StatsPage() {
 
   useEffect(load, []);
 
+  const reset = async () => {
+    if (!window.confirm('إعادة الإحصائيات إلى الصفر؟ لن تُحذف الطلبات أو الحركات المالية.')) return;
+    setResetting(true);
+    setError('');
+    try {
+      await api.post('/admin/stats/reset', {});
+      await api.get('/admin/stats').then(setStats);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setResetting(false);
+    }
+  };
+
   return (
     <>
       <PageHeader title="الإحصائيات" subtitle="نظرة عامّة على أداء المنظومة">
+        <Button variant="danger" loading={resetting} onClick={reset} disabled={resetting}>
+          إعادة ضبط الإحصائيات
+        </Button>
         <Button icon={<IconRefresh size={18} />} onClick={load} aria-label="تحديث">
           <span className="yl-hide-xs">تحديث</span>
         </Button>

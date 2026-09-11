@@ -10,11 +10,14 @@ const { before, after, beforeEach } = require('node:test');
 const { connect, disconnect, clearDb, state } = require('./setup');
 
 const User = require('../../src/models/User');
+const Captain = require('../../src/models/Captain');
 const Restaurant = require('../../src/models/Restaurant');
 const MenuItem = require('../../src/models/MenuItem');
 const restaurantService = require('../../src/services/restaurant.service');
+const orderService = require('../../src/services/order.service');
+const adminWalletService = require('../../src/services/adminWallet.service');
 const walletService = require('../../src/services/wallet.service');
-const { ORDER_STATUS } = require('../../src/utils/constants');
+const { ORDER_STATUS, CAPTAIN_STATUS } = require('../../src/utils/constants');
 
 before(connect);
 after(disconnect);
@@ -42,6 +45,17 @@ async function makeRestaurant(extra = {}) {
     prepMinutes: 10,
     ...extra,
   });
+}
+
+async function makeCaptain() {
+  const c = new Captain({
+    name: 'كابتن المطعم',
+    phone: `c${Date.now()}${Math.random()}`,
+    status: CAPTAIN_STATUS.ONLINE,
+    isApproved: true,
+  });
+  await c.setPassword('secret1');
+  return c.save();
 }
 
 test('إنشاء مطعم: يشتقّ الإحداثيّات والعنوان من المدينة والحي', async (t) => {
@@ -117,7 +131,51 @@ test('طلب من مطعم: يُنشئ طلب توصيل استلامه من ا�
   assert.equal(order.store.note, 'بلا ثوم');
   assert.match(order.packageNote, /مطعم يلا/);
   assert.ok(order.price > 0); // أجرة التوصيل تُحسب كأي طلب
-  assert.ok(order.etaMinutes >= 10); // يشمل زمن التحضير
+  assert.ok(order.etaMinutes >= 15); // يشمل زمن التحضير + هامش 5 دقائق
+});
+
+test('طلب من مطعم: يشترط رصيدًا يغطي الأصناف وأجرة التوصيل معًا', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const user = await makeUser();
+  const r = await makeRestaurant();
+  const item = await restaurantService.createMenuItem(r._id, { name: 'وليمة', price: 995 });
+
+  await assert.rejects(
+    () => restaurantService.createRestaurantOrder(user._id, {
+      restaurantId: String(r._id),
+      items: [{ menuItemId: String(item._id), qty: 1 }],
+      dropoff: DROPOFF,
+    }),
+    /المطلوب|رصيد محفظتك غير كافٍ/
+  );
+});
+
+test('تسليم طلب المطعم: يخصم كامل الفاتورة ويوزّعها على محفظتي الكابتن والإدارة', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const [user, captain, admin] = [await makeUser(), await makeCaptain(), await makeUser()];
+  const restaurant = await makeRestaurant();
+  const item = await restaurantService.createMenuItem(restaurant._id, { name: 'وجبة', price: 40 });
+  const before = (await walletService.getWalletSummary(user._id)).balance;
+  const order = await restaurantService.createRestaurantOrder(user._id, {
+    restaurantId: String(restaurant._id),
+    items: [{ menuItemId: String(item._id), qty: 1 }],
+    dropoff: DROPOFF,
+  });
+
+  await orderService.assignOrder(admin._id, order._id, captain._id);
+  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.ACCEPTED);
+  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.PICKED_UP);
+  const delivered = await orderService.updateOrderStatus(
+    captain._id, order._id, ORDER_STATUS.DELIVERED, '', order.deliveryCode, order.price
+  );
+
+  const after = (await walletService.getWalletSummary(user._id)).balance;
+  assert.equal(before - after, 40 + order.price);
+  assert.equal(delivered.captainNet, Math.round(order.price * 0.8));
+  assert.equal(delivered.adminCredit, 40 + delivered.commission);
+  const adminWallet = await adminWalletService.getWallet();
+  assert.equal(adminWallet.balance, delivered.adminCredit);
+  assert.equal(adminWallet.transactions.length, 1);
 });
 
 test('طلب من مطعم: يصحّح موقعًا قديمًا فاسدًا من الحي قبل التسعير', async (t) => {

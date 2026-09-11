@@ -17,7 +17,7 @@ async function getQuote(req, res, next) {
     }
     const q = pricing.quote(pickup, dropoff, vehicleType);
     // نرفق الزمن التقديري للتوصيل
-    res.json({ ...q, etaMinutes: estimateEtaMinutes(q.distanceKm, vehicleType) });
+    res.json({ ...q, etaMinutes: estimateEtaMinutes(q.distanceKm, vehicleType) + 5 });
   } catch (err) {
     next(err);
   }

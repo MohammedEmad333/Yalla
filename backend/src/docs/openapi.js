@@ -155,6 +155,8 @@ function buildOpenApiSpec() {
 
       // ── Admin ──
       '/admin/stats': { get: op({ summary: 'مؤشّرات الأداء', tags: ['Admin'], roles: ['admin'] }) },
+      '/admin/stats/reset': { post: op({ summary: 'بدء إحصائيات جديدة دون حذف الطلبات', tags: ['Admin'], roles: ['admin'] }) },
+      '/admin/wallet': { get: op({ summary: 'محفظة الإدارة وحركاتها', tags: ['Admin'], roles: ['admin'] }) },
       '/admin/notifications': {
         post: op({ summary: 'إرسال رسالة/إشعار جماعي', tags: ['Admin'], roles: ['admin'],
           body: { audience: str, title: str, body: str,

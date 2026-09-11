@@ -165,13 +165,19 @@ async function createOrder(userId, payload, idempotencyKey) {
   // Card 110: طلبات المطاعم تُضيف زمن التحضير إلى الزمن المتوقّع للتوصيل
   const etaMinutes =
     estimateEtaMinutes(distanceKm, payload.vehicleType) +
-    Math.max(0, Number(payload.prepMinutes) || 0);
+    Math.max(0, Number(payload.prepMinutes) || 0) +
+    5; // هامش واقعي للانتظار/الاستلام يضاف لكل تقدير
 
-  // Card 27: يجب أن يغطّي رصيد محفظة المستخدم السعر التقريبي قبل إنشاء الطلب.
+  // طلب المطعم مدفوع بالكامل من المحفظة: قيمة الأصناف + أجرة التوصيل.
+  // الطلب العادي يحتاج أجرة التوصيل فقط.
   const { balance } = await walletService.getWalletSummary(userId);
-  if (balance < price) {
+  const itemsTotal = Number(payload.store?.itemsTotal) || 0;
+  const requiredBalance = price + itemsTotal;
+  if (balance < requiredBalance) {
     throw httpError(
-      `رصيد محفظتك غير كافٍ لإتمام الطلب: رصيدك ${balance} ₪ وأجرة التوصيل ${price} ₪ — اشحن المحفظة ثم حاول مرة أخرى`,
+      `رصيد محفظتك غير كافٍ لإتمام الطلب: رصيدك ${balance} ₪ والمطلوب ${requiredBalance} ₪` +
+        (itemsTotal > 0 ? ` (${itemsTotal} ₪ أصناف + ${price} ₪ توصيل)` : '') +
+        ' — اشحن المحفظة ثم حاول مرة أخرى',
       400
     );
   }
@@ -323,7 +329,7 @@ async function createOrderByAdmin(adminId, payload = {}) {
     dropoff.location.coordinates,
     payload.vehicleType
   );
-  const etaMinutes = estimateEtaMinutes(distanceKm, payload.vehicleType);
+  const etaMinutes = estimateEtaMinutes(distanceKm, payload.vehicleType) + 5;
 
   // التحقّق من وقت الجدولة (اختياري)
   const scheduleError = validateScheduledAt(payload.scheduledAt);
@@ -914,8 +920,14 @@ async function updateOrderStatus(
     if (order.deliveryCode && !verifyDeliveryCode(order.deliveryCode, deliveryCode)) {
       throw httpError('رمز التسليم غير صحيح — اطلبه من صاحب الطلب', 400);
     }
-    // خصم السعر الحقيقي من محفظة المستخدم (ذرّي؛ يرمي إن لم يكفِ الرصيد).
-    await walletService.chargeForOrder(order.user, realPrice, order._id);
+    // طلب المطعم: نخصم قيمة الأصناف المحفوظة وقت الطلب إضافةً لأجرة التوصيل.
+    // الطلب العادي: نخصم أجرة التوصيل فقط.
+    const itemsTotal = Number(order.store?.itemsTotal) || 0;
+    await walletService.chargeForOrder(order.user, realPrice + itemsTotal, order._id, {
+      deliveryAmount: realPrice,
+      itemsAmount: itemsTotal,
+      restaurantName: order.store?.name || '',
+    });
   }
 
   const from = order.status;
@@ -926,12 +938,15 @@ async function updateOrderStatus(
   if (nextStatus === ORDER_STATUS.PICKED_UP) order.timeline.pickedUpAt = new Date();
   if (nextStatus === ORDER_STATUS.DELIVERED) {
     order.timeline.deliveredAt = new Date();
-    // Card 27: التسوية على أساس السعر الحقيقي — نسبة الكابتن ٨٠٪ تُضاف لمحفظته،
-    // والباقي عمولة الشركة. (نحفظ السعر الحقيقي على الطلب لدفتر الأرباح.)
+    // نسبة الكابتن من أجرة التوصيل فقط. قيمة الطعام لا تدخل أرباح الكابتن؛
+    // تُحتسب مع العمولة تلقائيًا في محفظة الإدارة.
     order.finalPrice = realPrice;
     const net = Math.round(realPrice * CAPTAIN_SHARE);
     order.captainNet = net;
     order.commission = realPrice - net;
+    order.customerCharged = realPrice + (Number(order.store?.itemsTotal) || 0);
+    order.adminCredit = (Number(order.store?.itemsTotal) || 0) + order.commission;
+    order.financialSettledAt = new Date();
   }
   if (nextStatus === ORDER_STATUS.CANCELLED) {
     order.timeline.cancelledAt = new Date();

@@ -512,6 +512,8 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     final Map<String, dynamic>? dropoffLoc =
         order['dropoff'] is Map ? Map<String, dynamic>.from(order['dropoff']) : null;
     final String note = (order['packageNote'] ?? '').toString();
+    final Map<String, dynamic>? store =
+        order['store'] is Map ? Map<String, dynamic>.from(order['store']) : null;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -533,6 +535,37 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         ),
         const SizedBox(height: 16),
 
+        // ملخّص سريع يوضّح نوع الطلب ورقمه والزمن المتوقع للكابتن.
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Icon(store?['restaurant'] != null ? Icons.restaurant : Icons.inventory_2_outlined,
+                    color: YallaColors.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(store?['restaurant'] != null ? 'طلب من مطعم' : 'طلب توصيل',
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('رقم الطلب: #${(order['_id'] ?? '').toString().substring((order['_id'] ?? '').toString().length > 6 ? (order['_id'] ?? '').toString().length - 6 : 0)}',
+                          style: TextStyle(color: YallaColors.muted, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                if ((order['etaMinutes'] as num? ?? 0) > 0)
+                  Chip(
+                    avatar: const Icon(Icons.schedule, size: 17),
+                    label: Text('~${order['etaMinutes']} دقيقة'),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+
         // بيانات صاحب الطلب: الاسم الكامل + الهاتف مع زرّ اتصال (Card 9)
         if (senderName.isNotEmpty)
           ListTile(
@@ -551,9 +584,23 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
           ),
 
         // تفاصيل نقطتَي الاستلام والتسليم مع الحقول المُفصّلة (Card 21 + 25)
-        _detailTile(Icons.store, 'الاستلام', _addressDetail(pickupLoc)),
-        _detailTile(Icons.flag, 'التسليم', _addressDetail(dropoffLoc)),
-        if (note.isNotEmpty) _detailTile(Icons.inventory_2_outlined, 'وصف الشحنة', note),
+        Card(
+          child: Column(
+            children: [
+              _detailTile(Icons.storefront, 'الاستلام', _addressDetail(pickupLoc)),
+              const Divider(height: 1, indent: 56),
+              _detailTile(Icons.flag, 'التسليم', _addressDetail(dropoffLoc)),
+              if (note.isNotEmpty) ...[
+                const Divider(height: 1, indent: 56),
+                _detailTile(Icons.inventory_2_outlined, 'وصف الشحنة', note),
+              ],
+            ],
+          ),
+        ),
+        if (store?['restaurant'] != null) ...[
+          const SizedBox(height: 12),
+          _restaurantOrderCard(store!),
+        ],
         // Card 30: لا تُعرض قيمة التوصيل ولا المسافة ولا زرّ الملاحة في لوحة الكابتن.
 
         const SizedBox(height: 24),
@@ -620,6 +667,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     final dropoff = o['dropoff'] is Map ? Map<String, dynamic>.from(o['dropoff']) : null;
     final note = (o['packageNote'] ?? '').toString();
     final claiming = _claimingId == id;
+    final store = o['store'] is Map ? Map<String, dynamic>.from(o['store']) : null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -631,6 +679,10 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
             _detailTile(Icons.store, 'الاستلام', _addressDetail(pickup)),
             _detailTile(Icons.flag, 'التسليم', _addressDetail(dropoff)),
             if (note.isNotEmpty) _detailTile(Icons.inventory_2_outlined, 'وصف الشحنة', note),
+            if (store?['restaurant'] != null) ...[
+              const Divider(),
+              _restaurantOrderCard(store!),
+            ],
             const SizedBox(height: 8),
             FilledButton.icon(
               style: FilledButton.styleFrom(backgroundColor: YallaColors.success),
@@ -654,4 +706,83 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         isThreeLine: value.contains('\n'),
         dense: true,
       );
+
+  // فاتورة طلب المطعم كما حُفظت وقت الإنشاء: الصنف، الكمية، سعر الوحدة والإجمالي.
+  Widget _restaurantOrderCard(Map<String, dynamic> store) {
+    final items = (store['items'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    final restaurantName = (store['name'] ?? 'المطعم').toString();
+    final restaurantNote = (store['note'] ?? '').toString().trim();
+
+    return Card(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              Icon(Icons.restaurant_menu, color: YallaColors.primary),
+              const SizedBox(width: 8),
+              Expanded(child: Text(restaurantName,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            ]),
+            const Divider(height: 20),
+            for (final item in items)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: YallaColors.primary.withValues(alpha: .12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('${item['qty'] ?? 1}×',
+                          style: TextStyle(color: YallaColors.primary, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text((item['name'] ?? 'صنف').toString(),
+                              style: const TextStyle(fontWeight: FontWeight.w600)),
+                          if ((item['note'] ?? '').toString().trim().isNotEmpty)
+                            Text('ملاحظة: ${item['note']}',
+                                style: TextStyle(color: YallaColors.muted, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    Text('${(NumberHelper.value(item['price']) * NumberHelper.value(item['qty'], fallback: 1))} ₪'),
+                  ],
+                ),
+              ),
+            const Divider(height: 20),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              const Text('قيمة الأصناف', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('${store['itemsTotal'] ?? 0} ₪',
+                  style: TextStyle(color: YallaColors.primary, fontWeight: FontWeight.bold)),
+            ]),
+            if (restaurantNote.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('ملاحظة للمطعم: $restaurantNote',
+                  style: TextStyle(color: YallaColors.muted)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class NumberHelper {
+  static num value(dynamic input, {num fallback = 0}) =>
+      input is num ? input : num.tryParse('$input') ?? fallback;
 }

@@ -61,8 +61,9 @@ const orderSchema = new mongoose.Schema(
     price: { type: Number, default: 0 },           // السعر التقريبي (يُحسب من الحي عند الإنشاء)
 
     // السعر الحقيقي الذي يحدّده الكابتن عند التسليم (Card 27) — يجب ألّا يتجاوز
-    // السعر التقريبي `price`. يُخصَم من محفظة المستخدم عند تأكيد التسليم، وتُضاف
-    // نسبة الكابتن (٨٠٪) إلى محفظته. يبقى صفرًا حتى يُسلَّم الطلب.
+    // السعر التقريبي `price`. عند التسليم يُخصم سعر التوصيل الحقيقي، ويُضاف إليه
+    // itemsTotal في طلب المطعم. نسبة الكابتن من التوصيل فقط (٨٠٪)، والباقي مع
+    // قيمة الأصناف يظهر في محفظة الإدارة. يبقى صفرًا حتى يُسلَّم الطلب.
     finalPrice: { type: Number, default: 0 },
 
     // رمز تسليم الطلب (Card 20) — يُنشأ عند الإنشاء، يُعطى لصاحب الطلب،
@@ -80,6 +81,9 @@ const orderSchema = new mongoose.Schema(
     // التسوية المالية (تُحسب عند التسليم — نموذج COD)
     commission: { type: Number, default: 0 },      // عمولة الشركة
     captainNet: { type: Number, default: 0 },      // صافي الكابتن
+    customerCharged: { type: Number, default: 0 }, // ما خُصم فعليًا من محفظة الزبون
+    adminCredit: { type: Number, default: 0 },      // الأصناف + عمولة التوصيل لمحفظة الإدارة
+    financialSettledAt: { type: Date, default: null },
 
     // الكباتن الذين رفضوا الطلب — يُستبعدون عند إعادة الإسناد التلقائي
     rejectedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Captain' }],

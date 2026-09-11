@@ -39,6 +39,7 @@ import Chats from './pages/Chats';
 import Support from './pages/Support';
 import Broadcast from './pages/Broadcast';
 import Restaurants from './pages/Restaurants';
+import AdminWallet from './pages/AdminWallet';
 
 // أقسام التنقّل — مجموعات مسمّاة بدل شريط تبويبات طويل يلتفّ على الجوال
 const NAV = [
@@ -61,6 +62,7 @@ const NAV = [
   {
     group: 'المال',
     items: [
+      { key: 'adminWallet', label: 'محفظة الإدارة', icon: IconWallet, Page: AdminWallet },
       { key: 'wallet', label: 'شحن الرصيد', icon: IconWallet, Page: WalletTopups },
       { key: 'withdrawals', label: 'طلبات السحب', icon: IconCashOut, Page: Withdrawals },
     ],

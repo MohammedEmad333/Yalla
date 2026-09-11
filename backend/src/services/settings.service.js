@@ -10,13 +10,16 @@ const logger = require('../utils/logger');
  */
 
 // القيم الافتراضية عند غياب الوثيقة أو تعذّر القراءة
-const DEFAULTS = Object.freeze({ autoAssignBroadcast: false });
+const DEFAULTS = Object.freeze({ autoAssignBroadcast: false, statsResetAt: null });
 
 let cache = null; // نسخة مخبّأة من الإعدادات ({ autoAssignBroadcast })
 
 // تطبيع وثيقة الإعدادات إلى كائن بسيط قابل للإرجاع للواجهة
 function shape(doc) {
-  return { autoAssignBroadcast: !!(doc && doc.autoAssignBroadcast) };
+  return {
+    autoAssignBroadcast: !!(doc && doc.autoAssignBroadcast),
+    statsResetAt: doc?.statsResetAt || null,
+  };
 }
 
 /**
@@ -55,6 +58,9 @@ async function updateSettings(patch = {}) {
   if (typeof patch.autoAssignBroadcast === 'boolean') {
     update.autoAssignBroadcast = patch.autoAssignBroadcast;
   }
+  if (patch.statsResetAt instanceof Date || patch.statsResetAt === null) {
+    update.statsResetAt = patch.statsResetAt;
+  }
   const doc = await Settings.findOneAndUpdate(
     { key: 'global' },
     { $set: update },
@@ -62,6 +68,12 @@ async function updateSettings(patch = {}) {
   );
   cache = shape(doc);
   return cache;
+}
+
+/** يبدأ نافذة إحصائيات جديدة مع إبقاء الطلبات والسجلات المالية محفوظة. */
+async function resetStats() {
+  const statsResetAt = new Date();
+  return updateSettings({ statsResetAt });
 }
 
 // مُيسِّر: هل وضع الإسناد التلقائي (البثّ) مفعّل الآن؟ (يعتمد المخبّأ)
@@ -87,6 +99,7 @@ module.exports = {
   getSettings,
   getCached,
   updateSettings,
+  resetStats,
   isBroadcastMode,
   preload,
   _clearCache,

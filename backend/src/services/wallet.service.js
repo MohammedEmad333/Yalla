@@ -75,27 +75,41 @@ async function debitWallet(userId, amount) {
  * @param {string} orderId  الطلب المرتبط (للتدقيق)
  * @returns {Promise<number>} الرصيد بعد الخصم
  */
-async function chargeForOrder(userId, amount, orderId) {
+async function chargeForOrder(userId, amount, orderId, breakdown = {}) {
   const value = Number(amount);
   if (!(value > 0)) throw httpError('قيمة الخصم غير صالحة', 400);
 
-  const wallet = await debitWallet(userId, value); // يرمي "الرصيد غير كافٍ" إن لم يكفِ
-
-  // حركة خصم في دفتر الأستاذ (لا توقف التدفّق إن فشلت)
+  // نحجز مفتاح الطلب في دفتر الأستاذ قبل الخصم. الفهرس الفريد يمنع طلبي تسليم
+  // متزامنين من خصم الرصيد مرتين.
+  const currentWallet = await getOrCreateWallet(userId);
+  let transaction;
   try {
-    await WalletTransaction.create({
+    transaction = await WalletTransaction.create({
       user: userId,
-      wallet: wallet._id,
+      wallet: currentWallet._id,
       type: WALLET_TX_TYPE.ORDER_PAYMENT,
       direction: WALLET_DIRECTION.DEBIT,
       amount: value,
       status: TOPUP_STATUS.APPROVED,
-      balanceAfter: wallet.balance,
-      gatewayResponse: { orderId: String(orderId) },
+      gatewayResponse: { orderId: String(orderId), ...breakdown },
+      idempotencyKey: `order-payment:${orderId}`,
     });
   } catch (err) {
-    logger.warn('تعذّر تسجيل حركة خصم الطلب:', err.message);
+    if (err?.code === 11000) throw httpError('تمت معالجة دفعة هذا الطلب مسبقًا', 409);
+    throw err;
   }
+
+  let wallet;
+  try {
+    wallet = await debitWallet(userId, value); // يرمي "الرصيد غير كافٍ" إن لم يكفِ
+  } catch (err) {
+    // فشل الخصم: نحرّر حجز المفتاح ليتمكن الكابتن من المحاولة بعد شحن الرصيد.
+    await WalletTransaction.deleteOne({ _id: transaction._id }).catch(() => {});
+    throw err;
+  }
+
+  transaction.balanceAfter = wallet.balance;
+  await transaction.save();
 
   broadcastBalance(userId, wallet.balance);
   return wallet.balance;

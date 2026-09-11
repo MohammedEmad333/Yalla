@@ -2,6 +2,7 @@
 
 const Order = require('../models/Order');
 const Captain = require('../models/Captain');
+const Settings = require('../models/Settings');
 const { ORDER_STATUS, CAPTAIN_STATUS } = require('../utils/constants');
 const { averageDeliveryMinutes } = require('../utils/stats');
 
@@ -12,24 +13,40 @@ async function getDashboardStats() {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
+  const settings = await Settings.findOne({ key: 'global' }).select('statsResetAt').lean();
+  const statsResetAt = settings?.statsResetAt || null;
+  const periodFilter = statsResetAt ? { createdAt: { $gte: statsResetAt } } : {};
+
   // نُشغّل الاستعلامات المستقلّة بالتوازي لتحسين الأداء
   const [byStatus, revenueAgg, deliveredOrders, todayCount, onlineCaptains] = await Promise.all([
     // عدد الطلبات حسب الحالة
-    Order.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+    Order.aggregate([
+      ...(statsResetAt ? [{ $match: periodFilter }] : []),
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]),
 
     // إجمالي الإيرادات من الطلبات المسلّمة
     Order.aggregate([
-      { $match: { status: ORDER_STATUS.DELIVERED } },
-      { $group: { _id: null, total: { $sum: '$price' } } },
+      { $match: { ...periodFilter, status: ORDER_STATUS.DELIVERED } },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: { $cond: [{ $gt: ['$finalPrice', 0] }, '$finalPrice', '$price'] },
+          },
+        },
+      },
     ]),
 
     // الطلبات المسلّمة (لحساب متوسّط زمن التوصيل)
-    Order.find({ status: ORDER_STATUS.DELIVERED })
+    Order.find({ ...periodFilter, status: ORDER_STATUS.DELIVERED })
       .select('createdAt timeline.deliveredAt')
       .lean(),
 
     // طلبات اليوم
-    Order.countDocuments({ createdAt: { $gte: startOfToday } }),
+    Order.countDocuments({
+      createdAt: { $gte: statsResetAt && statsResetAt > startOfToday ? statsResetAt : startOfToday },
+    }),
 
     // الكباتن المتصلون حاليًا
     Captain.countDocuments({ status: { $in: [CAPTAIN_STATUS.ONLINE, CAPTAIN_STATUS.BUSY] } }),
@@ -58,6 +75,7 @@ async function getDashboardStats() {
     avgDeliveryMinutes: avgMinutes,
     onlineCaptains,
     byStatus: statusCounts,
+    statsResetAt,
   };
 }
 

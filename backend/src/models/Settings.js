@@ -16,6 +16,9 @@ const settingsSchema = new mongoose.Schema(
     // الإسناد التلقائي: عند التفعيل تُبثّ الطلبات الجديدة لكل الكباتن (مع إشعار
     // Push حتى لو الهاتف مغلق)، ويأخذها أوّل كابتن يقبلها ثم تختفي من الباقين.
     autoAssignBroadcast: { type: Boolean, default: false },
+    // بداية نافذة إحصائيات لوحة الإدارة. إعادة الضبط لا تحذف الطلبات أو السجلات؛
+    // بل تجعل مؤشرات الأداء تبدأ من هذه اللحظة.
+    statsResetAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

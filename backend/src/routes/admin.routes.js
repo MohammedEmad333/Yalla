@@ -13,6 +13,8 @@ router.use(authenticate, authorize(ROLES.ADMIN));
 
 // مؤشّرات الأداء (KPIs)
 router.get('/stats', ctrl.getStats);
+router.post('/stats/reset', ctrl.resetStats);
+router.get('/wallet', ctrl.getAdminWallet);
 
 // إعدادات المنظومة: قراءة/تبديل الإسناد التلقائي (بثّ الطلبات لكل الكباتن)
 router.get('/settings', ctrl.getSettings);
