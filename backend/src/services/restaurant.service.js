@@ -154,11 +154,36 @@ async function listRestaurants(query = {}) {
 
   const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 60));
 
-  const restaurants = await Restaurant.find(filter)
+  const findRestaurants = (criteria) =>
+    Restaurant.find(criteria)
+      .select(PUBLIC_FIELDS)
+      .sort({ isOpen: -1, sortOrder: 1, name: 1 })
+      .limit(limit)
+      .lean();
+
+  let restaurants;
+  try {
+    restaurants = await findRestaurants(filter);
+  } catch (err) {
+    // قد تصل أول عملية بحث أثناء إنشاء الفهرس بعد تشغيل قاعدة جديدة (مثل CI).
+    // نحافظ على عمل البحث بتعبير آمن كخطة احتياطية، بينما الإنتاج يستخدم
+    // الفهرس النصّي السريع في الحالة الطبيعية.
+    if (!q || err?.code !== 27) throw err;
+    const fallback = { ...filter };
+    delete fallback.$text;
+    const safe = q.replace(/[.*+?^${}()|[\]\\]/g, '\\  const restaurants = await Restaurant.find(filter)
     .select(PUBLIC_FIELDS)
     .sort({ isOpen: -1, sortOrder: 1, name: 1 })
     .limit(limit)
     .lean();
+  return restaurants.map(withNeighborhoodLocation);');
+    fallback.$or = [
+      { name: new RegExp(safe, 'i') },
+      { description: new RegExp(safe, 'i') },
+    ];
+    restaurants = await findRestaurants(fallback);
+  }
+
   return restaurants.map(withNeighborhoodLocation);
 }
 
