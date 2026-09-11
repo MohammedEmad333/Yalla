@@ -115,6 +115,7 @@ export default function Restaurants() {
   const [restaurants, setRestaurants] = useState([]);
   const [hoods, setHoods] = useState({}); // {المدينة: [الأحياء]}
   const [selected, setSelected] = useState(null); // المطعم المفتوح للتحرير
+  const [editorOpen, setEditorOpen] = useState(false); // على الجوال: القائمة أو المحرّر
   const [form, setForm] = useState(EMPTY_RESTAURANT);
   const [menu, setMenu] = useState([]);
   const [item, setItem] = useState(EMPTY_ITEM);
@@ -145,11 +146,16 @@ export default function Restaurants() {
   // فتح مطعم للتحرير + جلب قائمته (وعلى الجوال ننتقل للمحرّر)
   async function openRestaurant(r, scroll = false) {
     setSelected(r);
+    setEditorOpen(true);
     setForm({ ...EMPTY_RESTAURANT, ...r });
     setItem(EMPTY_ITEM);
     setMessage('');
     setError('');
-    if (scroll) editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (scroll) {
+      requestAnimationFrame(() =>
+        editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      );
+    }
     try {
       setMenu(await api.get(`/admin/restaurants/${r._id}/menu`));
     } catch (err) {
@@ -160,12 +166,23 @@ export default function Restaurants() {
   // بدء إضافة مطعم جديد
   function startNew() {
     setSelected(null);
+    setEditorOpen(true);
     setForm(EMPTY_RESTAURANT);
     setMenu([]);
     setItem(EMPTY_ITEM);
     setMessage('');
     setError('');
-    editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    requestAnimationFrame(() =>
+      editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    );
+  }
+
+  // رجوع إلى قائمة المطاعم على الجوال بدون فقدان بيانات القائمة المحمّلة.
+  function closeEditor() {
+    setEditorOpen(false);
+    setError('');
+    setMessage('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   async function saveRestaurant() {
@@ -196,7 +213,10 @@ export default function Restaurants() {
     if (!window.confirm(`حذف «${r.name}» وكلّ أصناف قائمته؟`)) return;
     try {
       await api.del(`/admin/restaurants/${r._id}`);
-      startNew();
+      setSelected(null);
+      setEditorOpen(false);
+      setForm(EMPTY_RESTAURANT);
+      setMenu([]);
       await load();
     } catch (err) {
       setError(err.message);
@@ -282,21 +302,23 @@ export default function Restaurants() {
 
   return (
     <>
-      <PageHeader
-        title="المطاعم"
-        subtitle="أضف المطاعم وقوائم طعامها — تظهر مباشرةً في تبويب «المطاعم» داخل تطبيق الزبون"
-      >
-        <Button variant="primary" icon={<IconPlus size={18} />} onClick={startNew}>
-          مطعم جديد
-        </Button>
-      </PageHeader>
+      <div className="yl-restaurants-head">
+        <PageHeader
+          title="المطاعم"
+          subtitle="أضف المطاعم وقوائم طعامها — تظهر مباشرةً في تبويب «المطاعم» داخل تطبيق الزبون"
+        >
+          <Button variant="primary" icon={<IconPlus size={18} />} onClick={startNew}>
+            مطعم جديد
+          </Button>
+        </PageHeader>
+      </div>
 
       {error && <Alert tone="error">{error}</Alert>}
       {message && <Alert tone="success">{message}</Alert>}
 
-      <div className="yl-split" style={{ marginTop: 'var(--s-4)' }}>
+      <div className="yl-split yl-restaurants" data-open={editorOpen} style={{ marginTop: 'var(--s-4)' }}>
         {/* ── قائمة المطاعم ── */}
-        <Card title={`المطاعم (${restaurants.length})`} pad={false}>
+        <Card className="yl-restaurants__list" title={`المطاعم (${restaurants.length})`} pad={false}>
           {loading ? (
             <Loading />
           ) : restaurants.length === 0 ? (
@@ -320,8 +342,12 @@ export default function Restaurants() {
                     aria-current={selected?._id === r._id}
                     onClick={() => openRestaurant(r, true)}
                   >
-                    <span className="yl-avatar">
-                      <IconStore size={20} />
+                    <span className="yl-avatar yl-restaurant-thumb">
+                      {imageSrc(r.imageUrl) ? (
+                        <img src={imageSrc(r.imageUrl)} alt="" loading="lazy" />
+                      ) : (
+                        <IconStore size={20} />
+                      )}
                     </span>
                     <span className="yl-listitem__main">
                       <span className="yl-listitem__title">{r.name}</span>
@@ -339,8 +365,11 @@ export default function Restaurants() {
         </Card>
 
         {/* ── محرّر المطعم + قائمته ── */}
-        <div className="yl-stack" ref={editorRef}>
-          <Card
+        <div className="yl-stack yl-restaurants__editor" ref={editorRef}>
+          <div className="yl-restaurants__mobile-back">
+            <Button block onClick={closeEditor}>العودة إلى قائمة المطاعم</Button>
+          </div>
+          <Card className="yl-restaurant-editor-card"
             title={selected ? `تعديل: ${selected.name}` : 'مطعم جديد'}
             actions={
               selected && (
@@ -350,7 +379,7 @@ export default function Restaurants() {
               )
             }
           >
-            <div className="yl-formgrid">
+            <div className="yl-formgrid yl-restaurant-form">
               <Field label="الاسم">
                 <Input value={form.name} onChange={set('name')} placeholder="مثال: مشاوي الفروج" />
               </Field>
@@ -401,8 +430,9 @@ export default function Restaurants() {
               <Field label="وقت الإغلاق">
                 <Input type="time" value={form.closeTime || ''} onChange={set('closeTime')} dir="ltr" />
               </Field>
-              <Field label="صورة الغلاف" hint={selected ? 'ارفع من الجهاز أو الصق رابطًا' : 'احفظ المطعم أولًا لرفع صورة'}>
-                <div className="yl-row" style={{ gap: 'var(--s-3)', alignItems: 'center' }}>
+              <div className="yl-restaurant-form__wide">
+                <Field label="صورة الغلاف" hint={selected ? 'ارفع من الجهاز أو الصق رابطًا' : 'احفظ المطعم أولًا لرفع صورة'}>
+                <div className="yl-row yl-restaurant-cover">
                   {imageSrc(form.imageUrl) ? (
                     <img
                       src={imageSrc(form.imageUrl)}
@@ -436,13 +466,16 @@ export default function Restaurants() {
                   dir="ltr"
                   style={{ marginTop: 'var(--s-2)' }}
                 />
-              </Field>
-              <Field label="الوصف">
-                <Input value={form.description} onChange={set('description')} placeholder="وصف مختصر يظهر للزبون" />
-              </Field>
+                </Field>
+              </div>
+              <div className="yl-restaurant-form__wide">
+                <Field label="الوصف">
+                  <Input value={form.description} onChange={set('description')} placeholder="وصف مختصر يظهر للزبون" />
+                </Field>
+              </div>
             </div>
 
-            <div className="yl-row" style={{ marginTop: 'var(--s-5)', gap: 'var(--s-5)' }}>
+            <div className="yl-row yl-restaurant-editor-actions">
               <Checkbox checked={form.isOpen} onChange={set('isOpen')} label="مفتوح الآن" />
               <Checkbox checked={form.active} onChange={set('active')} label="مفعّل (ظاهر للزبائن)" />
               <span className="yl-spacer" />
@@ -458,7 +491,7 @@ export default function Restaurants() {
               <p className="yl-muted">احفظ المطعم أولًا لتتمكّن من إضافة الأصناف.</p>
             ) : (
               <>
-                <div className="yl-formgrid" style={{ marginBottom: 'var(--s-4)' }}>
+                <div className="yl-formgrid yl-restaurant-menu-form" style={{ marginBottom: 'var(--s-4)' }}>
                   <Field label="اسم الصنف">
                     <Input
                       value={item.name}

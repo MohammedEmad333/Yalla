@@ -792,3 +792,115 @@
   .yl-assign .yl-select { flex-basis: 100%; }
   .yl-assign .yl-btn { flex: 1 1 auto; }
 }
+
+
+/* ── إدارة المطاعم: تخطيط واضح ومتجاوب داخل تطبيق Capacitor ───────────── */
+.yl-restaurants,
+.yl-restaurants > *,
+.yl-restaurants__editor,
+.yl-restaurant-editor-card {
+  min-width: 0;
+}
+.yl-restaurants__mobile-back { display: none; }
+.yl-restaurants__list .yl-list {
+  max-height: min(72dvh, 760px);
+  overflow-y: auto;
+}
+.yl-restaurants__list .yl-listitem {
+  border-bottom: 1px solid var(--border);
+}
+.yl-restaurants__list .yl-listitem:last-child { border-bottom: none; }
+.yl-restaurant-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--r-md);
+}
+.yl-restaurant-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.yl-restaurant-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.yl-restaurant-form__wide {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.yl-restaurant-cover {
+  gap: var(--s-3);
+  align-items: center;
+}
+.yl-restaurant-editor-actions {
+  margin-top: var(--s-5);
+  gap: var(--s-4);
+}
+
+@media (max-width: 820px) {
+  .yl-restaurants { display: block; }
+  .yl-restaurants[data-open='true'] > .yl-restaurants__list { display: none; }
+  .yl-restaurants[data-open='false'] > .yl-restaurants__editor { display: none; }
+  .yl-restaurants__mobile-back {
+    display: block;
+    margin-bottom: var(--s-2);
+  }
+  .yl-restaurants__mobile-back .yl-btn { width: 100%; }
+  .yl-restaurant-form,
+  .yl-restaurant-menu-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .yl-restaurants .yl-card {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .yl-restaurants .yl-card__head {
+    align-items: flex-start;
+  }
+  .yl-restaurants .yl-card__head > .yl-btnrow {
+    width: 100%;
+  }
+  .yl-restaurants .yl-card__head > .yl-btnrow .yl-btn {
+    width: 100%;
+  }
+  .yl-restaurants__list .yl-list {
+    max-height: none;
+    overflow: visible;
+  }
+  .yl-restaurants__list .yl-listitem {
+    align-items: flex-start;
+    padding: var(--s-4);
+    border-radius: 0;
+  }
+  .yl-restaurants__list .yl-listitem__sub {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.45;
+  }
+  .yl-restaurants__list .yl-badge { flex: none; }
+  .yl-restaurant-cover {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .yl-restaurant-cover .yl-btn {
+    width: 100%;
+    padding-inline: var(--s-3);
+  }
+  .yl-restaurant-editor-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: var(--s-3);
+  }
+  .yl-restaurant-editor-actions .yl-spacer { display: none; }
+  .yl-restaurant-editor-actions .yl-btn { width: 100%; }
+}
+
+@media (max-width: 560px) {
+  .yl-restaurants-head .yl-pagehead__actions,
+  .yl-restaurants-head .yl-pagehead__actions .yl-btn {
+    width: 100%;
+  }
+}
