@@ -113665,7 +113665,7 @@ gJE(){var s=A.fi(J.Z(this.d,"available"))
 return s==null?0:s},
 xO(){var s=0,r=A.u(t.H),q,p=this,o
 var $async$xO=A.p(function(a,b){if(a===1)return A.q(b,r)
-for(;;)switch(s){case 0:if(p.gJE()<10){p.u2("\u0627\u0644\u062d\u062f\u0651 \u0627\u0644\u0623\u062f\u0646\u0649 \u0644\u0644\u0633\u062d\u0628 \u0661\u0660 \u20aa")
+for(;;)switch(s){case 0:if(p.gJE()<8){p.u2("\u0627\u0644\u062d\u062f\u0651 \u0627\u0644\u0623\u062f\u0646\u0649 \u0644\u0644\u0633\u062d\u0628 \u0668 \u20aa")
 s=1
 break}s=J.en(p.f)?3:4
 break
@@ -113807,7 +113807,7 @@ var $async$kR=A.p(function(a,b){if(a===1){o.push(b)
 s=p}for(;;)switch(s){case 0:i=A.BZ(B.c.be(m.d.a.a))
 if(i==null||i<=0){m.u2("\u0623\u062f\u062e\u0644 \u0645\u0628\u0644\u063a\u064b\u0627 \u0635\u062d\u064a\u062d\u064b\u0627")
 s=1
-break}s=i<10?3:4
+break}s=i<8?3:4
 break
 case 3:s=5
 return A.l(m.DU(i),$async$kR)
@@ -113873,7 +113873,7 @@ H(a){var s,r,q,p,o,n=this,m=null,l="ownerName",k=A.an(a,m,t.w).w,j=A.R("\u0633\u
 i=A.R("\u0627\u0644\u0645\u062a\u0627\u062d: "+A.h(i)+" \u20aa",m,m,m,A.aV(m,m,$.a9===B.h?B.I:B.H,m,m,m,m,m,m,m,m,m,m,m,m,m,m,!0,m,m,m,m,m,m,m,m),m,m,m)
 s=n.d
 r=A.BZ(B.c.be(s.a.a))
-if(r!=null&&r>0&&r<10)q="\u0627\u0644\u062d\u062f\u0651 \u0627\u0644\u0623\u062f\u0646\u0649 \u0644\u0644\u0633\u062d\u0628 10 \u20aa"
+if(r!=null&&r>0&&r<8)q="\u0627\u0644\u062d\u062f\u0651 \u0627\u0644\u0623\u062f\u0646\u0649 \u0644\u0644\u0633\u062d\u0628 8 \u20aa"
 else{r=A.BZ(B.c.be(s.a.a))
 q=r!=null&&r>n.a.d?"\u0627\u0644\u0645\u0628\u0644\u063a \u0623\u0643\u0628\u0631 \u0645\u0646 \u0631\u0635\u064a\u062f\u0643 \u0627\u0644\u0645\u062a\u0627\u062d ("+A.h(n.a.d)+" \u20aa)":m}q=A.e0(m,B.an,!1,m,!0,B.p,m,A.ee(),s,m,m,m,m,m,2,A.nz(m,B.aG,m,m,m,m,m,m,!0,m,m,m,m,m,q,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,"\u0627\u0644\u0645\u0628\u0644\u063a (\u20aa)",!0,!0,!1,m,B.tW,m,m,m,m,m,m,m,m,m,m,m,m),B.O,!0,m,!0,m,!1,m,B.aq,m,m,m,m,B.eM,m,m,m,1,m,m,!1,"\u2022",m,m,m,m,m,!1,m,m,!1,m,!0,m,B.ar,m,m,m,m,m,m,m,m,m,m,m,m,!0,B.L,m,B.aB,m,m,m,m)
 s=n.e
@@ -113909,7 +113909,7 @@ A.aS7.prototype={
 $0(){return this.a.f=!1},
 $S:0}
 A.aS3.prototype={
-$1(a){var s=null,r=A.bF(B.nA,$.a9===B.h?B.b0:B.b_,s,36),q=A.R("\u0627\u0644\u0645\u0628\u0644\u063a \u0627\u0644\u0645\u0637\u0644\u0648\u0628 ("+A.h(this.a)+" \u20aa) \u0623\u0642\u0644\u0651 \u0645\u0646 \u0627\u0644\u062d\u062f\u0651 \u0627\u0644\u0623\u062f\u0646\u0649 \u0644\u0644\u0633\u062d\u0628 (10 \u20aa).\n\n\u064a\u0631\u062c\u0649 \u0625\u062f\u062e\u0627\u0644 \u0645\u0628\u0644\u063a \u0644\u0627 \u064a\u0642\u0644\u0651 \u0639\u0646 10 \u20aa.",s,s,s,s,s,s,s)
+$1(a){var s=null,r=A.bF(B.nA,$.a9===B.h?B.b0:B.b_,s,36),q=A.R("\u0627\u0644\u0645\u0628\u0644\u063a \u0627\u0644\u0645\u0637\u0644\u0648\u0628 ("+A.h(this.a)+" \u20aa) \u0623\u0642\u0644\u0651 \u0645\u0646 \u0627\u0644\u062d\u062f\u0651 \u0627\u0644\u0623\u062f\u0646\u0649 \u0644\u0644\u0633\u062d\u0628 (8 \u20aa).\n\n\u064a\u0631\u062c\u0649 \u0625\u062f\u062e\u0627\u0644 \u0645\u0628\u0644\u063a \u0644\u0627 \u064a\u0642\u0644\u0651 \u0639\u0646 8 \u20aa.",s,s,s,s,s,s,s)
 return A.mZ(A.b([A.ff(B.pm,s,s,new A.aS2(a),s,s)],t.p),q,r,B.a80)},
 $S:50}
 A.aS2.prototype={
