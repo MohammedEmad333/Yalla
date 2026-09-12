@@ -70,7 +70,10 @@ const WITHDRAWAL_METHOD = Object.freeze({
   CASH: 'cash',                           // نقدًا
 });
 
-// الحدّ الأدنى لرصيد السحب (₪) — لا يُسمح بالسحب تحته
+// الحدّ الأدنى لسحب أرباح الكابتن (₪)
+const CAPTAIN_MIN_WITHDRAWAL = 8;
+
+// الحدّ الأدنى لسحب رصيد الزبون (₪)
 const MIN_WITHDRAWAL = 10;
 
 // تصنيفات محفظة الكابتن الإلكترونية المحفوظة (Card 67) — يخزّن الكابتن رقم
@@ -152,6 +155,7 @@ module.exports = {
   PAYMENT_METHOD,
   WITHDRAWAL_STATUS,
   WITHDRAWAL_METHOD,
+  CAPTAIN_MIN_WITHDRAWAL,
   MIN_WITHDRAWAL,
   PAYOUT_WALLET_CATEGORY,
   BROADCAST_AUDIENCE,

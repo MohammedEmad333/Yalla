@@ -38,9 +38,9 @@ test('validateWithdrawal: يقبل طلبًا صالحًا', () => {
   assert.equal(err, null);
 });
 
-test('validateWithdrawal: يرفض تحت الحدّ الأدنى (١٠ ₪)', () => {
+test('validateWithdrawal: يرفض تحت الحدّ الأدنى (٨ ₪)', () => {
   const err = validateWithdrawal(
-    { amount: 5, method: WITHDRAWAL_METHOD.CASH, phone: '0599123456' },
+    { amount: 7.99, method: WITHDRAWAL_METHOD.CASH, phone: '0599123456' },
     50
   );
   assert.match(err, /الحدّ الأدنى/);
@@ -66,8 +66,8 @@ test('validateWithdrawal: يرفض طريقة غير مدعومة أو هاتف�
 });
 
 test('canRequestWithdrawal: صحيح فقط عند بلوغ الحدّ الأدنى', () => {
-  assert.equal(canRequestWithdrawal(10), true);
-  assert.equal(canRequestWithdrawal(9.99), false);
+  assert.equal(canRequestWithdrawal(8), true);
+  assert.equal(canRequestWithdrawal(7.99), false);
   assert.equal(canRequestWithdrawal(0), false);
 });
 

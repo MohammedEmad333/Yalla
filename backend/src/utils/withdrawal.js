@@ -3,6 +3,7 @@
 const {
   WITHDRAWAL_STATUS,
   WITHDRAWAL_METHOD,
+  CAPTAIN_MIN_WITHDRAWAL,
   MIN_WITHDRAWAL,
 } = require('./constants');
 
@@ -38,7 +39,9 @@ function computeCaptainBalance(earnedNet, withdrawals = []) {
 function validateWithdrawal({ amount, method, phone } = {}, available = 0) {
   const value = Number(amount);
   if (!Number.isFinite(value) || value <= 0) return 'مبلغ السحب غير صالح';
-  if (value < MIN_WITHDRAWAL) return `الحدّ الأدنى للسحب ${MIN_WITHDRAWAL} ₪`;
+  if (value < CAPTAIN_MIN_WITHDRAWAL) {
+    return `الحدّ الأدنى للسحب ${CAPTAIN_MIN_WITHDRAWAL} ₪`;
+  }
   if (value > available) return `المبلغ يتجاوز الرصيد المتاح (${available} ₪)`;
   if (!Object.values(WITHDRAWAL_METHOD).includes(method)) return 'طريقة سحب غير مدعومة';
   if (!phone || String(phone).trim().length < 6) return 'رقم الجوال مطلوب';
@@ -47,7 +50,7 @@ function validateWithdrawal({ amount, method, phone } = {}, available = 0) {
 
 /** هل يمكن للكابتن طلب سحب الآن؟ (رصيده يبلغ الحدّ الأدنى على الأقلّ) */
 function canRequestWithdrawal(available) {
-  return (Number(available) || 0) >= MIN_WITHDRAWAL;
+  return (Number(available) || 0) >= CAPTAIN_MIN_WITHDRAWAL;
 }
 
 /**

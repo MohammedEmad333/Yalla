@@ -78,8 +78,8 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
   num get _available => (_balance['available'] as num?) ?? 0;
 
   Future<void> _openWithdrawForm() async {
-    if (_available < 10) {
-      _snack('الحدّ الأدنى للسحب ١٠ ₪');
+    if (_available < 8) {
+      _snack('الحدّ الأدنى للسحب ٨ ₪');
       return;
     }
     // Card 71: طريقة السحب تعرض محافظ الكابتن الإلكترونية المضافة فقط.
@@ -361,8 +361,8 @@ class _WithdrawFormState extends State<_WithdrawForm> {
     return null;
   }
 
-  // الحدّ الأدنى للسحب (يطابق MIN_WITHDRAWAL في الخادم)
-  static const num _minWithdrawal = 10;
+  // الحدّ الأدنى للسحب (يطابق CAPTAIN_MIN_WITHDRAWAL في الخادم)
+  static const num _minWithdrawal = 8;
 
   // هل المبلغ المُدخَل يتجاوز الرصيد المتاح؟ (Card 59)
   bool get _exceedsBalance {
