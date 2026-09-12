@@ -3,8 +3,6 @@
 const {
   WITHDRAWAL_STATUS,
   WITHDRAWAL_METHOD,
-  CAPTAIN_MIN_WITHDRAWAL,
-  MIN_WITHDRAWAL,
 } = require('./constants');
 
 // منطق سحب أرباح الكابتن (Card 19) — دوال نقيّة قابلة للاختبار بلا قاعدة بيانات.
@@ -39,18 +37,15 @@ function computeCaptainBalance(earnedNet, withdrawals = []) {
 function validateWithdrawal({ amount, method, phone } = {}, available = 0) {
   const value = Number(amount);
   if (!Number.isFinite(value) || value <= 0) return 'مبلغ السحب غير صالح';
-  if (value < CAPTAIN_MIN_WITHDRAWAL) {
-    return `الحدّ الأدنى للسحب ${CAPTAIN_MIN_WITHDRAWAL} ₪`;
-  }
   if (value > available) return `المبلغ يتجاوز الرصيد المتاح (${available} ₪)`;
   if (!Object.values(WITHDRAWAL_METHOD).includes(method)) return 'طريقة سحب غير مدعومة';
   if (!phone || String(phone).trim().length < 6) return 'رقم الجوال مطلوب';
   return null;
 }
 
-/** هل يمكن للكابتن طلب سحب الآن؟ (رصيده يبلغ الحدّ الأدنى على الأقلّ) */
+/** هل يملك الكابتن رصيدًا موجبًا يمكن طلب سحبه؟ */
 function canRequestWithdrawal(available) {
-  return (Number(available) || 0) >= CAPTAIN_MIN_WITHDRAWAL;
+  return (Number(available) || 0) > 0;
 }
 
 /**
@@ -62,7 +57,6 @@ function canRequestWithdrawal(available) {
 function validateCustomerWithdrawal({ amount, destination, accountNumber } = {}, available = 0) {
   const value = Number(amount);
   if (!Number.isFinite(value) || value <= 0) return 'مبلغ السحب غير صالح';
-  if (value < MIN_WITHDRAWAL) return `الحدّ الأدنى للسحب ${MIN_WITHDRAWAL} ₪`;
   if (value > available) return `المبلغ يتجاوز رصيدك المتاح (${available} ₪)`;
   if (!destination || String(destination).trim().length < 2) {
     return 'اذكر المحفظة الإلكترونية أو البنك المطلوب التحويل إليه';

@@ -78,10 +78,6 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
   num get _available => (_balance['available'] as num?) ?? 0;
 
   Future<void> _openWithdrawForm() async {
-    if (_available < 8) {
-      _snack('الحدّ الأدنى للسحب ٨ ₪');
-      return;
-    }
     // Card 71: طريقة السحب تعرض محافظ الكابتن الإلكترونية المضافة فقط.
     // إن لم يُضِف أي محفظة نوجّهه لإضافتها أولًا.
     if (_payoutWallets.isEmpty) {
@@ -361,31 +357,16 @@ class _WithdrawFormState extends State<_WithdrawForm> {
     return null;
   }
 
-  // الحدّ الأدنى للسحب (يطابق CAPTAIN_MIN_WITHDRAWAL في الخادم)
-  static const num _minWithdrawal = 8;
-
   // هل المبلغ المُدخَل يتجاوز الرصيد المتاح؟ (Card 59)
   bool get _exceedsBalance {
     final amount = num.tryParse(_amount.text.trim());
     return amount != null && amount > widget.available;
   }
 
-  // Card 3: هل المبلغ المُدخَل أقلّ من الحدّ الأدنى للسحب؟
-  bool get _belowMinimum {
-    final amount = num.tryParse(_amount.text.trim());
-    return amount != null && amount > 0 && amount < _minWithdrawal;
-  }
-
   Future<void> _submit() async {
     final amount = num.tryParse(_amount.text.trim());
     if (amount == null || amount <= 0) {
       _snack('أدخل مبلغًا صحيحًا');
-      return;
-    }
-    // Card 3: تنبيه بارز (نافذة) عند طلب سحب أقلّ من الحدّ الأدنى — بنفس أسلوب
-    // تنبيه تجاوز الرصيد (Card 59).
-    if (amount < _minWithdrawal) {
-      await _showBelowMinAlert(amount);
       return;
     }
     // Card 59: تنبيه واضح بأنّ المبلغ المطلوب أكبر من الرصيد الفعلي في المحفظة
@@ -415,25 +396,6 @@ class _WithdrawFormState extends State<_WithdrawForm> {
   void _snack(String m) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
-  }
-
-  // Card 3: نافذة تنبيه بارزة عند طلب سحب أقلّ من الحدّ الأدنى المسموح
-  Future<void> _showBelowMinAlert(num amount) async {
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(Icons.warning_amber_rounded, color: YallaColors.error, size: 36),
-        title: const Text('المبلغ أقلّ من الحدّ الأدنى'),
-        content: Text(
-          'المبلغ المطلوب ($amount ₪) أقلّ من الحدّ الأدنى للسحب '
-          '($_minWithdrawal ₪).\n\nيرجى إدخال مبلغ لا يقلّ عن $_minWithdrawal ₪.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('حسنًا')),
-        ],
-      ),
-    );
   }
 
   // Card 59: نافذة تنبيه بارزة عند طلب سحب أكبر من الرصيد الموجود في المحفظة
@@ -478,12 +440,10 @@ class _WithdrawFormState extends State<_WithdrawForm> {
               labelText: 'المبلغ (₪)',
               prefixIcon: const Icon(Icons.payments),
               border: const OutlineInputBorder(),
-              // تنبيه لحظي أسفل الحقل: أقلّ من الحدّ الأدنى (Card 3) أو تجاوز الرصيد (Card 59)
-              errorText: _belowMinimum
-                  ? 'الحدّ الأدنى للسحب $_minWithdrawal ₪'
-                  : _exceedsBalance
-                      ? 'المبلغ أكبر من رصيدك المتاح (${widget.available} ₪)'
-                      : null,
+              // تنبيه لحظي عند تجاوز الرصيد المتاح (Card 59)
+              errorText: _exceedsBalance
+                  ? 'المبلغ أكبر من رصيدك المتاح (${widget.available} ₪)'
+                  : null,
             ),
           ),
           const SizedBox(height: 12),

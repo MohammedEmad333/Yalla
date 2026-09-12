@@ -38,12 +38,12 @@ test('validateWithdrawal: يقبل طلبًا صالحًا', () => {
   assert.equal(err, null);
 });
 
-test('validateWithdrawal: يرفض تحت الحدّ الأدنى (٨ ₪)', () => {
+test('validateWithdrawal: يقبل أي مبلغ موجب ضمن الرصيد', () => {
   const err = validateWithdrawal(
-    { amount: 7.99, method: WITHDRAWAL_METHOD.CASH, phone: '0599123456' },
+    { amount: 1, method: WITHDRAWAL_METHOD.CASH, phone: '0599123456' },
     50
   );
-  assert.match(err, /الحدّ الأدنى/);
+  assert.equal(err, null);
 });
 
 test('validateWithdrawal: يرفض ما يتجاوز الرصيد المتاح', () => {
@@ -65,9 +65,8 @@ test('validateWithdrawal: يرفض طريقة غير مدعومة أو هاتف�
   );
 });
 
-test('canRequestWithdrawal: صحيح فقط عند بلوغ الحدّ الأدنى', () => {
-  assert.equal(canRequestWithdrawal(8), true);
-  assert.equal(canRequestWithdrawal(7.99), false);
+test('canRequestWithdrawal: صحيح لأي رصيد موجب', () => {
+  assert.equal(canRequestWithdrawal(1), true);
   assert.equal(canRequestWithdrawal(0), false);
 });
 
@@ -80,10 +79,10 @@ test('validateCustomerWithdrawal: يقبل طلبًا صالحًا', () => {
   assert.equal(err, null);
 });
 
-test('validateCustomerWithdrawal: يرفض تحت الحدّ الأدنى ويتجاوز الرصيد', () => {
-  assert.match(
-    validateCustomerWithdrawal({ amount: 5, destination: 'بنك فلسطين', accountNumber: '12345678' }, 50),
-    /الحدّ الأدنى/
+test('validateCustomerWithdrawal: يقبل أي مبلغ موجب ويرفض تجاوز الرصيد', () => {
+  assert.equal(
+    validateCustomerWithdrawal({ amount: 1, destination: 'بنك فلسطين', accountNumber: '12345678' }, 50),
+    null
   );
   assert.match(
     validateCustomerWithdrawal({ amount: 80, destination: 'بنك فلسطين', accountNumber: '12345678' }, 50),
