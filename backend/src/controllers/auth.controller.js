@@ -58,7 +58,8 @@ async function registerUser(req, res, next) {
 // تسجيل دخول موحّد: مستخدم/أدمن ثم كابتن ثم صاحب متجر.
 async function loginUser(req, res, next) {
   try {
-    const { phone, password } = req.body;
+    const phone = normalizePhone(req.body.phone);
+    const { password } = req.body;
 
     // 1) مستخدم أو أدمن
     const user = await User.findOne({ phone }).select('+passwordHash');
@@ -104,7 +105,7 @@ async function loginUser(req, res, next) {
       .populate('restaurant', 'name imageUrl active');
     if (merchant) {
       if (!(await merchant.verifyPassword(password))) {
-        return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
+        return res.status(401).json({ message: 'كلمة السر غير صحيحة' });
       }
       if (!merchant.isActive) {
         return res.status(403).json({ message: 'حساب المتجر معطّل — تواصل مع الإدارة' });
