@@ -12,6 +12,7 @@ const notifications = require('../services/notification.service');
 const io = require('../sockets/io');
 const { idDocUrlFor } = require('../middlewares/upload.middleware');
 const { ROLES, ROOMS } = require('../utils/constants');
+const { normalizePhone } = require('../utils/phone');
 
 // توليد توكن JWT يحمل المعرّف والدور (وحقولًا إضافيّة اختياريّة مثل regions للأدمن)
 function signToken(id, role, extra = {}) {
@@ -124,6 +125,50 @@ async function loginUser(req, res, next) {
     }
 
     return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// دخول خاص بتطبيق Yalla Partner. لا يمرّ على حسابات الزبائن والكباتن، ويعيد
+// رسالة دقيقة تساعد صاحب المتجر على معرفة هل الرقم أم كلمة السر هي المشكلة.
+async function loginMerchant(req, res, next) {
+  try {
+    const phone = normalizePhone(req.body?.phone);
+    const password = String(req.body?.password || '');
+    if (!/^\+?\d{6,15}$/.test(phone) || !password) {
+      return res.status(400).json({ message: 'أدخل رقم الجوال وكلمة السر' });
+    }
+
+    const merchant = await Merchant.findOne({ phone })
+      .select('+passwordHash')
+      .populate('restaurant', 'name imageUrl active');
+    if (!merchant) {
+      return res.status(401).json({ message: 'لا يوجد حساب متجر بهذا الرقم' });
+    }
+    if (!(await merchant.verifyPassword(password))) {
+      return res.status(401).json({ message: 'كلمة السر غير صحيحة' });
+    }
+    if (!merchant.isActive) {
+      return res.status(403).json({ message: 'حساب المتجر معطّل — تواصل مع الإدارة' });
+    }
+    if (!merchant.restaurant || merchant.restaurant.active === false) {
+      return res.status(403).json({ message: 'المتجر غير مفعّل — تواصل مع الإدارة' });
+    }
+
+    const token = signToken(merchant._id, ROLES.MERCHANT, {
+      restaurantId: String(merchant.restaurant._id),
+    });
+    return res.json({
+      token,
+      user: {
+        id: merchant._id,
+        name: merchant.name,
+        phone: merchant.phone,
+        role: ROLES.MERCHANT,
+        restaurant: merchant.restaurant,
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -421,6 +466,7 @@ function pick(obj = {}, keys = []) {
 module.exports = {
   registerUser,
   loginUser,
+  loginMerchant,
   loginCaptain,
   registerCaptain,
   applyCaptain,

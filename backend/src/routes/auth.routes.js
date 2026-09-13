@@ -37,6 +37,7 @@ const captainRegisterSchema = {
 
 // مسارات عامّة (بحدّ معدّل + تحقّق)
 router.post('/register', authLimiter, validateBody(registerSchema), ctrl.registerUser);
+router.post('/merchant/login', authLimiter, ctrl.loginMerchant);
 router.post('/login', authLimiter, validateBody(loginSchema), ctrl.loginUser);
 router.post('/captain/login', authLimiter, validateBody(loginSchema), ctrl.loginCaptain);
 

@@ -9,6 +9,7 @@ const Captain = require('../models/Captain');
 const restaurantService = require('./restaurant.service');
 const io = require('../sockets/io');
 const { ORDER_STATUS, ROOMS, EVENTS } = require('../utils/constants');
+const { normalizePhone } = require('../utils/phone');
 
 function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
@@ -35,10 +36,10 @@ async function upsertAdminMerchant(restaurantId, payload = {}) {
   if (!restaurant) throw httpError('المطعم غير موجود', 404);
 
   const name = String(payload.name || '').trim();
-  const phone = String(payload.phone || '').trim();
+  const phone = normalizePhone(payload.phone);
   const password = String(payload.password || '');
   if (!name) throw httpError('اسم صاحب المتجر مطلوب');
-  if (!/^\d{6,15}$/.test(phone)) throw httpError('أدخل رقم جوال صحيح');
+  if (!/^\+?\d{6,15}$/.test(phone)) throw httpError('أدخل رقم جوال صحيح');
 
   const [userCollision, captainCollision] = await Promise.all([
     User.exists({ phone }),
