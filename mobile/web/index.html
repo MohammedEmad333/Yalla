@@ -10,6 +10,7 @@
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Yalla">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
@@ -38,6 +39,60 @@
     #splash .ring { width: 34px; height: 34px; border: 4px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .splash-hidden { opacity: 0; pointer-events: none; }
+
+    #install-banner {
+      position: fixed;
+      z-index: 10000;
+      left: max(14px, env(safe-area-inset-left));
+      right: max(14px, env(safe-area-inset-right));
+      bottom: max(14px, env(safe-area-inset-bottom));
+      max-width: 680px;
+      margin-inline: auto;
+      padding: 16px;
+      border-radius: 22px;
+      background: #202b3d;
+      color: #fff;
+      box-shadow: 0 14px 38px rgba(17, 24, 39, .32);
+      font-family: "Segoe UI", Tahoma, system-ui, sans-serif;
+      transform: translateY(calc(100% + 40px));
+      opacity: 0;
+      visibility: hidden;
+      transition: transform .28s ease, opacity .28s ease, visibility .28s ease;
+      box-sizing: border-box;
+    }
+    #install-banner.visible { transform: translateY(0); opacity: 1; visibility: visible; }
+    .install-close {
+      position: absolute; top: 10px; left: 10px;
+      width: 38px; height: 38px; border: 0; border-radius: 50%;
+      color: #cbd5e1; background: transparent; font-size: 30px; line-height: 32px;
+      cursor: pointer;
+    }
+    .install-copy { padding: 2px 38px 14px 4px; }
+    .install-title { margin: 0 0 6px; font-size: 20px; font-weight: 800; }
+    .install-subtitle { margin: 0; color: #aeb8c8; font-size: 15px; line-height: 1.6; }
+    #install-button {
+      width: 100%; min-height: 54px; border: 0; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      background: #ffb800; color: #fff; font: inherit; font-size: 19px; font-weight: 800;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    #install-button:active { transform: scale(.99); }
+    #install-help {
+      position: fixed; z-index: 10001; inset: 0;
+      display: none; align-items: flex-end; justify-content: center;
+      padding: 18px 14px max(18px, env(safe-area-inset-bottom));
+      background: rgba(15, 23, 42, .58); box-sizing: border-box;
+      font-family: "Segoe UI", Tahoma, system-ui, sans-serif;
+    }
+    #install-help.visible { display: flex; }
+    .install-help-card {
+      width: min(100%, 520px); padding: 22px; border-radius: 22px;
+      background: #fff; color: #1f2937; box-shadow: 0 16px 42px rgba(0,0,0,.25);
+    }
+    .install-help-card h2 { margin: 0 0 14px; font-size: 21px; }
+    .install-help-card ol { margin: 0; padding-right: 24px; line-height: 1.9; color: #475569; }
+    .install-help-card button { width: 100%; margin-top: 18px; padding: 13px; border: 0; border-radius: 14px; background: #ff6b00; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+    @media (min-width: 700px) { #install-banner { bottom: 24px; } }
   </style>
 </head>
 <body>
@@ -47,7 +102,86 @@
     <div class="ring"></div>
   </div>
 
+  <aside id="install-banner" role="dialog" aria-label="تثبيت تطبيق يلا" aria-hidden="true">
+    <button class="install-close" id="install-close" type="button" aria-label="إغلاق">×</button>
+    <div class="install-copy">
+      <p class="install-title">ثبّت تطبيق يلا على شاشتك الرئيسية</p>
+      <p class="install-subtitle">اطلب وتابع طلبك بسهولة، وافتح يلا مثل أي تطبيق.</p>
+    </div>
+    <button id="install-button" type="button">
+      <span aria-hidden="true">⇩</span>
+      <span>تثبيت التطبيق</span>
+    </button>
+  </aside>
+
+  <div id="install-help" role="dialog" aria-modal="true" aria-label="طريقة تثبيت تطبيق يلا">
+    <div class="install-help-card">
+      <h2>تثبيت يلا على iPhone</h2>
+      <ol>
+        <li>افتح هذه الصفحة باستخدام Safari.</li>
+        <li>اضغط زر المشاركة <strong>□↑</strong>.</li>
+        <li>اختر <strong>إضافة إلى الشاشة الرئيسية</strong> ثم اضغط إضافة.</li>
+      </ol>
+      <button id="install-help-close" type="button">فهمت</button>
+    </div>
+  </div>
+
   <script>
+    (function () {
+      var deferredInstallPrompt = null;
+      var banner = document.getElementById('install-banner');
+      var installButton = document.getElementById('install-button');
+      var closeButton = document.getElementById('install-close');
+      var help = document.getElementById('install-help');
+      var helpClose = document.getElementById('install-help-close');
+      var isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      var isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      var dismissedAt = Number(localStorage.getItem('yalla-install-dismissed-at') || 0);
+      var dismissalExpired = Date.now() - dismissedAt > 7 * 24 * 60 * 60 * 1000;
+
+      function showBanner() {
+        if (isStandalone || !dismissalExpired) return;
+        banner.classList.add('visible');
+        banner.setAttribute('aria-hidden', 'false');
+      }
+
+      function hideBanner(remember) {
+        banner.classList.remove('visible');
+        banner.setAttribute('aria-hidden', 'true');
+        if (remember) localStorage.setItem('yalla-install-dismissed-at', String(Date.now()));
+      }
+
+      window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault();
+        deferredInstallPrompt = event;
+        window.setTimeout(showBanner, 900);
+      });
+
+      window.addEventListener('appinstalled', function () {
+        deferredInstallPrompt = null;
+        hideBanner(false);
+      });
+
+      closeButton.addEventListener('click', function () { hideBanner(true); });
+      helpClose.addEventListener('click', function () { help.classList.remove('visible'); });
+      help.addEventListener('click', function (event) {
+        if (event.target === help) help.classList.remove('visible');
+      });
+
+      installButton.addEventListener('click', async function () {
+        if (deferredInstallPrompt) {
+          deferredInstallPrompt.prompt();
+          await deferredInstallPrompt.userChoice;
+          deferredInstallPrompt = null;
+          hideBanner(false);
+          return;
+        }
+        help.classList.add('visible');
+      });
+
+      if (isIos && !isStandalone) window.setTimeout(showBanner, 1300);
+    }());
+
     // إخفاء شاشة التحميل بمجرّد أن يرسم Flutter أول إطار.
     window.addEventListener('flutter-first-frame', function () {
       var s = document.getElementById('splash');
