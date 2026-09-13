@@ -44,6 +44,11 @@ function registerSocketHandlers(io) {
       socket.join(ROOMS.captains());
     }
     if (role === ROLES.USER) socket.join(ROOMS.user(id));
+    // توكن الشريك يحمل restaurantId؛ ننضمّ لغرفة المتجر بدل الاعتماد على
+    // merchantId حتى تبقى الإشعارات صحيحة لو تغيّر حساب إدارة المتجر لاحقًا.
+    if (role === ROLES.MERCHANT && socket.user.restaurantId) {
+      socket.join(ROOMS.merchant(socket.user.restaurantId));
+    }
 
     // المستخدم/الكابتن ينضمّ لغرفة طلب معيّن لمتابعته لحظيًا
     socket.on('order:join', ({ orderId }) => socket.join(ROOMS.order(orderId)));

@@ -28,6 +28,9 @@ router.get('/restaurants', restaurantCtrl.adminListRestaurants);
 router.post('/restaurants', restaurantCtrl.createRestaurant);
 router.patch('/restaurants/:restaurantId', restaurantCtrl.updateRestaurant);
 router.delete('/restaurants/:restaurantId', restaurantCtrl.deleteRestaurant);
+// حساب صاحب المطعم/المحل المستخدم في تطبيق Yalla Partner.
+router.get('/restaurants/:restaurantId/merchant', restaurantCtrl.adminGetMerchant);
+router.put('/restaurants/:restaurantId/merchant', restaurantCtrl.adminUpsertMerchant);
 // Card 111: رفع صورة غلاف المطعم من الجهاز (تُخزَّن في قاعدة البيانات)
 router.post(
   '/restaurants/:restaurantId/image',

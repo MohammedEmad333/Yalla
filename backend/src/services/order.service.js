@@ -239,6 +239,9 @@ async function createOrder(userId, payload, idempotencyKey) {
   // بثّ لكل الأدمن: طلب جديد بانتظار الإسناد + إعلام المستخدم بغرفته
   io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
   io.get().to(ROOMS.user(userId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  if (order.store?.restaurant) {
+    io.get().to(ROOMS.merchant(String(order.store.restaurant))).emit(EVENTS.ORDER_CREATED, order);
+  }
   // Card 103: إشعار Push لأجهزة الأدمن (نسخة أندرويد) بطلب جديد — غير حاجب
   notifications.notifyAdmins(notifications.newOrderAdminPayload(order)).catch(() => {});
 
@@ -862,6 +865,9 @@ function broadcastOrderUpdate(order) {
   // الكابتن المُسنَد أيضًا — لتحديث شاشتَي الطلب والأرباح لحظيًا (تسليم/إلغاء)
   if (order.captain) {
     io_.to(ROOMS.captain(order.captain.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  }
+  if (order.store?.restaurant) {
+    io_.to(ROOMS.merchant(String(order.store.restaurant))).emit(EVENTS.ORDER_STATUS_UPDATED, order);
   }
 }
 

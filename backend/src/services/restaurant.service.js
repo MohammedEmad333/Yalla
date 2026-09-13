@@ -314,6 +314,8 @@ async function deleteRestaurant(restaurantId) {
     ...items.map((it) => deleteFileByUrl(it.imageUrl)),
   ]);
   await MenuItem.deleteMany({ restaurant: restaurantId });
+  // حذف حساب الشريك المرتبط حتى لا يبقى حساب بلا متجر.
+  await require('../models/Merchant').deleteOne({ restaurant: restaurantId });
   return { message: 'تم حذف المطعم وقائمته' };
 }
 

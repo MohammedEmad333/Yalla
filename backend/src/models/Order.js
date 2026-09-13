@@ -42,6 +42,12 @@ const orderSchema = new mongoose.Schema(
     store: {
       restaurant: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', default: null },
       name: { type: String, default: '' },          // اسم المطعم وقت الطلب
+      merchantStatus: {
+        type: String,
+        enum: ['new', 'accepted', 'preparing', 'ready'],
+        default: 'new',
+      },
+      merchantUpdatedAt: { type: Date, default: null },
       items: [
         {
           menuItem: { type: mongoose.Schema.Types.ObjectId, ref: 'MenuItem' },

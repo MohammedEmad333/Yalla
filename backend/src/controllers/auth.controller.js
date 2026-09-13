@@ -5,6 +5,7 @@ const env = require('../config/env');
 const User = require('../models/User');
 const Captain = require('../models/Captain');
 const CaptainApplication = require('../models/CaptainApplication');
+const Merchant = require('../models/Merchant');
 const { saveAvatar, deleteAvatarByUrl } = require('../utils/avatarStore');
 const adminService = require('../services/admin.service');
 const notifications = require('../services/notification.service');
@@ -21,6 +22,9 @@ function signToken(id, role, extra = {}) {
 async function registerUser(req, res, next) {
   try {
     const { name, lastName, phone, email, password, governorate, address } = req.body;
+    if (await Merchant.exists({ phone })) {
+      return res.status(409).json({ message: 'رقم الجوال مستخدم في حساب متجر' });
+    }
     // Card 96: نخزّن مكان السكن (المحافظة + تفاصيل العنوان) عند إنشاء الحساب
     const user = new User({ name, lastName, phone, email, governorate, address, role: ROLES.USER });
     await user.setPassword(password); // تشفير كلمة المرور
@@ -50,7 +54,7 @@ async function registerUser(req, res, next) {
   }
 }
 
-// تسجيل دخول موحّد: يفحص المستخدم/الأدمن أولًا ثم الكابتن — صفحة دخول واحدة للجميع
+// تسجيل دخول موحّد: مستخدم/أدمن ثم كابتن ثم صاحب متجر.
 async function loginUser(req, res, next) {
   try {
     const { phone, password } = req.body;
@@ -93,6 +97,32 @@ async function loginUser(req, res, next) {
       });
     }
 
+    // 3) صاحب مطعم/محل
+    const merchant = await Merchant.findOne({ phone })
+      .select('+passwordHash')
+      .populate('restaurant', 'name imageUrl active');
+    if (merchant) {
+      if (!(await merchant.verifyPassword(password))) {
+        return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
+      }
+      if (!merchant.isActive) {
+        return res.status(403).json({ message: 'حساب المتجر معطّل — تواصل مع الإدارة' });
+      }
+      const token = signToken(merchant._id, ROLES.MERCHANT, {
+        restaurantId: String(merchant.restaurant?._id || merchant.restaurant),
+      });
+      return res.json({
+        token,
+        user: {
+          id: merchant._id,
+          name: merchant.name,
+          phone: merchant.phone,
+          role: ROLES.MERCHANT,
+          restaurant: merchant.restaurant,
+        },
+      });
+    }
+
     return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
   } catch (err) {
     next(err);
@@ -121,6 +151,9 @@ async function loginCaptain(req, res, next) {
 async function registerCaptain(req, res, next) {
   try {
     const { name, phone, password, vehicleType, vehiclePlate } = req.body;
+    if (await Merchant.exists({ phone })) {
+      return res.status(409).json({ message: 'رقم الجوال مستخدم في حساب متجر' });
+    }
     const captain = new Captain({
       name,
       phone,
@@ -174,6 +207,9 @@ async function applyCaptain(req, res, next) {
     // منع التكرار: هاتف يملك حساب كابتن، أو طلب توثيق معلّق بنفس الهاتف
     if (await Captain.findOne({ phone: cleanPhone })) {
       return res.status(409).json({ message: 'يوجد حساب كابتن بهذا الرقم بالفعل' });
+    }
+    if (await Merchant.exists({ phone: cleanPhone })) {
+      return res.status(409).json({ message: 'رقم الجوال مستخدم في حساب متجر' });
     }
     if (await CaptainApplication.findOne({ phone: cleanPhone, status: 'pending' })) {
       return res.status(409).json({ message: 'لديك طلب توثيق قيد المراجعة بالفعل' });
@@ -232,6 +268,15 @@ async function me(req, res, next) {
       if (!captain) return res.status(404).json({ message: 'الحساب غير موجود' });
       return res.json({ role, captain });
     }
+    if (role === ROLES.MERCHANT) {
+      const merchant = await Merchant.findById(id)
+        .select('name phone restaurant isActive')
+        .populate('restaurant', 'name imageUrl category active isOpen');
+      if (!merchant || !merchant.isActive) {
+        return res.status(404).json({ message: 'حساب المتجر غير موجود' });
+      }
+      return res.json({ role, merchant });
+    }
     // Card 110: نضمّ regions ليعرف الأدمن نطاق مدنه في اللوحة
     const user = await User.findById(id).select('name lastName phone email city governorate address avatarUrl role regions');
     if (!user) return res.status(404).json({ message: 'الحساب غير موجود' });
@@ -253,6 +298,15 @@ async function updateProfile(req, res, next) {
       }).select('name phone status vehicleType vehiclePlate avatarUrl rating');
       if (!captain) return res.status(404).json({ message: 'الحساب غير موجود' });
       return res.json({ role, captain });
+    }
+    if (role === ROLES.MERCHANT) {
+      const merchant = await Merchant.findByIdAndUpdate(
+        id,
+        pick(req.body, ['name']),
+        { new: true, runValidators: true }
+      ).select('name phone restaurant isActive');
+      if (!merchant) return res.status(404).json({ message: 'الحساب غير موجود' });
+      return res.json({ role, merchant });
     }
 
     const allowed = pick(req.body, ['name', 'lastName', 'email', 'city', 'governorate', 'address']);
@@ -278,6 +332,9 @@ async function uploadAvatar(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ message: 'أرفق صورة' });
     const { id, role } = req.auth;
+    if (role === ROLES.MERCHANT) {
+      return res.status(400).json({ message: 'غيّر صورة المتجر من إعدادات المتجر' });
+    }
     const Model = role === ROLES.CAPTAIN ? Captain : User;
 
     // نحفظ الصورة الجديدة في قاعدة البيانات ثم نحذف القديمة (إن كانت مخزّنة عندنا)
@@ -299,7 +356,7 @@ async function changePassword(req, res, next) {
     const { id, role } = req.auth;
     const { currentPassword, newPassword } = req.body;
 
-    const Model = role === ROLES.CAPTAIN ? Captain : User;
+    const Model = role === ROLES.CAPTAIN ? Captain : role === ROLES.MERCHANT ? Merchant : User;
     const account = await Model.findById(id).select('+passwordHash');
     if (!account) return res.status(404).json({ message: 'الحساب غير موجود' });
 
@@ -317,12 +374,14 @@ async function changePassword(req, res, next) {
     await account.save();
 
     // إشعار داخلي بأنّ كلمة السر تم تغييرها بنجاح
-    const recipientRole = role === ROLES.CAPTAIN ? 'captain' : 'user';
-    notifications.createInApp(id, recipientRole, {
-      title: '🔒 تم تغيير كلمة السر',
-      body: 'تم تغيير كلمة سر حسابك بنجاح. إن لم تكن أنت من قام بذلك تواصل مع الدعم فورًا.',
-      data: { type: 'PASSWORD_CHANGED' },
-    });
+    if (role !== ROLES.MERCHANT) {
+      const recipientRole = role === ROLES.CAPTAIN ? 'captain' : 'user';
+      notifications.createInApp(id, recipientRole, {
+        title: '🔒 تم تغيير كلمة السر',
+        body: 'تم تغيير كلمة سر حسابك بنجاح. إن لم تكن أنت من قام بذلك تواصل مع الدعم فورًا.',
+        data: { type: 'PASSWORD_CHANGED' },
+      });
+    }
 
     res.json({ ok: true, message: 'تم تغيير كلمة السر بنجاح' });
   } catch (err) {
@@ -336,8 +395,8 @@ async function changePassword(req, res, next) {
 async function deleteOwnAccount(req, res, next) {
   try {
     const { id, role } = req.auth;
-    if (role === ROLES.ADMIN) {
-      return res.status(403).json({ message: 'لا يمكن حذف حساب أدمن من التطبيق' });
+    if (role === ROLES.ADMIN || role === ROLES.MERCHANT) {
+      return res.status(403).json({ message: 'حسابات الإدارة والمتاجر تُدار من لوحة الأدمن' });
     }
     if (role === ROLES.CAPTAIN) {
       await adminService.deleteCaptain(id, ROLES.CAPTAIN);

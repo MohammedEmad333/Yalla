@@ -110,6 +110,7 @@ const CATEGORY_SUGGESTIONS = [
 ];
 
 const EMPTY_ITEM = { name: '', description: '', category: '', price: '', available: true };
+const EMPTY_MERCHANT = { name: '', phone: '', password: '', isActive: true };
 
 export default function Restaurants() {
   const [restaurants, setRestaurants] = useState([]);
@@ -119,6 +120,9 @@ export default function Restaurants() {
   const [form, setForm] = useState(EMPTY_RESTAURANT);
   const [menu, setMenu] = useState([]);
   const [item, setItem] = useState(EMPTY_ITEM);
+  const [merchant, setMerchant] = useState(EMPTY_MERCHANT);
+  const [merchantExists, setMerchantExists] = useState(false);
+  const [merchantBusy, setMerchantBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [coverBusy, setCoverBusy] = useState(false); // رفع صورة الغلاف جارٍ
@@ -157,7 +161,13 @@ export default function Restaurants() {
       );
     }
     try {
-      setMenu(await api.get(`/admin/restaurants/${r._id}/menu`));
+      const [nextMenu, account] = await Promise.all([
+        api.get(`/admin/restaurants/${r._id}/menu`),
+        api.get(`/admin/restaurants/${r._id}/merchant`),
+      ]);
+      setMenu(nextMenu);
+      setMerchantExists(Boolean(account));
+      setMerchant(account ? { ...EMPTY_MERCHANT, ...account, password: '' } : EMPTY_MERCHANT);
     } catch (err) {
       setError(err.message);
     }
@@ -170,6 +180,8 @@ export default function Restaurants() {
     setForm(EMPTY_RESTAURANT);
     setMenu([]);
     setItem(EMPTY_ITEM);
+    setMerchant(EMPTY_MERCHANT);
+    setMerchantExists(false);
     setMessage('');
     setError('');
     requestAnimationFrame(() =>
@@ -217,6 +229,8 @@ export default function Restaurants() {
       setEditorOpen(false);
       setForm(EMPTY_RESTAURANT);
       setMenu([]);
+      setMerchant(EMPTY_MERCHANT);
+      setMerchantExists(false);
       await load();
     } catch (err) {
       setError(err.message);
@@ -264,6 +278,34 @@ export default function Restaurants() {
       setMenu(await api.get(`/admin/restaurants/${selected._id}/menu`));
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  async function saveMerchant() {
+    if (!selected) return setError('احفظ المطعم أولًا');
+    if (!merchant.name.trim() || !merchant.phone.trim()) {
+      return setError('اسم صاحب المتجر ورقم الجوال مطلوبان');
+    }
+    if (!merchantExists && merchant.password.length < 6) {
+      return setError('كلمة سر حساب المتجر ٦ أحرف على الأقل');
+    }
+    setMerchantBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const saved = await api.put(`/admin/restaurants/${selected._id}/merchant`, {
+        name: merchant.name.trim(),
+        phone: merchant.phone.trim(),
+        password: merchant.password,
+        isActive: merchant.isActive,
+      });
+      setMerchant({ ...EMPTY_MERCHANT, ...saved, password: '' });
+      setMerchantExists(true);
+      setMessage(merchantExists ? 'تم تحديث حساب الشريك' : 'تم إنشاء حساب الشريك');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setMerchantBusy(false);
     }
   }
 
@@ -483,6 +525,55 @@ export default function Restaurants() {
                 {saving ? '...جارٍ الحفظ' : selected ? 'حفظ التعديلات' : 'إضافة المطعم'}
               </Button>
             </div>
+          </Card>
+
+          {/* ── حساب Yalla Partner المرتبط بهذا المتجر ── */}
+          <Card title="حساب صاحب المتجر">
+            {!selected ? (
+              <p className="yl-muted">احفظ المطعم أولًا، ثم أنشئ له حسابًا في تطبيق Yalla Partner.</p>
+            ) : (
+              <div className="yl-stack">
+                <div className="yl-formgrid">
+                  <Field label="اسم صاحب المتجر">
+                    <Input
+                      value={merchant.name}
+                      onChange={(e) => setMerchant((m) => ({ ...m, name: e.target.value }))}
+                      placeholder="الاسم الكامل"
+                    />
+                  </Field>
+                  <Field label="رقم تسجيل الدخول">
+                    <Input
+                      value={merchant.phone}
+                      onChange={(e) => setMerchant((m) => ({ ...m, phone: e.target.value }))}
+                      inputMode="tel"
+                      dir="ltr"
+                    />
+                  </Field>
+                  <Field
+                    label={merchantExists ? 'كلمة سر جديدة (اختياري)' : 'كلمة السر'}
+                    hint={merchantExists ? 'اتركها فارغة للإبقاء على الحالية' : '٦ أحرف على الأقل'}
+                  >
+                    <Input
+                      type="password"
+                      value={merchant.password}
+                      onChange={(e) => setMerchant((m) => ({ ...m, password: e.target.value }))}
+                      autoComplete="new-password"
+                    />
+                  </Field>
+                </div>
+                <div className="yl-row">
+                  <Checkbox
+                    checked={merchant.isActive}
+                    onChange={(e) => setMerchant((m) => ({ ...m, isActive: e.target.checked }))}
+                    label="الحساب مفعّل"
+                  />
+                  <span className="yl-spacer" />
+                  <Button variant="primary" onClick={saveMerchant} disabled={merchantBusy} loading={merchantBusy}>
+                    {merchantBusy ? '...جارٍ الحفظ' : merchantExists ? 'تحديث الحساب' : 'إنشاء الحساب'}
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
 
           {/* ── قائمة الطعام ── */}

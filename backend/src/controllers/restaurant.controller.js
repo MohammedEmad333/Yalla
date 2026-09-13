@@ -1,6 +1,7 @@
 'use strict';
 
 const restaurantService = require('../services/restaurant.service');
+const merchantService = require('../services/merchant.service');
 
 /**
  * متحكّم المطاعم (Card 110) — مسارات تصفّح عامّة للزبائن، وإنشاء طلب من مطعم،
@@ -137,6 +138,22 @@ async function deleteMenuItem(req, res, next) {
   }
 }
 
+async function adminGetMerchant(req, res, next) {
+  try {
+    res.json(await merchantService.getAdminMerchant(req.params.restaurantId));
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function adminUpsertMerchant(req, res, next) {
+  try {
+    res.json(await merchantService.upsertAdminMerchant(req.params.restaurantId, req.body));
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listRestaurants,
   listCategories,
@@ -152,4 +169,6 @@ module.exports = {
   updateMenuItem,
   deleteMenuItem,
   uploadMenuItemImage,
+  adminGetMerchant,
+  adminUpsertMerchant,
 };

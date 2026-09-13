@@ -5,6 +5,7 @@ const ROLES = Object.freeze({
   USER: 'user',
   CAPTAIN: 'captain',
   ADMIN: 'admin',
+  MERCHANT: 'merchant',
 });
 
 // حالات الطلب — تمثّل دورة حياة الطلب من الإنشاء حتى التسليم
@@ -105,6 +106,7 @@ const ROOMS = Object.freeze({
   captains: () => 'captains',                // غرفة كل الكباتن (للبثّ الجماعي — الإسناد التلقائي)
   captain: (id) => `captain:${id}`,          // غرفة كابتن محدّد
   user: (id) => `user:${id}`,                // غرفة مستخدم محدّد
+  merchant: (id) => `merchant:${id}`,        // غرفة صاحب متجر محدّد
   order: (id) => `order:${id}`,              // غرفة طلب محدّد (لتتبّعه)
 });
 

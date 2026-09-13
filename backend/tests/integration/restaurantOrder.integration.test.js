@@ -13,7 +13,9 @@ const User = require('../../src/models/User');
 const Captain = require('../../src/models/Captain');
 const Restaurant = require('../../src/models/Restaurant');
 const MenuItem = require('../../src/models/MenuItem');
+const Merchant = require('../../src/models/Merchant');
 const restaurantService = require('../../src/services/restaurant.service');
+const merchantService = require('../../src/services/merchant.service');
 const orderService = require('../../src/services/order.service');
 const adminWalletService = require('../../src/services/adminWallet.service');
 const walletService = require('../../src/services/wallet.service');
@@ -282,4 +284,43 @@ test('حذف مطعم: يحذف أصناف قائمته معه', async (t) => {
   await restaurantService.deleteRestaurant(r._id);
   assert.equal(await Restaurant.countDocuments({}), 0);
   assert.equal(await MenuItem.countDocuments({}), 0);
+});
+
+test('حساب الشريك: يدير متجره فقط ويتابع مراحل تجهيز طلباته', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const user = await makeUser();
+  const ownRestaurant = await makeRestaurant({ name: 'متجر الشريك', minOrder: 0 });
+  const otherRestaurant = await makeRestaurant({ name: 'متجر آخر', minOrder: 0 });
+  const ownItem = await restaurantService.createMenuItem(ownRestaurant._id, { name: 'وجبة', price: 25 });
+  const foreignItem = await restaurantService.createMenuItem(otherRestaurant._id, { name: 'صنف آخر', price: 10 });
+
+  const account = await merchantService.upsertAdminMerchant(ownRestaurant._id, {
+    name: 'صاحب المتجر',
+    phone: '0599111222',
+    password: 'secret1',
+  });
+  const merchant = await Merchant.findById(account.id);
+  assert.equal(String(merchant.restaurant), String(ownRestaurant._id));
+
+  await assert.rejects(
+    () => merchantService.updateMenuItem(merchant._id, foreignItem._id, { price: 1 }),
+    /الصنف غير موجود/
+  );
+
+  const order = await restaurantService.createRestaurantOrder(user._id, {
+    restaurantId: String(ownRestaurant._id),
+    items: [{ menuItemId: String(ownItem._id), qty: 1 }],
+    dropoff: DROPOFF,
+  });
+  const accepted = await merchantService.updateOrderStatus(merchant._id, order._id, 'accepted');
+  assert.equal(accepted.store.merchantStatus, 'accepted');
+  const preparing = await merchantService.updateOrderStatus(merchant._id, order._id, 'preparing');
+  assert.equal(preparing.store.merchantStatus, 'preparing');
+  const ready = await merchantService.updateOrderStatus(merchant._id, order._id, 'ready');
+  assert.equal(ready.store.merchantStatus, 'ready');
+
+  await assert.rejects(
+    () => merchantService.updateOrderStatus(merchant._id, order._id, 'accepted'),
+    /انتقال غير مسموح/
+  );
 });

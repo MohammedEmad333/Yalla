@@ -1,0 +1,101 @@
+name: Build Yalla Partner
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_origin:
+        description: 'عنوان الـ Backend'
+        required: false
+        default: 'https://yalla-api.duckdns.org'
+  push:
+    branches: ['main']
+    paths:
+      - 'partner/**'
+      - '.github/workflows/partner-apk.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: partner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: توليد سقالة Android
+        run: |
+          cp android/app/src/main/AndroidManifest.xml "$RUNNER_TEMP/AndroidManifest.xml"
+          cp android/app/src/main/res/xml/network_security_config.xml "$RUNNER_TEMP/network_security_config.xml"
+          cp android/app/src/main/kotlin/com/mohammedemad333/yallapartner/MainActivity.kt "$RUNNER_TEMP/MainActivity.kt"
+          rm -rf android
+          flutter create --platforms=android --org com.mohammedemad333 --project-name yallapartner .
+          cp "$RUNNER_TEMP/AndroidManifest.xml" android/app/src/main/AndroidManifest.xml
+          mkdir -p android/app/src/main/res/xml android/app/src/main/kotlin/com/mohammedemad333/yallapartner
+          cp "$RUNNER_TEMP/network_security_config.xml" android/app/src/main/res/xml/network_security_config.xml
+          cp "$RUNNER_TEMP/MainActivity.kt" android/app/src/main/kotlin/com/mohammedemad333/yallapartner/MainActivity.kt
+          rm -f test/widget_test.dart
+
+      - name: تثبيت التبعيات والتحليل
+        run: |
+          flutter pub get
+          flutter analyze
+
+      - name: تجهيز توقيع الإصدار
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::لا يوجد keystore؛ سيتم بناء APK للاختبار فقط."
+            exit 0
+          fi
+          KEYSTORE_PATH="$PWD/android/app/upload-keystore.jks"
+          echo "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=$KEYSTORE_PATH
+          EOF
+          python3 ../mobile/tool/inject_signing.py
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: بناء APK
+        env:
+          INPUT_ORIGIN: ${{ github.event.inputs.api_origin }}
+        run: |
+          API_ORIGIN="${INPUT_ORIGIN:-https://yalla-api.duckdns.org}"
+          flutter build apk --release --dart-define=API_ORIGIN="$API_ORIGIN"
+
+      - name: بناء AAB الموقّع
+        if: steps.signing.outputs.signed == 'true'
+        env:
+          INPUT_ORIGIN: ${{ github.event.inputs.api_origin }}
+        run: |
+          API_ORIGIN="${INPUT_ORIGIN:-https://yalla-api.duckdns.org}"
+          flutter build appbundle --release --dart-define=API_ORIGIN="$API_ORIGIN"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yalla-partner-apk
+          path: partner/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: steps.signing.outputs.signed == 'true'
+        with:
+          name: yalla-partner-aab
+          path: partner/build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
