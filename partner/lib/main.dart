@@ -35,12 +35,17 @@ class YallaPartnerApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: scheme,
         textTheme: GoogleFonts.ibmPlexSansArabicTextTheme(),
-        scaffoldBackgroundColor: const Color(0xFFF7F7F7),
+        scaffoldBackgroundColor: const Color(0xFFF6F7FB),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          centerTitle: false,
+        ),
         cardTheme: const CardThemeData(
           elevation: 0,
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(18)),
+            borderRadius: BorderRadius.all(Radius.circular(22)),
           ),
         ),
         inputDecorationTheme: const InputDecorationTheme(
@@ -50,6 +55,11 @@ class YallaPartnerApp extends StatelessWidget {
             borderRadius: BorderRadius.all(Radius.circular(14)),
             borderSide: BorderSide.none,
           ),
+        ),
+        navigationBarTheme: const NavigationBarThemeData(
+          height: 72,
+          indicatorShape: StadiumBorder(),
+          backgroundColor: Colors.white,
         ),
       ),
       builder: (context, child) => Directionality(

@@ -52,6 +52,7 @@ const orderSchema = new mongoose.Schema(
         {
           menuItem: { type: mongoose.Schema.Types.ObjectId, ref: 'MenuItem' },
           name: { type: String, default: '' },
+          variant: { type: String, default: '' },    // الحجم/الوزن المختار وقت الطلب
           price: { type: Number, default: 0 },      // سعر الوحدة وقت الطلب
           qty: { type: Number, default: 1 },
           note: { type: String, default: '' },
@@ -90,6 +91,15 @@ const orderSchema = new mongoose.Schema(
     customerCharged: { type: Number, default: 0 }, // ما خُصم فعليًا من محفظة الزبون
     adminCredit: { type: Number, default: 0 },      // الأصناف + عمولة التوصيل لمحفظة الإدارة
     financialSettledAt: { type: Date, default: null },
+    financialSettlementState: {
+      type: String,
+      enum: ['pending', 'processing', 'settled', 'failed', 'refunded'],
+      default: 'pending',
+      index: true,
+    },
+    financialSettlementError: { type: String, default: '' },
+    refundedAt: { type: Date, default: null },
+    refundAmount: { type: Number, default: 0 },
 
     // الكباتن الذين رفضوا الطلب — يُستبعدون عند إعادة الإسناد التلقائي
     rejectedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Captain' }],

@@ -19,6 +19,7 @@ const walletTransactionSchema = new mongoose.Schema(
     // العلاقات
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     wallet: { type: mongoose.Schema.Types.ObjectId, ref: 'Wallet', required: true, index: true },
+    order: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null, index: true },
 
     // نوع الحركة واتجاهها على الرصيد
     type: {
@@ -60,6 +61,7 @@ const walletTransactionSchema = new mongoose.Schema(
 
     // الرصيد بعد تطبيق الحركة (يُملأ عند approved) — للتدقيق وكشوف الحساب
     balanceAfter: { type: Number, default: null },
+    balanceBefore: { type: Number, default: null },
 
     // مراجعة الأدمن (المرحلة 1)
     review: {

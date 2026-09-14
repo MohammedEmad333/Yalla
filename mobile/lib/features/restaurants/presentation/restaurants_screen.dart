@@ -104,7 +104,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('المطاعم')),
+      appBar: AppBar(title: const Text('المتاجر والمطاعم')),
       body: Column(
         children: [
           Padding(
@@ -125,7 +125,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                 _load();
               },
               decoration: InputDecoration(
-                hintText: 'ابحث عن مطعم...',
+                hintText: 'ابحث عن متجر أو مطعم...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchController.text.isEmpty
                     ? null
@@ -181,7 +181,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
       return _placeholder(Icons.wifi_off, _error, action: 'إعادة المحاولة');
     }
     if (_restaurants.isEmpty) {
-      return _placeholder(Icons.storefront_outlined, 'لا توجد مطاعم متاحة حاليًا');
+      return _placeholder(Icons.storefront_outlined, 'لا توجد متاجر متاحة حاليًا');
     }
 
     return RefreshIndicator(

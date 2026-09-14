@@ -92,7 +92,7 @@ async function updateRestaurant(merchantId, payload = {}) {
   const merchant = await requireMerchant(merchantId);
   // حقول تشغيلية فقط؛ العنوان والتفعيل العام يبقيان تحت سيطرة الأدمن.
   const allowed = {};
-  for (const key of ['description', 'phone', 'minOrder', 'prepMinutes', 'isOpen', 'openTime', 'closeTime']) {
+  for (const key of ['description', 'phone', 'minOrder', 'prepMinutes', 'openTime', 'closeTime']) {
     if (payload[key] !== undefined) allowed[key] = payload[key];
   }
   return restaurantService.updateRestaurant(merchant.restaurant, allowed);

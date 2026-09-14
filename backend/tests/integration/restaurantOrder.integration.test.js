@@ -19,6 +19,7 @@ const merchantService = require('../../src/services/merchant.service');
 const orderService = require('../../src/services/order.service');
 const adminWalletService = require('../../src/services/adminWallet.service');
 const walletService = require('../../src/services/wallet.service');
+const WalletTransaction = require('../../src/models/WalletTransaction');
 const { ORDER_STATUS, CAPTAIN_STATUS } = require('../../src/utils/constants');
 
 before(connect);
@@ -178,6 +179,34 @@ test('تسليم طلب المطعم: يخصم كامل الفاتورة ويو�
   const adminWallet = await adminWalletService.getWallet();
   assert.equal(adminWallet.balance, delivered.adminCredit);
   assert.equal(adminWallet.transactions.length, 1);
+
+  // إعادة طلب التسليم (شبكة بطيئة/ضغط مكرر) لا تخصم أو تحول مرة ثانية.
+  const repeated = await orderService.updateOrderStatus(
+    captain._id, order._id, ORDER_STATUS.DELIVERED, '', order.deliveryCode, order.price
+  );
+  assert.equal(repeated.adminCredit, delivered.adminCredit);
+  assert.equal((await walletService.getWalletSummary(user._id)).balance, after);
+  assert.equal(await WalletTransaction.countDocuments({ idempotencyKey: `order-payment:${order._id}` }), 1);
+});
+
+test('إلغاء طلب متجر يعيد أي دفعة سابقة مرة واحدة ويسجل حركة الاسترداد', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const user = await makeUser();
+  const restaurant = await makeRestaurant({ minOrder: 0 });
+  const item = await restaurantService.createMenuItem(restaurant._id, { name: 'طلب', price: 30 });
+  const order = await restaurantService.createRestaurantOrder(user._id, {
+    restaurantId: String(restaurant._id), items: [{ menuItemId: String(item._id), qty: 1 }], dropoff: DROPOFF,
+  });
+  const before = (await walletService.getWalletSummary(user._id)).balance;
+  await walletService.chargeForOrder(user._id, 30 + order.price, order._id);
+  assert.ok((await walletService.getWalletSummary(user._id)).balance < before);
+
+  const cancelled = await orderService.cancelOrder(order._id, { actorId: user._id, actorRole: 'user' }, 'غيّرت رأيي');
+  assert.equal(cancelled.refundAmount, 30 + order.price);
+  assert.equal((await walletService.getWalletSummary(user._id)).balance, before);
+  const duplicate = await walletService.refundOrderPayment(user._id, order._id, 'إعادة محاولة');
+  assert.equal(duplicate.duplicate, true);
+  assert.equal((await walletService.getWalletSummary(user._id)).balance, before);
 });
 
 test('طلب من مطعم: يصحّح موقعًا قديمًا فاسدًا من الحي قبل التسعير', async (t) => {
@@ -208,7 +237,7 @@ test('طلب من مطعم: يصحّح موقعًا قديمًا فاسدًا م
   assert.ok(order.etaMinutes < 60, `الوقت غير منطقي: ${order.etaMinutes}`);
 });
 
-test('طلب من مطعم: يُرفض تحت الحدّ الأدنى أو من مطعم مغلق أو بسلّة فارغة', async (t) => {
+test('طلب من مطعم: يُرفض تحت الحدّ الأدنى أو خارج ساعات العمل أو بسلّة فارغة', async (t) => {
   if (!state.dbReady) return t.skip('لا قاعدة بيانات');
   const user = await makeUser();
   const r = await makeRestaurant();
@@ -234,7 +263,7 @@ test('طلب من مطعم: يُرفض تحت الحدّ الأدنى أو من 
     /السلّة فارغة/
   );
 
-  await restaurantService.updateRestaurant(r._id, { isOpen: false });
+  await restaurantService.updateRestaurant(r._id, { openTime: '00:00', closeTime: '00:01' });
   await assert.rejects(
     () =>
       restaurantService.createRestaurantOrder(user._id, {
@@ -242,7 +271,7 @@ test('طلب من مطعم: يُرفض تحت الحدّ الأدنى أو من 
         items: [{ menuItemId: String(cola._id), qty: 10 }],
         dropoff: DROPOFF,
       }),
-    /مغلق/
+    /خارج مواعيد العمل/
   );
 });
 

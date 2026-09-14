@@ -6,6 +6,7 @@ const logger = require('../utils/logger');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Captain = require('../models/Captain');
+const Merchant = require('../models/Merchant');
 const io = require('../sockets/io');
 const { unreadCount } = require('../utils/notifications');
 const { includesUsers, includesCaptains } = require('../utils/broadcast');
@@ -266,6 +267,7 @@ function newCaptainApplicationAdminPayload(app = {}) {
 function recipientRoom(recipientId, recipientRole) {
   if (recipientRole === ROLES.CAPTAIN) return ROOMS.captain(String(recipientId));
   if (recipientRole === ROLES.ADMIN) return ROOMS.admins();
+  if (recipientRole === ROLES.MERCHANT) return ROOMS.merchantAccount(String(recipientId));
   return ROOMS.user(String(recipientId));
 }
 
@@ -310,6 +312,20 @@ async function notifyUser(recipientId, recipientRole, payload = {}) {
     }
   } catch (err) {
     logger.warn('تعذّر إرسال Push للمستخدم:', err.message);
+  }
+}
+
+async function notifyMerchantByRestaurant(restaurantId, payload = {}) {
+  try {
+    const merchant = await Merchant.findOne({ restaurant: restaurantId, isActive: true })
+      .select('_id deviceTokens').lean();
+    if (!merchant) return { notified: false };
+    await createInApp(merchant._id, ROLES.MERCHANT, payload);
+    if (merchant.deviceTokens?.length) await sendToTokens(merchant.deviceTokens, payload);
+    return { notified: true };
+  } catch (err) {
+    logger.warn('تعذّر إرسال إشعار لصاحب المتجر:', err.message);
+    return { notified: false };
   }
 }
 
@@ -494,6 +510,7 @@ module.exports = {
   newCaptainApplicationAdminPayload,
   createInApp,
   notifyUser,
+  notifyMerchantByRestaurant,
   notifyAdmins,
   sendBroadcast,
   listForRecipient,

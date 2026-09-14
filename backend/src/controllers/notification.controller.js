@@ -2,11 +2,13 @@
 
 const User = require('../models/User');
 const Captain = require('../models/Captain');
+const Merchant = require('../models/Merchant');
 const notificationService = require('../services/notification.service');
 const { ROLES } = require('../utils/constants');
 
 // نختار الموديل المناسب حسب دور صاحب الطلب
 function modelForRole(role) {
+  if (role === ROLES.MERCHANT) return Merchant;
   return role === ROLES.CAPTAIN ? Captain : User;
 }
 

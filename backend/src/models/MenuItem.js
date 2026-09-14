@@ -22,6 +22,14 @@ const menuItemSchema = new mongoose.Schema(
     category: { type: String, default: '', trim: true },
 
     price: { type: Number, required: true, min: 0 }, // بالشيكل
+    // أحجام/أوزان اختيارية لنفس الصنف. عند وجودها يختار الزبون واحدًا منها.
+    variants: [
+      {
+        label: { type: String, required: true, trim: true },
+        price: { type: Number, required: true, min: 0 },
+        _id: false,
+      },
+    ],
     imageUrl: { type: String, default: '' },
 
     // متاح الآن؟ (غير المتاح يظهر معطّلًا ولا يُقبل في السلّة)

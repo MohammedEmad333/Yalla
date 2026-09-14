@@ -15,6 +15,10 @@ router.use(authenticate, authorize(ROLES.ADMIN));
 router.get('/stats', ctrl.getStats);
 router.post('/stats/reset', ctrl.resetStats);
 router.get('/wallet', ctrl.getAdminWallet);
+router.get('/wallet/export', ctrl.exportAdminWallet);
+router.get('/user-counts', ctrl.getUserCounts);
+router.get('/account', ctrl.getAdminAccount);
+router.patch('/account', ctrl.updateAdminAccount);
 
 // إعدادات المنظومة: قراءة/تبديل الإسناد التلقائي (بثّ الطلبات لكل الكباتن)
 router.get('/settings', ctrl.getSettings);

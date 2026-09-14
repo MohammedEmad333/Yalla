@@ -241,8 +241,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget _cartLineTile(CartLine line) => Card(
         margin: const EdgeInsets.only(bottom: 8),
         child: ListTile(
-          title: Text(line.item.name),
-          subtitle: Text('${line.item.price} ₪ للوحدة'),
+          title: Text(line.label),
+          subtitle: Text('${line.unitPrice} ₪ للوحدة'),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

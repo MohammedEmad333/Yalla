@@ -48,6 +48,7 @@ function registerSocketHandlers(io) {
     // merchantId حتى تبقى الإشعارات صحيحة لو تغيّر حساب إدارة المتجر لاحقًا.
     if (role === ROLES.MERCHANT && socket.user.restaurantId) {
       socket.join(ROOMS.merchant(socket.user.restaurantId));
+      socket.join(ROOMS.merchantAccount(id));
     }
 
     // المستخدم/الكابتن ينضمّ لغرفة طلب معيّن لمتابعته لحظيًا

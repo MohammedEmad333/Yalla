@@ -20,7 +20,7 @@ import { IconCheck, IconClose, IconIdCard, IconImage } from '../components/icons
 function fmtDate(d) {
   if (!d) return '—';
   try {
-    return new Date(d).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+    return new Date(d).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
   } catch {
     return '—';
   }

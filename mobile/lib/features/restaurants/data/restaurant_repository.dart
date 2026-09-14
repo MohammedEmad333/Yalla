@@ -139,6 +139,7 @@ class MenuItemModel {
   final String imageUrl;
   final num price;
   final bool available;
+  final List<MenuVariant> variants;
 
   const MenuItemModel({
     required this.id,
@@ -148,6 +149,7 @@ class MenuItemModel {
     required this.imageUrl,
     required this.price,
     required this.available,
+    required this.variants,
   });
 
   factory MenuItemModel.fromJson(Map<String, dynamic> json) => MenuItemModel(
@@ -158,12 +160,24 @@ class MenuItemModel {
         imageUrl: (json['imageUrl'] ?? '').toString(),
         price: (json['price'] as num?) ?? 0,
         available: json['available'] != false,
+        variants: ((json['variants'] as List?) ?? const [])
+            .map((v) => MenuVariant.fromJson(Map<String, dynamic>.from(v as Map)))
+            .where((v) => v.label.isNotEmpty && v.price > 0)
+            .toList(),
       );
 
   String? get fullImageUrl {
     if (imageUrl.isEmpty) return null;
     return imageUrl.startsWith('http') ? imageUrl : '${AppConfig.origin}$imageUrl';
   }
+}
+
+class MenuVariant {
+  final String label;
+  final num price;
+  const MenuVariant(this.label, this.price);
+  factory MenuVariant.fromJson(Map<String, dynamic> json) =>
+      MenuVariant((json['label'] ?? '').toString(), (json['price'] as num?) ?? 0);
 }
 
 /// قسم في القائمة (ساندويشات، مشروبات...) مع أصنافه.
@@ -176,9 +190,12 @@ class MenuSection {
 /// سطر في السلّة: صنف + كمّية.
 class CartLine {
   final MenuItemModel item;
+  final MenuVariant? variant;
   int qty;
-  CartLine(this.item, this.qty);
-  num get total => item.price * qty;
+  CartLine(this.item, this.qty, {this.variant});
+  num get unitPrice => variant?.price ?? item.price;
+  num get total => unitPrice * qty;
+  String get label => variant == null ? item.name : '${item.name} (${variant!.label})';
 }
 
 /// سلّة مطعم واحد — تُبنى في شاشة القائمة وتُمرَّر لشاشة إتمام الطلب.
@@ -199,10 +216,10 @@ class Cart {
   /// هل بلغت السلّة الحدّ الأدنى لطلب هذا المطعم؟
   bool get meetsMinOrder => total >= restaurant.minOrder;
 
-  void add(MenuItemModel item) {
+  void add(MenuItemModel item, {MenuVariant? variant}) {
     final line = lines[item.id];
     if (line == null) {
-      lines[item.id] = CartLine(item, 1);
+      lines[item.id] = CartLine(item, 1, variant: variant);
     } else {
       line.qty++;
     }
@@ -220,7 +237,11 @@ class Cart {
 
   /// حمولة الأصناف المُرسَلة للخادم (الأسعار تُحسب هناك من قاعدة البيانات).
   List<Map<String, dynamic>> toItemsPayload() =>
-      lines.values.map((l) => {'menuItemId': l.item.id, 'qty': l.qty}).toList();
+      lines.values.map((l) => {
+        'menuItemId': l.item.id,
+        'qty': l.qty,
+        if (l.variant != null) 'variant': l.variant!.label,
+      }).toList();
 }
 
 class RestaurantRepository {

@@ -8,7 +8,7 @@ const notificationSchema = new mongoose.Schema(
     // المستلِم ودوره (نبحث دائمًا بهذين الحقلين)
     recipient: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
     // Card 103: 'admin' لإشعارات المشرفين داخل نسخة أندرويد من لوحة الأدمن
-    recipientRole: { type: String, enum: ['user', 'captain', 'admin'], required: true },
+    recipientRole: { type: String, enum: ['user', 'captain', 'admin', 'merchant'], required: true },
 
     type: { type: String, required: true }, // ORDER_ASSIGNED, ORDER_STATUS, ...
     title: { type: String, required: true },

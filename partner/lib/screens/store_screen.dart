@@ -21,7 +21,6 @@ class _StoreScreenState extends State<StoreScreen> {
   final _openTime = TextEditingController();
   final _closeTime = TextEditingController();
   Map<String, dynamic> _restaurant = {};
-  bool _isOpen = true;
   bool _loading = true;
   bool _busy = false;
   String _error = '';
@@ -46,7 +45,6 @@ class _StoreScreenState extends State<StoreScreen> {
       _prepMinutes.text = restaurant['prepMinutes']?.toString() ?? '15';
       _openTime.text = restaurant['openTime']?.toString() ?? '';
       _closeTime.text = restaurant['closeTime']?.toString() ?? '';
-      _isOpen = restaurant['isOpen'] != false;
     } catch (error) {
       _error = error.toString();
     } finally {
@@ -64,7 +62,6 @@ class _StoreScreenState extends State<StoreScreen> {
         'prepMinutes': int.tryParse(_prepMinutes.text) ?? 15,
         'openTime': _openTime.text.trim(),
         'closeTime': _closeTime.text.trim(),
-        'isOpen': _isOpen,
       });
       if (mounted) {
         setState(() => _restaurant = Map<String, dynamic>.from(saved as Map));
@@ -116,7 +113,8 @@ class _StoreScreenState extends State<StoreScreen> {
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('إعدادات التشغيل', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-            SwitchListTile(value: _isOpen, onChanged: (v) => setState(() => _isOpen = v), title: Text(_isOpen ? 'المتجر مفتوح' : 'المتجر مغلق'), contentPadding: EdgeInsets.zero),
+            Text('حالة المتجر تُحسب تلقائيًا من وقت الفتح والإغلاق.', style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 12),
             TextField(controller: _description, maxLines: 2, decoration: const InputDecoration(labelText: 'وصف المتجر')),
             const SizedBox(height: 10),
             TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'هاتف المتجر')),

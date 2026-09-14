@@ -4,6 +4,7 @@ import '../core/session.dart';
 import 'menu_screen.dart';
 import 'orders_screen.dart';
 import 'store_screen.dart';
+import 'notifications_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final PartnerSession session;
@@ -27,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final restaurant = merchant['restaurant'] is Map ? merchant['restaurant'] as Map : {};
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 72,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -37,6 +39,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton.filledTonal(
+            tooltip: 'الإشعارات',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => PartnerNotificationsScreen(api: widget.session.api),
+            )),
+            icon: const Icon(Icons.notifications_outlined),
+          ),
+          const SizedBox(width: 12),
+        ],
       ),
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: NavigationBar(

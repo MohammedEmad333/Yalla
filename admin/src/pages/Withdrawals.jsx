@@ -39,7 +39,7 @@ const FILTERS = ['pending', 'done', 'rejected', 'all'];
 function fmtDate(d) {
   if (!d) return '—';
   try {
-    return new Date(d).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
+    return new Date(d).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
   } catch {
     return '—';
   }

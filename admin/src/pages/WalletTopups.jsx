@@ -138,7 +138,7 @@ export default function WalletTopups() {
                     ) : '—'}
                   </td>
                   <td data-label="التاريخ" className="yl-muted yl-nowrap" style={{ fontSize: 'var(--fs-sm)' }}>
-                    {new Date(tx.createdAt).toLocaleString('ar')}
+                    {new Date(tx.createdAt).toLocaleString('en-GB')}
                   </td>
                   <td data-label="الحالة"><Badge tone={meta.tone}>{meta.label}</Badge></td>
                   <td data-label="إجراء" className="yl-td-actions">

@@ -40,7 +40,7 @@ function NameCell({ url, name, children }) {
 function fmtDate(d) {
   if (!d) return '—';
   try {
-    return new Date(d).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+    return new Date(d).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
   } catch {
     return '—';
   }
@@ -59,6 +59,11 @@ function StatusBadge({ status }) {
 
 export default function UsersManagement() {
   const [tab, setTab] = useState('users'); // users | captains
+  const [counts, setCounts] = useState({ customers: 0, captains: 0, total: 0 });
+
+  useEffect(() => {
+    api.get('/admin/user-counts').then(setCounts).catch(() => {});
+  }, []);
 
   return (
     <>
@@ -66,6 +71,12 @@ export default function UsersManagement() {
         title="إدارة المستخدمين"
         subtitle="الزبائن والكباتن — التفعيل والاعتماد والمحافظ والحذف النهائي"
       />
+
+      <div className="yl-grid yl-grid--stats" style={{ marginBottom: 'var(--s-5)' }}>
+        <div className="yl-stat"><div><div className="yl-stat__value yl-num">{counts.customers}</div><div className="yl-stat__label">زبون</div></div></div>
+        <div className="yl-stat"><div><div className="yl-stat__value yl-num">{counts.captains}</div><div className="yl-stat__label">كابتن</div></div></div>
+        <div className="yl-stat"><div><div className="yl-stat__value yl-num">{counts.total}</div><div className="yl-stat__label">إجمالي المستخدمين</div></div></div>
+      </div>
 
       <div className="yl-chips" style={{ marginBottom: 'var(--s-5)' }}>
         <button className="yl-chip" aria-pressed={tab === 'users'} onClick={() => setTab('users')}>الزبائن</button>

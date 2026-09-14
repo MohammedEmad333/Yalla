@@ -40,6 +40,7 @@ import Support from './pages/Support';
 import Broadcast from './pages/Broadcast';
 import Restaurants from './pages/Restaurants';
 import AdminWallet from './pages/AdminWallet';
+import AdminAccount from './pages/AdminAccount';
 
 // أقسام التنقّل — مجموعات مسمّاة بدل شريط تبويبات طويل يلتفّ على الجوال
 const NAV = [
@@ -48,7 +49,7 @@ const NAV = [
     items: [
       { key: 'dashboard', label: 'اللوحة اللحظية', icon: IconDashboard, Page: LiveDashboard },
       { key: 'orders', label: 'بحث الطلبات', icon: IconOrders, Page: OrdersPage },
-      { key: 'restaurants', label: 'المطاعم', icon: IconStore, Page: Restaurants },
+      { key: 'restaurants', label: 'المتاجر والمطاعم', icon: IconStore, Page: Restaurants },
     ],
   },
   {
@@ -73,6 +74,7 @@ const NAV = [
       { key: 'users', label: 'إدارة المستخدمين', icon: IconUsers, Page: UsersManagement },
       { key: 'captainDocs', label: 'توثيق الكباتن', icon: IconIdCard, Page: CaptainApplications },
       { key: 'stats', label: 'الإحصائيات', icon: IconChart, Page: StatsPage },
+      { key: 'account', label: 'حساب الأدمن', icon: IconUsers, Page: AdminAccount },
     ],
   },
 ];

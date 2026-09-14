@@ -8,6 +8,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/config/app_config.dart';
 import '../core/config/company.dart';
 import '../core/network/api_client.dart';
+import '../core/realtime/socket_service.dart';
+import '../features/notifications/notifications_screen.dart';
+import '../features/support/support_screen.dart';
 import '../core/util/vehicles.dart';
 import '../core/widgets/ui.dart';
 import '../core/theme/theme_controller.dart';
@@ -16,7 +19,8 @@ import '../main.dart' show themeController;
 class ProfileScreen extends StatefulWidget {
   final ApiClient api;
   final VoidCallback onLogout;
-  const ProfileScreen({super.key, required this.api, required this.onLogout});
+  final SocketService? socket;
+  const ProfileScreen({super.key, required this.api, this.socket, required this.onLogout});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -244,6 +248,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
 
                   const Divider(height: 32),
+
+                  if (!_isCaptain && widget.socket != null) ...[
+                    ListTile(
+                      leading: const Icon(Icons.notifications_outlined),
+                      title: const Text('الإشعارات'),
+                      trailing: const Icon(Icons.chevron_left),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => NotificationsScreen(api: widget.api, socket: widget.socket!),
+                      )),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.support_agent_outlined),
+                      title: const Text('الدعم'),
+                      trailing: const Icon(Icons.chevron_left),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => SupportScreen(api: widget.api, socket: widget.socket!),
+                      )),
+                    ),
+                    const Divider(height: 32),
+                  ],
 
                   // وضع العرض: فاتح / ليلي / حسب النظام (يُحفظ على الجهاز)
                   ValueListenableBuilder<ThemeMode>(

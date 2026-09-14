@@ -147,6 +147,7 @@ class _ItemEditorState extends State<_ItemEditor> {
   late final TextEditingController _description;
   late final TextEditingController _category;
   late final TextEditingController _price;
+  late final TextEditingController _variants;
   bool _available = true;
   bool _busy = false;
   XFile? _image;
@@ -160,12 +161,16 @@ class _ItemEditorState extends State<_ItemEditor> {
     _description = TextEditingController(text: item['description']?.toString() ?? '');
     _category = TextEditingController(text: item['category']?.toString() ?? '');
     _price = TextEditingController(text: item['price']?.toString() ?? '');
+    final variants = (item['variants'] as List?) ?? const [];
+    _variants = TextEditingController(
+      text: variants.map((v) => '${v['label']}:${v['price']}').join('\n'),
+    );
     _available = item['available'] != false;
   }
 
   @override
   void dispose() {
-    _name.dispose(); _description.dispose(); _category.dispose(); _price.dispose();
+    _name.dispose(); _description.dispose(); _category.dispose(); _price.dispose(); _variants.dispose();
     super.dispose();
   }
 
@@ -183,6 +188,13 @@ class _ItemEditorState extends State<_ItemEditor> {
         'category': _category.text.trim(),
         'price': price,
         'available': _available,
+        'variants': _variants.text.split('\n').map((line) {
+          final parts = line.split(':');
+          return {
+            'label': parts.first.trim(),
+            'price': parts.length > 1 ? double.tryParse(parts.last.trim()) : null,
+          };
+        }).where((v) => (v['label'] as String).isNotEmpty && v['price'] != null).toList(),
       };
       final dynamic saved = widget.item == null
           ? await widget.api.post('/merchant/menu', body)
@@ -211,6 +223,17 @@ class _ItemEditorState extends State<_ItemEditor> {
             TextField(controller: _price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'السعر (₪)')),
             const SizedBox(height: 10),
             TextField(controller: _category, decoration: const InputDecoration(labelText: 'القسم')),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _variants,
+              maxLines: 4,
+              textDirection: TextDirection.rtl,
+              decoration: const InputDecoration(
+                labelText: 'أحجام أو أوزان إضافية',
+                hintText: 'صغير:10\nوسط:15\n1 كغ:20',
+                helperText: 'اكتب كل خيار وسعره في سطر منفصل',
+              ),
+            ),
             const SizedBox(height: 10),
             TextField(controller: _description, maxLines: 2, decoration: const InputDecoration(labelText: 'الوصف')),
             SwitchListTile(value: _available, onChanged: (v) => setState(() => _available = v), title: const Text('متاح للطلب'), contentPadding: EdgeInsets.zero),

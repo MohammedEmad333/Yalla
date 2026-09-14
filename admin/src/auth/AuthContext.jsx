@@ -46,8 +46,12 @@ export function AuthProvider({ children }) {
     setAdmin(null);
   }
 
+  function updateAdmin(patch) {
+    setAdmin((current) => ({ ...current, ...patch }));
+  }
+
   return (
-    <AuthContext.Provider value={{ admin, loading, login, logout }}>
+    <AuthContext.Provider value={{ admin, loading, login, logout, updateAdmin }}>
       {children}
     </AuthContext.Provider>
   );

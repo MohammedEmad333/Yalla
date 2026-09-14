@@ -17,6 +17,7 @@ const adminService = require('./admin.service');
 const { coordsForNeighborhood } = require('../utils/neighborhoods');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
+const WalletTransaction = require('../models/WalletTransaction');
 const { addRating } = require('../utils/rating');
 const { canUserCancel, canCaptainReject } = require('../utils/orderRules');
 const { summarizeEarnings } = require('../utils/earnings');
@@ -241,6 +242,11 @@ async function createOrder(userId, payload, idempotencyKey) {
   io.get().to(ROOMS.user(userId)).emit(EVENTS.ORDER_STATUS_UPDATED, order);
   if (order.store?.restaurant) {
     io.get().to(ROOMS.merchant(String(order.store.restaurant))).emit(EVENTS.ORDER_CREATED, order);
+    notifications.notifyMerchantByRestaurant(order.store.restaurant, {
+      title: '🧾 طلب جديد للمتجر',
+      body: `طلب جديد بقيمة أصناف ${order.store.itemsTotal || 0} ₪ بانتظار القبول`,
+      data: { type: 'MERCHANT_NEW_ORDER', orderId: String(order._id) },
+    }).catch(() => {});
   }
   // Card 103: إشعار Push لأجهزة الأدمن (نسخة أندرويد) بطلب جديد — غير حاجب
   notifications.notifyAdmins(notifications.newOrderAdminPayload(order)).catch(() => {});
@@ -899,6 +905,11 @@ async function updateOrderStatus(
     throw httpError('هذا الطلب غير مُسنَد إليك', 403);
   }
 
+  // إعادة إرسال تأكيد التسليم بعد نجاحه تُعيد النتيجة نفسها بلا أي خصم/تحويل إضافي.
+  if (nextStatus === ORDER_STATUS.DELIVERED && order.status === ORDER_STATUS.DELIVERED) {
+    return order;
+  }
+
   const allowed = ALLOWED_TRANSITIONS[order.status] || [];
   if (!allowed.includes(nextStatus)) {
     throw httpError(`انتقال غير مسموح: ${order.status} -> ${nextStatus}`, 400);
@@ -928,12 +939,52 @@ async function updateOrderStatus(
     }
     // طلب المطعم: نخصم قيمة الأصناف المحفوظة وقت الطلب إضافةً لأجرة التوصيل.
     // الطلب العادي: نخصم أجرة التوصيل فقط.
+    const claimed = await Order.findOneAndUpdate(
+      {
+        _id: order._id,
+        status: ORDER_STATUS.PICKED_UP,
+        financialSettlementState: { $in: ['pending', 'failed', null] },
+      },
+      { $set: { financialSettlementState: 'processing', financialSettlementError: '' } },
+      { new: true }
+    );
+    if (!claimed) {
+      const latest = await Order.findById(order._id).select('+deliveryCode');
+      if (latest?.status === ORDER_STATUS.DELIVERED) return latest;
+      const paid = await WalletTransaction.exists({
+        user: order.user,
+        idempotencyKey: `order-payment:${order._id}`,
+        balanceAfter: { $ne: null },
+      });
+      if (!paid) throw httpError('تسوية الطلب قيد التنفيذ — انتظر لحظة ثم حاول مجددًا', 409);
+    }
+
     const itemsTotal = Number(order.store?.itemsTotal) || 0;
-    await walletService.chargeForOrder(order.user, realPrice + itemsTotal, order._id, {
-      deliveryAmount: realPrice,
-      itemsAmount: itemsTotal,
-      restaurantName: order.store?.name || '',
-    });
+    try {
+      await walletService.chargeForOrder(order.user, realPrice + itemsTotal, order._id, {
+        deliveryAmount: realPrice,
+        itemsAmount: itemsTotal,
+        restaurantName: order.store?.name || '',
+      });
+    } catch (err) {
+      await Order.updateOne(
+        { _id: order._id, status: ORDER_STATUS.PICKED_UP },
+        { $set: { financialSettlementState: 'failed', financialSettlementError: err.message } }
+      ).catch(() => {});
+      writeLog({
+        order: order._id,
+        actorId: captainId,
+        actorRole: 'system',
+        action: 'FINANCIAL_SETTLEMENT_FAILED',
+        meta: { message: err.message },
+      }).catch(() => {});
+      notifications.notifyAdmins({
+        title: '⚠️ فشل تسوية طلب',
+        body: `تعذّرت التسوية المالية للطلب #${String(order._id).slice(-6)}: ${err.message}`,
+        data: { type: 'ADMIN_SETTLEMENT_FAILED', orderId: String(order._id) },
+      }).catch(() => {});
+      throw err;
+    }
   }
 
   const from = order.status;
@@ -953,6 +1004,8 @@ async function updateOrderStatus(
     order.customerCharged = realPrice + (Number(order.store?.itemsTotal) || 0);
     order.adminCredit = (Number(order.store?.itemsTotal) || 0) + order.commission;
     order.financialSettledAt = new Date();
+    order.financialSettlementState = 'settled';
+    order.financialSettlementError = '';
   }
   if (nextStatus === ORDER_STATUS.CANCELLED) {
     order.timeline.cancelledAt = new Date();
@@ -1017,6 +1070,13 @@ async function updateOrderStatus(
 
   broadcastOrderUpdate(order);
   pushOrderStatusToUser(order); // إشعار المستخدم بتغيّر الحالة (بلا انتظار)
+  if (order.store?.restaurant) {
+    notifications.notifyMerchantByRestaurant(order.store.restaurant, {
+      title: nextStatus === ORDER_STATUS.DELIVERED ? '✅ تم تسليم طلب المتجر' : 'تحديث طلب المتجر',
+      body: `حالة الطلب #${String(order._id).slice(-6)}: ${nextStatus}`,
+      data: { type: 'MERCHANT_ORDER_STATUS', orderId: String(order._id), status: nextStatus },
+    }).catch(() => {});
+  }
 
   // Card 80: بعد انتهاء الطلب (تسليم/إلغاء) نحذف الحساب الخارجي المؤقّت إن وُجد
   if (nextStatus === ORDER_STATUS.DELIVERED || nextStatus === ORDER_STATUS.CANCELLED) {
@@ -1247,11 +1307,26 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
   const captainId = order.captain;
   const wasBroadcast = order.broadcast;
 
+  // لا يُخصم طلب المطعم عادةً إلا عند التسليم. إن وُجدت دفعة محجوزة بسبب
+  // محاولة تسوية سابقة/طلب قديم، نعيدها كاملة وبمفتاح فريد قبل إتمام الإلغاء.
+  const refund = await walletService.refundOrderPayment(
+    order.user,
+    order._id,
+    reason || (actorRole === 'admin' ? 'إلغاء من الأدمن' : 'إلغاء من المستخدم')
+  );
+
   order.status = ORDER_STATUS.CANCELLED;
   order.timeline.cancelledAt = new Date();
   order.cancelReason = reason || (actorRole === 'admin' ? 'ألغاه الأدمن' : 'ألغاه المستخدم');
   order.broadcast = false;
   order.broadcastAt = null;
+  if (refund.refunded) {
+    order.refundedAt = new Date();
+    order.refundAmount = refund.amount;
+    order.financialSettlementState = 'refunded';
+    order.customerCharged = 0;
+    order.adminCredit = 0;
+  }
   await order.save();
 
   // إن كان الطلب مبثوثًا لكل الكباتن (ولم يُقبَل بعد) نُخبرهم أنّه لم يعد متاحًا
@@ -1286,6 +1361,21 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
       .catch((e) => logger.warn('تعذّر إرسال إشعار الإلغاء للكابتن:', e.message));
   }
   broadcastOrderUpdate(order);
+  if (order.store?.restaurant) {
+    notifications.notifyMerchantByRestaurant(order.store.restaurant, {
+      title: 'تم إلغاء طلب متجر',
+      body: order.cancelReason,
+      data: { type: 'MERCHANT_ORDER_CANCELLED', orderId: String(order._id) },
+    }).catch(() => {});
+  }
+
+  if (refund.refunded) {
+    await notifications.notifyUser(order.user, 'user', {
+      title: '↩️ تم استرداد مبلغ الطلب',
+      body: `أُعيد ${refund.amount} ₪ إلى محفظتك بعد إلغاء الطلب.`,
+      data: { type: 'ORDER_REFUNDED', orderId: String(order._id), amount: refund.amount },
+    });
+  }
 
   // Card 80: إلغاء الطلب يُنهيه → احذف الحساب الخارجي المؤقّت إن وُجد
   await maybeDeleteExternalCustomer(order.user);

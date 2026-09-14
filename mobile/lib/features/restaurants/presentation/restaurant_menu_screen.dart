@@ -431,7 +431,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                     ],
                     const SizedBox(height: 6),
                     Text(
-                      item.available ? '${item.price} ₪' : 'غير متوفّر حاليًا',
+                      item.available
+                          ? (item.variants.isEmpty
+                              ? '${item.price} ₪'
+                              : 'خيارات: ${item.variants.map((v) => '${v.label} ${v.price} ₪').join(' · ')}')
+                          : 'غير متوفّر حاليًا',
                       style: TextStyle(
                         color: item.available ? YallaColors.primary : YallaColors.error,
                         fontWeight: FontWeight.bold,
@@ -445,7 +449,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               if (item.available)
                 qty == 0
                     ? IconButton.filled(
-                        onPressed: () => setState(() => _cart.add(item)),
+                        onPressed: () => _addItem(item),
                         icon: const Icon(Icons.add),
                         tooltip: 'إضافة للسلّة',
                       )
@@ -457,7 +461,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                           ),
                           Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold)),
                           IconButton(
-                            onPressed: () => setState(() => _cart.add(item)),
+                            onPressed: () => _addItem(item),
                             icon: Icon(Icons.add_circle, color: YallaColors.primary),
                           ),
                         ],
@@ -467,6 +471,24 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _addItem(MenuItemModel item) async {
+    MenuVariant? variant;
+    if (_cart.qtyOf(item.id) == 0 && item.variants.isNotEmpty) {
+      variant = await showDialog<MenuVariant>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: const Text('اختر الحجم أو الوزن'),
+          children: item.variants.map((v) => SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, v),
+            child: ListTile(title: Text(v.label), trailing: Text('${v.price} ₪')),
+          )).toList(),
+        ),
+      );
+      if (variant == null) return;
+    }
+    setState(() => _cart.add(item, variant: variant));
   }
 
   Widget _cartBar() => SafeArea(

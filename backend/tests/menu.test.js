@@ -56,6 +56,19 @@ test('buildOrderLines: يأخذ السعر من قاعدة البيانات لا
   assert.equal(itemsTotal, 40);
 });
 
+test('buildOrderLines: يعتمد سعر الحجم أو الوزن المختار من الخادم', () => {
+  const docs = [{ _id: 'a', name: 'قهوة', price: 8, variants: [
+    { label: 'صغير', price: 8 }, { label: 'كبير', price: 12 },
+  ] }];
+  const { lines, itemsTotal, missing } = buildOrderLines(docs, [
+    { menuItemId: 'a', qty: 2, variant: 'كبير' },
+  ]);
+  assert.deepEqual(missing, []);
+  assert.equal(lines[0].variant, 'كبير');
+  assert.equal(lines[0].price, 12);
+  assert.equal(itemsTotal, 24);
+});
+
 test('buildOrderLines: يبلّغ عن الأصناف المفقودة أو غير المتاحة', () => {
   const docs = [
     { _id: 'a', name: 'برجر', price: 20 },

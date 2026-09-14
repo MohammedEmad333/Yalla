@@ -17,6 +17,7 @@ const merchantSchema = new mongoose.Schema(
       index: true,
     },
     isActive: { type: Boolean, default: true },
+    deviceTokens: { type: [String], default: [] },
   },
   { timestamps: true }
 );

@@ -53,6 +53,8 @@ function withNeighborhoodLocation(restaurant) {
   const coordinates = restaurantCoordinates(restaurant);
   return {
     ...restaurant,
+    // الحالة مصدرها ساعات العمل فقط؛ أُلغي المفتاح اليدوي المكرر.
+    isOpen: isOpenBySchedule(restaurant.openTime, restaurant.closeTime),
     location: { type: 'Point', coordinates },
   };
 }
@@ -97,7 +99,6 @@ function normalizeRestaurantPayload(payload = {}) {
     ...(payload.prepMinutes !== undefined
       ? { prepMinutes: Math.max(0, Number(payload.prepMinutes) || 0) }
       : {}),
-    ...(payload.isOpen !== undefined ? { isOpen: !!payload.isOpen } : {}),
     ...(payload.openTime !== undefined ? { openTime: normalizeTime(payload.openTime) } : {}),
     ...(payload.closeTime !== undefined ? { closeTime: normalizeTime(payload.closeTime) } : {}),
     ...(payload.active !== undefined ? { active: !!payload.active } : {}),
@@ -157,7 +158,7 @@ async function listRestaurants(query = {}) {
   const findRestaurants = (criteria) =>
     Restaurant.find(criteria)
       .select(PUBLIC_FIELDS)
-      .sort({ isOpen: -1, sortOrder: 1, name: 1 })
+      .sort({ sortOrder: 1, name: 1 })
       .limit(limit)
       .lean();
 
@@ -185,7 +186,7 @@ async function listRestaurants(query = {}) {
 /** تصنيفات المطاعم المتاحة فعليًّا (لعرضها كرقائق فلترة في التطبيق). */
 async function listCategories() {
   const values = await Restaurant.distinct('category', { active: true });
-  return values.filter(Boolean).sort();
+  return [...new Set(['مطاعم', 'ملابس', 'مشروبات', 'مخبوزات', ...values.filter(Boolean)])].sort();
 }
 
 /** مطعم واحد + قائمته مجمّعة بالأقسام. */
@@ -220,7 +221,6 @@ async function getRestaurantWithMenu(restaurantId) {
 async function createRestaurantOrder(userId, payload = {}, idempotencyKey) {
   const restaurant = await Restaurant.findById(payload.restaurantId).catch(() => null);
   if (!restaurant || !restaurant.active) throw httpError('المطعم غير موجود', 404);
-  if (!restaurant.isOpen) throw httpError('المطعم مغلق حاليًا — جرّب لاحقًا', 400);
   if (!isOpenBySchedule(restaurant.openTime, restaurant.closeTime)) {
     throw httpError('المطعم خارج مواعيد العمل حاليًا — جرّب لاحقًا', 400);
   }
@@ -285,7 +285,8 @@ async function createRestaurantOrder(userId, payload = {}, idempotencyKey) {
 
 /** كل المطاعم (بما فيها المعطّلة) للوحة الأدمن. */
 async function adminListRestaurants() {
-  return Restaurant.find({}).sort({ sortOrder: 1, name: 1 }).lean();
+  const rows = await Restaurant.find({}).sort({ sortOrder: 1, name: 1 }).lean();
+  return rows.map(withNeighborhoodLocation);
 }
 
 async function createRestaurant(payload = {}) {
@@ -378,6 +379,16 @@ function normalizeMenuPayload(payload = {}) {
   if (payload.category !== undefined) doc.category = (payload.category || '').toString().trim();
   if (payload.imageUrl !== undefined) doc.imageUrl = (payload.imageUrl || '').toString().trim();
   if (payload.price !== undefined) doc.price = Math.max(0, Number(payload.price) || 0);
+  if (payload.variants !== undefined) {
+    const seen = new Set();
+    doc.variants = (Array.isArray(payload.variants) ? payload.variants : [])
+      .map((v) => ({
+        label: String(v?.label || '').trim(),
+        price: Math.max(0, Number(v?.price) || 0),
+      }))
+      .filter((v) => v.label && v.price > 0 && !seen.has(v.label) && seen.add(v.label))
+      .slice(0, 20);
+  }
   if (payload.available !== undefined) doc.available = !!payload.available;
   if (payload.sortOrder !== undefined) doc.sortOrder = Number(payload.sortOrder) || 0;
   return doc;
@@ -389,7 +400,10 @@ async function createMenuItem(restaurantId, payload = {}) {
 
   const doc = normalizeMenuPayload(payload);
   if (!doc.name) throw httpError('اسم الصنف مطلوب', 400);
-  if (!(doc.price > 0)) throw httpError('سعر الصنف مطلوب', 400);
+  if (!(doc.price > 0) && !(doc.variants?.length > 0)) {
+    throw httpError('أدخل سعرًا أساسيًا أو حجمًا/وزنًا بسعر صالح', 400);
+  }
+  if (!(doc.price > 0) && doc.variants?.length) doc.price = doc.variants[0].price;
 
   return MenuItem.create({ ...doc, restaurant: restaurantId });
 }

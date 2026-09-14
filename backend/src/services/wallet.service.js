@@ -87,15 +87,26 @@ async function chargeForOrder(userId, amount, orderId, breakdown = {}) {
     transaction = await WalletTransaction.create({
       user: userId,
       wallet: currentWallet._id,
+      order: orderId,
       type: WALLET_TX_TYPE.ORDER_PAYMENT,
       direction: WALLET_DIRECTION.DEBIT,
       amount: value,
       status: TOPUP_STATUS.APPROVED,
+      balanceBefore: currentWallet.balance,
       gatewayResponse: { orderId: String(orderId), ...breakdown },
       idempotencyKey: `order-payment:${orderId}`,
     });
   } catch (err) {
-    if (err?.code === 11000) throw httpError('تمت معالجة دفعة هذا الطلب مسبقًا', 409);
+    if (err?.code === 11000) {
+      const existing = await WalletTransaction.findOne({
+        user: userId,
+        idempotencyKey: `order-payment:${orderId}`,
+      }).lean();
+      if (existing && Number(existing.amount) === value && existing.balanceAfter !== null) {
+        return existing.balanceAfter;
+      }
+      throw httpError('دفعة هذا الطلب قيد المعالجة', 409);
+    }
     throw err;
   }
 
@@ -113,6 +124,56 @@ async function chargeForOrder(userId, amount, orderId, breakdown = {}) {
 
   broadcastBalance(userId, wallet.balance);
   return wallet.balance;
+}
+
+/** استرداد دفعة طلب مرة واحدة فقط، مع رصيد قبل/بعد صالح للتدقيق. */
+async function refundOrderPayment(userId, orderId, reason = '') {
+  const payment = await WalletTransaction.findOne({
+    user: userId,
+    idempotencyKey: `order-payment:${orderId}`,
+    status: TOPUP_STATUS.APPROVED,
+  });
+  if (!payment) return { refunded: false, amount: 0 };
+
+  const key = `order-refund:${orderId}`;
+  const previous = await WalletTransaction.findOne({ user: userId, idempotencyKey: key }).lean();
+  if (previous) {
+    return { refunded: true, amount: previous.amount, balance: previous.balanceAfter, duplicate: true };
+  }
+
+  const currentWallet = await getOrCreateWallet(userId);
+  let transaction;
+  try {
+    transaction = await WalletTransaction.create({
+      user: userId,
+      wallet: currentWallet._id,
+      order: orderId,
+      type: WALLET_TX_TYPE.REFUND,
+      direction: WALLET_DIRECTION.CREDIT,
+      amount: payment.amount,
+      status: TOPUP_STATUS.APPROVED,
+      balanceBefore: currentWallet.balance,
+      gatewayResponse: { orderId: String(orderId), reason },
+      idempotencyKey: key,
+    });
+  } catch (err) {
+    if (err?.code === 11000) {
+      const existing = await WalletTransaction.findOne({ user: userId, idempotencyKey: key }).lean();
+      return { refunded: true, amount: existing.amount, balance: existing.balanceAfter, duplicate: true };
+    }
+    throw err;
+  }
+
+  try {
+    const wallet = await creditWallet(userId, payment.amount);
+    transaction.balanceAfter = wallet.balance;
+    await transaction.save();
+    broadcastBalance(userId, wallet.balance);
+    return { refunded: true, amount: payment.amount, balance: wallet.balance };
+  } catch (err) {
+    await WalletTransaction.deleteOne({ _id: transaction._id }).catch(() => {});
+    throw err;
+  }
 }
 
 /**
@@ -365,6 +426,7 @@ module.exports = {
   adminSetBalance,
   debitWallet,
   chargeForOrder,
+  refundOrderPayment,
   broadcastBalance,
   createTopupTransaction,
   listUserTransactions,

@@ -2,6 +2,7 @@
 
 const User = require('../models/User');
 const Captain = require('../models/Captain');
+const Merchant = require('../models/Merchant');
 const statsService = require('../services/stats.service');
 const orderService = require('../services/order.service');
 const walletService = require('../services/wallet.service');
@@ -16,6 +17,7 @@ const { validateBroadcast } = require('../utils/broadcast');
 const { excelUnicodeBuffer } = require('../utils/csv');
 const { saveAvatar, deleteAvatarByUrl } = require('../utils/avatarStore');
 const { ROLES } = require('../utils/constants');
+const { normalizePhone } = require('../utils/phone');
 
 // مؤشّرات الأداء للوحة التحكّم
 async function getStats(req, res, next) {
@@ -42,6 +44,81 @@ async function getAdminWallet(req, res, next) {
   } catch (err) {
     next(err);
   }
+}
+
+async function exportAdminWallet(req, res, next) {
+  try {
+    const wallet = await adminWalletService.getWallet({ ...req.query, limit: 100, skip: 0 });
+    const rows = wallet.transactions.map((tx) => ({
+      orderId: String(tx.orderId),
+      restaurant: tx.restaurantName || 'طلب توصيل',
+      customer: [tx.customer?.name, tx.customer?.lastName].filter(Boolean).join(' '),
+      phone: tx.customer?.phone || '',
+      captain: tx.captain?.name || '',
+      type: tx.type,
+      items: tx.itemsAmount,
+      commission: tx.commissionAmount,
+      amount: tx.amount,
+      balanceBefore: tx.balanceBefore ?? '',
+      balanceAfter: tx.balanceAfter ?? '',
+      date: tx.deliveredAt ? new Date(tx.deliveredAt).toISOString() : '',
+    }));
+    const columns = [
+      { key: 'orderId', header: 'رقم الطلب' }, { key: 'restaurant', header: 'المتجر' },
+      { key: 'customer', header: 'الزبون' }, { key: 'phone', header: 'الهاتف' },
+      { key: 'captain', header: 'الكابتن' }, { key: 'type', header: 'نوع الحركة' },
+      { key: 'items', header: 'قيمة الأصناف' }, { key: 'commission', header: 'العمولة' },
+      { key: 'amount', header: 'دخل الإدارة' }, { key: 'balanceBefore', header: 'رصيد الإدارة قبل' },
+      { key: 'balanceAfter', header: 'رصيد الإدارة بعد' }, { key: 'date', header: 'التاريخ' },
+    ];
+    res.setHeader('Content-Type', 'text/csv; charset=utf-16le');
+    res.setHeader('Content-Disposition', `attachment; filename="admin-wallet-${Date.now()}.csv"`);
+    res.send(excelUnicodeBuffer(rows, columns));
+  } catch (err) { next(err); }
+}
+
+async function getUserCounts(req, res, next) {
+  try {
+    const [customers, captains] = await Promise.all([
+      User.countDocuments({ role: ROLES.USER }),
+      Captain.countDocuments({}),
+    ]);
+    res.json({ customers, captains, total: customers + captains });
+  } catch (err) { next(err); }
+}
+
+async function getAdminAccount(req, res, next) {
+  try {
+    const admin = await User.findOne({ _id: req.auth.id, role: ROLES.ADMIN }).select('name phone');
+    if (!admin) return res.status(404).json({ message: 'حساب الأدمن غير موجود' });
+    res.json({ id: admin._id, name: admin.name, phone: admin.phone });
+  } catch (err) { next(err); }
+}
+
+async function updateAdminAccount(req, res, next) {
+  try {
+    const admin = await User.findOne({ _id: req.auth.id, role: ROLES.ADMIN }).select('+passwordHash');
+    if (!admin) return res.status(404).json({ message: 'حساب الأدمن غير موجود' });
+    const currentPassword = String(req.body.currentPassword || '');
+    if (!currentPassword || !(await admin.verifyPassword(currentPassword))) {
+      return res.status(401).json({ message: 'كلمة السر الحالية غير صحيحة' });
+    }
+    if (req.body.phone !== undefined) {
+      const phone = normalizePhone(req.body.phone);
+      if (!/^\+?\d{6,15}$/.test(phone)) return res.status(400).json({ message: 'أدخل رقم جوال صحيح' });
+      const collision = await Promise.all([
+        User.exists({ _id: { $ne: admin._id }, phone }), Captain.exists({ phone }), Merchant.exists({ phone }),
+      ]);
+      if (collision.some(Boolean)) return res.status(409).json({ message: 'رقم الجوال مستخدم في حساب آخر' });
+      admin.phone = phone;
+    }
+    if (req.body.newPassword) {
+      if (String(req.body.newPassword).length < 6) return res.status(400).json({ message: 'كلمة السر الجديدة ٦ أحرف على الأقل' });
+      await admin.setPassword(String(req.body.newPassword));
+    }
+    await admin.save();
+    res.json({ id: admin._id, name: admin.name, phone: admin.phone });
+  } catch (err) { next(err); }
 }
 
 // قائمة المستخدمين (العملاء) — بحث اختياري بالاسم/الهاتف
@@ -546,6 +623,10 @@ module.exports = {
   getStats,
   resetStats,
   getAdminWallet,
+  exportAdminWallet,
+  getUserCounts,
+  getAdminAccount,
+  updateAdminAccount,
   getSettings,
   updateSettings,
   sendBroadcast,

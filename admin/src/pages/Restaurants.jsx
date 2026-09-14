@@ -106,10 +106,17 @@ const CATEGORY_SUGGESTIONS = [
   'كافيه',
   'مخبوزات',
   'سوبرماركت',
+  'ملابس',
+  'مشروبات',
+  'مخبوزات',
   'عصائر ومشروبات',
 ];
 
-const EMPTY_ITEM = { name: '', description: '', category: '', price: '', available: true };
+const EMPTY_ITEM = { name: '', description: '', category: '', price: '', variantsText: '', available: true };
+const parseVariants = (text = '') => text.split('\n').map((line) => {
+  const cut = line.lastIndexOf(':');
+  return { label: line.slice(0, cut).trim(), price: Number(line.slice(cut + 1).trim()) };
+}).filter((v) => v.label && v.price > 0);
 const EMPTY_MERCHANT = { name: '', phone: '', password: '', isActive: true };
 
 export default function Restaurants() {
@@ -273,6 +280,7 @@ export default function Restaurants() {
       await api.post(`/admin/restaurants/${selected._id}/menu`, {
         ...item,
         price: Number(item.price),
+        variants: parseVariants(item.variantsText),
       });
       setItem(EMPTY_ITEM);
       setMenu(await api.get(`/admin/restaurants/${selected._id}/menu`));
@@ -518,7 +526,7 @@ export default function Restaurants() {
             </div>
 
             <div className="yl-row yl-restaurant-editor-actions">
-              <Checkbox checked={form.isOpen} onChange={set('isOpen')} label="مفتوح الآن" />
+              <span className="yl-muted">حالة الفتح تُحسب تلقائيًا من ساعات العمل.</span>
               <Checkbox checked={form.active} onChange={set('active')} label="مفعّل (ظاهر للزبائن)" />
               <span className="yl-spacer" />
               <Button variant="primary" onClick={saveRestaurant} disabled={saving} loading={saving}>
@@ -610,6 +618,9 @@ export default function Restaurants() {
                       value={item.description}
                       onChange={(e) => setItem({ ...item, description: e.target.value })}
                     />
+                  </Field>
+                  <Field label="أحجام/أوزان" hint="كل خيار بسطر: صغير:10">
+                    <textarea className="yl-input" rows="3" value={item.variantsText} onChange={(e) => setItem({ ...item, variantsText: e.target.value })} placeholder={'صغير:10\nوسط:15\n1 كغ:20'} />
                   </Field>
                 </div>
                 <Button variant="primary" icon={<IconPlus size={18} />} onClick={addItem}>
@@ -712,6 +723,7 @@ function MenuItemModal({ item, onClose, onSaved }) {
     category: item.category || '',
     description: item.description || '',
     available: item.available !== false,
+    variantsText: (item.variants || []).map((v) => `${v.label}:${v.price}`).join('\n'),
   });
   const [imageUrl, setImageUrl] = useState(item.imageUrl || '');
   const [busy, setBusy] = useState(false);
@@ -753,6 +765,7 @@ function MenuItemModal({ item, onClose, onSaved }) {
         description: form.description.trim(),
         available: form.available,
         imageUrl,
+        variants: parseVariants(form.variantsText),
       });
       await onSaved();
     } catch (err) {
@@ -800,6 +813,9 @@ function MenuItemModal({ item, onClose, onSaved }) {
           </Field>
           <Field label="الوصف">
             <Input value={form.description} onChange={upd('description')} />
+          </Field>
+          <Field label="أحجام/أوزان" hint="كل خيار بسطر: صغير:10">
+            <textarea className="yl-input" rows="4" value={form.variantsText} onChange={upd('variantsText')} />
           </Field>
         </div>
 

@@ -34,12 +34,19 @@ function normalizeCartItems(raw) {
     if (!Number.isFinite(qty) || qty <= 0) continue;
 
     const note = (entry.note || '').toString().trim();
-    const prev = merged.get(id);
+    const variant = (entry.variant || '').toString().trim();
+    const key = `${id}::${variant}`;
+    const prev = merged.get(key);
     if (prev) {
       prev.qty = Math.min(MAX_QTY, prev.qty + qty);
       if (note && !prev.note) prev.note = note;
     } else {
-      merged.set(id, { menuItemId: id, qty: Math.min(MAX_QTY, qty), note });
+      merged.set(key, {
+        menuItemId: id,
+        qty: Math.min(MAX_QTY, qty),
+        note,
+        ...(variant ? { variant } : {}),
+      });
     }
   }
 
@@ -68,10 +75,22 @@ function buildOrderLines(menuDocs, cartItems) {
       missing.push(item.menuItemId);
       continue;
     }
-    const price = Math.max(0, Number(doc.price) || 0);
+    const variants = Array.isArray(doc.variants) ? doc.variants : [];
+    let price = Math.max(0, Number(doc.price) || 0);
+    let variant = '';
+    if (variants.length) {
+      const selected = variants.find((v) => String(v.label).trim() === String(item.variant || '').trim());
+      if (!selected) {
+        missing.push(item.menuItemId);
+        continue;
+      }
+      variant = String(selected.label).trim();
+      price = Math.max(0, Number(selected.price) || 0);
+    }
     lines.push({
       menuItem: doc._id ?? doc.id,
       name: (doc.name || '').toString(),
+      variant,
       price,
       qty: item.qty,
       note: item.note || '',
@@ -104,7 +123,7 @@ function cartTotal(lines) {
  */
 function summarizeCart(restaurantName, lines, note = '') {
   const items = (Array.isArray(lines) ? lines : [])
-    .map((l) => `${l.qty}× ${l.name}`)
+    .map((l) => `${l.qty}× ${l.name}${l.variant ? ` (${l.variant})` : ''}`)
     .join('، ');
   const head = (restaurantName || '').toString().trim();
   const body = [head ? `${head}: ${items}` : items].filter(Boolean).join('');

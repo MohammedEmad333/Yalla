@@ -107,6 +107,7 @@ const ROOMS = Object.freeze({
   captain: (id) => `captain:${id}`,          // غرفة كابتن محدّد
   user: (id) => `user:${id}`,                // غرفة مستخدم محدّد
   merchant: (id) => `merchant:${id}`,        // غرفة صاحب متجر محدّد
+  merchantAccount: (id) => `merchant-account:${id}`,
   order: (id) => `order:${id}`,              // غرفة طلب محدّد (لتتبّعه)
 });
 
