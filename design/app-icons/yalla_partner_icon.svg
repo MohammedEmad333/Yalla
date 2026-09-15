@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Yalla Partner</title>
+  <desc id="desc">Yalla Partner app icon with storefront mark.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1769E8"/>
+      <stop offset="1" stop-color="#072B73"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF9B22"/>
+      <stop offset="1" stop-color="#FF6B00"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
+  <g fill="url(#orange)">
+    <path d="M282 250h460l64 118H218z"/>
+    <path d="M230 368h178v74c0 50-40 90-89 90s-89-40-89-90z"/>
+    <path d="M423 368h178v74c0 50-40 90-89 90s-89-40-89-90z"/>
+    <path d="M616 368h178v74c0 50-40 90-89 90s-89-40-89-90z"/>
+  </g>
+  <path d="M315 585c0-31 25-56 56-56h282c31 0 56 25 56 56v175H315z" fill="#fff" opacity=".98"/>
+  <path d="M441 760V632h142v128" fill="#0B3D91"/>
+  <circle cx="559" cy="697" r="10" fill="#FF7A00"/>
+  <path d="M393 823c68 44 170 57 238 9" fill="none" stroke="#FF7A00" stroke-width="30" stroke-linecap="round"/>
+</svg>
