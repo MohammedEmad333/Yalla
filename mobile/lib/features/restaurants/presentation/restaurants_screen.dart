@@ -302,6 +302,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                       spacing: 12,
                       runSpacing: 4,
                       children: [
+                        if (r.phone.trim().isNotEmpty)
+                          _meta(Icons.phone_outlined, 'رقم المتجر: ${r.phone.trim()}'),
                         if (r.scheduleLabel.isNotEmpty)
                           _meta(Icons.access_time, r.scheduleLabel),
                         if (r.address.isNotEmpty) _meta(Icons.place_outlined, r.address),
