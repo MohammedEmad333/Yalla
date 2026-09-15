@@ -39,6 +39,8 @@ class _MenuScreenState extends State<MenuScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (_) => _ItemEditor(api: widget.api, item: existing),
     );
     if (changed == true) await _load();
@@ -77,57 +79,144 @@ class _MenuScreenState extends State<MenuScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
+    final availableCount = _items.where((e) => (e as Map)['available'] == true).length;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openEditor(),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('منتج جديد'),
+        label: const Text('إضافة منتج', style: TextStyle(fontWeight: FontWeight.w800)),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
-        child: _items.isEmpty
-            ? ListView(children: [
-                const SizedBox(height: 150),
-                const Icon(Icons.inventory_2_outlined, size: 60),
-                const SizedBox(height: 12),
-                Center(child: Text(_error.isEmpty ? 'أضف أول منتج لمتجرك' : _error)),
-              ])
-            : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
-                itemCount: _items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (_, index) {
-                  final item = Map<String, dynamic>.from(_items[index] as Map);
-                  final image = AppConfig.imageUrl(item['imageUrl']?.toString());
-                  return Card(
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.all(10),
-                      leading: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: image.isEmpty
-                            ? Container(width: 58, height: 58, color: Colors.black12, child: const Icon(Icons.fastfood_rounded))
-                            : Image.network(image, width: 58, height: 58, fit: BoxFit.cover),
-                      ),
-                      title: Text(item['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
-                      subtitle: Text('${item['category'] ?? 'بدون قسم'} · ${item['price'] ?? 0} ₪'),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (value) {
-                          if (value == 'edit') _openEditor(item);
-                          if (value == 'toggle') _toggle(item);
-                          if (value == 'delete') _remove(item);
-                        },
-                        itemBuilder: (_) => [
-                          const PopupMenuItem(value: 'edit', child: Text('تعديل')),
-                          PopupMenuItem(value: 'toggle', child: Text(item['available'] == true ? 'إيقاف التوفر' : 'تفعيل التوفر')),
-                          const PopupMenuItem(value: 'delete', child: Text('حذف')),
-                        ],
-                      ),
-                      onTap: () => _openEditor(item),
-                    ),
-                  );
-                },
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFFFF7A00), Color(0xFFFFA340)]),
+                borderRadius: BorderRadius.circular(26),
               ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('قائمة المنتجات', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 5),
+                        Text('${_items.length} منتج · $availableCount متاح للطلب', style: const TextStyle(color: Color(0xFFFFF0E3), fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(color: const Color(0x24FFFFFF), borderRadius: BorderRadius.circular(17)),
+                    child: const Icon(Icons.inventory_2_rounded, color: Colors.white, size: 28),
+                  ),
+                ],
+              ),
+            ),
+            if (_error.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ],
+            const SizedBox(height: 18),
+            const Text('منتجات متجرك', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 10),
+            if (_items.isEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 52, horizontal: 20),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+                child: const Column(
+                  children: [
+                    Icon(Icons.inventory_2_outlined, size: 54, color: Color(0xFFB3BCC9)),
+                    SizedBox(height: 12),
+                    Text('ابدأ بإضافة أول منتج', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                    SizedBox(height: 4),
+                    Text('أضف الاسم والسعر والصورة ليظهر المنتج للزبائن.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF7A8595))),
+                  ],
+                ),
+              )
+            else
+              ..._items.map((raw) {
+                final item = Map<String, dynamic>.from(raw as Map);
+                final image = AppConfig.imageUrl(item['imageUrl']?.toString());
+                final available = item['available'] == true;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Card(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () => _openEditor(item),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: image.isEmpty
+                                  ? Container(
+                                      width: 72,
+                                      height: 72,
+                                      color: const Color(0xFFF1F3F6),
+                                      child: const Icon(Icons.fastfood_rounded, color: Color(0xFF98A1B2), size: 30),
+                                    )
+                                  : Image.network(image, width: 72, height: 72, fit: BoxFit.cover),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(item['name']?.toString() ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5)),
+                                  const SizedBox(height: 4),
+                                  Text(item['category']?.toString().trim().isNotEmpty == true ? item['category'].toString() : 'بدون قسم', style: const TextStyle(color: Color(0xFF7A8595), fontSize: 12.5)),
+                                  const SizedBox(height: 7),
+                                  Row(
+                                    children: [
+                                      Text('${item['price'] ?? 0} ₪', style: const TextStyle(color: Color(0xFFFF7A00), fontWeight: FontWeight.w900, fontSize: 15)),
+                                      const SizedBox(width: 10),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: available ? const Color(0xFFEAF8F1) : const Color(0xFFF1F3F6),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          available ? 'متاح' : 'متوقف',
+                                          style: TextStyle(color: available ? const Color(0xFF218A5A) : const Color(0xFF7A8595), fontSize: 11, fontWeight: FontWeight.w800),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'edit') _openEditor(item);
+                                if (value == 'toggle') _toggle(item);
+                                if (value == 'delete') _remove(item);
+                              },
+                              itemBuilder: (_) => [
+                                const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('تعديل'), contentPadding: EdgeInsets.zero)),
+                                PopupMenuItem(value: 'toggle', child: ListTile(leading: Icon(available ? Icons.visibility_off_outlined : Icons.visibility_outlined), title: Text(available ? 'إيقاف التوفر' : 'تفعيل التوفر'), contentPadding: EdgeInsets.zero)),
+                                const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline_rounded), title: Text('حذف'), contentPadding: EdgeInsets.zero)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+          ],
+        ),
       ),
     );
   }
@@ -162,15 +251,17 @@ class _ItemEditorState extends State<_ItemEditor> {
     _category = TextEditingController(text: item['category']?.toString() ?? '');
     _price = TextEditingController(text: item['price']?.toString() ?? '');
     final variants = (item['variants'] as List?) ?? const [];
-    _variants = TextEditingController(
-      text: variants.map((v) => '${v['label']}:${v['price']}').join('\n'),
-    );
+    _variants = TextEditingController(text: variants.map((v) => '${v['label']}:${v['price']}').join('\n'));
     _available = item['available'] != false;
   }
 
   @override
   void dispose() {
-    _name.dispose(); _description.dispose(); _category.dispose(); _price.dispose(); _variants.dispose();
+    _name.dispose();
+    _description.dispose();
+    _category.dispose();
+    _price.dispose();
+    _variants.dispose();
     super.dispose();
   }
 
@@ -213,17 +304,23 @@ class _ItemEditorState extends State<_ItemEditor> {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
+        padding: EdgeInsets.fromLTRB(20, 10, 20, MediaQuery.viewInsetsOf(context).bottom + 20),
         child: SingleChildScrollView(
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(widget.item == null ? 'إضافة منتج' : 'تعديل المنتج', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+            Center(child: Container(width: 42, height: 5, decoration: BoxDecoration(color: const Color(0xFFD8DDE5), borderRadius: BorderRadius.circular(20)))),
             const SizedBox(height: 18),
-            TextField(controller: _name, decoration: const InputDecoration(labelText: 'اسم المنتج')),
-            const SizedBox(height: 10),
-            TextField(controller: _price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'السعر (₪)')),
-            const SizedBox(height: 10),
-            TextField(controller: _category, decoration: const InputDecoration(labelText: 'القسم')),
-            const SizedBox(height: 10),
+            Text(widget.item == null ? 'إضافة منتج جديد' : 'تعديل المنتج', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 5),
+            const Text('أدخل تفاصيل المنتج كما ستظهر للزبائن.', style: TextStyle(color: Color(0xFF7A8595))),
+            const SizedBox(height: 20),
+            TextField(controller: _name, decoration: const InputDecoration(labelText: 'اسم المنتج', prefixIcon: Icon(Icons.sell_outlined))),
+            const SizedBox(height: 12),
+            TextField(controller: _price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'السعر (₪)', prefixIcon: Icon(Icons.payments_outlined))),
+            const SizedBox(height: 12),
+            TextField(controller: _category, decoration: const InputDecoration(labelText: 'القسم', prefixIcon: Icon(Icons.category_outlined))),
+            const SizedBox(height: 12),
+            TextField(controller: _description, maxLines: 2, decoration: const InputDecoration(labelText: 'الوصف', prefixIcon: Icon(Icons.notes_rounded))),
+            const SizedBox(height: 12),
             TextField(
               controller: _variants,
               maxLines: 4,
@@ -231,23 +328,34 @@ class _ItemEditorState extends State<_ItemEditor> {
               decoration: const InputDecoration(
                 labelText: 'أحجام أو أوزان إضافية',
                 hintText: 'صغير:10\nوسط:15\n1 كغ:20',
-                helperText: 'اكتب كل خيار وسعره في سطر منفصل',
+                helperText: 'كل خيار وسعره في سطر منفصل',
+                prefixIcon: Icon(Icons.tune_rounded),
               ),
             ),
-            const SizedBox(height: 10),
-            TextField(controller: _description, maxLines: 2, decoration: const InputDecoration(labelText: 'الوصف')),
-            SwitchListTile(value: _available, onChanged: (v) => setState(() => _available = v), title: const Text('متاح للطلب'), contentPadding: EdgeInsets.zero),
+            const SizedBox(height: 6),
+            SwitchListTile.adaptive(
+              value: _available,
+              onChanged: (v) => setState(() => _available = v),
+              title: const Text('متاح للطلب', style: TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: const Text('يمكن للزبائن طلب هذا المنتج'),
+              contentPadding: EdgeInsets.zero,
+            ),
+            const SizedBox(height: 4),
             OutlinedButton.icon(
               onPressed: () async {
                 final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 82, maxWidth: 1400);
                 if (image != null) setState(() => _image = image);
               },
-              icon: const Icon(Icons.image_outlined),
-              label: Text(_image == null ? 'اختيار صورة' : 'تم اختيار الصورة'),
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              label: Text(_image == null ? 'اختيار صورة للمنتج' : 'تم اختيار الصورة'),
             ),
             if (_error.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error))),
-            const SizedBox(height: 14),
-            FilledButton(onPressed: _busy ? null : _save, child: Padding(padding: const EdgeInsets.all(12), child: Text(_busy ? 'جارٍ الحفظ...' : 'حفظ'))),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _busy ? null : _save,
+              icon: const Icon(Icons.save_outlined),
+              label: Text(_busy ? 'جارٍ الحفظ...' : 'حفظ المنتج'),
+            ),
           ]),
         ),
       );
