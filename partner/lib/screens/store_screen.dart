@@ -26,11 +26,19 @@ class _StoreScreenState extends State<StoreScreen> {
   String _error = '';
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+  }
 
   @override
   void dispose() {
-    _description.dispose(); _phone.dispose(); _minOrder.dispose(); _prepMinutes.dispose(); _openTime.dispose(); _closeTime.dispose();
+    _description.dispose();
+    _phone.dispose();
+    _minOrder.dispose();
+    _prepMinutes.dispose();
+    _openTime.dispose();
+    _closeTime.dispose();
     super.dispose();
   }
 
@@ -92,52 +100,190 @@ class _StoreScreenState extends State<StoreScreen> {
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     final cover = AppConfig.imageUrl(_restaurant['imageUrl']?.toString());
+    final name = _restaurant['name']?.toString() ?? 'المتجر';
+    final address = _restaurant['address']?.toString() ?? '';
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 116),
       children: [
-        Card(child: Column(children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-            child: cover.isEmpty
-                ? Container(height: 150, color: Colors.black12, child: const Center(child: Icon(Icons.storefront_rounded, size: 56)))
-                : Image.network(cover, height: 150, width: double.infinity, fit: BoxFit.cover),
+        Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: const Color(0xFF071D3A),
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: const [BoxShadow(color: Color(0x18071D3A), blurRadius: 24, offset: Offset(0, 10))],
           ),
-          ListTile(
-            title: Text(_restaurant['name']?.toString() ?? 'المتجر', style: const TextStyle(fontWeight: FontWeight.w900)),
-            subtitle: Text(_restaurant['address']?.toString() ?? ''),
-            trailing: IconButton(onPressed: _busy ? null : _pickCover, icon: const Icon(Icons.photo_camera_outlined), tooltip: 'تغيير الغلاف'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Stack(
+                children: [
+                  cover.isEmpty
+                      ? Container(
+                          height: 180,
+                          color: const Color(0xFF102F56),
+                          child: const Center(child: Icon(Icons.storefront_rounded, size: 64, color: Color(0x55FFFFFF))),
+                        )
+                      : Image.network(cover, height: 180, width: double.infinity, fit: BoxFit.cover),
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, const Color(0xCC071D3A)],
+                          stops: const [.35, 1],
+                        ),
+                      ),
+                    ),
+                  ),
+                  PositionedDirectional(
+                    end: 12,
+                    top: 12,
+                    child: IconButton.filled(
+                      onPressed: _busy ? null : _pickCover,
+                      style: IconButton.styleFrom(backgroundColor: const Color(0xD9FFFFFF), foregroundColor: const Color(0xFF071D3A)),
+                      icon: const Icon(Icons.photo_camera_outlined),
+                      tooltip: 'تغيير الغلاف',
+                    ),
+                  ),
+                  PositionedDirectional(
+                    start: 18,
+                    end: 18,
+                    bottom: 14,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                        if (address.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on_outlined, color: Color(0xFFC8D4E3), size: 17),
+                              const SizedBox(width: 4),
+                              Expanded(child: Text(address, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFFC8D4E3), fontSize: 12.5))),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ])),
+        ),
+        const SizedBox(height: 18),
+        const Text('بيانات المتجر', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 10),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SectionTitle(icon: Icons.info_outline_rounded, title: 'المعلومات الأساسية', subtitle: 'الوصف ورقم التواصل الظاهر للزبائن'),
+                const SizedBox(height: 14),
+                TextField(controller: _description, maxLines: 3, decoration: const InputDecoration(labelText: 'وصف المتجر', prefixIcon: Icon(Icons.notes_rounded))),
+                const SizedBox(height: 12),
+                TextField(controller: _phone, keyboardType: TextInputType.phone, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'هاتف المتجر', prefixIcon: Icon(Icons.phone_outlined))),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
-        Card(child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text('إعدادات التشغيل', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-            Text('حالة المتجر تُحسب تلقائيًا من وقت الفتح والإغلاق.', style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 12),
-            TextField(controller: _description, maxLines: 2, decoration: const InputDecoration(labelText: 'وصف المتجر')),
-            const SizedBox(height: 10),
-            TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'هاتف المتجر')),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(child: TextField(controller: _minOrder, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'أقل طلب (₪)'))),
-              const SizedBox(width: 10),
-              Expanded(child: TextField(controller: _prepMinutes, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'التحضير (دقيقة)'))),
-            ]),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(child: TextField(controller: _openTime, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'يفتح HH:MM'))),
-              const SizedBox(width: 10),
-              Expanded(child: TextField(controller: _closeTime, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'يغلق HH:MM'))),
-            ]),
-            if (_error.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_error, style: TextStyle(color: Theme.of(context).colorScheme.error))),
-            const SizedBox(height: 14),
-            FilledButton(onPressed: _busy ? null : _save, child: Padding(padding: const EdgeInsets.all(11), child: Text(_busy ? 'جارٍ الحفظ...' : 'حفظ الإعدادات'))),
-          ]),
-        )),
-        const SizedBox(height: 16),
-        OutlinedButton.icon(onPressed: widget.onLogout, icon: const Icon(Icons.logout_rounded), label: const Text('تسجيل الخروج')),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SectionTitle(icon: Icons.tune_rounded, title: 'إعدادات الطلب', subtitle: 'تحكم في الحد الأدنى ووقت تجهيز الطلب'),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: TextField(controller: _minOrder, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'أقل طلب (₪)', prefixIcon: Icon(Icons.payments_outlined)))),
+                    const SizedBox(width: 10),
+                    Expanded(child: TextField(controller: _prepMinutes, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'التحضير (دقيقة)', prefixIcon: Icon(Icons.timer_outlined)))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SectionTitle(icon: Icons.schedule_rounded, title: 'ساعات العمل', subtitle: 'تُحسب حالة المتجر تلقائيًا حسب وقت الفتح والإغلاق'),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(child: TextField(controller: _openTime, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'يفتح HH:MM', prefixIcon: Icon(Icons.wb_sunny_outlined)))),
+                    const SizedBox(width: 10),
+                    Expanded(child: TextField(controller: _closeTime, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'يغلق HH:MM', prefixIcon: Icon(Icons.nightlight_outlined)))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_error.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: const Color(0xFFFFEFEF), borderRadius: BorderRadius.circular(14)),
+            child: Text(_error, style: const TextStyle(color: Color(0xFFC23A3A))),
+          ),
+        ],
+        const SizedBox(height: 14),
+        FilledButton.icon(
+          onPressed: _busy ? null : _save,
+          icon: const Icon(Icons.save_outlined),
+          label: Text(_busy ? 'جارٍ الحفظ...' : 'حفظ إعدادات المتجر'),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: widget.onLogout,
+          icon: const Icon(Icons.logout_rounded, color: Color(0xFFC23A3A)),
+          label: const Text('تسجيل الخروج', style: TextStyle(color: Color(0xFFC23A3A))),
+        ),
       ],
     );
   }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  const _SectionTitle({required this.icon, required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(color: const Color(0xFFFFF0E2), borderRadius: BorderRadius.circular(13)),
+            child: Icon(icon, color: const Color(0xFFFF7A00), size: 22),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: const TextStyle(color: Color(0xFF7A8595), fontSize: 12.2, height: 1.35)),
+              ],
+            ),
+          ),
+        ],
+      );
 }
