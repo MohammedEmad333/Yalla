@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Yalla Admin</title>
+  <desc id="desc">Yalla Admin app icon with administration gear mark.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B2E63"/>
+      <stop offset="1" stop-color="#031429"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF9B22"/>
+      <stop offset="1" stop-color="#FF6B00"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
+  <g transform="translate(512 340)">
+    <path fill="url(#orange)" d="M-38-174h76l13 59a181 181 0 0 1 42 18l51-32 54 54-32 51a181 181 0 0 1 18 42l59 13v76l-59 13a181 181 0 0 1-18 42l32 51-54 54-51-32a181 181 0 0 1-42 18l-13 59h-76l-13-59a181 181 0 0 1-42-18l-51 32-54-54 32-51a181 181 0 0 1-18-42l-59-13V31l59-13a181 181 0 0 1 18-42l-32-51 54-54 51 32a181 181 0 0 1 42-18z"/>
+    <circle r="112" fill="#fff"/>
+    <circle cy="-36" r="42" fill="#0A2D62"/>
+    <path d="M-78 75c10-55 47-82 78-82s68 27 78 82z" fill="#0A2D62"/>
+  </g>
+  <path d="M252 696c0-42 34-76 76-76h368c42 0 76 34 76 76v76H252z" fill="#fff" opacity=".98"/>
+  <path d="M336 696h352" stroke="#0A2D62" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="388" cy="696" r="17" fill="#FF7A00"/>
+  <circle cx="512" cy="696" r="17" fill="#FF7A00"/>
+  <circle cx="636" cy="696" r="17" fill="#FF7A00"/>
+  <path d="M393 823c68 44 170 57 238 9" fill="none" stroke="#FF7A00" stroke-width="30" stroke-linecap="round"/>
+</svg>
