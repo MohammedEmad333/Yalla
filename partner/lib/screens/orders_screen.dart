@@ -75,30 +75,154 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
+  int _countFor(String status) => _orders.where((raw) {
+        final order = Map<String, dynamic>.from(raw as Map);
+        final store = Map<String, dynamic>.from((order['store'] as Map?) ?? {});
+        return (store['merchantStatus']?.toString() ?? 'new') == status;
+      }).length;
+
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final newCount = _countFor('new');
+    final preparingCount = _countFor('accepted') + _countFor('preparing');
+    final readyCount = _countFor('ready');
+
     return RefreshIndicator(
       onRefresh: _load,
-      child: _orders.isEmpty
-          ? ListView(children: const [SizedBox(height: 160), Icon(Icons.receipt_long_rounded, size: 58), SizedBox(height: 12), Center(child: Text('لا توجد طلبات بعد'))])
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
-              itemCount: _orders.length + (_error.isEmpty ? 0 : 1),
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                if (_error.isNotEmpty && index == 0) {
-                  return Card(color: Theme.of(context).colorScheme.errorContainer, child: Padding(padding: const EdgeInsets.all(16), child: Text(_error)));
-                }
-                final offset = _error.isEmpty ? index : index - 1;
-                return _OrderCard(
-                  order: Map<String, dynamic>.from(_orders[offset] as Map),
-                  onAdvance: _advance,
-                );
-              },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 116),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF071D3A),
+              borderRadius: BorderRadius.circular(26),
+              boxShadow: const [
+                BoxShadow(color: Color(0x18071D3A), blurRadius: 24, offset: Offset(0, 10)),
+              ],
             ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('إدارة الطلبات', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                          SizedBox(height: 4),
+                          Text('تابع الطلب من لحظة وصوله حتى يصبح جاهزًا.', style: TextStyle(color: Color(0xFFB8C6D8), fontSize: 12.5)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: const Color(0x22FFFFFF),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: const Icon(Icons.receipt_long_rounded, color: Color(0xFFFF9B3D)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(child: _SummaryTile(label: 'جديد', value: newCount, color: const Color(0xFFFFA64D))),
+                    const SizedBox(width: 8),
+                    Expanded(child: _SummaryTile(label: 'قيد التحضير', value: preparingCount, color: const Color(0xFF70B7FF))),
+                    const SizedBox(width: 8),
+                    Expanded(child: _SummaryTile(label: 'جاهز', value: readyCount, color: const Color(0xFF63D7A7))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              const Expanded(
+                child: Text('الطلبات الحالية', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                child: Text('${_orders.length} طلب', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+              ),
+            ],
+          ),
+          if (_error.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: const Color(0xFFFFEFEF), borderRadius: BorderRadius.circular(16)),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded, color: Color(0xFFC23A3A)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_error, style: const TextStyle(color: Color(0xFFC23A3A)))),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (_orders.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 54, horizontal: 22),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+              child: const Column(
+                children: [
+                  Icon(Icons.inbox_outlined, size: 54, color: Color(0xFFB3BCC9)),
+                  SizedBox(height: 12),
+                  Text('لا توجد طلبات حاليًا', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                  SizedBox(height: 4),
+                  Text('ستظهر الطلبات الجديدة هنا فور وصولها.', style: TextStyle(color: Color(0xFF7A8595))),
+                ],
+              ),
+            )
+          else
+            ..._orders.map((raw) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _OrderCard(
+                    order: Map<String, dynamic>.from(raw as Map),
+                    onAdvance: _advance,
+                  ),
+                )),
+        ],
+      ),
     );
   }
+}
+
+class _SummaryTile extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color color;
+  const _SummaryTile({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        decoration: BoxDecoration(
+          color: const Color(0x14FFFFFF),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0x18FFFFFF)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$value', style: TextStyle(color: color, fontSize: 21, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 2),
+            Text(label, maxLines: 1, style: const TextStyle(color: Color(0xFFD9E2ED), fontSize: 11, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
 }
 
 class _OrderCard extends StatelessWidget {
@@ -115,7 +239,7 @@ class _OrderCard extends StatelessWidget {
   static const next = {
     'new': ('accepted', 'قبول الطلب'),
     'accepted': ('preparing', 'بدء التحضير'),
-    'preparing': ('ready', 'جاهز للاستلام'),
+    'preparing': ('ready', 'تحديد كجاهز'),
   };
 
   @override
@@ -125,64 +249,146 @@ class _OrderCard extends StatelessWidget {
     final items = (store['items'] as List?) ?? const [];
     final status = store['merchantStatus']?.toString() ?? 'new';
     final action = next[status];
+    final id = order['_id']?.toString() ?? '';
+    final shortId = id.length > 6 ? id.substring(id.length - 6) : id;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: _statusColor(context, status), borderRadius: BorderRadius.circular(20)),
-                child: Text(labels[status] ?? status, style: const TextStyle(fontWeight: FontWeight.w700)),
-              ),
-              const Spacer(),
-              Text('#${order['_id'].toString().substring(order['_id'].toString().length - 6)}', textDirection: TextDirection.ltr),
-            ]),
+            Row(
+              children: [
+                _StatusChip(status: status, label: labels[status] ?? status),
+                const Spacer(),
+                Text('#$shortId', textDirection: TextDirection.ltr, style: const TextStyle(color: Color(0xFF7A8595), fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(color: const Color(0xFFF2F5F9), borderRadius: BorderRadius.circular(14)),
+                  child: const Icon(Icons.person_outline_rounded, color: Color(0xFF071D3A)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${user['name'] ?? 'زبون'} ${user['lastName'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                      if (user['phone'] != null)
+                        Text(user['phone'].toString(), textDirection: TextDirection.ltr, style: const TextStyle(color: Color(0xFF7A8595), fontSize: 12.5)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 14),
-            Text('${user['name'] ?? 'زبون'} ${user['lastName'] ?? ''}', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-            if (user['phone'] != null) Text(user['phone'].toString(), textDirection: TextDirection.ltr, textAlign: TextAlign.right),
-            const Divider(height: 26),
-            ...items.map((raw) {
-              final item = Map<String, dynamic>.from(raw as Map);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: Row(children: [
-                  Text('${item['qty']}×', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(item['name']?.toString() ?? 'صنف')),
-                  Text('${item['price']} ₪'),
-                ]),
-              );
-            }),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: const Color(0xFFF7F8FA), borderRadius: BorderRadius.circular(16)),
+              child: Column(
+                children: items.map((raw) {
+                  final item = Map<String, dynamic>.from(raw as Map);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Row(
+                      children: [
+                        Container(
+                          minWidth: 34,
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                          child: Text('${item['qty']}×', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFF7A00))),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(item['name']?.toString() ?? 'صنف', style: const TextStyle(fontWeight: FontWeight.w700))),
+                        Text('${item['price']} ₪', style: const TextStyle(fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
             if ((store['note']?.toString() ?? '').isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text('ملاحظة: ${store['note']}', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: const Color(0xFFFFF5E8), borderRadius: BorderRadius.circular(14)),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.sticky_note_2_outlined, size: 20, color: Color(0xFFFF7A00)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('ملاحظة: ${store['note']}', style: const TextStyle(color: Color(0xFF8A4A00)))),
+                  ],
+                ),
+              ),
             ],
-            const Divider(height: 26),
-            Row(children: [
-              const Text('قيمة الأصناف', style: TextStyle(fontWeight: FontWeight.w700)),
-              const Spacer(),
-              Text('${store['itemsTotal'] ?? 0} ₪', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
-            ]),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Text('قيمة الأصناف', style: TextStyle(color: Color(0xFF657287), fontWeight: FontWeight.w700)),
+                const Spacer(),
+                Text('${store['itemsTotal'] ?? 0} ₪', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              ],
+            ),
+            const SizedBox(height: 14),
             if (action != null)
-              FilledButton(
+              FilledButton.icon(
                 onPressed: () => onAdvance(order, action.$1),
-                child: Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text(action.$2)),
+                icon: Icon(status == 'new' ? Icons.check_rounded : Icons.arrow_forward_rounded),
+                label: Text(action.$2),
               )
             else
-              const OutlinedButton(onPressed: null, child: Text('بانتظار الكابتن')),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(color: const Color(0xFFEAF8F1), borderRadius: BorderRadius.circular(16)),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.delivery_dining_rounded, color: Color(0xFF218A5A)),
+                    SizedBox(width: 8),
+                    Text('جاهز — بانتظار الكابتن', style: TextStyle(color: Color(0xFF218A5A), fontWeight: FontWeight.w800)),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
     );
   }
+}
 
-  Color _statusColor(BuildContext context, String status) => switch (status) {
-        'new' => Theme.of(context).colorScheme.primaryContainer,
-        'ready' => const Color(0xFFD9F7E8),
-        _ => const Color(0xFFE8EEF8),
-      };
+class _StatusChip extends StatelessWidget {
+  final String status;
+  final String label;
+  const _StatusChip({required this.status, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (status) {
+      'new' => const Color(0xFFFF7A00),
+      'accepted' => const Color(0xFF3578C9),
+      'preparing' => const Color(0xFF8B5FBF),
+      'ready' => const Color(0xFF218A5A),
+      _ => const Color(0xFF657287),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 12)),
+        ],
+      ),
+    );
+  }
 }
