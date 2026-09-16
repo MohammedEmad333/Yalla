@@ -1,7 +1,3 @@
-// إتمام طلب المطعم (Card 110) — مراجعة السلّة، إدخال عنوان التسليم (المدينة ثمّ
-// الحي كما في طلب التوصيل)، عرض أجرة التوصيل التقديرية والمجموع، ثمّ تأكيد الطلب.
-// الطلب الناتج طلب توصيل عادي يظهر في "طلباتي" ويُسنَد لكابتن كالمعتاد.
-
 import 'package:flutter/material.dart';
 
 import '../../../core/data/gaza_neighborhoods.dart';
@@ -21,43 +17,95 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   late final RestaurantRepository _repo = RestaurantRepository(widget.api);
 
-  // عنوان التسليم
   String? _city;
   String? _neighborhood;
   final _street = TextEditingController();
   final _details = TextEditingController();
   final _addressNote = TextEditingController();
-
-  // ملاحظة الزبون للمطعم (بلا بصل، حارّ...)
   final _orderNote = TextEditingController();
+  final _coupon = TextEditingController();
 
+  List<dynamic> _savedAddresses = [];
+  Map<String, dynamic>? _saved;
+  bool _loadingAddresses = true;
   bool _submitting = false;
   bool _loadingQuote = false;
-  num? _deliveryPrice; // أجرة التوصيل التقديرية
-  num? _deliveryOriginal; // Card 89: السعر قبل العرض (يُعرض مشطوبًا)
+  bool _checkingCoupon = false;
+  num? _deliveryPrice;
+  num? _deliveryOriginal;
   bool _offerApplied = false;
   num? _etaMinutes;
+  num _discount = 0;
+  String _couponMessage = '';
 
   Cart get _cart => widget.cart;
-  List<double>? get _dropoffCoords => coordsOf(_city, _neighborhood);
 
-  // المدينة والحي هما مصدر موقع المطعم. نرجع للإحداثيّات القادمة من الخادم فقط
-  // إذا كان الحي غير موجود في القائمة، دعمًا للسجلات/المناطق المخصّصة.
+  @override
+  void initState() {
+    super.initState();
+    _loadAddresses();
+  }
+
+  @override
+  void dispose() {
+    _street.dispose();
+    _details.dispose();
+    _addressNote.dispose();
+    _orderNote.dispose();
+    _coupon.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadAddresses() async {
+    try {
+      final data = await widget.api.get('/features/addresses');
+      if (mounted) setState(() => _savedAddresses = data as List);
+    } catch (_) {
+      // العناوين المحفوظة تحسين اختياري؛ يبقى الإدخال اليدوي متاحًا.
+    } finally {
+      if (mounted) setState(() => _loadingAddresses = false);
+    }
+  }
+
+  List<double>? get _manualDropoffCoords => coordsOf(_city, _neighborhood);
+
+  List<double>? get _dropoffCoords {
+    final raw = _saved?['location']?['coordinates'];
+    if (raw is List && raw.length == 2) {
+      return raw.map((e) => (e as num).toDouble()).toList(growable: false);
+    }
+    return _manualDropoffCoords;
+  }
+
   List<double>? get _pickupCoords {
-    final fromNeighborhood = coordsOf(
-      _cart.restaurant.city,
-      _cart.restaurant.neighborhood,
-    );
-    if (fromNeighborhood != null) return fromNeighborhood;
-
+    final byNeighborhood = coordsOf(_cart.restaurant.city, _cart.restaurant.neighborhood);
+    if (byNeighborhood != null) return byNeighborhood;
     final stored = _cart.restaurant.coords;
     if (stored == null || stored.length != 2) return null;
-    final lng = stored[0], lat = stored[1];
-    if (lng < -180 || lng > 180 || lat < -90 || lat > 90) return null;
     return stored;
   }
 
-  // تسعيرة التوصيل من المطعم إلى عنوان الزبون
+  Map<String, dynamic>? get _dropoffPayload {
+    final coords = _dropoffCoords;
+    if (coords == null) return null;
+    if (_saved != null) {
+      return {
+        'address': (_saved!['address'] ?? '').toString(),
+        'details': (_saved!['label'] ?? '').toString(),
+        'location': {'type': 'Point', 'coordinates': coords},
+      };
+    }
+    if (_city == null || _neighborhood == null) return null;
+    return {
+      'city': _city,
+      'neighborhood': _neighborhood,
+      'street': _street.text.trim(),
+      'details': _details.text.trim(),
+      'note': _addressNote.text.trim(),
+      'location': {'type': 'Point', 'coordinates': coords},
+    };
+  }
+
   Future<void> _refreshQuote() async {
     final pickup = _pickupCoords;
     final dropoff = _dropoffCoords;
@@ -70,20 +118,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _deliveryPrice = q['price'] as num?;
         _deliveryOriginal = q['originalPrice'] as num?;
         _offerApplied = q['offerApplied'] == true;
-        final deliveryEta = (q['etaMinutes'] as num?) ?? 0;
-        // الخادم يضيف هامش 5 دقائق إلى وقت الطريق؛ نضيف هنا وقت تحضير المطعم.
-        _etaMinutes = deliveryEta + _cart.restaurant.prepMinutes;
+        _etaMinutes = ((q['etaMinutes'] as num?) ?? 0) + _cart.restaurant.prepMinutes;
       });
-    } on ApiException {
-      // نتجاهل خطأ التسعيرة — السعر النهائي يُحسب في الخادم عند الإنشاء
     } finally {
       if (mounted) setState(() => _loadingQuote = false);
     }
   }
 
+  Future<void> _validateCoupon() async {
+    final code = _coupon.text.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _discount = 0;
+        _couponMessage = '';
+      });
+      return;
+    }
+    setState(() => _checkingCoupon = true);
+    try {
+      final raw = await widget.api.post('/features/coupons/validate', {
+        'code': code,
+        'subtotal': _cart.total,
+        'restaurantId': _cart.restaurant.id,
+      });
+      final data = Map<String, dynamic>.from(raw as Map);
+      if (!mounted) return;
+      setState(() {
+        _discount = (data['discount'] as num?) ?? 0;
+        _couponMessage = 'تم تطبيق الكوبون: خصم $_discount ₪';
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _discount = 0;
+        _couponMessage = e.message;
+      });
+    } finally {
+      if (mounted) setState(() => _checkingCoupon = false);
+    }
+  }
+
   Future<void> _submit() async {
-    if (_city == null || _neighborhood == null) {
-      _snack('اختر مدينة وحي التسليم');
+    final dropoff = _dropoffPayload;
+    if (dropoff == null) {
+      _snack('اختر عنوانًا محفوظًا أو مدينة وحي التسليم');
       return;
     }
     if (_cart.isEmpty) {
@@ -92,27 +170,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
     setState(() => _submitting = true);
     try {
-      await _repo.placeOrder(
-        cart: _cart,
-        dropoff: {
-          'city': _city,
-          'neighborhood': _neighborhood,
-          'street': _street.text.trim(),
-          'details': _details.text.trim(),
-          'note': _addressNote.text.trim(),
-          if (_dropoffCoords != null)
-            'location': {'type': 'Point', 'coordinates': _dropoffCoords},
-        },
-        note: _orderNote.text,
-      );
+      await widget.api.post('/commerce/restaurant-order', {
+        'restaurantId': _cart.restaurant.id,
+        'items': _cart.toItemsPayload(),
+        'dropoff': dropoff,
+        if (_orderNote.text.trim().isNotEmpty) 'note': _orderNote.text.trim(),
+        if (_coupon.text.trim().isNotEmpty) 'couponCode': _coupon.text.trim(),
+      });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم إرسال طلبك للمطعم — تابعه من "طلباتي"')),
       );
-      Navigator.of(context).pop(true); // نُعلم شاشة القائمة بنجاح الطلب
+      Navigator.of(context).pop(true);
     } on ApiException catch (e) {
-      // نحافظ على رسالة الخادم الدقيقة؛ ونوحّد أخطاء الرصيد القديمة إن أعادها
-      // خادم لم يُحدَّث بعد بصيغة مختصرة.
       final message = e.message == 'الرصيد غير كافٍ'
           ? 'رصيد محفظتك غير كافٍ لإتمام الطلب — اشحن المحفظة ثم حاول مرة أخرى'
           : e.message;
@@ -127,219 +197,177 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final total = _cart.total + (_deliveryPrice ?? 0);
+    final itemsAfterDiscount = (_cart.total - _discount).clamp(0, double.infinity);
+    final total = itemsAfterDiscount + (_deliveryPrice ?? 0);
 
     return Scaffold(
       appBar: AppBar(title: const Text('إتمام الطلب')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _sectionLabel(_cart.restaurant.name, Icons.storefront),
+          _section('طلبك من ${_cart.restaurant.name}', Icons.storefront),
           const SizedBox(height: 8),
-          ..._cart.lines.values.map(_cartLineTile),
+          ..._cart.lines.values.map(_cartLine),
           const SizedBox(height: 20),
 
-          _sectionLabel('عنوان التسليم', Icons.flag),
+          _section('عنوان التسليم', Icons.location_on_outlined),
           const SizedBox(height: 8),
-          _cityPicker(),
-          const SizedBox(height: 8),
-          _neighborhoodPicker(),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _street,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'الشارع',
-              prefixIcon: Icon(Icons.add_road),
-              border: OutlineInputBorder(),
+          if (_loadingAddresses)
+            const LinearProgressIndicator()
+          else if (_savedAddresses.isNotEmpty)
+            DropdownButtonFormField<Map<String, dynamic>?>(
+              value: _saved,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'عنوان محفوظ (اختياري)',
+                prefixIcon: Icon(Icons.bookmark_outline),
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                const DropdownMenuItem<Map<String, dynamic>?>(value: null, child: Text('إدخال عنوان جديد')),
+                ..._savedAddresses.map((raw) {
+                  final a = Map<String, dynamic>.from(raw as Map);
+                  return DropdownMenuItem<Map<String, dynamic>?>(
+                    value: a,
+                    child: Text('${a['label'] ?? 'عنوان'} — ${a['address'] ?? ''}', overflow: TextOverflow.ellipsis),
+                  );
+                }),
+              ],
+              onChanged: (v) {
+                setState(() {
+                  _saved = v;
+                  _deliveryPrice = null;
+                });
+                if (v != null) _refreshQuote();
+              },
             ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _details,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'العنوان بالتفاصيل',
-              hintText: 'مبنى، طابق، علامة مميّزة',
-              prefixIcon: Icon(Icons.edit_location_alt),
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _addressNote,
-            decoration: const InputDecoration(
-              labelText: 'ملاحظة على العنوان (اختياري)',
-              prefixIcon: Icon(Icons.note_alt_outlined),
-              border: OutlineInputBorder(),
-            ),
-          ),
+          if (_saved == null) ...[
+            if (_savedAddresses.isNotEmpty) const SizedBox(height: 10),
+            _cityPicker(),
+            const SizedBox(height: 8),
+            _neighborhoodPicker(),
+            const SizedBox(height: 8),
+            TextField(controller: _street, decoration: const InputDecoration(labelText: 'الشارع', prefixIcon: Icon(Icons.add_road), border: OutlineInputBorder())),
+            const SizedBox(height: 8),
+            TextField(controller: _details, decoration: const InputDecoration(labelText: 'العنوان بالتفصيل', prefixIcon: Icon(Icons.home_outlined), border: OutlineInputBorder())),
+            const SizedBox(height: 8),
+            TextField(controller: _addressNote, decoration: const InputDecoration(labelText: 'ملاحظة على العنوان', prefixIcon: Icon(Icons.note_alt_outlined), border: OutlineInputBorder())),
+          ],
           const SizedBox(height: 20),
 
-          _sectionLabel('ملاحظة للمطعم', Icons.chat_bubble_outline),
+          _section('كوبون الخصم', Icons.local_offer_outlined),
           const SizedBox(height: 8),
-          TextField(
-            controller: _orderNote,
-            decoration: const InputDecoration(
-              labelText: 'مثال: بلا بصل، صلصة زيادة (اختياري)',
-              border: OutlineInputBorder(),
+          Row(children: [
+            Expanded(child: TextField(
+              controller: _coupon,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(labelText: 'أدخل رمز الكوبون', border: OutlineInputBorder()),
+            )),
+            const SizedBox(width: 8),
+            FilledButton.tonal(
+              onPressed: _checkingCoupon ? null : _validateCoupon,
+              child: _checkingCoupon
+                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('تطبيق'),
             ),
-          ),
+          ]),
+          if (_couponMessage.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(_couponMessage, style: TextStyle(color: _discount > 0 ? YallaColors.success : YallaColors.error)),
+          ],
           const SizedBox(height: 20),
 
-          // ملخّص الفاتورة: قيمة الأصناف + أجرة التوصيل + المجموع
+          _section('ملاحظة للمطعم', Icons.chat_bubble_outline),
+          const SizedBox(height: 8),
+          TextField(controller: _orderNote, decoration: const InputDecoration(labelText: 'مثال: بلا بصل، صلصة زيادة', border: OutlineInputBorder())),
+          const SizedBox(height: 20),
+
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _summaryRow('قيمة الأصناف', '${_cart.total} ₪'),
+              child: Column(children: [
+                _summary('قيمة الأصناف', '${_cart.total} ₪'),
+                if (_discount > 0) ...[
                   const SizedBox(height: 8),
-                  _deliveryRow(),
-                  const Divider(height: 20),
-                  _summaryRow(
-                    'المجموع التقريبي',
-                    '$total ₪',
-                    bold: true,
-                  ),
-                  if (_etaMinutes != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'الزمن المتوقّع للوصول: ~$_etaMinutes دقيقة',
-                      style: TextStyle(color: YallaColors.muted, fontSize: 12),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Text(
-                    'يجب أن يغطي رصيد محفظتك كامل المبلغ. عند التسليم تُخصم قيمة الأصناف وأجرة التوصيل من المحفظة تلقائيًا.',
-                    style: TextStyle(color: YallaColors.muted, fontSize: 12),
-                    textAlign: TextAlign.center,
-                  ),
+                  _summary('خصم الكوبون', '-$_discount ₪', accent: true),
                 ],
-              ),
+                const SizedBox(height: 8),
+                _deliveryRow(),
+                const Divider(height: 22),
+                _summary('المجموع التقريبي', '$total ₪', bold: true),
+                if (_etaMinutes != null) ...[
+                  const SizedBox(height: 8),
+                  Text('الزمن المتوقع: ~$_etaMinutes دقيقة', style: TextStyle(color: YallaColors.muted, fontSize: 12)),
+                ],
+              ]),
             ),
           ),
           const SizedBox(height: 16),
-
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _submitting || _cart.isEmpty ? null : _submit,
-              icon: _submitting
-                  ? const SizedBox(
-                      width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.send),
-              label: const Text('تأكيد الطلب'),
-            ),
+          FilledButton.icon(
+            onPressed: _submitting ? null : _submit,
+            icon: _submitting
+                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.send),
+            label: const Text('تأكيد الطلب'),
           ),
         ],
       ),
     );
   }
 
-  // سطر صنف في السلّة مع أزرار تعديل الكمّية
-  Widget _cartLineTile(CartLine line) => Card(
+  Widget _cartLine(CartLine line) => Card(
         margin: const EdgeInsets.only(bottom: 8),
         child: ListTile(
           title: Text(line.label),
           subtitle: Text('${line.unitPrice} ₪ للوحدة'),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                onPressed: () {
-                  setState(() => _cart.remove(line.item));
-                  // آخر صنف حُذف → لا معنى لبقاء شاشة الإتمام مفتوحة
-                  if (_cart.isEmpty) Navigator.of(context).pop(false);
-                },
-                icon: const Icon(Icons.remove_circle_outline),
-              ),
-              Text('${line.qty}', style: const TextStyle(fontWeight: FontWeight.bold)),
-              IconButton(
-                onPressed: () => setState(() => _cart.add(line.item)),
-                icon: Icon(Icons.add_circle, color: YallaColors.primary),
-              ),
-              SizedBox(
-                width: 56,
-                child: Text('${line.total} ₪', textAlign: TextAlign.end),
-              ),
-            ],
-          ),
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            IconButton(onPressed: () {
+              setState(() => _cart.remove(line.item));
+              if (_cart.isEmpty) Navigator.of(context).pop(false);
+            }, icon: const Icon(Icons.remove_circle_outline)),
+            Text('${line.qty}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            IconButton(
+              onPressed: () => setState(() => _cart.add(line.item, variant: line.variant)),
+              icon: Icon(Icons.add_circle, color: YallaColors.primary),
+            ),
+          ]),
         ),
       );
 
-  // سطر أجرة التوصيل (مع عرض السعر الأصلي مشطوبًا أثناء العرض — Card 89)
   Widget _deliveryRow() {
-    if (_loadingQuote) {
-      return _summaryRow('أجرة التوصيل', 'جارٍ الحساب...');
-    }
-    if (_deliveryPrice == null) {
-      return _summaryRow('أجرة التوصيل', 'اختر عنوان التسليم');
-    }
+    if (_loadingQuote) return _summary('أجرة التوصيل', 'جارٍ الحساب...');
+    if (_deliveryPrice == null) return _summary('أجرة التوصيل', 'اختر عنوان التسليم');
     if (_offerApplied && _deliveryOriginal != null) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text('أجرة التوصيل'),
-          Row(
-            children: [
-              Text(
-                '$_deliveryOriginal ₪',
-                style: TextStyle(
-                  decoration: TextDecoration.lineThrough,
-                  color: YallaColors.muted,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '$_deliveryPrice ₪',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: YallaColors.primary,
-                ),
-              ),
-            ],
-          ),
-        ],
-      );
+      return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        const Text('أجرة التوصيل'),
+        Row(children: [
+          Text('$_deliveryOriginal ₪', style: TextStyle(decoration: TextDecoration.lineThrough, color: YallaColors.muted)),
+          const SizedBox(width: 8),
+          Text('$_deliveryPrice ₪', style: TextStyle(fontWeight: FontWeight.bold, color: YallaColors.primary)),
+        ]),
+      ]);
     }
-    return _summaryRow('أجرة التوصيل', '$_deliveryPrice ₪');
+    return _summary('أجرة التوصيل', '$_deliveryPrice ₪');
   }
 
-  Widget _summaryRow(String label, String value, {bool bold = false}) => Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-              color: bold ? YallaColors.primary : null,
-            ),
-          ),
-        ],
-      );
+  Widget _summary(String label, String value, {bool bold = false, bool accent = false}) =>
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+        Text(value, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal, color: (bold || accent) ? YallaColors.primary : null)),
+      ]);
 
-  // منتقي المدينة — تغييرها يُصفّر الحي المختار
   Widget _cityPicker() => DropdownButtonFormField<String>(
         value: _city,
         isExpanded: true,
-        decoration: const InputDecoration(
-          labelText: 'المدينة',
-          prefixIcon: Icon(Icons.location_city),
-          border: OutlineInputBorder(),
-        ),
+        decoration: const InputDecoration(labelText: 'المدينة', prefixIcon: Icon(Icons.location_city), border: OutlineInputBorder()),
         items: gazaCities.map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
-        onChanged: (v) {
-          setState(() {
-            _city = v;
-            _neighborhood = null;
-            _deliveryPrice = null;
-          });
-        },
+        onChanged: (v) => setState(() {
+          _city = v;
+          _neighborhood = null;
+          _deliveryPrice = null;
+        }),
       );
 
-  // منتقي الحي — يحدّد إحداثيّات التسليم ومنه تُحسب أجرة التوصيل
   Widget _neighborhoodPicker() => DropdownButtonFormField<String>(
         value: _neighborhood,
         isExpanded: true,
@@ -349,33 +377,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           border: const OutlineInputBorder(),
           hintText: _city == null ? 'اختر المدينة أولًا' : null,
         ),
-        items: neighborhoodsOf(_city)
-            .map((n) => DropdownMenuItem(value: n, child: Text(n)))
-            .toList(),
-        onChanged: _city == null
-            ? null
-            : (v) {
-                setState(() => _neighborhood = v);
-                _refreshQuote();
-              },
+        items: neighborhoodsOf(_city).map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
+        onChanged: _city == null ? null : (v) {
+          setState(() => _neighborhood = v);
+          _refreshQuote();
+        },
       );
 
-  Widget _sectionLabel(String text, IconData icon) => Row(
-        children: [
-          Icon(icon, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      );
-
-  @override
-  void dispose() {
-    _street.dispose();
-    _details.dispose();
-    _addressNote.dispose();
-    _orderNote.dispose();
-    super.dispose();
-  }
+  Widget _section(String text, IconData icon) => Row(children: [
+        Icon(icon, size: 20),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+      ]);
 }
