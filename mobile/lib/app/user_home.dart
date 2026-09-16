@@ -8,7 +8,7 @@ import '../core/realtime/socket_service.dart';
 import '../features/restaurants/presentation/restaurants_screen.dart';
 import '../features/user/create_order_screen.dart';
 import '../features/user/my_orders_screen.dart';
-import '../features/user/user_tools_screen.dart';
+import '../features/user/user_hub_screen.dart';
 import '../features/wallet/presentation/wallet_screen.dart';
 import 'profile_screen.dart';
 
@@ -46,7 +46,7 @@ class _UserHomeState extends State<UserHome> {
       CreateOrderScreen(api: widget.api),
       RestaurantsScreen(api: widget.api),
       MyOrdersScreen(api: widget.api, socket: widget.socket),
-      UserToolsScreen(api: widget.api),
+      UserHubScreen(api: widget.api),
       WalletScreen(api: widget.api, socket: widget.socket),
       ProfileScreen(api: widget.api, socket: widget.socket, onLogout: widget.onLogout),
     ];
