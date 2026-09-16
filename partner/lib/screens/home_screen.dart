@@ -45,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
     final merchant = widget.session.merchant.value ?? {};
     final restaurant = merchant['restaurant'] is Map ? merchant['restaurant'] as Map : {};
+    final isOwner = (merchant['staffRole']?.toString() ?? 'owner') == 'owner';
     final storeName = restaurant['name']?.toString().trim().isNotEmpty == true
         ? restaurant['name'].toString()
         : merchant['name']?.toString() ?? 'متجرك';
@@ -72,11 +73,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            tooltip: 'الفروع',
-            onPressed: _openBranches,
-            icon: const Icon(Icons.account_tree_outlined),
-          ),
+          if (isOwner)
+            IconButton(
+              tooltip: 'الفروع',
+              onPressed: _openBranches,
+              icon: const Icon(Icons.account_tree_outlined),
+            ),
           IconButton(
             tooltip: 'تشغيل المتجر',
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OperationsSettingsScreen(api: widget.session.api))),
