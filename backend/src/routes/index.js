@@ -17,24 +17,16 @@ const { listGovernorates } = require('../utils/governorates');
 router.get('/openapi.json', (req, res) => res.json(buildOpenApiSpec()));
 router.get('/docs', (req, res) => res.type('html').send(docsHtml()));
 
-// Card 109: قائمة المدن (عامّة) — تُستخدم في منتقي "المدينة" قبل الحي عند إنشاء الطلب
 router.get('/cities', (req, res) => res.json(listCities()));
-
-// قائمة الأحياء (عامّة) — تُستخدم في منتقي الحي بلوحة الأدمن وتطبيق العميل.
-// ?city=<اسم المدينة> يُرجع أحياء تلك المدينة فقط؛ بدونه يُرجع كل الأحياء (توافقًا مع ما سبق).
-// ?grouped=1 يُرجع خريطة {المدينة: [الأحياء]} لجلبها دفعةً واحدة.
 router.get('/neighborhoods', (req, res) => {
   if (req.query.grouped) return res.json(neighborhoodsByCity());
   if (req.query.city) return res.json(listNeighborhoodsByCity(req.query.city));
   return res.json(listNeighborhoods());
 });
-
-// Card 96: قائمة المحافظات (عامّة) — تُستخدم في منتقي "مكان السكن" عند إنشاء حساب العميل
 router.get('/governorates', (req, res) => res.json(listGovernorates()));
 
 router.use('/auth', require('./auth.routes'));
 router.use('/orders', require('./order.routes'));
-// Card 110: تصفّح المطاعم وقوائم طعامها (قراءة عامّة)
 router.use('/restaurants', require('./restaurant.routes'));
 router.use('/captains', require('./captain.routes'));
 router.use('/wallet', require('./wallet.routes'));
@@ -42,8 +34,10 @@ router.use('/support', require('./support.routes'));
 router.use('/admin', require('./admin.routes'));
 router.use('/merchant', require('./merchant.routes'));
 router.use('/notifications', require('./notification.routes'));
+// ميزات المرحلة التالية: العناوين المحفوظة، المفضلة، إعادة الطلب، الكوبونات،
+// تحليلات ومستحقات الشركاء، وتنبيهات العمليات والملخص المالي للإدارة.
+router.use('/features', require('./feature.routes'));
 
-// فحص صحّة الخادم
 router.get('/health', (req, res) => res.json({ status: 'ok', service: 'yalla-api' }));
 
 module.exports = router;
