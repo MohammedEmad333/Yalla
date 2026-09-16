@@ -2,6 +2,8 @@
 
 const restaurantService = require('../services/restaurant.service');
 const merchantService = require('../services/merchant.service');
+const Restaurant = require('../models/Restaurant');
+const RestaurantRating = require('../models/RestaurantRating');
 
 /**
  * متحكّم المطاعم (Card 110) — مسارات تصفّح عامّة للزبائن، وإنشاء طلب من مطعم،
@@ -30,6 +32,51 @@ async function listCategories(req, res, next) {
 async function getRestaurant(req, res, next) {
   try {
     res.json(await restaurantService.getRestaurantWithMenu(req.params.restaurantId));
+  } catch (err) {
+    next(err);
+  }
+}
+
+// المستخدم يضيف/يحدّث تقييمه للمتجر، ثم نعيد حساب المتوسط والعدد.
+async function rateRestaurant(req, res, next) {
+  try {
+    const stars = Number(req.body?.stars);
+    if (!Number.isFinite(stars) || stars < 1 || stars > 5) {
+      return res.status(400).json({ message: 'التقييم يجب أن يكون من 1 إلى 5 نجوم' });
+    }
+
+    const restaurant = await Restaurant.findById(req.params.restaurantId);
+    if (!restaurant || !restaurant.active) {
+      return res.status(404).json({ message: 'المتجر غير موجود' });
+    }
+
+    await RestaurantRating.findOneAndUpdate(
+      { restaurant: restaurant._id, user: req.auth.id },
+      { $set: { stars } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    const [summary] = await RestaurantRating.aggregate([
+      { $match: { restaurant: restaurant._id } },
+      {
+        $group: {
+          _id: '$restaurant',
+          ratingAverage: { $avg: '$stars' },
+          ratingCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    restaurant.ratingAverage = summary?.ratingAverage ?? 0;
+    restaurant.ratingCount = summary?.ratingCount ?? 0;
+    await restaurant.save();
+
+    res.json({
+      ok: true,
+      ratingAverage: restaurant.ratingAverage,
+      ratingCount: restaurant.ratingCount,
+      myRating: stars,
+    });
   } catch (err) {
     next(err);
   }
@@ -158,6 +205,7 @@ module.exports = {
   listRestaurants,
   listCategories,
   getRestaurant,
+  rateRestaurant,
   createRestaurantOrder,
   adminListRestaurants,
   createRestaurant,
