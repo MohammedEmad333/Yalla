@@ -23,13 +23,25 @@ class PartnerSession {
   Future<void> restore() async {
     if (await tokens.read() == null) return;
     try {
-      final data = await api.get('/auth/me');
-      if (data['role'] != 'merchant') throw ApiException(403, 'نوع الحساب غير صالح');
-      merchant.value = Map<String, dynamic>.from(data['merchant'] as Map);
+      final me = await api.get('/auth/me');
+      if (me['role'] != 'merchant') throw ApiException(403, 'نوع الحساب غير صالح');
+      final profile = await api.get('/merchant/profile');
+      merchant.value = Map<String, dynamic>.from(profile as Map);
     } catch (_) {
       await tokens.clear();
       merchant.value = null;
     }
+  }
+
+  Future<void> switchBranch(String restaurantId) async {
+    final data = await api.post('/merchant/branches/$restaurantId/select');
+    await tokens.save(data['token'] as String);
+    merchant.value = Map<String, dynamic>.from(data['user'] as Map);
+  }
+
+  Future<void> refreshProfile() async {
+    final profile = await api.get('/merchant/profile');
+    merchant.value = Map<String, dynamic>.from(profile as Map);
   }
 
   Future<void> logout() async {
