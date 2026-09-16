@@ -4,63 +4,42 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { ROLES } = require('../utils/constants');
 
-// موديل المستخدم (العميل الذي يطلب التوصيل)
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true }, // الاسم الأول
-    lastName: { type: String, trim: true, default: '' }, // اسم العائلة
+    name: { type: String, required: true, trim: true },
+    lastName: { type: String, trim: true, default: '' },
     phone: { type: String, required: true, unique: true, trim: true },
     email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
-    passwordHash: { type: String, required: true, select: false }, // لا يُرجَع افتراضيًا
+    passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: [ROLES.USER, ROLES.ADMIN], default: ROLES.USER },
-
-    // Card 110: نطاق مناطق الأدمن — قائمة مدن يقتصر عليها هذا الأدمن (مثل
-    // ['الوسطى','خانيونس','رفح'] لأدمن الوسطى والجنوب). فارغة = أدمن كامل الصلاحية
-    // يرى كل الطلبات. تُطبَّق كمرشّح على طلبات لوحة التحكم (مدينة الاستلام/التسليم).
     regions: { type: [String], default: [] },
-
-    // بيانات إضافية لصفحة "حسابي" (Card 17)
-    avatarUrl: { type: String, default: '' }, // مسار الصورة الشخصية المرفوعة
-    city: { type: String, default: '', trim: true }, // المدينة
-
-    // Card 96: مكان السكن عند إنشاء الحساب — المحافظة (من قائمة محافظات غزة)
-    // وتفاصيل العنوان النصّية. تظهر للأدمن في بيانات الزبائن.
-    governorate: { type: String, default: '', trim: true }, // المحافظة
-    address: { type: String, default: '', trim: true }, // تفاصيل العنوان
-
-    // عناوين محفوظة للاستخدام السريع عند الطلب
-    savedAddresses: [
-      {
-        label: String, // "المنزل"، "العمل"...
-        address: String,
-        location: {
-          type: { type: String, enum: ['Point'], default: 'Point' },
-          coordinates: { type: [Number], default: [0, 0] }, // [lng, lat]
-        },
+    avatarUrl: { type: String, default: '' },
+    city: { type: String, default: '', trim: true },
+    governorate: { type: String, default: '', trim: true },
+    address: { type: String, default: '', trim: true },
+    savedAddresses: [{
+      label: String,
+      address: String,
+      location: {
+        type: { type: String, enum: ['Point'], default: 'Point' },
+        coordinates: { type: [Number], default: [0, 0] },
       },
-    ],
+    }],
+
+    // برنامج الولاء والإحالات.
+    loyaltyPoints: { type: Number, default: 0, min: 0 },
+    referralCode: { type: String, unique: true, sparse: true, uppercase: true, trim: true },
+    referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    referralRewarded: { type: Boolean, default: false },
 
     isActive: { type: Boolean, default: true },
-
-    // Card 80: حساب مؤقّت أُنشئ تلقائيًا لطلب خارجي من لوحة الأدمن (أو واتساب)
-    // دون تسجيل من التطبيق. يُميَّز عن الحسابات الدائمة، ويُحذف تلقائيًا بعد
-    // انتهاء طلبه (التسليم/الإلغاء) ما لم يُسجَّل من التطبيق قبل ذلك.
     isExternal: { type: Boolean, default: false },
-
-    // رموز أجهزة FCM لإرسال الإشعارات
     deviceTokens: { type: [String], default: [] },
   },
-  { timestamps: true } // createdAt / updatedAt تلقائيًا
+  { timestamps: true }
 );
 
-// تشفير كلمة المرور عبر دالة مساعدة قبل الحفظ
-userSchema.methods.setPassword = async function (plain) {
-  this.passwordHash = await bcrypt.hash(plain, 10);
-};
-
-// التحقق من كلمة المرور عند تسجيل الدخول
-userSchema.methods.verifyPassword = function (plain) {
-  return bcrypt.compare(plain, this.passwordHash);
-};
+userSchema.methods.setPassword = async function (plain) { this.passwordHash = await bcrypt.hash(plain, 10); };
+userSchema.methods.verifyPassword = function (plain) { return bcrypt.compare(plain, this.passwordHash); };
 
 module.exports = mongoose.model('User', userSchema);
