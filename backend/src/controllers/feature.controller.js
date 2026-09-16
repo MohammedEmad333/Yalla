@@ -1,7 +1,7 @@
 'use strict';
 
 const service = require('../services/feature.service');
-const Merchant = require('../models/Merchant');
+const branchMetrics = require('../services/merchantBranchMetrics.service');
 const Restaurant = require('../models/Restaurant');
 
 function handler(fn) {
@@ -12,10 +12,9 @@ function handler(fn) {
 
 async function setMerchantOpen(req, res, next) {
   try {
-    const merchant = await Merchant.findById(req.auth.id).lean();
-    if (!merchant || !merchant.isActive) return res.status(403).json({ message: 'حساب المتجر غير متاح' });
+    const ctx = await branchMetrics.context(req.auth.id, req.auth.restaurantId);
     const restaurant = await Restaurant.findByIdAndUpdate(
-      merchant.restaurant,
+      ctx.restaurantId,
       { isOpen: !!req.body.isOpen },
       { new: true }
     );
@@ -37,9 +36,9 @@ module.exports = {
   adminListCoupons: handler(() => service.adminListCoupons()),
   adminCreateCoupon: async (req, res, next) => { try { res.status(201).json(await service.adminCreateCoupon(req.body)); } catch (err) { next(err); } },
   adminUpdateCoupon: handler((req) => service.adminUpdateCoupon(req.params.id, req.body)),
-  merchantAnalytics: handler((req) => service.merchantAnalytics(req.auth.id)),
-  merchantFinance: handler((req) => service.merchantFinance(req.auth.id)),
-  requestMerchantSettlement: async (req, res, next) => { try { res.status(201).json(await service.requestMerchantSettlement(req.auth.id, req.body)); } catch (err) { next(err); } },
+  merchantAnalytics: handler((req) => branchMetrics.analytics(req.auth.id, req.auth.restaurantId)),
+  merchantFinance: handler((req) => branchMetrics.finance(req.auth.id, req.auth.restaurantId)),
+  requestMerchantSettlement: async (req, res, next) => { try { res.status(201).json(await branchMetrics.requestSettlement(req.auth.id, req.auth.restaurantId, req.body)); } catch (err) { next(err); } },
   setMerchantOpen,
   operationsAlerts: handler(() => service.operationsAlerts()),
   adminFinance: handler(() => service.adminFinance()),
