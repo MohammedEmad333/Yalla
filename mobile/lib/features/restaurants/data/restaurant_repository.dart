@@ -21,6 +21,8 @@ class Restaurant {
   final bool isOpen;
   final String openTime; // "HH:MM" أو '' (طوال اليوم)
   final String closeTime;
+  final double ratingAverage;
+  final int ratingCount;
 
   const Restaurant({
     required this.id,
@@ -38,6 +40,8 @@ class Restaurant {
     required this.isOpen,
     required this.openTime,
     required this.closeTime,
+    required this.ratingAverage,
+    required this.ratingCount,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
@@ -61,6 +65,8 @@ class Restaurant {
       isOpen: json['isOpen'] != false,
       openTime: (json['openTime'] ?? '').toString(),
       closeTime: (json['closeTime'] ?? '').toString(),
+      ratingAverage: ((json['ratingAverage'] as num?) ?? 0).toDouble(),
+      ratingCount: ((json['ratingCount'] as num?) ?? 0).toInt(),
     );
   }
 
@@ -284,6 +290,12 @@ class RestaurantRepository {
         })
         .toList();
     return (restaurant, menu);
+  }
+
+  /// إضافة أو تحديث تقييم المستخدم للمتجر.
+  Future<Map<String, dynamic>> rate(String restaurantId, int stars) async {
+    final data = await _api.post('/restaurants/$restaurantId/rate', {'stars': stars});
+    return Map<String, dynamic>.from(data as Map);
   }
 
   /// تسعيرة توصيل تقديرية من المطعم إلى عنوان الزبون [lng, lat].
