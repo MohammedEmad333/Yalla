@@ -16,6 +16,8 @@ router.post('/menu', ctrl.createMenuItem);
 router.patch('/menu/:itemId', ctrl.updateMenuItem);
 router.delete('/menu/:itemId', ctrl.deleteMenuItem);
 router.post('/menu/:itemId/image', uploadImage.single('image'), ctrl.uploadMenuItemImage);
+router.get('/inventory', ctrl.inventorySummary);
+router.patch('/inventory/:itemId', ctrl.adjustInventory);
 router.get('/orders', ctrl.listOrders);
 router.patch('/orders/:orderId/status', ctrl.updateOrderStatus);
 
