@@ -19,6 +19,10 @@ const restaurantSchema = new mongoose.Schema(
     imageUrl: { type: String, default: '' },
     phone: { type: String, default: '' },
 
+    // تقييم المتجر المحسوب من تقييمات المستخدمين.
+    ratingAverage: { type: Number, default: 0, min: 0, max: 5 },
+    ratingCount: { type: Number, default: 0, min: 0 },
+
     // عنوان المطعم — المدينة والحي يحدّدان الإحداثيّات (نفس منطق الطلبات)
     city: { type: String, default: '', index: true },
     neighborhood: { type: String, default: '' },
