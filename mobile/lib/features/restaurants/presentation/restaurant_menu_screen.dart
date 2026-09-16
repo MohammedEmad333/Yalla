@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
@@ -17,19 +16,9 @@ class RestaurantMenuScreen extends StatefulWidget {
 }
 
 class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
-  static const double _tabBarHeight = 54;
-
   late final RestaurantRepository _repo = RestaurantRepository(widget.api);
   late Restaurant _restaurant = widget.restaurant;
   late final Cart _cart = Cart(widget.restaurant);
-
-  final ScrollController _scroll = ScrollController();
-  final ScrollController _tabScroll = ScrollController();
-  List<GlobalKey> _sectionKeys = [];
-  List<GlobalKey> _tabKeys = [];
-  int _active = 0;
-  bool _lockSpy = false;
-
   List<MenuSection> _menu = [];
   bool _loading = true;
   bool _rating = false;
@@ -38,16 +27,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   @override
   void initState() {
     super.initState();
-    _scroll.addListener(_onScroll);
     _load();
-  }
-
-  @override
-  void dispose() {
-    _scroll.removeListener(_onScroll);
-    _scroll.dispose();
-    _tabScroll.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -61,629 +41,315 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       setState(() {
         _restaurant = restaurant;
         _menu = menu;
-        _sectionKeys = List.generate(menu.length, (_) => GlobalKey());
-        _tabKeys = List.generate(menu.length, (_) => GlobalKey());
-        _active = 0;
       });
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = 'تعذّر تحميل القائمة — تحقّق من الاتصال');
+      if (mounted) setState(() => _error = 'تعذّر تحميل القائمة');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  double _revealOffset(GlobalKey key) {
-    final ctx = key.currentContext;
-    if (ctx == null) return -1;
-    final box = ctx.findRenderObject();
-    if (box is! RenderBox) return -1;
-    final viewport = RenderAbstractViewport.of(box);
-    return viewport.getOffsetToReveal(box, 0).offset;
-  }
-
-  void _onScroll() {
-    if (_lockSpy || _sectionKeys.isEmpty) return;
-    final current = _scroll.offset + _tabBarHeight + 1;
-    int active = 0;
-    for (var i = 0; i < _sectionKeys.length; i++) {
-      final reveal = _revealOffset(_sectionKeys[i]);
-      if (reveal >= 0 && current >= reveal) active = i;
+  Future<void> _addConfigured(MenuItemModel item) async {
+    if (!item.available) return;
+    if (item.variants.isEmpty && item.optionGroups.isEmpty) {
+      setState(() => _cart.add(item));
+      return;
     }
-    if (active != _active) {
-      setState(() => _active = active);
-      _syncTab(active);
-    }
-  }
-
-  Future<void> _scrollToSection(int i) async {
-    final reveal = _revealOffset(_sectionKeys[i]);
-    if (reveal < 0) return;
-    setState(() {
-      _active = i;
-      _lockSpy = true;
-    });
-    _syncTab(i);
-    final target = (reveal - _tabBarHeight)
-        .clamp(0.0, _scroll.position.maxScrollExtent)
-        .toDouble();
-    await _scroll.animateTo(
-      target,
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeInOut,
+    final choice = await showModalBottomSheet<_ItemChoice>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _ItemOptionsSheet(item: item),
     );
-    if (mounted) _lockSpy = false;
-  }
-
-  void _syncTab(int i) {
-    if (i < 0 || i >= _tabKeys.length || !_tabScroll.hasClients) return;
-    final ctx = _tabKeys[i].currentContext;
-    final box = ctx?.findRenderObject();
-    if (box is! RenderBox) return;
-    final viewport = RenderAbstractViewport.of(box);
-    final target = viewport
-        .getOffsetToReveal(box, 0.5)
-        .offset
-        .clamp(0.0, _tabScroll.position.maxScrollExtent)
-        .toDouble();
-    if ((target - _tabScroll.offset).abs() < 1) return;
-    _tabScroll.animateTo(
-      target,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    if (choice == null || !mounted) return;
+    setState(() => _cart.add(item, variant: choice.variant, options: choice.options));
   }
 
   Future<void> _checkout() async {
     if (!_restaurant.openNow) {
-      _snack('المطعم مغلق حاليًا');
+      _snack('المتجر مغلق حاليًا');
       return;
     }
     if (!_cart.meetsMinOrder) {
-      _snack('الحدّ الأدنى للطلب من هذا المطعم ${_restaurant.minOrder} ₪');
+      _snack('الحد الأدنى للطلب ${_restaurant.minOrder} ₪');
       return;
     }
     final placed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => CheckoutScreen(api: widget.api, cart: _cart)),
     );
     if (!mounted) return;
-    if (placed == true) {
-      Navigator.of(context).pop();
-    } else {
-      setState(() {});
-    }
+    if (placed == true) Navigator.of(context).pop();
+    setState(() {});
   }
 
-  Future<void> _rateRestaurant() async {
+  Future<void> _rate() async {
     final stars = await showDialog<int>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('قيّم المتجر'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('اختر عدد النجوم'),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                5,
-                (i) => IconButton(
-                  tooltip: '${i + 1} نجوم',
-                  onPressed: () => Navigator.pop(dialogContext, i + 1),
-                  icon: const Icon(Icons.star_rounded),
-                  color: const Color(0xFFFFB300),
-                  iconSize: 34,
-                ),
-              ),
-            ),
-          ],
+        content: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (i) => IconButton(
+            onPressed: () => Navigator.pop(ctx, i + 1),
+            icon: const Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 34),
+          )),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
-        ],
       ),
     );
-    if (stars == null || !mounted) return;
-
+    if (stars == null) return;
     setState(() => _rating = true);
     try {
       await _repo.rate(_restaurant.id, stars);
       await _load();
-      if (mounted) _snack('شكرًا، تم تسجيل تقييمك');
     } on ApiException catch (e) {
-      if (mounted) _snack(e.message);
-    } catch (_) {
-      if (mounted) _snack('تعذّر إرسال التقييم');
+      _snack(e.message);
     } finally {
       if (mounted) setState(() => _rating = false);
     }
   }
 
-  void _snack(String text) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  void _snack(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: _body(),
-      bottomNavigationBar: _cart.isEmpty ? null : _cartBar(),
-    );
-  }
-
-  Widget _body() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error.isNotEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_error, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            OutlinedButton(onPressed: _load, child: const Text('إعادة المحاولة')),
-          ],
-        ),
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: Text(_restaurant.name)),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error.isNotEmpty
+                ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(_error),
+                    const SizedBox(height: 12),
+                    FilledButton(onPressed: _load, child: const Text('إعادة المحاولة')),
+                  ]))
+                : RefreshIndicator(onRefresh: _load, child: _content()),
+        bottomNavigationBar: _cart.isEmpty ? null : _cartBar(),
       );
-    }
 
-    return CustomScrollView(
-      controller: _scroll,
-      slivers: [
-        SliverToBoxAdapter(child: _header()),
-        if (_menu.length > 1)
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _TabBarDelegate(height: _tabBarHeight, child: _tabBar()),
-          ),
-        if (_menu.isEmpty)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(top: 40),
-              child: Center(child: Text('لا توجد أصناف في هذه القائمة بعد')),
-            ),
-          ),
-        for (var i = 0; i < _menu.length; i++) _sectionSliver(i),
-        const SliverToBoxAdapter(child: SizedBox(height: 24)),
-      ],
-    );
-  }
-
-  Widget _header() {
-    final open = _restaurant.openNow;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: 220,
-          width: double.infinity,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _restaurant.fullImageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: _restaurant.fullImageUrl!,
-                      fit: BoxFit.cover,
-                      memCacheWidth: 900,
-                      maxWidthDiskCache: 1200,
-                      fadeInDuration: const Duration(milliseconds: 180),
-                      placeholder: (_, __) => _imageLoading(),
-                      errorWidget: (_, __, ___) => _imageFallback(),
-                    )
-                  : _imageFallback(),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.black.withValues(alpha: .30), Colors.transparent],
-                      stops: const [0, .55],
-                    ),
-                  ),
+  Widget _content() => ListView(
+        padding: const EdgeInsets.only(bottom: 120),
+        children: [
+          if (_restaurant.fullImageUrl != null)
+            CachedNetworkImage(
+              imageUrl: _restaurant.fullImageUrl!,
+              height: 210,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => const SizedBox(height: 210, child: Center(child: CircularProgressIndicator())),
+              errorWidget: (_, __, ___) => _imageFallback(),
+            )
+          else
+            _imageFallback(),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text(_restaurant.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900))),
+                FilledButton.tonalIcon(
+                  onPressed: _rating ? null : _rate,
+                  icon: const Icon(Icons.star_outline),
+                  label: const Text('تقييم'),
                 ),
-              ),
-              SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: Row(
-                      children: [
-                        Material(
-                          color: Colors.white.withValues(alpha: .94),
-                          shape: const CircleBorder(),
-                          child: IconButton(
-                            tooltip: 'رجوع',
-                            onPressed: () => Navigator.of(context).maybePop(),
-                            icon: const Icon(Icons.arrow_back_rounded),
-                          ),
-                        ),
-                        const Spacer(),
-                        _statusPill(open),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      _restaurant.name,
-                      style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.tonalIcon(
-                    onPressed: _rating ? null : _rateRestaurant,
-                    icon: _rating
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.star_outline_rounded),
-                    label: const Text('تقييم'),
-                  ),
-                ],
-              ),
+              ]),
               const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 20),
-                  const SizedBox(width: 4),
-                  Text(
-                    _restaurant.ratingCount > 0
-                        ? '${_restaurant.ratingAverage.toStringAsFixed(1)} (${_restaurant.ratingCount})'
-                        : 'لا توجد تقييمات بعد',
-                    style: TextStyle(color: YallaColors.muted, fontWeight: FontWeight.w700),
-                  ),
-                  if (_restaurant.scheduleLabel.isNotEmpty) ...[
-                    const SizedBox(width: 14),
-                    Icon(Icons.access_time, size: 16, color: YallaColors.muted),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        _restaurant.scheduleLabel,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: YallaColors.muted, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ],
+              Text(
+                _restaurant.ratingCount > 0
+                    ? '⭐ ${_restaurant.ratingAverage.toStringAsFixed(1)} (${_restaurant.ratingCount})'
+                    : 'لا توجد تقييمات بعد',
+                style: TextStyle(color: YallaColors.muted),
               ),
-              if (!open && _restaurant.opensAtLabel.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: YallaColors.errorContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: YallaColors.error, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text('المتجر مغلق حاليًا — ${_restaurant.opensAtLabel}')),
-                    ],
-                  ),
-                ),
-              ],
               if (_restaurant.description.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Text(_restaurant.description, style: TextStyle(color: YallaColors.muted)),
+                const SizedBox(height: 8),
+                Text(_restaurant.description),
               ],
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 14,
-                runSpacing: 8,
-                children: [
-                  if (_restaurant.phone.trim().isNotEmpty)
-                    _meta(Icons.phone_outlined, 'رقم المتجر: ${_restaurant.phone.trim()}'),
-                  if (_restaurant.address.isNotEmpty)
-                    _meta(Icons.place_outlined, _restaurant.address),
-                  if (_restaurant.prepMinutes > 0)
-                    _meta(Icons.timer_outlined, '~${_restaurant.prepMinutes} دقيقة تحضير'),
-                  if (_restaurant.minOrder > 0)
-                    _meta(Icons.shopping_basket_outlined, 'الحدّ الأدنى ${_restaurant.minOrder} ₪'),
-                ],
-              ),
-            ],
+              const SizedBox(height: 8),
+              Wrap(spacing: 12, runSpacing: 8, children: [
+                Chip(label: Text(_restaurant.openNow ? 'مفتوح الآن' : 'مغلق')),
+                if (_restaurant.scheduleLabel.isNotEmpty) Chip(label: Text(_restaurant.scheduleLabel)),
+                if (_restaurant.prepMinutes > 0) Chip(label: Text('تحضير ~${_restaurant.prepMinutes} دقيقة')),
+                if (_restaurant.minOrder > 0) Chip(label: Text('حد أدنى ${_restaurant.minOrder} ₪')),
+              ]),
+            ]),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _statusPill(bool open) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-        decoration: BoxDecoration(
-          color: open
-              ? YallaColors.successContainer.withValues(alpha: .96)
-              : YallaColors.errorContainer.withValues(alpha: .96),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 8)],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: open ? YallaColors.success : YallaColors.error,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              open ? 'مفتوح الآن' : 'مغلق',
-              style: TextStyle(
-                color: open ? YallaColors.success : YallaColors.error,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      );
-
-  Widget _tabBar() => Container(
-        height: _tabBarHeight,
-        color: Theme.of(context).scaffoldBackgroundColor,
-        alignment: Alignment.centerRight,
-        child: ListView.separated(
-          controller: _tabScroll,
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          itemCount: _menu.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (_, i) {
-            final selected = i == _active;
-            final section = _menu[i];
-            return ChoiceChip(
-              key: _tabKeys[i],
-              label: Text('${section.category} (${section.items.length})'),
-              selected: selected,
-              onSelected: (_) => _scrollToSection(i),
-            );
-          },
-        ),
-      );
-
-  Widget _sectionSliver(int i) {
-    final section = _menu[i];
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          if (_menu.isEmpty)
+            const Padding(padding: EdgeInsets.all(36), child: Center(child: Text('لا توجد أصناف بعد'))),
+          for (final section in _menu) ...[
             Padding(
-              key: _sectionKeys[i],
-              padding: const EdgeInsets.only(top: 16, bottom: 8),
-              child: Text(
-                '${section.category} (${section.items.length})',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+              child: Text(section.category, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
             ),
-            ...section.items.map(_menuTile),
+            ...section.items.map(_itemTile),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _menuTile(MenuItemModel item) {
-    final qty = _cart.qtyOf(item.id);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Opacity(
-        opacity: item.available ? 1.0 : 0.5,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (item.fullImageUrl != null) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: item.fullImageUrl!,
-                    width: 92,
-                    height: 92,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 276,
-                    memCacheHeight: 276,
-                    maxWidthDiskCache: 420,
-                    maxHeightDiskCache: 420,
-                    fadeInDuration: const Duration(milliseconds: 150),
-                    placeholder: (_, __) => _tileImageLoading(),
-                    errorWidget: (_, __, ___) => _tileImageFallback(),
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(item.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    if (item.description.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        item.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: YallaColors.muted, fontSize: 12),
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    Text(
-                      item.available
-                          ? (item.variants.isEmpty
-                              ? '${item.price} ₪'
-                              : 'خيارات: ${item.variants.map((v) => '${v.label} ${v.price} ₪').join(' · ')}')
-                          : 'غير متوفّر حاليًا',
-                      style: TextStyle(
-                        color: item.available ? YallaColors.primary : YallaColors.error,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (item.available)
-                qty == 0
-                    ? IconButton.filled(
-                        onPressed: () => _addItem(item),
-                        icon: const Icon(Icons.add),
-                        tooltip: 'إضافة للسلّة',
-                      )
-                    : Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => setState(() => _cart.remove(item)),
-                            icon: const Icon(Icons.remove_circle_outline),
-                          ),
-                          Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          IconButton(
-                            onPressed: () => _addItem(item),
-                            icon: Icon(Icons.add_circle, color: YallaColors.primary),
-                          ),
-                        ],
-                      ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _addItem(MenuItemModel item) async {
-    MenuVariant? variant;
-    if (_cart.qtyOf(item.id) == 0 && item.variants.isNotEmpty) {
-      variant = await showDialog<MenuVariant>(
-        context: context,
-        builder: (ctx) => SimpleDialog(
-          title: const Text('اختر الحجم أو الوزن'),
-          children: item.variants
-              .map(
-                (v) => SimpleDialogOption(
-                  onPressed: () => Navigator.pop(ctx, v),
-                  child: ListTile(title: Text(v.label), trailing: Text('${v.price} ₪')),
-                ),
-              )
-              .toList(),
-        ),
-      );
-      if (variant == null) return;
-    }
-    setState(() => _cart.add(item, variant: variant));
-  }
-
-  Widget _cartBar() => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: FilledButton(
-            onPressed: _checkout,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('${_cart.count} صنف · ${_cart.total} ₪'),
-                const Row(
-                  children: [
-                    Text('إتمام الطلب'),
-                    SizedBox(width: 4),
-                    Icon(Icons.arrow_back, size: 18),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-
-  Widget _imageLoading() => Container(
-        color: YallaColors.primaryContainer,
-        alignment: Alignment.center,
-        child: const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      );
-
-  Widget _tileImageLoading() => Container(
-        width: 92,
-        height: 92,
-        color: YallaColors.primaryContainer,
-        alignment: Alignment.center,
-        child: const SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        ],
       );
 
   Widget _imageFallback() => Container(
-        color: YallaColors.primaryContainer,
-        alignment: Alignment.center,
-        child: Icon(Icons.restaurant, size: 44, color: YallaColors.primaryDeep),
+        height: 210,
+        color: YallaColors.surfaceContainer,
+        child: const Center(child: Icon(Icons.storefront, size: 64)),
       );
 
-  Widget _tileImageFallback() => Container(
-        width: 92,
-        height: 92,
-        color: YallaColors.primaryContainer,
-        alignment: Alignment.center,
-        child: Icon(Icons.restaurant_menu, size: 28, color: YallaColors.primaryDeep),
-      );
-
-  Widget _meta(IconData icon, String text) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: YallaColors.muted),
-          const SizedBox(width: 4),
-          Text(text, style: TextStyle(color: YallaColors.muted, fontSize: 12)),
-        ],
-      );
-}
-
-class _TabBarDelegate extends SliverPersistentHeaderDelegate {
-  final double height;
-  final Widget child;
-  const _TabBarDelegate({required this.height, required this.child});
-
-  @override
-  double get minExtent => height;
-  @override
-  double get maxExtent => height;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Material(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      elevation: overlapsContent ? 2 : 0,
-      child: child,
+  Widget _itemTile(MenuItemModel item) {
+    final count = _cart.qtyOf(item.id);
+    final hasOptions = item.variants.isNotEmpty || item.optionGroups.isNotEmpty;
+    return Card(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: InkWell(
+        onTap: item.available ? () => _addConfigured(item) : null,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (item.fullImageUrl != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CachedNetworkImage(imageUrl: item.fullImageUrl!, width: 82, height: 82, fit: BoxFit.cover),
+              )
+            else
+              Container(width: 82, height: 82, decoration: BoxDecoration(color: YallaColors.surfaceContainer, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.fastfood_outlined)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              if (item.description.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(item.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: YallaColors.muted, fontSize: 13)),
+              ],
+              const SizedBox(height: 8),
+              Text('من ${item.price} ₪', style: TextStyle(color: YallaColors.primary, fontWeight: FontWeight.w900)),
+              if (hasOptions) Text('يتوفر بخيارات وإضافات', style: TextStyle(color: YallaColors.muted, fontSize: 12)),
+            ])),
+            const SizedBox(width: 8),
+            Column(children: [
+              IconButton.filledTonal(onPressed: item.available ? () => _addConfigured(item) : null, icon: const Icon(Icons.add)),
+              if (count > 0) Text('$count', style: const TextStyle(fontWeight: FontWeight.bold)),
+            ]),
+          ]),
+        ),
+      ),
     );
   }
 
+  Widget _cartBar() => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: FilledButton(
+            onPressed: _checkout,
+            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Badge(label: Text('${_cart.count}')),
+              const Text('عرض السلة'),
+              Text('${_cart.total} ₪'),
+            ]),
+          ),
+        ),
+      );
+}
+
+class _ItemChoice {
+  final MenuVariant? variant;
+  final List<SelectedMenuOption> options;
+  const _ItemChoice(this.variant, this.options);
+}
+
+class _ItemOptionsSheet extends StatefulWidget {
+  final MenuItemModel item;
+  const _ItemOptionsSheet({required this.item});
   @override
-  bool shouldRebuild(_TabBarDelegate oldDelegate) =>
-      oldDelegate.child != child || oldDelegate.height != height;
+  State<_ItemOptionsSheet> createState() => _ItemOptionsSheetState();
+}
+
+class _ItemOptionsSheetState extends State<_ItemOptionsSheet> {
+  MenuVariant? _variant;
+  final Map<String, Set<String>> _selected = {};
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.item.variants.isNotEmpty) _variant = widget.item.variants.first;
+    for (final g in widget.item.optionGroups) {
+      _selected[g.name] = <String>{};
+    }
+  }
+
+  void _toggle(MenuOptionGroup group, MenuOption option) {
+    final set = _selected[group.name]!;
+    setState(() {
+      _error = '';
+      if (group.multiple) {
+        if (set.contains(option.name)) {
+          set.remove(option.name);
+        } else if (set.length < group.maxSelect) {
+          set.add(option.name);
+        }
+      } else {
+        set
+          ..clear()
+          ..add(option.name);
+      }
+    });
+  }
+
+  void _done() {
+    final result = <SelectedMenuOption>[];
+    for (final group in widget.item.optionGroups) {
+      final names = _selected[group.name] ?? {};
+      final min = group.required ? (group.minSelect < 1 ? 1 : group.minSelect) : group.minSelect;
+      if (names.length < min) {
+        setState(() => _error = 'اختر ${group.name}');
+        return;
+      }
+      for (final name in names) {
+        final option = group.options.firstWhere((e) => e.name == name);
+        result.add(SelectedMenuOption(group.name, option.name, option.price));
+      }
+    }
+    Navigator.pop(context, _ItemChoice(_variant, result));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final base = _variant?.price ?? widget.item.price;
+    num extras = 0;
+    for (final group in widget.item.optionGroups) {
+      for (final option in group.options) {
+        if ((_selected[group.name] ?? {}).contains(option.name)) extras += option.price;
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+      child: SingleChildScrollView(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(widget.item.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 14),
+          if (widget.item.variants.isNotEmpty) ...[
+            const Text('الحجم / النوع', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            ...widget.item.variants.map((v) => RadioListTile<MenuVariant>(
+              value: v,
+              groupValue: _variant,
+              onChanged: (x) => setState(() => _variant = x),
+              title: Text(v.label),
+              secondary: Text('${v.price} ₪'),
+            )),
+          ],
+          for (final group in widget.item.optionGroups) ...[
+            const SizedBox(height: 12),
+            Text('${group.name}${group.required ? ' *' : ''}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(group.multiple ? 'يمكن اختيار حتى ${group.maxSelect}' : 'اختر واحدًا', style: TextStyle(color: YallaColors.muted, fontSize: 12)),
+            ...group.options.map((o) => CheckboxListTile(
+              value: (_selected[group.name] ?? {}).contains(o.name),
+              onChanged: (_) => _toggle(group, o),
+              title: Text(o.name),
+              secondary: o.price > 0 ? Text('+${o.price} ₪') : null,
+            )),
+          ],
+          if (_error.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error, style: TextStyle(color: YallaColors.error))),
+          const SizedBox(height: 14),
+          FilledButton(onPressed: _done, child: Text('إضافة للسلة · ${base + extras} ₪')),
+        ]),
+      ),
+    );
+  }
 }
