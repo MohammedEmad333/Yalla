@@ -64,13 +64,15 @@ async function create(merchantId, auth, payload = {}) {
   if (!name) throw httpError('اسم الموظف مطلوب');
   if (!/^\+?\d{6,15}$/.test(phone)) throw httpError('رقم الجوال غير صالح');
   if (password.length < 6) throw httpError('كلمة السر ٦ أحرف على الأقل');
-  const collision = await Promise.any([
-    User.exists({ phone }).then(Boolean),
-    Captain.exists({ phone }).then(Boolean),
-    Merchant.exists({ phone }).then(Boolean),
-    MerchantStaff.exists({ phone }).then(Boolean),
-  ]).catch(() => false);
-  if (collision) throw httpError('رقم الجوال مستخدم في حساب آخر', 409);
+
+  const collisions = await Promise.all([
+    User.exists({ phone }),
+    Captain.exists({ phone }),
+    Merchant.exists({ phone }),
+    MerchantStaff.exists({ phone }),
+  ]);
+  if (collisions.some(Boolean)) throw httpError('رقم الجوال مستخدم في حساب آخر', 409);
+
   const staff = new MerchantStaff({ merchant: merchant._id, restaurant: merchant.restaurant, name, phone, role, active: true });
   await staff.setPassword(password);
   await staff.save();
