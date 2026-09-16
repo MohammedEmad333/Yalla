@@ -27,10 +27,12 @@ import OperationsFinance from './pages/OperationsFinance';
 import QualitySystem from './pages/QualitySystem';
 import MarketingCenter from './pages/MarketingCenter';
 import AdminRoles from './pages/AdminRoles';
+import SmartDispatch from './pages/SmartDispatch';
 
 const NAV = [
   { group: 'العمليات', items: [
     { key: 'dashboard', label: 'اللوحة اللحظية', icon: IconDashboard, Page: LiveDashboard },
+    { key: 'dispatch', label: 'Smart Dispatch', icon: IconOrders, Page: SmartDispatch },
     { key: 'opsFinance', label: 'مركز العمليات والمال', icon: IconChart, Page: OperationsFinance },
     { key: 'quality', label: 'الجودة وصحة النظام', icon: IconSupport, Page: QualitySystem },
     { key: 'orders', label: 'بحث الطلبات', icon: IconOrders, Page: OrdersPage },
@@ -58,7 +60,7 @@ const NAV = [
 
 const ROLE_PAGES = {
   super_admin: '*',
-  operations: ['dashboard','orders','restaurants','users','captainDocs','stats','quality'],
+  operations: ['dashboard','dispatch','orders','restaurants','users','captainDocs','stats','quality'],
   support: ['dashboard','orders','users','chats','support','quality'],
   finance: ['dashboard','opsFinance','adminWallet','wallet','withdrawals','stats'],
   marketing: ['dashboard','restaurants','broadcast','marketing','stats'],
