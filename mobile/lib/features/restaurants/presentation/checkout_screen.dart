@@ -287,7 +287,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       title: Text(line.label),
       subtitle: Text('${line.unitPrice} ₪ للوحدة'),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-        IconButton(onPressed: () { setState(() => _cart.remove(line.item)); if (_cart.isEmpty) Navigator.of(context).pop(false); }, icon: const Icon(Icons.remove_circle_outline)),
+        IconButton(onPressed: () { setState(() => _cart.removeLine(line)); if (_cart.isEmpty) Navigator.of(context).pop(false); }, icon: const Icon(Icons.remove_circle_outline)),
         Text('${line.qty}', style: const TextStyle(fontWeight: FontWeight.bold)),
         IconButton(onPressed: () => setState(() => _cart.add(line.item, variant: line.variant, options: line.options)), icon: Icon(Icons.add_circle, color: YallaColors.primary)),
       ]),
