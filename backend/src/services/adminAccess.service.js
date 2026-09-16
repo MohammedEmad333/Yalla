@@ -10,7 +10,7 @@ const { ROLES } = require('../utils/constants');
 const ADMIN_ROLES = ['super_admin', 'operations', 'support', 'finance', 'marketing'];
 const ROLE_PERMISSIONS = {
   super_admin: ['*'],
-  operations: ['dashboard', 'orders', 'captains', 'users', 'restaurants', 'operations', 'stats'],
+  operations: ['dashboard', 'orders', 'captains', 'users', 'restaurants', 'operations', 'stats', 'dispatch'],
   support: ['dashboard', 'support', 'chats', 'users:read', 'orders:read', 'issues'],
   finance: ['dashboard', 'finance', 'wallet', 'withdrawals', 'settlements', 'stats'],
   marketing: ['dashboard', 'marketing', 'broadcast', 'restaurants:read', 'stats:read'],
@@ -58,14 +58,35 @@ async function createAdmin(payload = {}) {
   return { id: user._id, name: user.name, phone: user.phone, adminRole: user.adminRole, regions: user.regions, isActive: user.isActive };
 }
 
+async function activeSuperAdminCount() {
+  return User.countDocuments({
+    role: ROLES.ADMIN,
+    isActive: true,
+    $or: [{ adminRole: 'super_admin' }, { adminRole: null }, { adminRole: { $exists: false } }],
+  });
+}
+
 async function updateAdmin(requesterId, adminId, payload = {}) {
   const user = await User.findOne({ _id: adminId, role: ROLES.ADMIN }).select('+passwordHash');
   if (!user) throw httpError('حساب الإدارة غير موجود', 404);
-  if (String(user._id) === String(requesterId) && payload.isActive === false) {
+
+  const currentRole = user.adminRole || 'super_admin';
+  const requestedRole = payload.adminRole !== undefined ? normalizeRole(payload.adminRole) : currentRole;
+  const disabling = payload.isActive === false && user.isActive !== false;
+  const demotingSuper = currentRole === 'super_admin' && requestedRole !== 'super_admin';
+
+  if (String(user._id) === String(requesterId) && disabling) {
     throw httpError('لا يمكنك تعطيل حسابك الحالي');
   }
+  if (String(user._id) === String(requesterId) && demotingSuper) {
+    throw httpError('لا يمكنك إزالة صلاحية Super Admin من حسابك الحالي');
+  }
+  if ((disabling || demotingSuper) && currentRole === 'super_admin' && await activeSuperAdminCount() <= 1) {
+    throw httpError('يجب أن يبقى حساب Super Admin فعّال واحد على الأقل');
+  }
+
   if (payload.name !== undefined) user.name = String(payload.name || '').trim();
-  if (payload.adminRole !== undefined) user.adminRole = normalizeRole(payload.adminRole);
+  if (payload.adminRole !== undefined) user.adminRole = requestedRole;
   if (payload.regions !== undefined) user.regions = Array.isArray(payload.regions) ? payload.regions : [];
   if (payload.isActive !== undefined) user.isActive = !!payload.isActive;
   if (payload.password) {
