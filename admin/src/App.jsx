@@ -1,30 +1,12 @@
-// جذر لوحة الأدمن (Yalla Console) — بوابة مصادقة + هيكل تطبيق متجاوب:
-// الجوال: شريط علويّ ثابت + درج تنقّل منزلق. الحاسوب: شريط جانبي دائم.
-// الصفحة الحاليّة محفوظة في عنوان المتصفّح (?page=) ليعمل زرّ الرجوع والمشاركة.
-
 import { useCallback, useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import PullToRefresh from './components/PullToRefresh';
 import { Avatar, IconButton } from './components/ui';
 import { getThemeMode, setThemeMode, THEME_MODES } from './theme-mode';
 import {
-  IconChart,
-  IconChat,
-  IconCashOut,
-  IconDashboard,
-  IconIdCard,
-  IconLogout,
-  IconMegaphone,
-  IconMenu,
-  IconOrders,
-  IconRefresh,
-  IconStore,
-  IconSupport,
-  IconUsers,
-  IconWallet,
-  IconSun,
-  IconMoon,
-  IconAuto,
+  IconChart, IconChat, IconCashOut, IconDashboard, IconIdCard, IconLogout,
+  IconMegaphone, IconMenu, IconOrders, IconRefresh, IconStore, IconSupport,
+  IconUsers, IconWallet, IconSun, IconMoon, IconAuto,
 } from './components/icons';
 
 import LoginPage from './pages/LoginPage';
@@ -41,13 +23,14 @@ import Broadcast from './pages/Broadcast';
 import Restaurants from './pages/Restaurants';
 import AdminWallet from './pages/AdminWallet';
 import AdminAccount from './pages/AdminAccount';
+import OperationsFinance from './pages/OperationsFinance';
 
-// أقسام التنقّل — مجموعات مسمّاة بدل شريط تبويبات طويل يلتفّ على الجوال
 const NAV = [
   {
     group: 'العمليات',
     items: [
       { key: 'dashboard', label: 'اللوحة اللحظية', icon: IconDashboard, Page: LiveDashboard },
+      { key: 'opsFinance', label: 'مركز العمليات والمال', icon: IconChart, Page: OperationsFinance },
       { key: 'orders', label: 'بحث الطلبات', icon: IconOrders, Page: OrdersPage },
       { key: 'restaurants', label: 'المتاجر والمطاعم', icon: IconStore, Page: Restaurants },
     ],
@@ -82,13 +65,11 @@ const NAV = [
 const ALL_ITEMS = NAV.flatMap((g) => g.items);
 const DEFAULT_PAGE = 'dashboard';
 
-// قراءة الصفحة من عنوان المتصفّح (مع التحقّق من صلاحيّتها)
 function pageFromUrl() {
   const key = new URLSearchParams(window.location.search).get('page');
   return ALL_ITEMS.some((i) => i.key === key) ? key : DEFAULT_PAGE;
 }
 
-// مبدّل وضع العرض: حسب النظام ← فاتح ← ليلي (يدور بينها بضغطة واحدة)
 const THEME_META = {
   system: { icon: IconAuto, label: 'حسب النظام' },
   light: { icon: IconSun, label: 'الوضع الفاتح' },
@@ -98,30 +79,20 @@ const THEME_META = {
 function ThemeToggle() {
   const [mode, setMode] = useState(getThemeMode);
   const { icon: Icon, label } = THEME_META[mode];
-
   function cycle() {
     const next = THEME_MODES[(THEME_MODES.indexOf(mode) + 1) % THEME_MODES.length];
     setMode(setThemeMode(next));
   }
-
-  return (
-    <IconButton label={`المظهر: ${label} — اضغط للتبديل`} onClick={cycle}>
-      <Icon size={20} />
-    </IconButton>
-  );
+  return <IconButton label={`المظهر: ${label} — اضغط للتبديل`} onClick={cycle}><Icon size={20} /></IconButton>;
 }
 
 function Console() {
   const { admin, logout } = useAuth();
   const [page, setPage] = useState(pageFromUrl);
   const [drawer, setDrawer] = useState(false);
-  // مفتاح إعادة التركيب: السحب-للتحديث (أو زرّ التحديث) يُعيد تركيب الصفحة
-  // الحاليّة فتُعيد جلب بياناتها عبر useEffect دون منطق خاصّ بكلّ صفحة.
   const [refreshKey, setRefreshKey] = useState(0);
-
   const current = ALL_ITEMS.find((i) => i.key === page) || ALL_ITEMS[0];
 
-  // مزامنة العنوان + دعم زرّ الرجوع في المتصفّح
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get('page') !== page) {
@@ -137,7 +108,6 @@ function Console() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // إغلاق الدرج بمفتاح Escape
   useEffect(() => {
     if (!drawer) return undefined;
     const onKey = (e) => e.key === 'Escape' && setDrawer(false);
@@ -147,14 +117,11 @@ function Console() {
 
   const refresh = useCallback(async () => {
     setRefreshKey((k) => k + 1);
-    // مهلة قصيرة لإبقاء المؤشّر ظاهرًا ريثما تُعيد الصفحة المُركّبة جلب بياناتها
     await new Promise((r) => setTimeout(r, 650));
   }, []);
 
   function go(key) {
-    setPage(key);
-    setDrawer(false);
-    window.scrollTo({ top: 0 });
+    setPage(key); setDrawer(false); window.scrollTo({ top: 0 });
   }
 
   const { Page } = current;
@@ -164,71 +131,32 @@ function Console() {
       <aside className="yl-side" data-open={drawer}>
         <div className="yl-side__brand">
           <img className="yl-side__logo" src="/logo.png" alt="" />
-          <div style={{ flex: 1 }}>
-            <span className="yl-side__name">Yalla</span>
-            <span className="yl-side__tag">لوحة التحكّم</span>
-          </div>
-          <span className="yl-hide-lg">
-            <IconButton label="إغلاق القائمة" onClick={() => setDrawer(false)} small>
-              <IconMenu size={18} />
-            </IconButton>
-          </span>
+          <div style={{ flex: 1 }}><span className="yl-side__name">Yalla</span><span className="yl-side__tag">لوحة التحكّم</span></div>
+          <span className="yl-hide-lg"><IconButton label="إغلاق القائمة" onClick={() => setDrawer(false)} small><IconMenu size={18} /></IconButton></span>
         </div>
-
         <nav className="yl-side__nav">
-          {NAV.map((g) => (
-            <div className="yl-navgroup" key={g.group}>
-              <div className="yl-navgroup__title">{g.group}</div>
-              {g.items.map(({ key, label, icon: Icon }) => (
-                <button
-                  key={key}
-                  className="yl-navlink"
-                  aria-current={key === page ? 'page' : undefined}
-                  onClick={() => go(key)}
-                >
-                  <span className="yl-navlink__icon">
-                    <Icon size={20} />
-                  </span>
-                  <span className="yl-navlink__label">{label}</span>
-                </button>
-              ))}
-            </div>
-          ))}
+          {NAV.map((g) => <div className="yl-navgroup" key={g.group}>
+            <div className="yl-navgroup__title">{g.group}</div>
+            {g.items.map(({ key, label, icon: Icon }) => <button key={key} className="yl-navlink" aria-current={key === page ? 'page' : undefined} onClick={() => go(key)}>
+              <span className="yl-navlink__icon"><Icon size={20} /></span><span className="yl-navlink__label">{label}</span>
+            </button>)}
+          </div>)}
         </nav>
-
         <div className="yl-side__foot">
           <Avatar name={admin?.name} size="sm" />
-          <div className="yl-side__user">
-            <b className="yl-truncate">{admin?.name || 'المدير'}</b>
-            <span>{admin?.phone}</span>
-          </div>
+          <div className="yl-side__user"><b className="yl-truncate">{admin?.name || 'المدير'}</b><span>{admin?.phone}</span></div>
           <ThemeToggle />
-          <IconButton label="تسجيل الخروج" onClick={logout}>
-            <IconLogout size={20} />
-          </IconButton>
+          <IconButton label="تسجيل الخروج" onClick={logout}><IconLogout size={20} /></IconButton>
         </div>
       </aside>
-
       {drawer && <button className="yl-scrim" aria-label="إغلاق القائمة" onClick={() => setDrawer(false)} />}
-
       <div className="yl-main">
         <header className="yl-topbar">
-          <span className="yl-burger">
-            <IconButton label="القائمة" onClick={() => setDrawer(true)}>
-              <IconMenu />
-            </IconButton>
-          </span>
+          <span className="yl-burger"><IconButton label="القائمة" onClick={() => setDrawer(true)}><IconMenu /></IconButton></span>
           <span className="yl-topbar__title">{current.label}</span>
-          <IconButton label="تحديث" onClick={refresh}>
-            <IconRefresh />
-          </IconButton>
+          <IconButton label="تحديث" onClick={refresh}><IconRefresh /></IconButton>
         </header>
-
-        <PullToRefresh onRefresh={refresh}>
-          <main className="yl-content" key={`${page}-${refreshKey}`}>
-            <Page />
-          </main>
-        </PullToRefresh>
+        <PullToRefresh onRefresh={refresh}><main className="yl-content" key={`${page}-${refreshKey}`}><Page /></main></PullToRefresh>
       </div>
     </div>
   );
@@ -236,22 +164,10 @@ function Console() {
 
 function Gate() {
   const { admin, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="yl-empty" style={{ minHeight: '100dvh' }}>
-        <span className="yl-spinner" style={{ color: 'var(--brand)' }} />
-        <span>...جارٍ التحميل</span>
-      </div>
-    );
-  }
+  if (loading) return <div className="yl-empty" style={{ minHeight: '100dvh' }}><span className="yl-spinner" style={{ color: 'var(--brand)' }} /><span>...جارٍ التحميل</span></div>;
   return admin ? <Console /> : <LoginPage />;
 }
 
 export default function App() {
-  return (
-    <AuthProvider>
-      <Gate />
-    </AuthProvider>
-  );
+  return <AuthProvider><Gate /></AuthProvider>;
 }
