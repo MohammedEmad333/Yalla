@@ -4,7 +4,14 @@ const Order = require('../models/Order');
 const Coupon = require('../models/Coupon');
 const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
-const restaurantService = require('./restaurant.service');
+const orderService = require('./order.service');
+const { coordsForNeighborhood } = require('../utils/neighborhoods');
+const {
+  normalizeCartItems,
+  buildOrderLines,
+  summarizeCart,
+  meetsMinOrder,
+} = require('../utils/menu');
 
 function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
@@ -36,6 +43,16 @@ function scheduleOpen(restaurant, at = new Date()) {
   return close > open ? now >= open && now < close : now >= open || now < close;
 }
 
+function restaurantCoordinates(restaurant = {}) {
+  const byNeighborhood = coordsForNeighborhood(restaurant.neighborhood, restaurant.city);
+  if (byNeighborhood) return byNeighborhood;
+  const stored = restaurant.location?.coordinates;
+  if (Array.isArray(stored) && stored.length === 2 && stored.every((n) => Number.isFinite(Number(n)))) {
+    return stored.map(Number);
+  }
+  return [0, 0];
+}
+
 function activePromotion(restaurant, subtotal) {
   const promotion = restaurant.promotion || {};
   if (!promotion.active || Number(promotion.percent || 0) <= 0) return null;
@@ -60,20 +77,25 @@ async function resolveCoupon(code, subtotal, restaurantId) {
   return { coupon, discount: discountFor(coupon, subtotal) };
 }
 
-async function inventoryContext(restaurantId, items = []) {
+async function buildCart(restaurant, rawItems) {
+  const cart = normalizeCartItems(rawItems);
+  if (!cart.length) throw httpError('السلّة فارغة — اختر أصنافًا أولًا');
+  const docs = await MenuItem.find({
+    _id: { $in: cart.map((c) => c.menuItemId) },
+    restaurant: restaurant._id,
+  }).lean();
+  const { lines, itemsTotal, missing } = buildOrderLines(docs, cart);
+  if (missing.length || !lines.length) throw httpError('بعض الأصناف أو الخيارات لم تعد متاحة — حدّث السلّة');
+  if (!meetsMinOrder(itemsTotal, restaurant.minOrder)) throw httpError(`الحد الأدنى للطلب من هذا المتجر ${restaurant.minOrder} ₪`);
+
   const wanted = new Map();
-  for (const raw of Array.isArray(items) ? items : []) {
-    const id = String(raw.menuItemId || raw.menuItem || '');
-    if (!id) continue;
-    wanted.set(id, (wanted.get(id) || 0) + Math.max(1, Number(raw.qty) || 1));
-  }
-  const docs = await MenuItem.find({ _id: { $in: [...wanted.keys()] }, restaurant: restaurantId }).select('name available trackInventory inventoryQty').lean();
+  for (const row of cart) wanted.set(String(row.menuItemId), (wanted.get(String(row.menuItemId)) || 0) + Number(row.qty || 1));
   for (const doc of docs) {
     const needed = wanted.get(String(doc._id)) || 0;
     if (doc.available === false) throw httpError(`الصنف «${doc.name}» غير متاح حاليًا`);
     if (doc.trackInventory && Number(doc.inventoryQty || 0) < needed) throw httpError(`الكمية المتوفرة من «${doc.name}» لا تكفي للطلب`);
   }
-  return { wanted, docs };
+  return { docs, lines, originalTotal: itemsTotal, wanted };
 }
 
 async function consumeInventory(ctx) {
@@ -86,42 +108,76 @@ async function consumeInventory(ctx) {
       },
     }));
   if (operations.length) await MenuItem.bulkWrite(operations);
-  await MenuItem.updateMany({ _id: { $in: ctx.docs.map((x) => x._id) }, trackInventory: true, inventoryQty: { $lte: 0 } }, { $set: { available: false, inventoryQty: 0 } });
+  await MenuItem.updateMany(
+    { _id: { $in: ctx.docs.map((x) => x._id) }, trackInventory: true, inventoryQty: { $lte: 0 } },
+    { $set: { available: false, inventoryQty: 0 } }
+  );
 }
 
 async function placeRestaurantOrder(userId, payload = {}, idempotencyKey) {
   const restaurant = await Restaurant.findById(payload.restaurantId).lean();
   if (!restaurant || !restaurant.active) throw httpError('المتجر غير موجود', 404);
-  const targetTime = payload.scheduledAt ? new Date(payload.scheduledAt) : new Date();
+
+  let targetTime = new Date();
+  if (payload.scheduledAt) {
+    targetTime = new Date(payload.scheduledAt);
+    if (Number.isNaN(targetTime.getTime())) throw httpError('موعد الطلب غير صالح');
+    if (targetTime.getTime() < Date.now() + 20 * 60 * 1000) throw httpError('اختر موعدًا بعد 20 دقيقة على الأقل');
+    if (targetTime.getTime() > Date.now() + 14 * 24 * 60 * 60 * 1000) throw httpError('يمكن جدولة الطلب خلال 14 يومًا فقط');
+  }
   if (!scheduleOpen(restaurant, targetTime)) throw httpError(payload.scheduledAt ? 'المتجر مغلق في الموعد المختار' : 'المتجر مغلق حاليًا');
 
-  const inventory = await inventoryContext(restaurant._id, payload.items);
-  const order = await restaurantService.createRestaurantOrder(userId, payload, idempotencyKey);
-  const original = Number(order.store?.itemsTotal || 0);
-  const couponInfo = await resolveCoupon(payload.couponCode, original, restaurant._id);
-  const promoInfo = activePromotion(restaurant, original);
-
+  const cartCtx = await buildCart(restaurant, payload.items);
+  const couponInfo = await resolveCoupon(payload.couponCode, cartCtx.originalTotal, restaurant._id);
+  const promoInfo = activePromotion(restaurant, cartCtx.originalTotal);
   const couponDiscount = couponInfo?.discount || 0;
   const promoDiscount = promoInfo?.discount || 0;
   const discount = Math.max(couponDiscount, promoDiscount);
-  if (discount > 0) {
-    order.store.itemsOriginalTotal = original;
-    order.store.itemsTotal = Math.max(0, Math.round((original - discount) * 100) / 100);
-    order.store.discount = discount;
-    if (couponDiscount >= promoDiscount && couponInfo) order.store.couponCode = couponInfo.coupon.code;
-    else if (promoInfo) order.store.promotionTitle = promoInfo.title;
-  }
-
-  const busy = restaurant.busyUntil && new Date(restaurant.busyUntil) > new Date();
+  const discountedTotal = Math.max(0, Math.round((cartCtx.originalTotal - discount) * 100) / 100);
+  const busy = !payload.scheduledAt && restaurant.busyUntil && new Date(restaurant.busyUntil) > new Date();
   const extraPrep = busy ? Math.max(0, Number(restaurant.busyExtraPrepMinutes) || 0) : 0;
-  order.store.prepMinutes = Math.max(0, Number(restaurant.prepMinutes) || 0) + extraPrep;
-  if (extraPrep > 0) order.etaMinutes = Math.max(0, Number(order.etaMinutes) || 0) + extraPrep;
-  await order.save();
+  const prepMinutes = Math.max(0, Number(restaurant.prepMinutes) || 0) + extraPrep;
+  const note = String(payload.note || '').trim();
+  const pickupCoordinates = restaurantCoordinates(restaurant);
+
+  const order = await orderService.createOrder(
+    userId,
+    {
+      pickup: {
+        address: restaurant.address || restaurant.name,
+        city: restaurant.city,
+        neighborhood: restaurant.neighborhood,
+        street: restaurant.street,
+        details: restaurant.name,
+        note: '',
+        contactName: restaurant.name,
+        contactPhone: restaurant.phone || '',
+        location: { type: 'Point', coordinates: pickupCoordinates },
+      },
+      dropoff: payload.dropoff,
+      packageNote: summarizeCart(restaurant.name, cartCtx.lines, note),
+      prepMinutes,
+      scheduledAt: payload.scheduledAt,
+      store: {
+        restaurant: restaurant._id,
+        name: restaurant.name,
+        prepMinutes,
+        items: cartCtx.lines,
+        itemsTotal: discountedTotal,
+        itemsOriginalTotal: cartCtx.originalTotal,
+        discount,
+        couponCode: couponDiscount >= promoDiscount && couponInfo ? couponInfo.coupon.code : '',
+        promotionTitle: promoDiscount > couponDiscount && promoInfo ? promoInfo.title : '',
+        note,
+      },
+    },
+    idempotencyKey
+  );
 
   if (couponInfo && couponDiscount >= promoDiscount) {
     await Coupon.updateOne({ _id: couponInfo.coupon._id, active: true }, { $inc: { usedCount: 1 } });
   }
-  await consumeInventory(inventory);
+  await consumeInventory(cartCtx);
   return order;
 }
 
@@ -134,7 +190,11 @@ async function reorder(userId, orderId, idempotencyKey) {
     {
       restaurantId: String(previous.store.restaurant),
       items: previous.store.items.map((item) => ({
-        menuItemId: String(item.menuItem), qty: item.qty, note: item.note || '', variant: item.variant || '', options: item.options || [],
+        menuItemId: String(item.menuItem),
+        qty: item.qty,
+        note: item.note || '',
+        variant: item.variant || '',
+        options: item.options || [],
       })),
       dropoff: previous.dropoff,
       note: previous.store.note || '',
