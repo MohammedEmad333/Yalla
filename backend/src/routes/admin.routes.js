@@ -5,13 +5,13 @@ const ctrl = require('../controllers/admin.controller');
 const support = require('../controllers/support.controller');
 const restaurantCtrl = require('../controllers/restaurant.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { enforceAdminAccess } = require('../middlewares/adminAccess.middleware');
 const { uploadAvatar, uploadImage } = require('../middlewares/upload.middleware');
 const { ROLES } = require('../utils/constants');
 
-// كل مسارات الإدارة للأدمن فقط
-router.use(authenticate, authorize(ROLES.ADMIN));
+// كل مسارات الإدارة للأدمن فقط، ثم نطبّق صلاحيات القسم حسب adminRole.
+router.use(authenticate, authorize(ROLES.ADMIN), enforceAdminAccess);
 
-// مؤشّرات الأداء (KPIs)
 router.get('/stats', ctrl.getStats);
 router.post('/stats/reset', ctrl.resetStats);
 router.get('/wallet', ctrl.getAdminWallet);
@@ -19,97 +19,63 @@ router.get('/wallet/export', ctrl.exportAdminWallet);
 router.get('/user-counts', ctrl.getUserCounts);
 router.get('/account', ctrl.getAdminAccount);
 router.patch('/account', ctrl.updateAdminAccount);
-
-// إعدادات المنظومة: قراءة/تبديل الإسناد التلقائي (بثّ الطلبات لكل الكباتن)
 router.get('/settings', ctrl.getSettings);
 router.patch('/settings', ctrl.updateSettings);
-
-// إرسال رسائل/إشعارات جماعية (Card 66): للجميع أو كباتن/زبائن محدّدين
 router.post('/notifications', ctrl.sendBroadcast);
 
-// Card 110: إدارة المطاعم وقوائم طعامها (إنشاء/تعديل/حذف)
 router.get('/restaurants', restaurantCtrl.adminListRestaurants);
 router.post('/restaurants', restaurantCtrl.createRestaurant);
 router.patch('/restaurants/:restaurantId', restaurantCtrl.updateRestaurant);
 router.delete('/restaurants/:restaurantId', restaurantCtrl.deleteRestaurant);
-// حساب صاحب المطعم/المحل المستخدم في تطبيق Yalla Partner.
 router.get('/restaurants/:restaurantId/merchant', restaurantCtrl.adminGetMerchant);
 router.put('/restaurants/:restaurantId/merchant', restaurantCtrl.adminUpsertMerchant);
-// Card 111: رفع صورة غلاف المطعم من الجهاز (تُخزَّن في قاعدة البيانات)
-router.post(
-  '/restaurants/:restaurantId/image',
-  uploadImage.single('image'),
-  restaurantCtrl.uploadRestaurantImage
-);
+router.post('/restaurants/:restaurantId/image', uploadImage.single('image'), restaurantCtrl.uploadRestaurantImage);
 router.get('/restaurants/:restaurantId/menu', restaurantCtrl.adminListMenu);
 router.post('/restaurants/:restaurantId/menu', restaurantCtrl.createMenuItem);
 router.patch('/menu-items/:itemId', restaurantCtrl.updateMenuItem);
 router.delete('/menu-items/:itemId', restaurantCtrl.deleteMenuItem);
-// Card 111: رفع صورة صنف من الجهاز (تُخزَّن في قاعدة البيانات)
-router.post(
-  '/menu-items/:itemId/image',
-  uploadImage.single('image'),
-  restaurantCtrl.uploadMenuItemImage
-);
+router.post('/menu-items/:itemId/image', uploadImage.single('image'), restaurantCtrl.uploadMenuItemImage);
 
-// إدارة المستخدمين
 router.get('/users', ctrl.listUsers);
-router.get('/customers', ctrl.listCustomersDetailed); // Card 41: تفاصيل كاملة للزبائن
+router.get('/customers', ctrl.listCustomersDetailed);
 router.patch('/users/:userId/active', ctrl.setUserActive);
-router.delete('/users/:userId', ctrl.deleteUser); // Card 38: حذف نهائي
+router.delete('/users/:userId', ctrl.deleteUser);
 
-// إدارة الكباتن
 router.get('/captains', ctrl.listCaptains);
-router.get('/captains/detailed', ctrl.listCaptainsDetailed); // Card 37: جدول كامل للكباتن
-
-// Card 79: طلبات توثيق الكباتن (تسجيل من التطبيق) + بيانات الكباتن الحسّاسة
-// (قبل مسارات /captains/:captainId لتفادي التقاط "applications"/"data" كمعرّف)
+router.get('/captains/detailed', ctrl.listCaptainsDetailed);
 router.get('/captain-applications', ctrl.listCaptainApplications);
 router.post('/captain-applications/:applicationId/approve', ctrl.approveCaptainApplication);
 router.post('/captain-applications/:applicationId/reject', ctrl.rejectCaptainApplication);
-router.get('/captains/data', ctrl.listCaptainsData); // صفحة "بيانات الكباتن"
+router.get('/captains/data', ctrl.listCaptainsData);
 router.patch('/captains/:captainId/approve', ctrl.setCaptainApproval);
-// Card 78: تعديل بيانات حساب الكابتن (اسم/جوال/مركبة/كلمة سر) + تغيير صورته
 router.patch('/captains/:captainId', ctrl.updateCaptain);
 router.post('/captains/:captainId/avatar', uploadAvatar.single('avatar'), ctrl.uploadCaptainAvatar);
-router.delete('/captains/:captainId', ctrl.deleteCaptain); // Card 38: حذف نهائي
+router.delete('/captains/:captainId', ctrl.deleteCaptain);
 
-// محفظة الكابتن وتسوية العمولة (COD)
 router.get('/captains/:captainId/wallet', ctrl.captainWallet);
 router.post('/captains/:captainId/settle', ctrl.settleCaptain);
-
-// طلبات سحب أرباح الكباتن (Card 19): عرض + تنفيذ "تم التحويل"/رفض
 router.get('/withdrawals', ctrl.listWithdrawals);
 router.patch('/withdrawals/:withdrawalId', ctrl.processWithdrawal);
-
-// Card 98: طلبات سحب رصيد الزبائن: عرض + تنفيذ "تم التحويل"/رفض
 router.get('/customer-withdrawals', ctrl.listCustomerWithdrawals);
 router.patch('/customer-withdrawals/:withdrawalId', ctrl.processCustomerWithdrawal);
 
-// مراقبة المحادثات بين الزبائن والكباتن (Card 32 + Card 45)
 router.get('/chats', ctrl.listChats);
 router.get('/chats/:orderId/messages', ctrl.getChatMessages);
 router.post('/chats/:orderId/messages', ctrl.sendChatMessage);
-// Card 94: حذف رسالة دردشة واحدة نهائيًا (من أي محادثة)
 router.delete('/chats/:orderId/messages/:messageId', ctrl.deleteChatMessage);
 router.get('/chats/:orderId/export', ctrl.exportChat);
 
-// التواصل المباشر بين الزبائن والأدمن (Card 46)
 router.get('/support', support.listThreads);
 router.get('/support/:userId/messages', support.threadMessages);
 router.post('/support/:userId/messages', support.reply);
-router.delete('/support/messages/:messageId', support.deleteMessage); // Card 56: حذف رسالة نهائيًا
+router.delete('/support/messages/:messageId', support.deleteMessage);
 
-// شحن رصيد المستخدمين — مراجعة الطلبات المعلّقة والموافقة/الرفض
 router.get('/wallet/topups', ctrl.listTopups);
 router.post('/wallet/topups/:txId/approve', ctrl.approveTopup);
 router.post('/wallet/topups/:txId/reject', ctrl.rejectTopup);
 router.get('/users/:userId/wallet', ctrl.userWallet);
-// Card 81: إضافة رصيد لحساب خارجي مؤقّت (طلبات الأدمن/الواتساب)
 router.post('/users/:userId/wallet/credit', ctrl.creditExternalUser);
-// إضافة رصيد لأي زبون من لوحة الأدمن (زر «إضافة رصيد»)
 router.post('/users/:userId/wallet/add', ctrl.creditUser);
-// Card 87: تعديل رصيد حساب خارجي مؤقّت على قيمة محدّدة
 router.patch('/users/:userId/wallet/balance', ctrl.setExternalUserBalance);
 
 module.exports = router;
