@@ -2,10 +2,6 @@
 
 const mongoose = require('mongoose');
 
-/**
- * صنف في قائمة مطعم (Card 110) — السعر هنا هو مصدر الحقيقة؛ لا يُقبل أيّ سعر
- * يرسله العميل عند إنشاء الطلب.
- */
 const menuItemSchema = new mongoose.Schema(
   {
     restaurant: {
@@ -14,15 +10,10 @@ const menuItemSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-
     name: { type: String, required: true, trim: true },
     description: { type: String, default: '', trim: true },
-
-    // قسم داخل القائمة (ساندويشات، وجبات، مشروبات، حلويات...)
     category: { type: String, default: '', trim: true },
-
-    price: { type: Number, required: true, min: 0 }, // بالشيكل
-    // أحجام/أوزان اختيارية لنفس الصنف. عند وجودها يختار الزبون واحدًا منها.
+    price: { type: Number, required: true, min: 0 },
     variants: [
       {
         label: { type: String, required: true, trim: true },
@@ -30,17 +21,32 @@ const menuItemSchema = new mongoose.Schema(
         _id: false,
       },
     ],
+    // مجموعات الخيارات والإضافات. مثال: "الإضافات" (متعدد) أو "نوع الخبز" (اختيار واحد).
+    optionGroups: [
+      {
+        name: { type: String, required: true, trim: true },
+        required: { type: Boolean, default: false },
+        multiple: { type: Boolean, default: false },
+        minSelect: { type: Number, default: 0, min: 0 },
+        maxSelect: { type: Number, default: 1, min: 1 },
+        options: [
+          {
+            name: { type: String, required: true, trim: true },
+            price: { type: Number, default: 0, min: 0 },
+            available: { type: Boolean, default: true },
+            _id: false,
+          },
+        ],
+        _id: false,
+      },
+    ],
     imageUrl: { type: String, default: '' },
-
-    // متاح الآن؟ (غير المتاح يظهر معطّلًا ولا يُقبل في السلّة)
     available: { type: Boolean, default: true },
-
     sortOrder: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
 
-// جلب قائمة مطعم مرتّبة بالقسم ثمّ الترتيب
 menuItemSchema.index({ restaurant: 1, category: 1, sortOrder: 1 });
 
 module.exports = mongoose.model('MenuItem', menuItemSchema);
