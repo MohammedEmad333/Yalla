@@ -24,6 +24,7 @@ router.use('/wallet', require('./wallet.routes'));
 router.use('/support', require('./support.routes'));
 router.use('/admin', require('./admin.routes'));
 router.use('/merchant', require('./merchant.routes'));
+router.use('/merchant-staff', require('./merchantStaff.routes'));
 router.use('/notifications', require('./notification.routes'));
 router.use('/features', require('./feature.routes'));
 router.use('/commerce', require('./commerce.routes'));
