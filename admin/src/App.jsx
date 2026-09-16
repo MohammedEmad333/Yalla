@@ -24,6 +24,7 @@ import Restaurants from './pages/Restaurants';
 import AdminWallet from './pages/AdminWallet';
 import AdminAccount from './pages/AdminAccount';
 import OperationsFinance from './pages/OperationsFinance';
+import QualitySystem from './pages/QualitySystem';
 
 const NAV = [
   {
@@ -31,6 +32,7 @@ const NAV = [
     items: [
       { key: 'dashboard', label: 'اللوحة اللحظية', icon: IconDashboard, Page: LiveDashboard },
       { key: 'opsFinance', label: 'مركز العمليات والمال', icon: IconChart, Page: OperationsFinance },
+      { key: 'quality', label: 'الجودة وصحة النظام', icon: IconSupport, Page: QualitySystem },
       { key: 'orders', label: 'بحث الطلبات', icon: IconOrders, Page: OrdersPage },
       { key: 'restaurants', label: 'المتاجر والمطاعم', icon: IconStore, Page: Restaurants },
     ],
