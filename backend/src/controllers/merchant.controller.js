@@ -4,7 +4,12 @@ const merchantService = require('../services/merchant.service');
 
 const branchId = (req) => req.auth?.restaurantId || null;
 
-async function profile(req, res, next) { try { res.json(await merchantService.getProfile(req.auth.id, branchId(req))); } catch (err) { next(err); } }
+async function profile(req, res, next) {
+  try {
+    const data = await merchantService.getProfile(req.auth.id, branchId(req));
+    res.json({ ...data, role: 'merchant', staffRole: req.auth?.staffRole || 'owner', staffId: req.auth?.staffId || null });
+  } catch (err) { next(err); }
+}
 async function updateRestaurant(req, res, next) { try { res.json(await merchantService.updateRestaurant(req.auth.id, branchId(req), req.body)); } catch (err) { next(err); } }
 async function uploadRestaurantImage(req, res, next) {
   try {
