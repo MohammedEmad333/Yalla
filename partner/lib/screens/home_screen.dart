@@ -4,6 +4,7 @@ import '../core/session.dart';
 import 'dashboard_screen.dart';
 import 'menu_screen.dart';
 import 'notifications_screen.dart';
+import 'operations_settings_screen.dart';
 import 'options_screen.dart';
 import 'orders_screen.dart';
 import 'store_screen.dart';
@@ -43,26 +44,25 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               width: 46,
               height: 46,
-              decoration: BoxDecoration(
-                color: const Color(0xFF071D3A),
-                borderRadius: BorderRadius.circular(15),
-              ),
+              decoration: BoxDecoration(color: const Color(0xFF071D3A), borderRadius: BorderRadius.circular(15)),
               child: const Icon(Icons.storefront_rounded, color: Color(0xFFFF7A00), size: 26),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Yalla Partner', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 1),
-                  Text(storeName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF7A8595))),
-                ],
-              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Yalla Partner', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 1),
+                Text(storeName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF7A8595))),
+              ]),
             ),
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'تشغيل المتجر',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OperationsSettingsScreen(api: widget.session.api))),
+            icon: const Icon(Icons.settings_suggest_outlined),
+          ),
           Padding(
             padding: const EdgeInsetsDirectional.only(end: 12),
             child: IconButton(
