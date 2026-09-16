@@ -37,6 +37,8 @@ router.use('/notifications', require('./notification.routes'));
 // ميزات المرحلة التالية: العناوين المحفوظة، المفضلة، إعادة الطلب، الكوبونات،
 // تحليلات ومستحقات الشركاء، وتنبيهات العمليات والملخص المالي للإدارة.
 router.use('/features', require('./feature.routes'));
+// تنفيذ الطلب بالكوبون وإعادة طلب متجر كامل بنقرة واحدة.
+router.use('/commerce', require('./commerce.routes'));
 
 router.get('/health', (req, res) => res.json({ status: 'ok', service: 'yalla-api' }));
 
