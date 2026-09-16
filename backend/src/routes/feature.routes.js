@@ -21,6 +21,7 @@ router.post('/coupons/validate', authorize(ROLES.USER), ctrl.validateCoupon);
 router.get('/merchant/analytics', authorize(ROLES.MERCHANT), ctrl.merchantAnalytics);
 router.get('/merchant/finance', authorize(ROLES.MERCHANT), ctrl.merchantFinance);
 router.post('/merchant/settlements', authorize(ROLES.MERCHANT), ctrl.requestMerchantSettlement);
+router.patch('/merchant/open', authorize(ROLES.MERCHANT), ctrl.setMerchantOpen);
 
 router.get('/admin/operations-alerts', authorize(ROLES.ADMIN), ctrl.operationsAlerts);
 router.get('/admin/finance', authorize(ROLES.ADMIN), ctrl.adminFinance);
