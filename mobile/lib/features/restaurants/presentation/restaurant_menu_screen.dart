@@ -1,7 +1,3 @@
-// قائمة طعام مطعم (Card 110 + Card 112) — تعرض أصناف المطعم مجمّعة بالأقسام مع
-// أزرار إضافة/إنقاص للسلّة، وشريط سفلي للسلّة. الأقسام تظهر كتبويبات مثبّتة أعلى
-// الصفحة (sticky): الضغط على قسم ينزل إليه، والتمرير يحرّك التبويب النشط تلقائيًّا.
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -32,10 +28,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   List<GlobalKey> _sectionKeys = [];
   List<GlobalKey> _tabKeys = [];
   int _active = 0;
-  bool _lockSpy = false; // نوقف مراقبة التمرير أثناء الانتقال المبرمَج لتفادي التذبذب
+  bool _lockSpy = false;
 
   List<MenuSection> _menu = [];
   bool _loading = true;
+  bool _rating = false;
   String _error = '';
 
   @override
@@ -76,8 +73,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       if (mounted) setState(() => _loading = false);
     }
   }
-
-  // ── التمرير والتبويبات ──────────────────────────────────────────────────
 
   double _revealOffset(GlobalKey key) {
     final ctx = key.currentContext;
@@ -121,24 +116,17 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     if (mounted) _lockSpy = false;
   }
 
-  // نُبقي التبويب النشط ظاهرًا بتحريك الشريط الأفقي وحده.
-  //
-  // لا نستخدم Scrollable.ensureVisible هنا لأن التبويبات داخل CustomScrollView
-  // عمودي؛ ensureVisible يمرّر جميع الـ Scrollables الأب، فيعيد قائمة المطعم
-  // إلى أعلى كلما تغيّر القسم النشط أثناء تمرير المستخدم.
   void _syncTab(int i) {
     if (i < 0 || i >= _tabKeys.length || !_tabScroll.hasClients) return;
     final ctx = _tabKeys[i].currentContext;
     final box = ctx?.findRenderObject();
     if (box is! RenderBox) return;
-
     final viewport = RenderAbstractViewport.of(box);
     final target = viewport
         .getOffsetToReveal(box, 0.5)
         .offset
         .clamp(0.0, _tabScroll.position.maxScrollExtent)
         .toDouble();
-
     if ((target - _tabScroll.offset).abs() < 1) return;
     _tabScroll.animateTo(
       target,
@@ -146,8 +134,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       curve: Curves.easeInOut,
     );
   }
-
-  // ── الطلب ───────────────────────────────────────────────────────────────
 
   Future<void> _checkout() async {
     if (!_restaurant.openNow) {
@@ -169,13 +155,58 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     }
   }
 
+  Future<void> _rateRestaurant() async {
+    final stars = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('قيّم المتجر'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('اختر عدد النجوم'),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                5,
+                (i) => IconButton(
+                  tooltip: '${i + 1} نجوم',
+                  onPressed: () => Navigator.pop(dialogContext, i + 1),
+                  icon: const Icon(Icons.star_rounded),
+                  color: const Color(0xFFFFB300),
+                  iconSize: 34,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+        ],
+      ),
+    );
+    if (stars == null || !mounted) return;
+
+    setState(() => _rating = true);
+    try {
+      await _repo.rate(_restaurant.id, stars);
+      await _load();
+      if (mounted) _snack('شكرًا، تم تسجيل تقييمك');
+    } on ApiException catch (e) {
+      if (mounted) _snack(e.message);
+    } catch (_) {
+      if (mounted) _snack('تعذّر إرسال التقييم');
+    } finally {
+      if (mounted) setState(() => _rating = false);
+    }
+  }
+
   void _snack(String text) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_restaurant.name)),
       body: _body(),
       bottomNavigationBar: _cart.isEmpty ? null : _cartBar(),
     );
@@ -203,10 +234,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         if (_menu.length > 1)
           SliverPersistentHeader(
             pinned: true,
-            delegate: _TabBarDelegate(
-              height: _tabBarHeight,
-              child: _tabBar(),
-            ),
+            delegate: _TabBarDelegate(height: _tabBarHeight, child: _tabBar()),
           ),
         if (_menu.isEmpty)
           const SliverToBoxAdapter(
@@ -221,49 +249,121 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     );
   }
 
-  // ترويسة المطعم: صورة غلاف أطول + الموعد + الحالة + معلومات سريعة
   Widget _header() {
     final open = _restaurant.openNow;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 200,
+          height: 220,
           width: double.infinity,
-          child: _restaurant.fullImageUrl != null
-              ? CachedNetworkImage(
-                  imageUrl: _restaurant.fullImageUrl!,
-                  fit: BoxFit.cover,
-                  memCacheWidth: 900,
-                  maxWidthDiskCache: 1200,
-                  fadeInDuration: const Duration(milliseconds: 180),
-                  placeholder: (_, __) => _imageLoading(),
-                  errorWidget: (_, __, ___) => _imageFallback(),
-                )
-              : _imageFallback(),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _restaurant.fullImageUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: _restaurant.fullImageUrl!,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 900,
+                      maxWidthDiskCache: 1200,
+                      fadeInDuration: const Duration(milliseconds: 180),
+                      placeholder: (_, __) => _imageLoading(),
+                      errorWidget: (_, __, ___) => _imageFallback(),
+                    )
+                  : _imageFallback(),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.black.withValues(alpha: .30), Colors.transparent],
+                      stops: const [0, .55],
+                    ),
+                  ),
+                ),
+              ),
+              SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Row(
+                      children: [
+                        Material(
+                          color: Colors.white.withValues(alpha: .94),
+                          shape: const CircleBorder(),
+                          child: IconButton(
+                            tooltip: 'رجوع',
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            icon: const Icon(Icons.arrow_back_rounded),
+                          ),
+                        ),
+                        const Spacer(),
+                        _statusPill(open),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // الموعد + حالة الفتح
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _restaurant.name,
+                      style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: _rating ? null : _rateRestaurant,
+                    icon: _rating
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.star_outline_rounded),
+                    label: const Text('تقييم'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
               Row(
                 children: [
-                  _statusPill(open),
+                  const Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 20),
+                  const SizedBox(width: 4),
+                  Text(
+                    _restaurant.ratingCount > 0
+                        ? '${_restaurant.ratingAverage.toStringAsFixed(1)} (${_restaurant.ratingCount})'
+                        : 'لا توجد تقييمات بعد',
+                    style: TextStyle(color: YallaColors.muted, fontWeight: FontWeight.w700),
+                  ),
                   if (_restaurant.scheduleLabel.isNotEmpty) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 14),
                     Icon(Icons.access_time, size: 16, color: YallaColors.muted),
                     const SizedBox(width: 4),
-                    Text(
-                      _restaurant.scheduleLabel,
-                      style: TextStyle(color: YallaColors.muted, fontWeight: FontWeight.w600),
+                    Flexible(
+                      child: Text(
+                        _restaurant.scheduleLabel,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: YallaColors.muted, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ],
               ),
               if (!open && _restaurant.opensAtLabel.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -275,9 +375,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                     children: [
                       Icon(Icons.info_outline, color: YallaColors.error, size: 20),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Text('المطعم مغلق حاليًا — ${_restaurant.opensAtLabel}'),
-                      ),
+                      Expanded(child: Text('المتجر مغلق حاليًا — ${_restaurant.opensAtLabel}')),
                     ],
                   ),
                 ),
@@ -286,18 +384,19 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 const SizedBox(height: 10),
                 Text(_restaurant.description, style: TextStyle(color: YallaColors.muted)),
               ],
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Wrap(
                 spacing: 14,
-                runSpacing: 6,
+                runSpacing: 8,
                 children: [
+                  if (_restaurant.phone.trim().isNotEmpty)
+                    _meta(Icons.phone_outlined, 'رقم المتجر: ${_restaurant.phone.trim()}'),
                   if (_restaurant.address.isNotEmpty)
                     _meta(Icons.place_outlined, _restaurant.address),
                   if (_restaurant.prepMinutes > 0)
                     _meta(Icons.timer_outlined, '~${_restaurant.prepMinutes} دقيقة تحضير'),
                   if (_restaurant.minOrder > 0)
-                    _meta(Icons.shopping_basket_outlined,
-                        'الحدّ الأدنى ${_restaurant.minOrder} ₪'),
+                    _meta(Icons.shopping_basket_outlined, 'الحدّ الأدنى ${_restaurant.minOrder} ₪'),
                 ],
               ),
             ],
@@ -308,10 +407,13 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   }
 
   Widget _statusPill(bool open) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
         decoration: BoxDecoration(
-          color: open ? YallaColors.successContainer : YallaColors.errorContainer,
+          color: open
+              ? YallaColors.successContainer.withValues(alpha: .96)
+              : YallaColors.errorContainer.withValues(alpha: .96),
           borderRadius: BorderRadius.circular(20),
+          boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 8)],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -337,7 +439,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         ),
       );
 
-  // شريط التبويبات المثبّت — يبني رقائق الأقسام
   Widget _tabBar() => Container(
         height: _tabBarHeight,
         color: Theme.of(context).scaffoldBackgroundColor,
@@ -480,10 +581,14 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         context: context,
         builder: (ctx) => SimpleDialog(
           title: const Text('اختر الحجم أو الوزن'),
-          children: item.variants.map((v) => SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, v),
-            child: ListTile(title: Text(v.label), trailing: Text('${v.price} ₪')),
-          )).toList(),
+          children: item.variants
+              .map(
+                (v) => SimpleDialogOption(
+                  onPressed: () => Navigator.pop(ctx, v),
+                  child: ListTile(title: Text(v.label), trailing: Text('${v.price} ₪')),
+                ),
+              )
+              .toList(),
         ),
       );
       if (variant == null) return;
@@ -559,7 +664,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       );
 }
 
-// مندوب الشريط المثبّت للأقسام
 class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   final double height;
   final Widget child;
