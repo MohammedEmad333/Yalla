@@ -25,6 +25,7 @@ import AdminWallet from './pages/AdminWallet';
 import AdminAccount from './pages/AdminAccount';
 import OperationsFinance from './pages/OperationsFinance';
 import QualitySystem from './pages/QualitySystem';
+import MarketingCenter from './pages/MarketingCenter';
 
 const NAV = [
   {
@@ -38,11 +39,12 @@ const NAV = [
     ],
   },
   {
-    group: 'التواصل',
+    group: 'التواصل والتسويق',
     items: [
       { key: 'chats', label: 'المحادثات', icon: IconChat, Page: Chats },
       { key: 'support', label: 'الدعم', icon: IconSupport, Page: Support },
       { key: 'broadcast', label: 'الرسائل الجماعية', icon: IconMegaphone, Page: Broadcast },
+      { key: 'marketing', label: 'التسويق والعروض', icon: IconMegaphone, Page: MarketingCenter },
     ],
   },
   {
