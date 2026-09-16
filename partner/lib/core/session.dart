@@ -11,7 +11,7 @@ class PartnerSession {
   final ValueNotifier<Map<String, dynamic>?> merchant = ValueNotifier(null);
 
   Future<void> login(String phone, String password) async {
-    final data = await api.post('/auth/merchant/login', {'phone': phone, 'password': password});
+    final data = await api.post('/merchant-staff/login', {'phone': phone, 'password': password});
     final user = Map<String, dynamic>.from(data['user'] as Map);
     if (user['role'] != 'merchant') {
       throw ApiException(403, 'هذا التطبيق مخصّص لحسابات المطاعم والمحلات');
