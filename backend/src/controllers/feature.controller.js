@@ -1,11 +1,27 @@
 'use strict';
 
 const service = require('../services/feature.service');
+const Merchant = require('../models/Merchant');
+const Restaurant = require('../models/Restaurant');
 
 function handler(fn) {
   return async (req, res, next) => {
     try { res.json(await fn(req, res)); } catch (err) { next(err); }
   };
+}
+
+async function setMerchantOpen(req, res, next) {
+  try {
+    const merchant = await Merchant.findById(req.auth.id).lean();
+    if (!merchant || !merchant.isActive) return res.status(403).json({ message: 'حساب المتجر غير متاح' });
+    const restaurant = await Restaurant.findByIdAndUpdate(
+      merchant.restaurant,
+      { isOpen: !!req.body.isOpen },
+      { new: true }
+    );
+    if (!restaurant) return res.status(404).json({ message: 'المتجر غير موجود' });
+    res.json({ ok: true, isOpen: restaurant.isOpen, restaurant });
+  } catch (err) { next(err); }
 }
 
 module.exports = {
@@ -24,6 +40,7 @@ module.exports = {
   merchantAnalytics: handler((req) => service.merchantAnalytics(req.auth.id)),
   merchantFinance: handler((req) => service.merchantFinance(req.auth.id)),
   requestMerchantSettlement: async (req, res, next) => { try { res.status(201).json(await service.requestMerchantSettlement(req.auth.id, req.body)); } catch (err) { next(err); } },
+  setMerchantOpen,
   operationsAlerts: handler(() => service.operationsAlerts()),
   adminFinance: handler(() => service.adminFinance()),
   adminListSettlements: handler(() => service.adminListSettlements()),
