@@ -1,5 +1,6 @@
 'use strict';
 
+const mongoose = require('mongoose');
 const Merchant = require('../models/Merchant');
 const Order = require('../models/Order');
 const MerchantSettlement = require('../models/MerchantSettlement');
@@ -11,6 +12,11 @@ function httpError(message, statusCode = 400) {
 
 function branchIds(merchant) {
   return [...new Set([merchant.restaurant, ...(merchant.restaurants || [])].filter(Boolean).map(String))];
+}
+
+function asObjectId(value) {
+  const text = String(value || '');
+  return mongoose.isValidObjectId(text) ? new mongoose.Types.ObjectId(text) : value;
 }
 
 async function context(merchantId, restaurantId) {
@@ -27,11 +33,8 @@ async function analytics(merchantId, restaurantId) {
   const startToday = new Date(now); startToday.setHours(0, 0, 0, 0);
   const start7 = new Date(now.getTime() - 7 * 86400000);
   const start30 = new Date(now.getTime() - 30 * 86400000);
-  const matchBase = { 'store.restaurant': ctx.merchant.restaurant?.constructor ? require('mongoose').Types.ObjectId.createFromHexString(ctx.restaurantId) : ctx.restaurantId, status: { $ne: ORDER_STATUS.CANCELLED } };
-  // استخدم ObjectId صريحًا عند الإمكان، مع fallback للنص لاختبارات mock.
-  let rid = ctx.restaurantId;
-  try { rid = new (require('mongoose').Types.ObjectId)(ctx.restaurantId); } catch (_) {}
-  matchBase['store.restaurant'] = rid;
+  const rid = asObjectId(ctx.restaurantId);
+  const matchBase = { 'store.restaurant': rid, status: { $ne: ORDER_STATUS.CANCELLED } };
 
   const [today, week, month, topItems, hourly] = await Promise.all([
     Order.aggregate([{ $match: { ...matchBase, createdAt: { $gte: startToday } } }, { $group: { _id: null, orders: { $sum: 1 }, sales: { $sum: '$store.itemsTotal' }, avg: { $avg: '$store.itemsTotal' } } }]),
@@ -52,8 +55,7 @@ async function analytics(merchantId, restaurantId) {
 
 async function finance(merchantId, restaurantId) {
   const ctx = await context(merchantId, restaurantId);
-  let rid = ctx.restaurantId;
-  try { rid = new (require('mongoose').Types.ObjectId)(ctx.restaurantId); } catch (_) {}
+  const rid = asObjectId(ctx.restaurantId);
   const [grossAgg, settlements] = await Promise.all([
     Order.aggregate([{ $match: { 'store.restaurant': rid, status: ORDER_STATUS.DELIVERED } }, { $group: { _id: null, gross: { $sum: '$store.itemsTotal' }, orders: { $sum: 1 } } }]),
     MerchantSettlement.find({ restaurant: rid }).sort({ createdAt: -1 }).lean(),
@@ -70,7 +72,7 @@ async function requestSettlement(merchantId, restaurantId, payload = {}) {
   const amount = Math.round((Number(payload.amount) || 0) * 100) / 100;
   if (amount <= 0 || amount > current.available) throw httpError('المبلغ غير متاح للسحب');
   return MerchantSettlement.create({
-    restaurant: ctx.restaurantId,
+    restaurant: asObjectId(ctx.restaurantId),
     merchant: ctx.merchant._id,
     amount,
     method: payload.method || 'cash',
