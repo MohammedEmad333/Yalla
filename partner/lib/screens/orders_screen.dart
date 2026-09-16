@@ -299,7 +299,7 @@ class _OrderCard extends StatelessWidget {
                     child: Row(
                       children: [
                         Container(
-                          minWidth: 34,
+                          constraints: const BoxConstraints(minWidth: 34),
                           alignment: Alignment.center,
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
