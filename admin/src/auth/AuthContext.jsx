@@ -1,5 +1,5 @@
 // سياق المصادقة (Auth Context) — يوفّر حالة الأدمن الحالية ودوال الدخول/الخروج
-// لكل شجرة المكوّنات، مع استعادة الجلسة تلقائيًا عند تحميل الصفحة.
+// مع صلاحيات الدور القادمة من الخادم.
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { api } from '../api/client';
@@ -9,41 +9,45 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [admin, setAdmin] = useState(null);
-  const [loading, setLoading] = useState(true); // أثناء استعادة الجلسة
+  const [access, setAccess] = useState({ adminRole: 'super_admin', permissions: ['*'], regions: [] });
+  const [loading, setLoading] = useState(true);
 
-  // عند الإقلاع: إن وُجد توكن، نتحقّق منه عبر /auth/me
+  async function loadAccess() {
+    const data = await api.get('/admin/access/me');
+    setAccess(data);
+    return data;
+  }
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return setLoading(false);
 
-    api
-      .get('/auth/me')
-      .then((data) => {
-        // نقبل فقط دور admin في هذه اللوحة
+    api.get('/auth/me')
+      .then(async (data) => {
         if (data.role === 'admin') {
           setAdmin(data.user);
-          enablePush(); // Card 103: تسجيل جهاز الأدمن للإشعارات (أندرويد فقط)
+          await loadAccess();
+          enablePush();
         } else localStorage.removeItem('token');
       })
       .catch(() => localStorage.removeItem('token'))
       .finally(() => setLoading(false));
   }, []);
 
-  // تسجيل دخول الأدمن (يستخدم نفس /auth/login الخاص بالمستخدم)
   async function login(phone, password) {
     const data = await api.post('/auth/login', { phone, password });
-    if (data.user.role !== 'admin') {
-      throw new Error('هذا الحساب ليس أدمن');
-    }
+    if (data.user.role !== 'admin') throw new Error('هذا الحساب ليس أدمن');
     localStorage.setItem('token', data.token);
     setAdmin(data.user);
-    enablePush(); // Card 103: تسجيل جهاز الأدمن للإشعارات (أندرويد فقط)
+    await loadAccess();
+    enablePush();
   }
 
   function logout() {
-    disablePush(); // إلغاء تسجيل رمز الجهاز قبل الخروج
+    disablePush();
     localStorage.removeItem('token');
     setAdmin(null);
+    setAccess({ adminRole: 'super_admin', permissions: ['*'], regions: [] });
   }
 
   function updateAdmin(patch) {
@@ -51,11 +55,10 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ admin, loading, login, logout, updateAdmin }}>
+    <AuthContext.Provider value={{ admin, access, loading, login, logout, updateAdmin, refreshAccess: loadAccess }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-// hook مختصر للوصول للسياق
 export const useAuth = () => useContext(AuthContext);
