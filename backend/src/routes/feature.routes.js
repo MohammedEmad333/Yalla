@@ -3,6 +3,7 @@
 const router = require('express').Router();
 const ctrl = require('../controllers/feature.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { requireAdminCapability } = require('../middlewares/adminAccess.middleware');
 const { ROLES } = require('../utils/constants');
 
 router.get('/coupons', ctrl.publicCoupons);
@@ -23,12 +24,12 @@ router.get('/merchant/finance', authorize(ROLES.MERCHANT), ctrl.merchantFinance)
 router.post('/merchant/settlements', authorize(ROLES.MERCHANT), ctrl.requestMerchantSettlement);
 router.patch('/merchant/open', authorize(ROLES.MERCHANT), ctrl.setMerchantOpen);
 
-router.get('/admin/operations-alerts', authorize(ROLES.ADMIN), ctrl.operationsAlerts);
-router.get('/admin/finance', authorize(ROLES.ADMIN), ctrl.adminFinance);
-router.get('/admin/coupons', authorize(ROLES.ADMIN), ctrl.adminListCoupons);
-router.post('/admin/coupons', authorize(ROLES.ADMIN), ctrl.adminCreateCoupon);
-router.patch('/admin/coupons/:id', authorize(ROLES.ADMIN), ctrl.adminUpdateCoupon);
-router.get('/admin/merchant-settlements', authorize(ROLES.ADMIN), ctrl.adminListSettlements);
-router.patch('/admin/merchant-settlements/:id', authorize(ROLES.ADMIN), ctrl.adminProcessSettlement);
+router.get('/admin/operations-alerts', authorize(ROLES.ADMIN), requireAdminCapability('operations'), ctrl.operationsAlerts);
+router.get('/admin/finance', authorize(ROLES.ADMIN), requireAdminCapability('finance'), ctrl.adminFinance);
+router.get('/admin/coupons', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), ctrl.adminListCoupons);
+router.post('/admin/coupons', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), ctrl.adminCreateCoupon);
+router.patch('/admin/coupons/:id', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), ctrl.adminUpdateCoupon);
+router.get('/admin/merchant-settlements', authorize(ROLES.ADMIN), requireAdminCapability('settlements'), ctrl.adminListSettlements);
+router.patch('/admin/merchant-settlements/:id', authorize(ROLES.ADMIN), requireAdminCapability('settlements'), ctrl.adminProcessSettlement);
 
 module.exports = router;
