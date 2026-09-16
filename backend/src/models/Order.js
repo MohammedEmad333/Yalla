@@ -3,93 +3,79 @@
 const mongoose = require('mongoose');
 const { ORDER_STATUS } = require('../utils/constants');
 
-// موقع (نقطة استلام أو تسليم) — GeoJSON مع عنوان نصّي مُفصّل.
-// حقول العنوان المُفصّلة (Card 21) بالترتيب: الحي ← الشارع ← العنوان بالتفاصيل ← الملاحظة.
-// يبقى الحقل النصّي `address` مصدرًا موحّدًا للعرض والبحث؛ يُركَّب تلقائيًا من الأجزاء
-// إن لم يُرسله العميل (انظر composeAddress في طبقة الخدمة) لضمان توافق ما سبق.
 const locationSchema = new mongoose.Schema(
   {
-    address: { type: String, required: true },   // عنوان موحّد للعرض/البحث (مُركَّب أو مُرسَل)
-    city: { type: String, default: '' },           // المدينة (Card 109) — تحدّد المنطقة
-    neighborhood: { type: String, default: '' },  // الحي
-    street: { type: String, default: '' },         // الشارع
-    details: { type: String, default: '' },        // العنوان بالتفاصيل
-    note: { type: String, default: '' },           // ملاحظة (رقم شقّة، علامة مميّزة...)
+    address: { type: String, required: true },
+    city: { type: String, default: '' },
+    neighborhood: { type: String, default: '' },
+    street: { type: String, default: '' },
+    details: { type: String, default: '' },
+    note: { type: String, default: '' },
     contactName: String,
     contactPhone: String,
     location: {
       type: { type: String, enum: ['Point'], default: 'Point' },
-      coordinates: { type: [Number], required: true }, // [lng, lat]
+      coordinates: { type: [Number], required: true },
     },
   },
   { _id: false }
 );
 
-// موديل الطلب — الكيان المحوري في المنظومة
 const orderSchema = new mongoose.Schema(
   {
-    // العلاقات
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     captain: { type: mongoose.Schema.Types.ObjectId, ref: 'Captain', default: null, index: true },
-
-    // نقطتا الاستلام والتسليم
     pickup: { type: locationSchema, required: true },
     dropoff: { type: locationSchema, required: true },
 
-    // طلب من مطعم (Card 110) — يبقى فارغًا في طلبات التوصيل العاديّة.
-    // عند الطلب من مطعم: نقطة الاستلام هي المطعم، ويحمل الطلب أصناف السلّة
-    // بأسعارها لحظة الطلب (نسخة ثابتة لا تتأثّر بتعديل القائمة لاحقًا).
     store: {
       restaurant: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', default: null },
-      name: { type: String, default: '' },          // اسم المطعم وقت الطلب
+      name: { type: String, default: '' },
       merchantStatus: {
         type: String,
         enum: ['new', 'accepted', 'preparing', 'ready'],
         default: 'new',
       },
       merchantUpdatedAt: { type: Date, default: null },
+      prepMinutes: { type: Number, default: 0 },
       items: [
         {
           menuItem: { type: mongoose.Schema.Types.ObjectId, ref: 'MenuItem' },
           name: { type: String, default: '' },
-          variant: { type: String, default: '' },    // الحجم/الوزن المختار وقت الطلب
-          price: { type: Number, default: 0 },      // سعر الوحدة وقت الطلب
+          variant: { type: String, default: '' },
+          options: [{
+            group: { type: String, default: '' },
+            option: { type: String, default: '' },
+            price: { type: Number, default: 0 },
+            _id: false,
+          }],
+          price: { type: Number, default: 0 },
           qty: { type: Number, default: 1 },
           note: { type: String, default: '' },
           _id: false,
         },
       ],
-      itemsTotal: { type: Number, default: 0 },     // قيمة الأصناف (بلا أجرة التوصيل)
-      note: { type: String, default: '' },          // ملاحظة الزبون للمطعم
+      itemsTotal: { type: Number, default: 0 },
+      itemsOriginalTotal: { type: Number, default: 0 },
+      discount: { type: Number, default: 0 },
+      couponCode: { type: String, default: '' },
+      promotionTitle: { type: String, default: '' },
+      note: { type: String, default: '' },
     },
 
-    // تفاصيل الشحنة
-    packageNote: { type: String, default: '' },   // وصف مختصر لما يُوصَّل
-    price: { type: Number, default: 0 },           // السعر التقريبي (يُحسب من الحي عند الإنشاء)
-
-    // السعر الحقيقي الذي يحدّده الكابتن عند التسليم (Card 27) — يجب ألّا يتجاوز
-    // السعر التقريبي `price`. عند التسليم يُخصم سعر التوصيل الحقيقي، ويُضاف إليه
-    // itemsTotal في طلب المطعم. نسبة الكابتن من التوصيل فقط (٨٠٪)، والباقي مع
-    // قيمة الأصناف يظهر في محفظة الإدارة. يبقى صفرًا حتى يُسلَّم الطلب.
+    packageNote: { type: String, default: '' },
+    price: { type: Number, default: 0 },
     finalPrice: { type: Number, default: 0 },
-
-    // رمز تسليم الطلب (Card 20) — يُنشأ عند الإنشاء، يُعطى لصاحب الطلب،
-    // ويُطلب من الكابتن عند تأكيد التسليم. لا يُرجَع افتراضيًا في الاستعلامات
-    // العامّة لمنع تسريبه للكابتن (يُرسَل لصاحب الطلب فقط عبر إشعاره).
     deliveryCode: { type: String, default: '', select: false },
-    distanceKm: { type: Number, default: 0 },      // المسافة التقديرية
-    etaMinutes: { type: Number, default: 0 },      // الزمن التقديري للتوصيل (دقائق)
-
-    // وقت الجدولة (اختياري) — إن وُجد فالطلب مؤجّل حتى هذا الوقت
+    distanceKm: { type: Number, default: 0 },
+    etaMinutes: { type: Number, default: 0 },
     scheduledAt: { type: Date, default: null, index: true },
-    // هل فُعّل الطلب المجدول بعد حلول وقته؟ (يمنع المعالجة المكرّرة)
     scheduledActivated: { type: Boolean, default: false },
 
-    // التسوية المالية (تُحسب عند التسليم — نموذج COD)
-    commission: { type: Number, default: 0 },      // عمولة الشركة
-    captainNet: { type: Number, default: 0 },      // صافي الكابتن
-    customerCharged: { type: Number, default: 0 }, // ما خُصم فعليًا من محفظة الزبون
-    adminCredit: { type: Number, default: 0 },      // الأصناف + عمولة التوصيل لمحفظة الإدارة
+    commission: { type: Number, default: 0 },
+    captainNet: { type: Number, default: 0 },
+    customerCharged: { type: Number, default: 0 },
+    adminCredit: { type: Number, default: 0 },
     financialSettledAt: { type: Date, default: null },
     financialSettlementState: {
       type: String,
@@ -101,17 +87,9 @@ const orderSchema = new mongoose.Schema(
     refundedAt: { type: Date, default: null },
     refundAmount: { type: Number, default: 0 },
 
-    // الكباتن الذين رفضوا الطلب — يُستبعدون عند إعادة الإسناد التلقائي
     rejectedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Captain' }],
-
-    // الإسناد التلقائي (بثّ لكل الكباتن): عند تفعيل الأدمن للإسناد التلقائي يُبثّ
-    // الطلب لكل الكباتن (broadcast=true) فيراه الجميع، ويأخذه أوّل كابتن يقبله
-    // (قبول ذرّي — من يظفر بالوثيقة أوّلًا). بعدها يُصفّر الحقل ويختفي من الباقين.
     broadcast: { type: Boolean, default: false, index: true },
     broadcastAt: { type: Date, default: null },
-
-    // سجلّ رفض الطلب لكلّ كابتن مع سبب الرفض ووقته (Card 47) — يبقى الطلب ظاهرًا
-    // في صفحة طلبات الكابتن الرافض كـ"مرفوض" مع إمكانية عرض سبب الرفض.
     rejections: [
       {
         captain: { type: mongoose.Schema.Types.ObjectId, ref: 'Captain' },
@@ -121,15 +99,12 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
-    // حالة الطلب — محور المنطق اللحظي
     status: {
       type: String,
       enum: Object.values(ORDER_STATUS),
       default: ORDER_STATUS.PENDING,
       index: true,
     },
-
-    // طوابع زمنية لكل مرحلة (مفيدة للتحليلات)
     timeline: {
       assignedAt: Date,
       acceptedAt: Date,
@@ -137,16 +112,9 @@ const orderSchema = new mongoose.Schema(
       deliveredAt: Date,
       cancelledAt: Date,
     },
-
     cancelReason: { type: String, default: '' },
-
-    // وقت تنبيه الأدمن بتأخّر الطلب عن زمنه التقديري (Card 40) — يمنع تكرار التنبيه
     delayWarnedAt: { type: Date, default: null },
-
-    // مفتاح منع التكرار — يضمن أنّ إعادة إرسال الطلب لا تُنشئ نسخة ثانية
     idempotencyKey: { type: String, default: undefined },
-
-    // تقييم المستخدم للكابتن بعد التسليم (يُملأ مرّة واحدة)
     rating: {
       stars: { type: Number, min: 1, max: 5 },
       comment: { type: String, default: '' },
@@ -156,7 +124,6 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// فريد لكل (مستخدم + مفتاح) — يُطبَّق فقط عند وجود المفتاح (sparse/partial)
 orderSchema.index(
   { user: 1, idempotencyKey: 1 },
   { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } }
