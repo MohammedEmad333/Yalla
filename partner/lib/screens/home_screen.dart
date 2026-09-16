@@ -4,6 +4,7 @@ import '../core/session.dart';
 import 'dashboard_screen.dart';
 import 'menu_screen.dart';
 import 'notifications_screen.dart';
+import 'options_screen.dart';
 import 'orders_screen.dart';
 import 'store_screen.dart';
 
@@ -24,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
       PartnerDashboardScreen(api: widget.session.api),
       OrdersScreen(api: widget.session.api),
       MenuScreen(api: widget.session.api),
+      OptionsScreen(api: widget.session.api),
       StoreScreen(api: widget.session.api, onLogout: widget.session.logout),
     ];
     final merchant = widget.session.merchant.value ?? {};
@@ -84,6 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
               NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard_rounded), label: 'الرئيسية'),
               NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long_rounded), label: 'الطلبات'),
               NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2_rounded), label: 'المنتجات'),
+              NavigationDestination(icon: Icon(Icons.tune_outlined), selectedIcon: Icon(Icons.tune_rounded), label: 'الإضافات'),
               NavigationDestination(icon: Icon(Icons.store_outlined), selectedIcon: Icon(Icons.store_rounded), label: 'المتجر'),
             ],
           ),
