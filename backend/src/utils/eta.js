@@ -1,54 +1,66 @@
 'use strict';
 
-// تقدير زمن التوصيل — دالة نقيّة قابلة للاختبار بلا قاعدة بيانات.
+// تقدير زمن التوصيل — دوال نقيّة قابلة للاختبار بلا قاعدة بيانات.
 
-// متوسّط السرعات داخل المدينة (كم/ساعة) حسب نوع المركبة (Card 92)
-// هوائية (bicycle) / كهربائية (electric) / نارية (motorcycle)
 const SPEEDS = { bicycle: 12, electric: 18, motorcycle: 25 };
-
-// وقت تقديري ثابت للاستلام (دقائق)
 const PREP_MINUTES = 5;
 
 /**
- * تقدير زمن التوصيل بالدقائق من المسافة ونوع المركبة.
- * @param {number} distanceKm
- * @param {'bicycle'|'motorcycle'} vehicleType
- * @returns {number} الدقائق التقديرية (1 كحدّ أدنى)
+ * السرعة الفعلية داخل المدينة ليست ثابتة: المقاطع القصيرة تخسر وقتًا أكبر عند
+ * التقاطعات والتوقف والانطلاق، بينما الرحلات الأطول تقترب أكثر من السرعة الاسمية.
  */
-function estimateEtaMinutes(distanceKm, vehicleType = 'motorcycle') {
-  const speed = SPEEDS[vehicleType] || SPEEDS.motorcycle;
-  const d = Number(distanceKm) || 0;
-  const travelMinutes = (d / speed) * 60;
-  return Math.max(1, Math.round(travelMinutes + PREP_MINUTES));
+function effectiveUrbanSpeed(distanceKm, vehicleType = 'motorcycle') {
+  const nominal = SPEEDS[vehicleType] || SPEEDS.motorcycle;
+  const d = Math.max(0, Number(distanceKm) || 0);
+  if (d === 0) return nominal;
+  if (d <= 2) return nominal * 0.68;
+  if (d <= 5) return nominal * 0.78;
+  if (d <= 10) return nominal * 0.88;
+  return nominal * 0.95;
 }
 
-// مهلة سماح إضافية قبل اعتبار الطلب متأخّرًا (دقائق) — يمنع تنبيهات زائدة (Card 40)
+/**
+ * Smart ETA. `context` اختياري ويتيح إضافة ضغط الطلبات/التأخير التاريخي من أي
+ * مسار يملك هذه البيانات، مع بقاء الدالة قابلة للاستخدام مباشرة من order.service.
+ */
+function estimateEtaMinutes(distanceKm, vehicleType = 'motorcycle', context = {}) {
+  const d = Math.max(0, Number(distanceKm) || 0);
+  const speed = effectiveUrbanSpeed(d, vehicleType);
+  const travelMinutes = d === 0 ? 0 : (d / speed) * 60;
+  const demandFactor = Math.max(1, Math.min(1.5, Number(context.demandFactor) || 1));
+  const historicalDelay = Math.max(0, Math.min(30, Number(context.historicalDelayMinutes) || 0));
+  const weatherBuffer = Math.max(0, Math.min(20, Number(context.weatherBufferMinutes) || 0));
+  return Math.max(1, Math.round(travelMinutes * demandFactor + PREP_MINUTES + historicalDelay + weatherBuffer));
+}
+
+function etaBreakdown(distanceKm, vehicleType = 'motorcycle', context = {}) {
+  const d = Math.max(0, Number(distanceKm) || 0);
+  const speed = effectiveUrbanSpeed(d, vehicleType);
+  const baseTravel = d === 0 ? 0 : (d / speed) * 60;
+  const demandFactor = Math.max(1, Math.min(1.5, Number(context.demandFactor) || 1));
+  const historicalDelay = Math.max(0, Math.min(30, Number(context.historicalDelayMinutes) || 0));
+  const weatherBuffer = Math.max(0, Math.min(20, Number(context.weatherBufferMinutes) || 0));
+  return {
+    distanceKm: d,
+    effectiveSpeedKmh: Number(speed.toFixed(1)),
+    travelMinutes: Math.round(baseTravel * demandFactor),
+    pickupBufferMinutes: PREP_MINUTES,
+    historicalDelayMinutes: historicalDelay,
+    weatherBufferMinutes: weatherBuffer,
+    totalMinutes: estimateEtaMinutes(d, vehicleType, context),
+  };
+}
+
 const DELAY_GRACE_MINUTES = 10;
 
-/**
- * لحظة الاستحقاق التقديرية لتسليم الطلب.
- * نبدأ العدّ من لحظة قبول الكابتن (acceptedAt)، وإلّا الإسناد (assignedAt)،
- * وإلّا الإنشاء (createdAt)، ونضيف الزمن التقديري etaMinutes.
- * @returns {number|null} الطابع الزمني (ms) أو null إن تعذّر الحساب
- */
 function deliveryDueAt(order) {
   if (!order) return null;
-  const start =
-    order.timeline?.acceptedAt ||
-    order.timeline?.assignedAt ||
-    order.createdAt ||
-    null;
+  const start = order.timeline?.acceptedAt || order.timeline?.assignedAt || order.createdAt || null;
   const eta = Number(order.etaMinutes) || 0;
   if (!start || eta <= 0) return null;
   return new Date(start).getTime() + eta * 60_000;
 }
 
-/**
- * هل تأخّر الطلب عن زمنه التقديري (مع مهلة سماح)؟ — دالة نقيّة (Card 40).
- * @param {object} order
- * @param {Date|number} now
- * @param {number} graceMinutes
- */
 function isOrderDelayed(order, now = Date.now(), graceMinutes = DELAY_GRACE_MINUTES) {
   const due = deliveryDueAt(order);
   if (due == null) return false;
@@ -58,6 +70,8 @@ function isOrderDelayed(order, now = Date.now(), graceMinutes = DELAY_GRACE_MINU
 
 module.exports = {
   estimateEtaMinutes,
+  etaBreakdown,
+  effectiveUrbanSpeed,
   SPEEDS,
   deliveryDueAt,
   isOrderDelayed,
