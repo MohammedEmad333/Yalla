@@ -2,11 +2,17 @@
 
 const router = require('express').Router();
 const ctrl = require('../controllers/merchant.controller');
+const branchCtrl = require('../controllers/merchantBranch.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { uploadImage } = require('../middlewares/upload.middleware');
 const { ROLES } = require('../utils/constants');
 
 router.use(authenticate, authorize(ROLES.MERCHANT));
+
+router.get('/branches', branchCtrl.list);
+router.post('/branches', branchCtrl.create);
+router.post('/branches/:restaurantId/select', branchCtrl.select);
+router.delete('/branches/:restaurantId', branchCtrl.detach);
 
 router.get('/profile', ctrl.profile);
 router.patch('/restaurant', ctrl.updateRestaurant);
