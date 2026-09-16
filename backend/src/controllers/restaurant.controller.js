@@ -6,14 +6,28 @@ const featureService = require('../services/feature.service');
 const Restaurant = require('../models/Restaurant');
 const RestaurantRating = require('../models/RestaurantRating');
 
+async function overlayManualOpen(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const ids = list.map((r) => r?._id || r?.id).filter(Boolean);
+  if (!ids.length) return rows;
+  const states = await Restaurant.find({ _id: { $in: ids } }).select('_id isOpen').lean();
+  const byId = new Map(states.map((r) => [String(r._id), r.isOpen !== false]));
+  return list.map((r) => ({ ...r, isOpen: r.isOpen !== false && byId.get(String(r._id || r.id)) !== false }));
+}
+
 async function listRestaurants(req, res, next) {
-  try { res.json(await restaurantService.listRestaurants(req.query)); } catch (err) { next(err); }
+  try { res.json(await overlayManualOpen(await restaurantService.listRestaurants(req.query))); } catch (err) { next(err); }
 }
 async function listCategories(req, res, next) {
   try { res.json(await restaurantService.listCategories()); } catch (err) { next(err); }
 }
 async function getRestaurant(req, res, next) {
-  try { res.json(await restaurantService.getRestaurantWithMenu(req.params.restaurantId)); } catch (err) { next(err); }
+  try {
+    const data = await restaurantService.getRestaurantWithMenu(req.params.restaurantId);
+    const state = await Restaurant.findById(req.params.restaurantId).select('isOpen').lean();
+    if (data?.restaurant) data.restaurant.isOpen = data.restaurant.isOpen !== false && state?.isOpen !== false;
+    res.json(data);
+  } catch (err) { next(err); }
 }
 
 async function rateRestaurant(req, res, next) {
@@ -40,6 +54,10 @@ async function rateRestaurant(req, res, next) {
 
 async function createRestaurantOrder(req, res, next) {
   try {
+    const availability = await Restaurant.findById(req.body?.restaurantId).select('isOpen active').lean();
+    if (!availability || !availability.active) return res.status(404).json({ message: 'المتجر غير موجود' });
+    if (availability.isOpen === false) return res.status(400).json({ message: 'المتجر مغلق مؤقتًا من قِبل الشريك' });
+
     const idempotencyKey = req.get('Idempotency-Key');
     const order = await restaurantService.createRestaurantOrder(req.auth.id, req.body, idempotencyKey);
     let coupon = null;
