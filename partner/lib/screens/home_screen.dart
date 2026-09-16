@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/session.dart';
+import 'branches_screen.dart';
 import 'dashboard_screen.dart';
 import 'menu_screen.dart';
 import 'notifications_screen.dart';
@@ -19,15 +20,28 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
+  int _branchRevision = 0;
+
+  Future<void> _openBranches() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => BranchesScreen(session: widget.session)),
+    );
+    if (changed == true && mounted) {
+      setState(() {
+        _branchRevision += 1;
+        _index = 0;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      PartnerDashboardScreen(api: widget.session.api),
-      OrdersScreen(api: widget.session.api),
-      MenuScreen(api: widget.session.api),
-      OptionsScreen(api: widget.session.api),
-      StoreScreen(api: widget.session.api, onLogout: widget.session.logout),
+      PartnerDashboardScreen(key: ValueKey('dashboard-$_branchRevision'), api: widget.session.api),
+      OrdersScreen(key: ValueKey('orders-$_branchRevision'), api: widget.session.api),
+      MenuScreen(key: ValueKey('menu-$_branchRevision'), api: widget.session.api),
+      OptionsScreen(key: ValueKey('options-$_branchRevision'), api: widget.session.api),
+      StoreScreen(key: ValueKey('store-$_branchRevision'), api: widget.session.api, onLogout: widget.session.logout),
     ];
     final merchant = widget.session.merchant.value ?? {};
     final restaurant = merchant['restaurant'] is Map ? merchant['restaurant'] as Map : {};
@@ -58,6 +72,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'الفروع',
+            onPressed: _openBranches,
+            icon: const Icon(Icons.account_tree_outlined),
+          ),
           IconButton(
             tooltip: 'تشغيل المتجر',
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OperationsSettingsScreen(api: widget.session.api))),
