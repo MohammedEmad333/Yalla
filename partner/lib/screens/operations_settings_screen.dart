@@ -13,7 +13,6 @@ class OperationsSettingsScreen extends StatefulWidget {
 }
 
 class _OperationsSettingsScreenState extends State<OperationsSettingsScreen> {
-  Map<String, dynamic> _restaurant = {};
   bool _loading = true;
   bool _saving = false;
   bool _isOpen = true;
@@ -23,6 +22,7 @@ class _OperationsSettingsScreenState extends State<OperationsSettingsScreen> {
   final _promoTitle = TextEditingController();
   final _promoPercent = TextEditingController();
   final _promoMinOrder = TextEditingController();
+  final _busyExtraController = TextEditingController();
   final List<Map<String, dynamic>> _hours = List.generate(7, (i) => {'day': i, 'open': '09:00', 'close': '23:00', 'closed': false});
 
   static const _dayNames = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
@@ -35,6 +35,7 @@ class _OperationsSettingsScreenState extends State<OperationsSettingsScreen> {
     _promoTitle.dispose();
     _promoPercent.dispose();
     _promoMinOrder.dispose();
+    _busyExtraController.dispose();
     super.dispose();
   }
 
@@ -42,9 +43,9 @@ class _OperationsSettingsScreenState extends State<OperationsSettingsScreen> {
     try {
       final data = await widget.api.get('/merchant/profile');
       final r = Map<String, dynamic>.from(data['restaurant'] as Map);
-      _restaurant = r;
       _isOpen = r['isOpen'] != false;
       _busyExtra = ((r['busyExtraPrepMinutes'] as num?) ?? 0).toInt();
+      _busyExtraController.text = '$_busyExtra';
       final rawUntil = r['busyUntil']?.toString();
       _busyUntil = rawUntil == null || rawUntil.isEmpty ? null : DateTime.tryParse(rawUntil)?.toLocal();
       final promo = r['promotion'] is Map ? Map<String, dynamic>.from(r['promotion'] as Map) : <String, dynamic>{};
@@ -69,6 +70,7 @@ class _OperationsSettingsScreenState extends State<OperationsSettingsScreen> {
     setState(() {
       _busyUntil = duration == null ? null : DateTime.now().add(duration);
       _busyExtra = duration == null ? 0 : (_busyExtra == 0 ? 15 : _busyExtra);
+      _busyExtraController.text = '$_busyExtra';
     });
     await _save();
   }
@@ -91,12 +93,15 @@ class _OperationsSettingsScreenState extends State<OperationsSettingsScreen> {
       actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('حفظ'))],
     )));
     if (ok == true) setState(() => _hours[index] = {'day': index, 'open': open.text.trim(), 'close': close.text.trim(), 'closed': closed});
+    open.dispose();
+    close.dispose();
   }
 
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      final saved = await widget.api.patch('/merchant/restaurant', {
+      _busyExtra = int.tryParse(_busyExtraController.text.trim()) ?? 0;
+      await widget.api.patch('/merchant/restaurant', {
         'isOpen': _isOpen,
         'busyUntil': _busyUntil?.toUtc().toIso8601String() ?? '',
         'busyExtraPrepMinutes': _busyExtra,
@@ -108,10 +113,7 @@ class _OperationsSettingsScreenState extends State<OperationsSettingsScreen> {
           'minOrder': double.tryParse(_promoMinOrder.text) ?? 0,
         },
       });
-      if (mounted) {
-        setState(() => _restaurant = Map<String, dynamic>.from(saved as Map));
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ إعدادات التشغيل')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ إعدادات التشغيل')));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
@@ -135,7 +137,7 @@ class _OperationsSettingsScreenState extends State<OperationsSettingsScreen> {
             OutlinedButton(onPressed: () => _setBusy(const Duration(hours: 1)), child: const Text('ساعة')),
             if (busy) TextButton(onPressed: () => _setBusy(null), child: const Text('إنهاء الانشغال')),
           ])),
-          Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), child: TextField(keyboardType: TextInputType.number, controller: TextEditingController(text: '$_busyExtra'), onChanged: (v) => _busyExtra = int.tryParse(v) ?? 0, decoration: const InputDecoration(labelText: 'دقائق تحضير إضافية أثناء الانشغال'))),
+          Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), child: TextField(keyboardType: TextInputType.number, controller: _busyExtraController, onChanged: (v) => _busyExtra = int.tryParse(v) ?? 0, decoration: const InputDecoration(labelText: 'دقائق تحضير إضافية أثناء الانشغال'))),
         ])),
         const SizedBox(height: 12),
         Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
