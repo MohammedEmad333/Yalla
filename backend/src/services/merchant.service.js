@@ -53,7 +53,6 @@ async function upsertAdminMerchant(restaurantId, payload = {}) {
   let merchant = await Merchant.findOne({ $or: [{ restaurant: restaurantId }, { restaurants: restaurantId }] }).select('+passwordHash');
   const phoneOwner = await Merchant.findOne({ phone });
   if (phoneOwner && (!merchant || String(phoneOwner._id) !== String(merchant._id))) {
-    // إذا اختار الأدمن نفس مالك موجود، نربط المتجر الجديد به كفرع بدل رفض الرقم.
     if (payload.attachAsBranch === true) {
       phoneOwner.restaurants = [...new Set([...(phoneOwner.restaurants || []).map(String), String(restaurantId)])];
       if (!phoneOwner.activeRestaurant) phoneOwner.activeRestaurant = phoneOwner.restaurant;
@@ -113,6 +112,10 @@ async function getProfile(merchantId, restaurantId = null) {
 }
 
 async function updateRestaurant(merchantId, restaurantId, payload = {}) {
+  if (arguments.length === 2 && restaurantId && typeof restaurantId === 'object') {
+    payload = restaurantId;
+    restaurantId = null;
+  }
   const ctx = await requireMerchant(merchantId, restaurantId);
   const allowed = {};
   for (const key of ['description','phone','minOrder','prepMinutes','openTime','closeTime','isOpen','busyUntil','busyExtraPrepMinutes','weeklyHours','promotion']) {
@@ -142,6 +145,10 @@ function advancedItemFields(payload = {}) {
 }
 
 async function createMenuItem(merchantId, restaurantId, payload) {
+  if (arguments.length === 2) {
+    payload = restaurantId;
+    restaurantId = null;
+  }
   const ctx = await requireMerchant(merchantId, restaurantId);
   const item = await restaurantService.createMenuItem(ctx.restaurantId, payload);
   const advanced = advancedItemFields(payload);
@@ -159,6 +166,11 @@ async function ownedItem(merchantId, restaurantId, itemId) {
 }
 
 async function updateMenuItem(merchantId, restaurantId, itemId, payload) {
+  if (arguments.length === 3) {
+    payload = itemId;
+    itemId = restaurantId;
+    restaurantId = null;
+  }
   await ownedItem(merchantId, restaurantId, itemId);
   await restaurantService.updateMenuItem(itemId, payload);
   const advanced = advancedItemFields(payload);
@@ -191,20 +203,37 @@ async function inventorySummary(merchantId, restaurantId = null) {
 }
 
 async function deleteMenuItem(merchantId, restaurantId, itemId) {
+  if (arguments.length === 2) {
+    itemId = restaurantId;
+    restaurantId = null;
+  }
   await ownedItem(merchantId, restaurantId, itemId);
   return restaurantService.deleteMenuItem(itemId);
 }
 
 async function setRestaurantImage(merchantId, restaurantId, file) {
+  if (arguments.length === 2) {
+    file = restaurantId;
+    restaurantId = null;
+  }
   const ctx = await requireMerchant(merchantId, restaurantId);
   return restaurantService.setRestaurantImage(ctx.restaurantId, file);
 }
 async function setMenuItemImage(merchantId, restaurantId, itemId, file) {
+  if (arguments.length === 3) {
+    file = itemId;
+    itemId = restaurantId;
+    restaurantId = null;
+  }
   await ownedItem(merchantId, restaurantId, itemId);
   return restaurantService.setMenuItemImage(itemId, file);
 }
 
 async function listOrders(merchantId, restaurantId, query = {}) {
+  if (arguments.length === 2 && restaurantId && typeof restaurantId === 'object') {
+    query = restaurantId;
+    restaurantId = null;
+  }
   const ctx = await requireMerchant(merchantId, restaurantId);
   const filter = { 'store.restaurant': ctx.restaurantId, status: { $ne: ORDER_STATUS.CANCELLED } };
   if (query.status && query.status !== 'all') filter['store.merchantStatus'] = query.status;
@@ -214,6 +243,11 @@ async function listOrders(merchantId, restaurantId, query = {}) {
 
 const MERCHANT_TRANSITIONS = { new: ['accepted'], accepted: ['preparing'], preparing: ['ready'], ready: [] };
 async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus) {
+  if (arguments.length === 3) {
+    nextStatus = orderId;
+    orderId = restaurantId;
+    restaurantId = null;
+  }
   const ctx = await requireMerchant(merchantId, restaurantId);
   const order = await Order.findOne({ _id: orderId, 'store.restaurant': ctx.restaurantId });
   if (!order) throw httpError('الطلب غير موجود في الفرع الحالي', 404);
