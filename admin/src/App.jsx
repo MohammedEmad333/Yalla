@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import PullToRefresh from './components/PullToRefresh';
 import { Avatar, IconButton } from './components/ui';
@@ -26,53 +26,43 @@ import AdminAccount from './pages/AdminAccount';
 import OperationsFinance from './pages/OperationsFinance';
 import QualitySystem from './pages/QualitySystem';
 import MarketingCenter from './pages/MarketingCenter';
+import AdminRoles from './pages/AdminRoles';
 
 const NAV = [
-  {
-    group: 'العمليات',
-    items: [
-      { key: 'dashboard', label: 'اللوحة اللحظية', icon: IconDashboard, Page: LiveDashboard },
-      { key: 'opsFinance', label: 'مركز العمليات والمال', icon: IconChart, Page: OperationsFinance },
-      { key: 'quality', label: 'الجودة وصحة النظام', icon: IconSupport, Page: QualitySystem },
-      { key: 'orders', label: 'بحث الطلبات', icon: IconOrders, Page: OrdersPage },
-      { key: 'restaurants', label: 'المتاجر والمطاعم', icon: IconStore, Page: Restaurants },
-    ],
-  },
-  {
-    group: 'التواصل والتسويق',
-    items: [
-      { key: 'chats', label: 'المحادثات', icon: IconChat, Page: Chats },
-      { key: 'support', label: 'الدعم', icon: IconSupport, Page: Support },
-      { key: 'broadcast', label: 'الرسائل الجماعية', icon: IconMegaphone, Page: Broadcast },
-      { key: 'marketing', label: 'التسويق والعروض', icon: IconMegaphone, Page: MarketingCenter },
-    ],
-  },
-  {
-    group: 'المال',
-    items: [
-      { key: 'adminWallet', label: 'محفظة الإدارة', icon: IconWallet, Page: AdminWallet },
-      { key: 'wallet', label: 'شحن الرصيد', icon: IconWallet, Page: WalletTopups },
-      { key: 'withdrawals', label: 'طلبات السحب', icon: IconCashOut, Page: Withdrawals },
-    ],
-  },
-  {
-    group: 'الأشخاص والتقارير',
-    items: [
-      { key: 'users', label: 'إدارة المستخدمين', icon: IconUsers, Page: UsersManagement },
-      { key: 'captainDocs', label: 'توثيق الكباتن', icon: IconIdCard, Page: CaptainApplications },
-      { key: 'stats', label: 'الإحصائيات', icon: IconChart, Page: StatsPage },
-      { key: 'account', label: 'حساب الأدمن', icon: IconUsers, Page: AdminAccount },
-    ],
-  },
+  { group: 'العمليات', items: [
+    { key: 'dashboard', label: 'اللوحة اللحظية', icon: IconDashboard, Page: LiveDashboard },
+    { key: 'opsFinance', label: 'مركز العمليات والمال', icon: IconChart, Page: OperationsFinance },
+    { key: 'quality', label: 'الجودة وصحة النظام', icon: IconSupport, Page: QualitySystem },
+    { key: 'orders', label: 'بحث الطلبات', icon: IconOrders, Page: OrdersPage },
+    { key: 'restaurants', label: 'المتاجر والمطاعم', icon: IconStore, Page: Restaurants },
+  ]},
+  { group: 'التواصل والتسويق', items: [
+    { key: 'chats', label: 'المحادثات', icon: IconChat, Page: Chats },
+    { key: 'support', label: 'الدعم', icon: IconSupport, Page: Support },
+    { key: 'broadcast', label: 'الرسائل الجماعية', icon: IconMegaphone, Page: Broadcast },
+    { key: 'marketing', label: 'التسويق والعروض', icon: IconMegaphone, Page: MarketingCenter },
+  ]},
+  { group: 'المال', items: [
+    { key: 'adminWallet', label: 'محفظة الإدارة', icon: IconWallet, Page: AdminWallet },
+    { key: 'wallet', label: 'شحن الرصيد', icon: IconWallet, Page: WalletTopups },
+    { key: 'withdrawals', label: 'طلبات السحب', icon: IconCashOut, Page: Withdrawals },
+  ]},
+  { group: 'الأشخاص والتقارير', items: [
+    { key: 'users', label: 'إدارة المستخدمين', icon: IconUsers, Page: UsersManagement },
+    { key: 'captainDocs', label: 'توثيق الكباتن', icon: IconIdCard, Page: CaptainApplications },
+    { key: 'stats', label: 'الإحصائيات', icon: IconChart, Page: StatsPage },
+    { key: 'roles', label: 'صلاحيات الإدارة', icon: IconUsers, Page: AdminRoles },
+    { key: 'account', label: 'حساب الأدمن', icon: IconUsers, Page: AdminAccount },
+  ]},
 ];
 
-const ALL_ITEMS = NAV.flatMap((g) => g.items);
-const DEFAULT_PAGE = 'dashboard';
-
-function pageFromUrl() {
-  const key = new URLSearchParams(window.location.search).get('page');
-  return ALL_ITEMS.some((i) => i.key === key) ? key : DEFAULT_PAGE;
-}
+const ROLE_PAGES = {
+  super_admin: '*',
+  operations: ['dashboard','orders','restaurants','users','captainDocs','stats','quality'],
+  support: ['dashboard','orders','users','chats','support','quality'],
+  finance: ['dashboard','opsFinance','adminWallet','wallet','withdrawals','stats'],
+  marketing: ['dashboard','restaurants','broadcast','marketing','stats'],
+};
 
 const THEME_META = {
   system: { icon: IconAuto, label: 'حسب النظام' },
@@ -91,26 +81,39 @@ function ThemeToggle() {
 }
 
 function Console() {
-  const { admin, logout } = useAuth();
-  const [page, setPage] = useState(pageFromUrl);
+  const { admin, access, logout } = useAuth();
+  const role = access?.adminRole || 'super_admin';
+  const allowed = ROLE_PAGES[role] || ['dashboard'];
+  const visibleNav = useMemo(() => NAV.map((g) => ({ ...g, items: g.items.filter((i) => allowed === '*' || allowed.includes(i.key)) })).filter((g) => g.items.length), [role]);
+  const allItems = useMemo(() => visibleNav.flatMap((g) => g.items), [visibleNav]);
+
+  const pageFromUrl = useCallback(() => {
+    const key = new URLSearchParams(window.location.search).get('page');
+    return allItems.some((i) => i.key === key) ? key : (allItems[0]?.key || 'dashboard');
+  }, [allItems]);
+
+  const [page, setPage] = useState('dashboard');
   const [drawer, setDrawer] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const current = ALL_ITEMS.find((i) => i.key === page) || ALL_ITEMS[0];
+
+  useEffect(() => { setPage((p) => allItems.some((i) => i.key === p) ? p : pageFromUrl()); }, [allItems, pageFromUrl]);
+  const current = allItems.find((i) => i.key === page) || allItems[0];
 
   useEffect(() => {
+    if (!current) return;
     const url = new URL(window.location.href);
     if (url.searchParams.get('page') !== page) {
       url.searchParams.set('page', page);
       window.history.pushState({ page }, '', url);
     }
     document.title = `${current.label} · Yalla`;
-  }, [page, current.label]);
+  }, [page, current]);
 
   useEffect(() => {
     const onPop = () => setPage(pageFromUrl());
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, []);
+  }, [pageFromUrl]);
 
   useEffect(() => {
     if (!drawer) return undefined;
@@ -124,46 +127,42 @@ function Console() {
     await new Promise((r) => setTimeout(r, 650));
   }, []);
 
-  function go(key) {
-    setPage(key); setDrawer(false); window.scrollTo({ top: 0 });
-  }
-
+  function go(key) { setPage(key); setDrawer(false); window.scrollTo({ top: 0 }); }
+  if (!current) return null;
   const { Page } = current;
 
-  return (
-    <div className="yl-app">
-      <aside className="yl-side" data-open={drawer}>
-        <div className="yl-side__brand">
-          <img className="yl-side__logo" src="/logo.png" alt="" />
-          <div style={{ flex: 1 }}><span className="yl-side__name">Yalla</span><span className="yl-side__tag">لوحة التحكّم</span></div>
-          <span className="yl-hide-lg"><IconButton label="إغلاق القائمة" onClick={() => setDrawer(false)} small><IconMenu size={18} /></IconButton></span>
-        </div>
-        <nav className="yl-side__nav">
-          {NAV.map((g) => <div className="yl-navgroup" key={g.group}>
-            <div className="yl-navgroup__title">{g.group}</div>
-            {g.items.map(({ key, label, icon: Icon }) => <button key={key} className="yl-navlink" aria-current={key === page ? 'page' : undefined} onClick={() => go(key)}>
-              <span className="yl-navlink__icon"><Icon size={20} /></span><span className="yl-navlink__label">{label}</span>
-            </button>)}
-          </div>)}
-        </nav>
-        <div className="yl-side__foot">
-          <Avatar name={admin?.name} size="sm" />
-          <div className="yl-side__user"><b className="yl-truncate">{admin?.name || 'المدير'}</b><span>{admin?.phone}</span></div>
-          <ThemeToggle />
-          <IconButton label="تسجيل الخروج" onClick={logout}><IconLogout size={20} /></IconButton>
-        </div>
-      </aside>
-      {drawer && <button className="yl-scrim" aria-label="إغلاق القائمة" onClick={() => setDrawer(false)} />}
-      <div className="yl-main">
-        <header className="yl-topbar">
-          <span className="yl-burger"><IconButton label="القائمة" onClick={() => setDrawer(true)}><IconMenu /></IconButton></span>
-          <span className="yl-topbar__title">{current.label}</span>
-          <IconButton label="تحديث" onClick={refresh}><IconRefresh /></IconButton>
-        </header>
-        <PullToRefresh onRefresh={refresh}><main className="yl-content" key={`${page}-${refreshKey}`}><Page /></main></PullToRefresh>
+  return <div className="yl-app">
+    <aside className="yl-side" data-open={drawer}>
+      <div className="yl-side__brand">
+        <img className="yl-side__logo" src="/logo.png" alt="" />
+        <div style={{ flex: 1 }}><span className="yl-side__name">Yalla</span><span className="yl-side__tag">لوحة التحكّم</span></div>
+        <span className="yl-hide-lg"><IconButton label="إغلاق القائمة" onClick={() => setDrawer(false)} small><IconMenu size={18} /></IconButton></span>
       </div>
+      <nav className="yl-side__nav">
+        {visibleNav.map((g) => <div className="yl-navgroup" key={g.group}>
+          <div className="yl-navgroup__title">{g.group}</div>
+          {g.items.map(({ key, label, icon: Icon }) => <button key={key} className="yl-navlink" aria-current={key === page ? 'page' : undefined} onClick={() => go(key)}>
+            <span className="yl-navlink__icon"><Icon size={20} /></span><span className="yl-navlink__label">{label}</span>
+          </button>)}
+        </div>)}
+      </nav>
+      <div className="yl-side__foot">
+        <Avatar name={admin?.name} size="sm" />
+        <div className="yl-side__user"><b className="yl-truncate">{admin?.name || 'المدير'}</b><span>{role.replace('_', ' ')}</span></div>
+        <ThemeToggle />
+        <IconButton label="تسجيل الخروج" onClick={logout}><IconLogout size={20} /></IconButton>
+      </div>
+    </aside>
+    {drawer && <button className="yl-scrim" aria-label="إغلاق القائمة" onClick={() => setDrawer(false)} />}
+    <div className="yl-main">
+      <header className="yl-topbar">
+        <span className="yl-burger"><IconButton label="القائمة" onClick={() => setDrawer(true)}><IconMenu /></IconButton></span>
+        <span className="yl-topbar__title">{current.label}</span>
+        <IconButton label="تحديث" onClick={refresh}><IconRefresh /></IconButton>
+      </header>
+      <PullToRefresh onRefresh={refresh}><main className="yl-content" key={`${page}-${refreshKey}`}><Page /></main></PullToRefresh>
     </div>
-  );
+  </div>;
 }
 
 function Gate() {
@@ -172,6 +171,4 @@ function Gate() {
   return admin ? <Console /> : <LoginPage />;
 }
 
-export default function App() {
-  return <AuthProvider><Gate /></AuthProvider>;
-}
+export default function App() { return <AuthProvider><Gate /></AuthProvider>; }
