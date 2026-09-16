@@ -10,7 +10,7 @@ router.get('/openapi.json', (req, res) => res.json(buildOpenApiSpec()));
 router.get('/docs', (req, res) => res.type('html').send(docsHtml()));
 router.get('/cities', (req, res) => res.json(listCities()));
 router.get('/neighborhoods', (req, res) => {
-  if (req.query.grouped) return res.json(neighborhoodsByCity(req.query.city));
+  if (req.query.grouped) return res.json(neighborhoodsByCity());
   if (req.query.city) return res.json(listNeighborhoodsByCity(req.query.city));
   return res.json(listNeighborhoods());
 });
