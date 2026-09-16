@@ -1,19 +1,19 @@
 'use strict';
 
-// اختبارات وحدة لتقدير زمن التوصيل — نقيّة بلا قاعدة بيانات.
-
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
   estimateEtaMinutes,
+  etaBreakdown,
+  effectiveUrbanSpeed,
   deliveryDueAt,
   isOrderDelayed,
   DELAY_GRACE_MINUTES,
 } = require('../src/utils/eta');
 
 test('estimateEtaMinutes: مسافة صفر = وقت الاستلام فقط', () => {
-  assert.equal(estimateEtaMinutes(0, 'motorcycle'), 5); // PREP_MINUTES
+  assert.equal(estimateEtaMinutes(0, 'motorcycle'), 5);
 });
 
 test('estimateEtaMinutes: يزيد الزمن بزيادة المسافة', () => {
@@ -22,21 +22,30 @@ test('estimateEtaMinutes: يزيد الزمن بزيادة المسافة', () =
   assert.ok(far > near);
 });
 
-test('estimateEtaMinutes: الموتوسيكل أسرع من الدرّاجة (زمن أقلّ)', () => {
+test('estimateEtaMinutes: الموتوسيكل أسرع من الدرّاجة', () => {
   const moto = estimateEtaMinutes(10, 'motorcycle');
   const bike = estimateEtaMinutes(10, 'bicycle');
   assert.ok(moto < bike);
 });
 
-test('estimateEtaMinutes: 25 كم بالموتوسيكل ≈ 65 دقيقة (60 سير + 5 استلام)', () => {
-  assert.equal(estimateEtaMinutes(25, 'motorcycle'), 65);
+test('Smart ETA: المقاطع القصيرة تستخدم سرعة مدينة أقل من الاسمية', () => {
+  assert.ok(effectiveUrbanSpeed(2, 'motorcycle') < effectiveUrbanSpeed(15, 'motorcycle'));
+});
+
+test('Smart ETA: 25 كم بالموتوسيكل تشمل معامل الطريق الحضري', () => {
+  assert.equal(estimateEtaMinutes(25, 'motorcycle'), 68);
+});
+
+test('Smart ETA: ضغط الطلب والتأخير التاريخي يرفعان الزمن', () => {
+  const normal = estimateEtaMinutes(5, 'motorcycle');
+  const busy = estimateEtaMinutes(5, 'motorcycle', { demandFactor: 1.25, historicalDelayMinutes: 6 });
+  assert.ok(busy > normal);
+  assert.equal(etaBreakdown(5, 'motorcycle', { historicalDelayMinutes: 6 }).historicalDelayMinutes, 6);
 });
 
 test('estimateEtaMinutes: حدّ أدنى دقيقة واحدة', () => {
   assert.ok(estimateEtaMinutes(0, 'motorcycle') >= 1);
 });
-
-// ── تأخّر الطلب عن زمنه التقديري (Card 40) ───────────────────────
 
 test('deliveryDueAt: يبدأ العدّ من acceptedAt + etaMinutes', () => {
   const start = new Date('2026-01-01T10:00:00.000Z');
