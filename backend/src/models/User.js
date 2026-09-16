@@ -12,6 +12,12 @@ const userSchema = new mongoose.Schema(
     email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: [ROLES.USER, ROLES.ADMIN], default: ROLES.USER },
+    adminRole: {
+      type: String,
+      enum: ['super_admin', 'operations', 'support', 'finance', 'marketing'],
+      default: null,
+      index: true,
+    },
     regions: { type: [String], default: [] },
     avatarUrl: { type: String, default: '' },
     city: { type: String, default: '', trim: true },
