@@ -41,7 +41,8 @@ function activePromotion(restaurant, subtotal) {
   if (!promotion.active || Number(promotion.percent || 0) <= 0) return null;
   if (promotion.endsAt && new Date(promotion.endsAt) < new Date()) return null;
   if (subtotal < Number(promotion.minOrder || 0)) return null;
-  const discount = Math.round(subtotal * Math.min(90, Number(promotion.percent)) * 100 / 100) / 100;
+  const percent = Math.min(90, Math.max(0, Number(promotion.percent) || 0));
+  const discount = Math.round((subtotal * percent / 100) * 100) / 100;
   return { title: String(promotion.title || 'عرض المتجر'), discount: Math.min(subtotal, discount) };
 }
 
@@ -70,9 +71,7 @@ async function inventoryContext(restaurantId, items = []) {
   for (const doc of docs) {
     const needed = wanted.get(String(doc._id)) || 0;
     if (doc.available === false) throw httpError(`الصنف «${doc.name}» غير متاح حاليًا`);
-    if (doc.trackInventory && Number(doc.inventoryQty || 0) < needed) {
-      throw httpError(`الكمية المتوفرة من «${doc.name}» لا تكفي للطلب`);
-    }
+    if (doc.trackInventory && Number(doc.inventoryQty || 0) < needed) throw httpError(`الكمية المتوفرة من «${doc.name}» لا تكفي للطلب`);
   }
   return { wanted, docs };
 }
@@ -94,9 +93,7 @@ async function placeRestaurantOrder(userId, payload = {}, idempotencyKey) {
   const restaurant = await Restaurant.findById(payload.restaurantId).lean();
   if (!restaurant || !restaurant.active) throw httpError('المتجر غير موجود', 404);
   const targetTime = payload.scheduledAt ? new Date(payload.scheduledAt) : new Date();
-  if (!scheduleOpen(restaurant, targetTime)) {
-    throw httpError(payload.scheduledAt ? 'المتجر مغلق في الموعد المختار' : 'المتجر مغلق حاليًا');
-  }
+  if (!scheduleOpen(restaurant, targetTime)) throw httpError(payload.scheduledAt ? 'المتجر مغلق في الموعد المختار' : 'المتجر مغلق حاليًا');
 
   const inventory = await inventoryContext(restaurant._id, payload.items);
   const order = await restaurantService.createRestaurantOrder(userId, payload, idempotencyKey);
@@ -104,7 +101,6 @@ async function placeRestaurantOrder(userId, payload = {}, idempotencyKey) {
   const couponInfo = await resolveCoupon(payload.couponCode, original, restaurant._id);
   const promoInfo = activePromotion(restaurant, original);
 
-  // لا نجمع خصمين متداخلين: نطبّق الأفضل للزبون.
   const couponDiscount = couponInfo?.discount || 0;
   const promoDiscount = promoInfo?.discount || 0;
   const discount = Math.max(couponDiscount, promoDiscount);
