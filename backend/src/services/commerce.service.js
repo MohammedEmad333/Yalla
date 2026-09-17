@@ -158,6 +158,7 @@ async function placeRestaurantOrder(userId, payload = {}, idempotencyKey) {
       packageNote: summarizeCart(restaurant.name, cartCtx.lines, note),
       prepMinutes,
       scheduledAt: payload.scheduledAt,
+      rewardPoints: payload.rewardPoints,
       store: {
         restaurant: restaurant._id,
         name: restaurant.name,
