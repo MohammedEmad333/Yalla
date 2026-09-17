@@ -2,6 +2,7 @@
 
 const router = require('express').Router();
 const ctrl = require('../controllers/expansion.controller');
+const rewardsCtrl = require('../controllers/rewards.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { requireAdminCapability } = require('../middlewares/adminAccess.middleware');
 const { ROLES } = require('../utils/constants');
@@ -11,11 +12,14 @@ router.get('/banners', ctrl.publicBanners);
 
 router.use(authenticate);
 
-router.get('/rewards', authorize(ROLES.USER), ctrl.rewards);
-router.post('/referrals/apply', authorize(ROLES.USER), ctrl.applyReferral);
+router.get('/rewards', authorize(ROLES.USER), rewardsCtrl.rewards);
+router.post('/rewards/redeem', authorize(ROLES.USER), rewardsCtrl.redeem);
+router.post('/referrals/apply', authorize(ROLES.USER), rewardsCtrl.applyReferral);
 router.get('/issues', authorize(ROLES.USER), ctrl.listIssues);
 router.post('/issues', authorize(ROLES.USER), ctrl.createIssue);
 
+router.get('/admin/rewards/settings', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), rewardsCtrl.adminSettings);
+router.patch('/admin/rewards/settings', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), rewardsCtrl.updateAdminSettings);
 router.get('/admin/issues', authorize(ROLES.ADMIN), requireAdminCapability('issues'), ctrl.adminIssues);
 router.patch('/admin/issues/:issueId', authorize(ROLES.ADMIN), requireAdminCapability('issues'), ctrl.resolveIssue);
 router.get('/admin/audit', authorize(ROLES.ADMIN), requireAdminCapability('operations'), ctrl.auditLogs);
