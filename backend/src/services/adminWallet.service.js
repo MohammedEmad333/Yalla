@@ -5,13 +5,10 @@ const WalletTransaction = require('../models/WalletTransaction');
 const { ORDER_STATUS } = require('../utils/constants');
 
 /**
- * محفظة الإدارة مشتقة من الطلبات المسلّمة، لذلك لا يمكن أن يضيع رصيدها أو
- * يتضاعف بسبب إعادة نداء التسليم. دخل طلب المطعم = قيمة الأصناف + العمولة،
- * ودخل الطلب العادي = العمولة فقط.
+ * محفظة الإدارة تمثل دخل المنصة فقط. قيمة أصناف المتجر ليست إيرادًا ليلا؛
+ * تُسجل في merchantCredit / MerchantEarning كمبلغ مستحق للشريك.
  */
 async function getWallet({ limit = 50, skip = 0, q = '', type = 'all', from, to } = {}) {
-  // adminCredit يُملأ فقط عند تنفيذ التسوية الجديدة؛ لا نحتسب طلبات تاريخية
-  // كانت مدفوعة بالنظام القديم كأنها أموال دخلت المحفظة الآن.
   const filter = { status: ORDER_STATUS.DELIVERED, adminCredit: { $gt: 0 } };
   if (type === 'restaurant') filter['store.itemsTotal'] = { $gt: 0 };
   if (type === 'delivery') filter['store.itemsTotal'] = { $not: { $gt: 0 } };
@@ -20,9 +17,10 @@ async function getWallet({ limit = 50, skip = 0, q = '', type = 'all', from, to 
     if (from) filter.financialSettledAt.$gte = new Date(from);
     if (to) filter.financialSettledAt.$lte = new Date(to);
   }
+
   const [orders, totals] = await Promise.all([
     Order.find(filter)
-      .select('store.name store.itemsTotal commission captainNet adminCredit financialSettledAt finalPrice price timeline.deliveredAt createdAt')
+      .select('store.name store.itemsTotal commission captainNet adminCredit merchantCredit financialSettledAt finalPrice price timeline.deliveredAt createdAt')
       .populate('user', 'name lastName phone')
       .populate('captain', 'name phone')
       .sort({ 'timeline.deliveredAt': -1, createdAt: -1 })
@@ -34,18 +32,8 @@ async function getWallet({ limit = 50, skip = 0, q = '', type = 'all', from, to 
       {
         $group: {
           _id: null,
-          itemsRevenue: {
-            $sum: {
-              $cond: [
-                { $gt: ['$adminCredit', 0] },
-                { $ifNull: ['$store.itemsTotal', 0] },
-                0,
-              ],
-            },
-          },
-          commissionRevenue: {
-            $sum: { $cond: [{ $gt: ['$adminCredit', 0] }, '$commission', 0] },
-          },
+          commissionRevenue: { $sum: { $ifNull: ['$adminCredit', 0] } },
+          merchantPayables: { $sum: { $ifNull: ['$merchantCredit', 0] } },
           captainPayouts: { $sum: { $ifNull: ['$captainNet', 0] } },
           transactionsCount: { $sum: 1 },
         },
@@ -54,11 +42,12 @@ async function getWallet({ limit = 50, skip = 0, q = '', type = 'all', from, to 
   ]);
 
   const summary = totals[0] || {
-    itemsRevenue: 0,
     commissionRevenue: 0,
+    merchantPayables: 0,
     captainPayouts: 0,
     transactionsCount: 0,
   };
+
   const payments = await WalletTransaction.find({
     $or: [
       { order: { $in: orders.map((o) => o._id) } },
@@ -70,31 +59,32 @@ async function getWallet({ limit = 50, skip = 0, q = '', type = 'all', from, to 
   ]));
 
   let transactions = orders.map((order) => {
-    const settled = Number(order.adminCredit) > 0;
-    const itemsAmount = settled ? Number(order.store?.itemsTotal) || 0 : 0;
-    const commissionAmount = settled ? Number(order.commission) || 0 : 0;
+    const merchantAmount = Number(order.merchantCredit) || 0;
+    const commissionAmount = Number(order.adminCredit) || 0;
     const payment = paymentByOrder.get(String(order._id));
     return {
       orderId: order._id,
       restaurantName: order.store?.name || '',
       customer: order.user,
       captain: order.captain,
-      itemsAmount,
+      itemsAmount: Number(order.store?.itemsTotal) || 0,
+      merchantAmount,
       commissionAmount,
-      amount: Number(order.adminCredit) || 0,
-      type: itemsAmount > 0 ? 'restaurant_settlement' : 'delivery_commission',
+      amount: commissionAmount,
+      type: merchantAmount > 0 ? 'restaurant_commission' : 'delivery_commission',
       customerBalanceBefore: payment?.balanceBefore ?? null,
       customerBalanceAfter: payment?.balanceAfter ?? null,
       deliveredAt: order.financialSettledAt || order.timeline?.deliveredAt || order.createdAt,
     };
   });
-  // رصيد محفظة الإدارة قبل/بعد كل حركة (القائمة مرتبة من الأحدث للأقدم).
-  let runningAdminBalance = summary.itemsRevenue + summary.commissionRevenue;
+
+  let runningAdminBalance = Number(summary.commissionRevenue) || 0;
   for (const tx of transactions) {
     tx.balanceAfter = runningAdminBalance;
     tx.balanceBefore = Math.round((runningAdminBalance - tx.amount) * 100) / 100;
     runningAdminBalance = tx.balanceBefore;
   }
+
   const search = String(q || '').trim().toLowerCase();
   if (search) {
     transactions = transactions.filter((tx) =>
@@ -104,9 +94,13 @@ async function getWallet({ limit = 50, skip = 0, q = '', type = 'all', from, to 
   }
 
   return {
-    balance: summary.itemsRevenue + summary.commissionRevenue,
+    balance: Number(summary.commissionRevenue) || 0,
     currency: 'ILS',
-    ...summary,
+    itemsRevenue: 0,
+    commissionRevenue: Number(summary.commissionRevenue) || 0,
+    merchantPayables: Number(summary.merchantPayables) || 0,
+    captainPayouts: Number(summary.captainPayouts) || 0,
+    transactionsCount: Number(summary.transactionsCount) || 0,
     transactions,
   };
 }
