@@ -5,6 +5,7 @@ const paymentService = require('../services/payment');
 const customerWithdrawalService = require('../services/customerWithdrawal.service');
 const notifications = require('../services/notification.service');
 const User = require('../models/User');
+const Wallet = require('../models/Wallet');
 const logger = require('../utils/logger');
 const { publicUrlFor } = require('../middlewares/upload.middleware');
 
@@ -12,11 +13,19 @@ const { publicUrlFor } = require('../middlewares/upload.middleware');
  * متحكّمات محفظة المستخدم — طبقة HTTP رفيعة تفوّض للخدمات.
  */
 
-// GET /wallet — رصيد المستخدم الحالي
+// GET /wallet — الرصيد الفعلي + المحجوز + المتاح للمستخدم.
 async function getWallet(req, res, next) {
   try {
     const summary = await walletService.getWalletSummary(req.auth.id);
-    res.json(summary);
+    const wallet = await Wallet.findOne({ user: req.auth.id }).lean();
+    const reservedBalance = Math.max(0, Number(wallet?.reservedBalance || 0));
+    const balance = Number(summary.balance || 0);
+    res.json({
+      ...summary,
+      balance,
+      reservedBalance,
+      availableBalance: Math.max(0, balance - reservedBalance),
+    });
   } catch (err) {
     next(err);
   }
@@ -53,7 +62,6 @@ async function requestTopup(req, res, next) {
   try {
     const { method, amount, referenceNumber, senderName, paidAt } = req.body;
 
-    // صورة الإيصال (اختيارية إن اكتُفي برقم العملية) — يرفعها multer
     const imageUrl = req.file ? publicUrlFor(req.file.filename) : '';
 
     const tx = await paymentService.requestTopUp({
@@ -69,8 +77,6 @@ async function requestTopup(req, res, next) {
       idempotencyKey: req.get('Idempotency-Key') || undefined,
     });
 
-    // Card 105: إشعار المشرفين (داخل التطبيق + Push لنسخة أندرويد) بطلب شحن رصيد
-    // جديد بحاجة للموافقة. آمن: لا يؤثّر على استجابة الزبون إن فشل.
     User.findById(req.auth.id)
       .select('name lastName')
       .lean()
@@ -88,22 +94,28 @@ async function requestTopup(req, res, next) {
   }
 }
 
-// ── سحب رصيد الزبون (Card 98 + Card 99) ─────────────────────────
+// ── سحب رصيد الزبون ─────────────────────────────────────────────
 
-// GET /wallet/withdrawals/available — الرصيد المتاح للسحب + هل يوجد طلب جارٍ
 async function getWithdrawAvailability(req, res, next) {
   try {
-    const [available, activeOrder] = await Promise.all([
+    const [available, activeOrder, wallet] = await Promise.all([
       customerWithdrawalService.getAvailable(req.auth.id),
       customerWithdrawalService.hasActiveOrder(req.auth.id),
+      Wallet.findOne({ user: req.auth.id }).lean(),
     ]);
-    res.json({ ...available, hasActiveOrder: activeOrder });
+    const reservedBalance = Math.max(0, Number(wallet?.reservedBalance || 0));
+    const availableAfterHolds = Math.max(0, Number(available.available || 0) - reservedBalance);
+    res.json({
+      ...available,
+      reservedBalance,
+      available: availableAfterHolds,
+      hasActiveOrder: activeOrder,
+    });
   } catch (err) {
     next(err);
   }
 }
 
-// GET /wallet/withdrawals — سجلّ طلبات سحب الزبون
 async function listMyWithdrawals(req, res, next) {
   try {
     const items = await customerWithdrawalService.listMine(req.auth.id, {
@@ -115,7 +127,6 @@ async function listMyWithdrawals(req, res, next) {
   }
 }
 
-// POST /wallet/withdrawals — طلب سحب رصيد إلى محفظة إلكترونية أو بنك
 async function requestWithdrawal(req, res, next) {
   try {
     const { amount, destination, accountNumber, accountOwner, note } = req.body;
