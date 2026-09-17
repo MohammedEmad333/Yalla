@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
@@ -18,21 +19,27 @@ class RestaurantMenuScreen extends StatefulWidget {
 }
 
 class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
+  static const _favoritesStorageKey = 'favorite_restaurant_ids';
+
   late final RestaurantRepository _repo = RestaurantRepository(widget.api);
   late Restaurant _restaurant = widget.restaurant;
   late final Cart _cart = Cart(widget.restaurant);
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   final ScrollController _scrollController = ScrollController();
   List<MenuSection> _menu = [];
   List<GlobalKey> _sectionKeys = [];
   bool _loading = true;
   bool _rating = false;
+  bool _favorite = false;
+  bool _favoriteBusy = false;
   String _error = '';
   int _selectedSection = 0;
 
   @override
   void initState() {
     super.initState();
+    _loadFavorite();
     _load();
   }
 
@@ -40,6 +47,39 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadFavorite() async {
+    try {
+      final raw = await _secureStorage.read(key: _favoritesStorageKey) ?? '';
+      final ids = raw.split('|').where((id) => id.isNotEmpty).toSet();
+      if (mounted) setState(() => _favorite = ids.contains(widget.restaurant.id));
+    } catch (_) {
+      // المفضلة تحسين اختياري ولا ينبغي أن تمنع فتح قائمة المتجر.
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    if (_favoriteBusy) return;
+    setState(() => _favoriteBusy = true);
+    try {
+      final raw = await _secureStorage.read(key: _favoritesStorageKey) ?? '';
+      final ids = raw.split('|').where((id) => id.isNotEmpty).toSet();
+      final willFavorite = !ids.contains(_restaurant.id);
+      if (willFavorite) {
+        ids.add(_restaurant.id);
+      } else {
+        ids.remove(_restaurant.id);
+      }
+      await _secureStorage.write(key: _favoritesStorageKey, value: ids.join('|'));
+      if (!mounted) return;
+      setState(() => _favorite = willFavorite);
+      _snack(willFavorite ? 'تمت إضافة المتجر إلى المفضلة' : 'تمت إزالة المتجر من المفضلة');
+    } catch (_) {
+      if (mounted) _snack('تعذّر تحديث المفضلة');
+    } finally {
+      if (mounted) setState(() => _favoriteBusy = false);
+    }
   }
 
   Future<void> _load() async {
@@ -137,8 +177,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   Future<void> _quickAddItem(MenuItemModel item) async {
     if (!item.available) return;
 
-    // The + button adds a valid default configuration immediately. Tapping the
-    // card itself remains the way to inspect the item and choose alternatives.
     final variant = item.variants.isNotEmpty ? item.variants.first : null;
     final selections = <SelectedMenuOption>[];
     for (final group in item.optionGroups) {
@@ -348,6 +386,23 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   ),
                 ),
               ),
+              PositionedDirectional(
+                top: 14,
+                end: 14,
+                child: Material(
+                  color: Colors.white.withValues(alpha: 0.94),
+                  shape: const CircleBorder(),
+                  elevation: 2,
+                  child: IconButton(
+                    onPressed: _favoriteBusy ? null : _toggleFavorite,
+                    tooltip: _favorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
+                    icon: Icon(
+                      _favorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                      color: _favorite ? const Color(0xFFE53935) : const Color(0xFF071D3A),
+                    ),
+                  ),
+                ),
+              ),
               Positioned(
                 left: 16,
                 right: 16,
@@ -402,6 +457,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                             _infoPill(
                               Icons.star_rounded,
                               '${_restaurant.ratingAverage.toStringAsFixed(1)} (${_restaurant.ratingCount})',
+                              iconColor: const Color(0xFFFFB300),
                             ),
                           if (_restaurant.prepMinutes > 0)
                             _infoPill(Icons.schedule_rounded, 'تحضير ~${_restaurant.prepMinutes} دقيقة'),
@@ -413,7 +469,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                     IconButton.filledTonal(
                       onPressed: _rating ? null : _rate,
                       tooltip: 'تقييم المتجر',
-                      icon: const Icon(Icons.star_outline_rounded),
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFF3CD),
+                        foregroundColor: const Color(0xFFFFB300),
+                      ),
+                      icon: const Icon(Icons.star_rounded, color: Color(0xFFFFB300)),
                     ),
                   ],
                 ),
@@ -437,29 +497,54 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   ),
                 ],
                 if (_restaurant.phone.trim().isNotEmpty) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 8, 8),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: YallaColors.surfaceContainer,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.22)),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.phone_outlined, size: 19, color: YallaColors.primary),
-                        const SizedBox(width: 8),
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: YallaColors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(13),
+                          ),
+                          child: Icon(Icons.phone_rounded, color: YallaColors.primary, size: 21),
+                        ),
+                        const SizedBox(width: 11),
                         Expanded(
-                          child: Text(
-                            _restaurant.phone,
-                            textDirection: TextDirection.ltr,
-                            textAlign: TextAlign.start,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'رقم جوال المتجر',
+                                style: TextStyle(color: YallaColors.muted, fontSize: 11.5, fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 3),
+                              Directionality(
+                                textDirection: TextDirection.ltr,
+                                child: Text(
+                                  _restaurant.phone,
+                                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, letterSpacing: 0.6),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        FilledButton.tonalIcon(
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
                           onPressed: _callStore,
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+                          ),
                           icon: const Icon(Icons.call_rounded, size: 18),
-                          label: const Text('اتصال'),
+                          label: const Text('اتصال', style: TextStyle(fontWeight: FontWeight.w900)),
                         ),
                       ],
                     ),
@@ -471,7 +556,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         ],
       );
 
-  Widget _infoPill(IconData icon, String label) => Container(
+  Widget _infoPill(IconData icon, String label, {Color? iconColor}) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
         decoration: BoxDecoration(
           color: YallaColors.surfaceContainer,
@@ -480,7 +565,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 17, color: YallaColors.primary),
+            Icon(icon, size: 17, color: iconColor ?? YallaColors.primary),
             const SizedBox(width: 5),
             Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
           ],
@@ -715,11 +800,101 @@ class _ItemDetailsSheetState extends State<_ItemDetailsSheet> {
           set.add(option.name);
         }
       } else {
-        set
-          ..clear()
-          ..add(option.name);
+        if (set.contains(option.name) && !group.required && group.minSelect == 0) {
+          set.clear();
+        } else {
+          set
+            ..clear()
+            ..add(option.name);
+        }
       }
     });
+  }
+
+  Widget _plusChoiceButton({required bool selected, required VoidCallback onTap}) => Material(
+        color: selected ? YallaColors.primary : YallaColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            width: 42,
+            height: 42,
+            child: Icon(
+              selected ? Icons.check_rounded : Icons.add_rounded,
+              color: selected ? Colors.white : YallaColors.primary,
+              size: 24,
+            ),
+          ),
+        ),
+      );
+
+  Widget _variantChoice(MenuVariant variant) {
+    final selected = identical(_variant, variant);
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: selected ? YallaColors.primary.withValues(alpha: 0.08) : YallaColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: selected ? YallaColors.primary.withValues(alpha: 0.5) : Colors.transparent,
+        ),
+      ),
+      child: InkWell(
+        onTap: () => setState(() {
+          _error = '';
+          _variant = variant;
+        }),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              _plusChoiceButton(
+                selected: selected,
+                onTap: () => setState(() {
+                  _error = '';
+                  _variant = variant;
+                }),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(variant.label, style: const TextStyle(fontWeight: FontWeight.w800))),
+              Text('${variant.price} ₪', style: TextStyle(color: YallaColors.muted, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _optionChoice(MenuOptionGroup group, MenuOption option) {
+    final selected = (_selected[group.name] ?? {}).contains(option.name);
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: selected ? YallaColors.primary.withValues(alpha: 0.08) : YallaColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: selected ? YallaColors.primary.withValues(alpha: 0.5) : Colors.transparent,
+        ),
+      ),
+      child: InkWell(
+        onTap: () => _toggle(group, option),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              _plusChoiceButton(selected: selected, onTap: () => _toggle(group, option)),
+              const SizedBox(width: 12),
+              Expanded(child: Text(option.name, style: const TextStyle(fontWeight: FontWeight.w800))),
+              if (option.price > 0)
+                Text('+${option.price} ₪', style: TextStyle(color: YallaColors.muted, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _done() {
@@ -816,16 +991,7 @@ class _ItemDetailsSheetState extends State<_ItemDetailsSheet> {
                           const SizedBox(height: 20),
                           const Text('الحجم / النوع', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
                           const SizedBox(height: 6),
-                          ...widget.item.variants.map(
-                            (v) => RadioListTile<MenuVariant>(
-                              contentPadding: EdgeInsets.zero,
-                              value: v,
-                              groupValue: _variant,
-                              onChanged: (x) => setState(() => _variant = x),
-                              title: Text(v.label),
-                              secondary: Text('${v.price} ₪'),
-                            ),
-                          ),
+                          ...widget.item.variants.map(_variantChoice),
                         ],
                         for (final group in widget.item.optionGroups) ...[
                           const SizedBox(height: 18),
@@ -838,15 +1004,7 @@ class _ItemDetailsSheetState extends State<_ItemDetailsSheet> {
                             group.multiple ? 'يمكن اختيار حتى ${group.maxSelect}' : 'اختر واحدًا',
                             style: TextStyle(color: YallaColors.muted, fontSize: 12),
                           ),
-                          ...group.options.map(
-                            (o) => CheckboxListTile(
-                              contentPadding: EdgeInsets.zero,
-                              value: (_selected[group.name] ?? {}).contains(o.name),
-                              onChanged: (_) => _toggle(group, o),
-                              title: Text(o.name),
-                              secondary: o.price > 0 ? Text('+${o.price} ₪') : null,
-                            ),
-                          ),
+                          ...group.options.map((o) => _optionChoice(group, o)),
                         ],
                         if (_error.isNotEmpty)
                           Padding(
