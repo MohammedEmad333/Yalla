@@ -182,7 +182,7 @@ test('حجز المحفظة يمنع استخدام نفس الرصيد في ط�
   const user = await makeUser();
   const r = await makeRestaurant({ minOrder: 0 });
   const first = await restaurantService.createMenuItem(r._id, { name: 'طلب أول', price: 700 });
-  const second = await restaurantService.createMenuItem(r._id, { name: 'طلب ثان', price: 290 });
+  const second = await restaurantService.createMenuItem(r._id, { name: 'طلب ثان', price: 400 });
 
   const order = await restaurantService.createRestaurantOrder(user._id, {
     restaurantId: String(r._id),
