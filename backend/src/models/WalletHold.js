@@ -8,9 +8,10 @@ const walletHoldSchema = new mongoose.Schema(
     wallet: { type: mongoose.Schema.Types.ObjectId, ref: 'Wallet', required: true, index: true },
     order: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true, unique: true, index: true },
     amount: { type: Number, required: true, min: 0 },
+    capturedAmount: { type: Number, default: 0, min: 0 },
     status: {
       type: String,
-      enum: ['reserving', 'active', 'releasing', 'released'],
+      enum: ['reserving', 'active', 'capturing', 'releasing', 'released'],
       default: 'reserving',
       index: true,
     },
