@@ -19,6 +19,7 @@ dependencies:
   http_parser: ^4.0.2 # لتحديد نوع محتوى الصورة عند الرفع (multipart)
   cached_network_image: ^3.4.1 # كاش دائم لصور المطاعم والأصناف
   flutter_secure_storage: ^9.2.2
+  package_info_plus: ^8.1.2
 
   # اختيار صورة الإيصال من المعرض/الكاميرا (شحن الرصيد — المرحلة 1)
   image_picker: ^1.1.2
