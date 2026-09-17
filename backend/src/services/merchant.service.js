@@ -8,9 +8,15 @@ const User = require('../models/User');
 const Captain = require('../models/Captain');
 const restaurantService = require('./restaurant.service');
 const rewardsService = require('./rewards.service');
+const walletHoldService = require('./walletHold.service');
+const orderService = require('./order.service');
+const settingsService = require('./settings.service');
+const env = require('../config/env');
+const logger = require('../utils/logger');
 const io = require('../sockets/io');
 const { ORDER_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 const { normalizePhone } = require('../utils/phone');
+const { isDue } = require('../utils/schedule');
 
 function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
@@ -271,10 +277,33 @@ async function rejectNewOrder(order) {
   order.cancelReason = 'رفض المتجر الطلب';
   await order.save();
 
+  // order.save() يحرر الحجز عبر Order hook؛ نعيد النداء هنا أيضًا كشبكة أمان
+  // idempotent حتى لا يبقى رصيد محجوز إذا تعطل hook مؤقتًا.
   await Promise.all([
     restoreTrackedInventory(order),
     rewardsService.releaseReservation(order.user, Number(order.rewardPointsUsed) || 0),
+    walletHoldService.releaseOrderHold(order._id, 'merchant_rejected'),
   ]);
+}
+
+async function dispatchAcceptedStoreOrder(order) {
+  if (!order || order.status !== ORDER_STATUS.PENDING || !isDue(order.scheduledAt)) return order;
+
+  if (settingsService.isBroadcastMode()) {
+    try {
+      await orderService.broadcastOrderToCaptains(order, { excludeIds: order.rejectedBy || [] });
+    } catch (err) {
+      logger.warn('فشل بث طلب المتجر بعد قبول المتجر:', err.message);
+    }
+  } else if (env.autoAssign) {
+    try {
+      await orderService.autoAssignOrder(order._id, { actorRole: 'system' });
+    } catch (err) {
+      logger.warn('فشل الإسناد التلقائي لطلب المتجر بعد القبول:', err.message);
+    }
+  }
+
+  return Order.findById(order._id);
 }
 
 async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus) {
@@ -284,7 +313,7 @@ async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus) 
     restaurantId = null;
   }
   const ctx = await requireMerchant(merchantId, restaurantId);
-  const order = await Order.findOne({ _id: orderId, 'store.restaurant': ctx.restaurantId });
+  let order = await Order.findOne({ _id: orderId, 'store.restaurant': ctx.restaurantId });
   if (!order) throw httpError('الطلب غير موجود في الفرع الحالي', 404);
   if ([ORDER_STATUS.CANCELLED, ORDER_STATUS.DELIVERED].includes(order.status)) throw httpError('لا يمكن تعديل طلب منتهٍ');
   const current = order.store?.merchantStatus || 'new';
@@ -302,6 +331,11 @@ async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus) 
     order.store.merchantStatus = nextStatus;
     order.store.merchantUpdatedAt = new Date();
     await order.save();
+
+    // طلب المتجر لا يصل للكباتن إلا بعد قبول المتجر. عند القبول نبدأ الإسناد/البث فورًا.
+    if (nextStatus === 'accepted') {
+      order = (await dispatchAcceptedStoreOrder(order)) || order;
+    }
   }
 
   await order.populate('user', 'name lastName phone');
