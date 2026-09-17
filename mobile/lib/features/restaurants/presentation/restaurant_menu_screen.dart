@@ -850,12 +850,24 @@ class _ItemDetailsSheetState extends State<_ItemDetailsSheet> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              _plusChoiceButton(
-                selected: selected,
-                onTap: () => setState(() {
-                  _error = '';
-                  _variant = variant;
-                }),
+              Material(
+                color: YallaColors.primary,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _error = '';
+                      _variant = variant;
+                    });
+                    _done(variant: variant);
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: const SizedBox(
+                    width: 42,
+                    height: 42,
+                    child: Icon(Icons.add_rounded, color: Colors.white, size: 24),
+                  ),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(child: Text(variant.label, style: const TextStyle(fontWeight: FontWeight.w800))),
@@ -897,14 +909,14 @@ class _ItemDetailsSheetState extends State<_ItemDetailsSheet> {
     );
   }
 
-  void _done() {
+  void _done({MenuVariant? variant}) {
     if (!widget.item.available) return;
     final result = <SelectedMenuOption>[];
     for (final group in widget.item.optionGroups) {
       final names = _selected[group.name] ?? {};
       final min = group.required ? (group.minSelect < 1 ? 1 : group.minSelect) : group.minSelect;
       if (names.length < min) {
-        setState(() => _error = 'اختر ${group.name}');
+        setState(() => _error = 'اختر ${group.name} أولًا');
         return;
       }
       for (final name in names) {
@@ -912,7 +924,7 @@ class _ItemDetailsSheetState extends State<_ItemDetailsSheet> {
         result.add(SelectedMenuOption(group.name, option.name, option.price));
       }
     }
-    Navigator.pop(context, _ItemChoice(_variant, result));
+    Navigator.pop(context, _ItemChoice(variant ?? _variant, result));
   }
 
   @override
