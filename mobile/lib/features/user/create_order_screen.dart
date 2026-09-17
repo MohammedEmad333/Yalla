@@ -1,8 +1,5 @@
 // شاشة إنشاء طلب توصيل (تطبيق المستخدم) — نسخة بلا خريطة.
-// لكل نقطة (استلام/تسليم) يختار المستخدم "المدينة" ثمّ "الحي" (Card 109)،
-// ومنه تُشتقّ الإحداثيّات لحساب المسافة والسعر التقريبي (كل ٢٥٠م = ١ شيكل)،
-// ثم يكمل العنوان: الشارع ← العنوان بالتفاصيل ← الملاحظة (Card 21).
-// ملاحظة: يجب أن يكفي رصيد المحفظة للسعر التقريبي قبل تأكيد الطلب (يتحقّق الخادم).
+// يمكن استخدام عنوان محفوظ أو إدخال مدينة/حي يدويًا لكل من الاستلام والتسليم.
 
 import 'package:flutter/material.dart';
 
@@ -10,30 +7,50 @@ import '../../core/network/api_client.dart';
 import '../../core/data/gaza_neighborhoods.dart';
 import '../../core/theme/app_theme.dart';
 
-// حقول عنوان نقطة واحدة (استلام أو تسليم) — المدينة ثمّ الحي منسدلان (Card 109)
 class _AddressFields {
-  String? city; // المدينة (غزة/شمال غزة/الوسطى/خانيونس/رفح) — تحدّد قائمة الأحياء
-  String? neighborhood; // الحي (يعتمد على المدينة) — يحدّد الإحداثيّات
-  final street = TextEditingController(); // الشارع
-  final details = TextEditingController(); // العنوان بالتفاصيل
-  final note = TextEditingController(); // ملاحظة
+  String? city;
+  String? neighborhood;
+  Map<String, dynamic>? saved;
+  final street = TextEditingController();
+  final details = TextEditingController();
+  final note = TextEditingController();
 
-  // إحداثيّات النقطة مشتقّة من المدينة + الحي المختار [lng, lat]
-  List<double>? get coords => coordsOf(city, neighborhood);
+  List<double>? get coords {
+    final raw = saved?['location']?['coordinates'];
+    if (raw is List && raw.length == 2 && raw.every((e) => e is num)) {
+      return raw.map((e) => (e as num).toDouble()).toList(growable: false);
+    }
+    return coordsOf(city, neighborhood);
+  }
 
-  // حمولة الموقع المُرسَلة للخادم
-  Map<String, dynamic> toJson() => {
-        'city': city ?? '',
-        'neighborhood': neighborhood ?? '',
-        'street': street.text.trim(),
-        'details': details.text.trim(),
-        'note': note.text.trim(),
-        if (coords != null) 'location': {'type': 'Point', 'coordinates': coords},
+  Map<String, dynamic> toJson() {
+    final point = coords;
+    if (saved != null) {
+      return {
+        'address': (saved!['address'] ?? '').toString().trim(),
+        'details': (saved!['label'] ?? '').toString().trim(),
+        if (point != null) 'location': {'type': 'Point', 'coordinates': point},
       };
+    }
+    return {
+      'city': city ?? '',
+      'neighborhood': neighborhood ?? '',
+      'street': street.text.trim(),
+      'details': details.text.trim(),
+      'note': note.text.trim(),
+      if (point != null) 'location': {'type': 'Point', 'coordinates': point},
+    };
+  }
 
-  bool get isValid => city != null && neighborhood != null;
+  bool get isValid {
+    if (saved != null) {
+      return coords != null && (saved!['address'] ?? '').toString().trim().isNotEmpty;
+    }
+    return city != null && neighborhood != null && coords != null;
+  }
 
   void clear() {
+    saved = null;
     city = null;
     neighborhood = null;
     street.clear();
@@ -59,22 +76,51 @@ class CreateOrderScreen extends StatefulWidget {
 class _CreateOrderScreenState extends State<CreateOrderScreen> {
   final _pickup = _AddressFields();
   final _dropoff = _AddressFields();
+  final _noteController = TextEditingController();
 
-  final _noteController = TextEditingController(); // وصف الشحنة (منفصل عن ملاحظة العنوان)
+  List<dynamic> _savedAddresses = [];
+  bool _loadingAddresses = true;
   bool _submitting = false;
-
-  // وقت الجدولة الاختياري (null = طلب فوري)
   DateTime? _scheduledAt;
 
-  // التسعيرة التقديرية القادمة من الخادم
   num? _quotePrice;
-  num? _quoteOriginal; // Card 89: السعر قبل العرض (يُعرض مشطوبًا)
-  bool _offerApplied = false; // Card 89: هل طُبّق عرض السقف (١٠ شيكل)؟
+  num? _quoteOriginal;
+  bool _offerApplied = false;
   num? _quoteDistance;
   num? _quoteEta;
   bool _loadingQuote = false;
 
-  // جلب تسعيرة تقديرية عند اكتمال اختيار حيّ النقطتين
+  @override
+  void initState() {
+    super.initState();
+    _loadAddresses();
+  }
+
+  Future<void> _loadAddresses() async {
+    try {
+      final data = await widget.api.get('/features/addresses');
+      if (!mounted) return;
+      setState(() => _savedAddresses = data as List);
+    } catch (_) {
+      // يبقى الإدخال اليدوي متاحًا إذا تعذّر تحميل العناوين المحفوظة.
+    } finally {
+      if (mounted) setState(() => _loadingAddresses = false);
+    }
+  }
+
+  void _resetQuote() {
+    _quotePrice = null;
+    _quoteOriginal = null;
+    _quoteDistance = null;
+    _quoteEta = null;
+    _offerApplied = false;
+  }
+
+  Future<void> _addressChanged() async {
+    if (mounted) setState(_resetQuote);
+    await _refreshQuote();
+  }
+
   Future<void> _refreshQuote() async {
     final p = _pickup.coords;
     final d = _dropoff.coords;
@@ -86,6 +132,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         'dropoff': d,
         'vehicleType': 'motorcycle',
       });
+      if (!mounted) return;
       setState(() {
         _quotePrice = q['price'];
         _quoteOriginal = q['originalPrice'];
@@ -94,13 +141,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         _quoteEta = q['etaMinutes'];
       });
     } on ApiException {
-      // نتجاهل خطأ التسعيرة — السعر يُحسب نهائيًا في الخادم عند الإنشاء
+      // السعر النهائي سيعاد احتسابه في الخادم عند إنشاء الطلب.
     } finally {
       if (mounted) setState(() => _loadingQuote = false);
     }
   }
 
-  // اختيار تاريخ ووقت الجدولة (ضمن 7 أيام قادمة)
   Future<void> _pickSchedule() async {
     final now = DateTime.now();
     final date = await showDatePicker(
@@ -117,11 +163,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     });
   }
 
-  // إرسال الطلب للـ Backend
   Future<void> _submitOrder() async {
     if (!_pickup.isValid || !_dropoff.isValid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('اختر مدينة وحي الاستلام ومدينة وحي التسليم')),
+        const SnackBar(
+          content: Text('اختر عنوانًا محفوظًا أو مدينة وحي صالحين لنقطتَي الاستلام والتسليم'),
+        ),
       );
       return;
     }
@@ -142,11 +189,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         _dropoff.clear();
         _noteController.clear();
         _scheduledAt = null;
-        _quotePrice = _quoteOriginal = _quoteDistance = _quoteEta = null;
-        _offerApplied = false;
+        _resetQuote();
       });
     } on ApiException catch (e) {
-      // يشمل رسالة "رصيد محفظتك لا يكفي للسعر التقريبي — اشحن محفظتك أولًا"
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -160,13 +205,11 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // نقطة الاستلام: الحي (يحدّد الموقع) + بقيّة العنوان
           _sectionLabel('نقطة الاستلام', Icons.store),
           const SizedBox(height: 8),
           ..._addressInputs(_pickup),
           const SizedBox(height: 20),
 
-          // نقطة التسليم
           _sectionLabel('نقطة التسليم', Icons.flag),
           const SizedBox(height: 8),
           ..._addressInputs(_dropoff),
@@ -183,7 +226,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           ),
           const SizedBox(height: 12),
 
-          // جدولة لوقت لاحق (اختياري)
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('جدولة لوقت لاحق'),
@@ -192,7 +234,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             onChanged: (on) => on ? _pickSchedule() : setState(() => _scheduledAt = null),
           ),
 
-          // بطاقة التسعيرة التقريبية
           if (_loadingQuote || _quotePrice != null)
             Card(
               margin: const EdgeInsets.only(bottom: 12),
@@ -200,7 +241,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 leading: const Icon(Icons.payments),
                 title: _loadingQuote
                     ? const Text('جارٍ حساب السعر...')
-                    // Card 89: أثناء العرض نعرض السعر الأصلي مشطوبًا وسعر العرض بجانبه
                     : _offerApplied && _quoteOriginal != null
                         ? Row(
                             children: [
@@ -248,44 +288,95 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     );
   }
 
-  // حقول عنوان نقطة: المدينة (منسدل) ← الحي (منسدل) ← الشارع ← التفاصيل ← الملاحظة
   List<Widget> _addressInputs(_AddressFields f) => [
-        _cityPicker(f),
-        const SizedBox(height: 8),
-        _neighborhoodPicker(f),
-        const SizedBox(height: 8),
-        TextField(
-          controller: f.street,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'الشارع',
-            prefixIcon: Icon(Icons.add_road),
-            border: OutlineInputBorder(),
+        if (_loadingAddresses)
+          const LinearProgressIndicator()
+        else if (_savedAddresses.isNotEmpty && f.saved == null)
+          _savedAddressPicker(f),
+        if (!_loadingAddresses && _savedAddresses.isNotEmpty && f.saved == null) const SizedBox(height: 8),
+        if (f.saved == null) ...[
+          _cityPicker(f),
+          const SizedBox(height: 8),
+          _neighborhoodPicker(f),
+          const SizedBox(height: 8),
+          TextField(
+            controller: f.street,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'الشارع',
+              prefixIcon: Icon(Icons.add_road),
+              border: OutlineInputBorder(),
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: f.details,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'العنوان بالتفاصيل',
-            hintText: 'مبنى، طابق، علامة مميّزة',
-            prefixIcon: Icon(Icons.edit_location_alt),
-            border: OutlineInputBorder(),
+          const SizedBox(height: 8),
+          TextField(
+            controller: f.details,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'العنوان بالتفاصيل',
+              hintText: 'مبنى، طابق، علامة مميّزة',
+              prefixIcon: Icon(Icons.edit_location_alt),
+              border: OutlineInputBorder(),
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: f.note,
-          decoration: const InputDecoration(
-            labelText: 'ملاحظة (اختياري)',
-            prefixIcon: Icon(Icons.note_alt_outlined),
-            border: OutlineInputBorder(),
+          const SizedBox(height: 8),
+          TextField(
+            controller: f.note,
+            decoration: const InputDecoration(
+              labelText: 'ملاحظة (اختياري)',
+              prefixIcon: Icon(Icons.note_alt_outlined),
+              border: OutlineInputBorder(),
+            ),
           ),
-        ),
+        ] else
+          Card(
+            margin: EdgeInsets.zero,
+            child: ListTile(
+              leading: const Icon(Icons.bookmark_added_outlined),
+              title: Text((f.saved!['label'] ?? 'عنوان محفوظ').toString()),
+              subtitle: Text((f.saved!['address'] ?? '').toString()),
+              trailing: TextButton(
+                onPressed: () {
+                  setState(() => f.saved = null);
+                  _addressChanged();
+                },
+                child: const Text('تغيير'),
+              ),
+            ),
+          ),
       ];
 
-  // منتقي المدينة (Card 109) — قبل الحي. تغييرها يُصفّر الحي المختار.
+  Widget _savedAddressPicker(_AddressFields f) => DropdownButtonFormField<Map<String, dynamic>?>(
+        value: null,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'عنوان محفوظ (اختياري)',
+          prefixIcon: Icon(Icons.bookmark_outline),
+          border: OutlineInputBorder(),
+        ),
+        items: [
+          const DropdownMenuItem<Map<String, dynamic>?>(
+            value: null,
+            child: Text('إدخال عنوان جديد'),
+          ),
+          ..._savedAddresses.map((raw) {
+            final address = Map<String, dynamic>.from(raw as Map);
+            return DropdownMenuItem<Map<String, dynamic>?>(
+              value: address,
+              child: Text(
+                '${address['label'] ?? 'عنوان'} — ${address['address'] ?? ''}',
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          }),
+        ],
+        onChanged: (value) {
+          if (value == null) return;
+          setState(() => f.saved = value);
+          _addressChanged();
+        },
+      );
+
   Widget _cityPicker(_AddressFields f) => DropdownButtonFormField<String>(
         value: f.city,
         isExpanded: true,
@@ -294,19 +385,16 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           prefixIcon: Icon(Icons.location_city),
           border: OutlineInputBorder(),
         ),
-        items: gazaCities
-            .map((name) => DropdownMenuItem(value: name, child: Text(name)))
-            .toList(),
+        items: gazaCities.map((name) => DropdownMenuItem(value: name, child: Text(name))).toList(),
         onChanged: (v) {
           setState(() {
             f.city = v;
-            f.neighborhood = null; // إعادة ضبط الحي عند تغيير المدينة
+            f.neighborhood = null;
           });
-          _refreshQuote();
+          _addressChanged();
         },
       );
 
-  // منتقي الحي (Card 109) — عناصره تعتمد على المدينة المختارة، يحدّد الإحداثيّات
   Widget _neighborhoodPicker(_AddressFields f) {
     final names = neighborhoodsOf(f.city);
     return DropdownButtonFormField<String>(
@@ -318,20 +406,16 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         border: const OutlineInputBorder(),
         hintText: f.city == null ? 'اختر المدينة أولًا' : null,
       ),
-      items: names
-          .map((name) => DropdownMenuItem(value: name, child: Text(name)))
-          .toList(),
-      // معطّل حتى تُختار المدينة
+      items: names.map((name) => DropdownMenuItem(value: name, child: Text(name))).toList(),
       onChanged: f.city == null
           ? null
           : (v) {
               setState(() => f.neighborhood = v);
-              _refreshQuote();
+              _addressChanged();
             },
     );
   }
 
-  // عنوان قسم (نقطة استلام/تسليم)
   Widget _sectionLabel(String text, IconData icon) => Row(
         children: [
           Icon(icon, size: 20),
