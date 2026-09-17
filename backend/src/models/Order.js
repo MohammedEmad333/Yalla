@@ -1,6 +1,8 @@
 'use strict';
 
 const mongoose = require('mongoose');
+const Merchant = require('./Merchant');
+const MerchantEarning = require('./MerchantEarning');
 const { ORDER_STATUS } = require('../utils/constants');
 
 const locationSchema = new mongoose.Schema(
@@ -189,8 +191,6 @@ orderSchema.post('save', async function createMerchantEarning(doc, next) {
       return next();
     }
 
-    const Merchant = mongoose.model('Merchant');
-    const MerchantEarning = mongoose.model('MerchantEarning');
     const merchant = await Merchant.findOne({
       $or: [
         { restaurant: doc.store.restaurant },
@@ -220,7 +220,7 @@ orderSchema.post('save', async function createMerchantEarning(doc, next) {
       { upsert: true }
     );
     return next();
-  } catch (err) {
+  } catch (_) {
     // لا نفشل تسليم الزبون إن تعذر إنشاء قيد المتجر؛ يمكن إعادة بناء القيد لاحقًا
     // من الطلب المسلّم لأن كل الأرقام محفوظة عليه.
     return next();
