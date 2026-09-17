@@ -3,6 +3,7 @@
 const mongoose = require('mongoose');
 const Merchant = require('./Merchant');
 const MerchantEarning = require('./MerchantEarning');
+const Coupon = require('./Coupon');
 const walletHoldService = require('../services/walletHold.service');
 const { ORDER_STATUS } = require('../utils/constants');
 
@@ -134,23 +135,30 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const MERCHANT_DISPATCH_ALLOWED = ['accepted', 'preparing', 'ready', 'handed_over'];
+const MERCHANT_PICKUP_ALLOWED = ['ready', 'handed_over'];
+
 orderSchema.pre('validate', function enforceMerchantDeliveryFlow(next) {
   const isStoreOrder = !!this.store?.restaurant;
   if (!isStoreOrder) return next();
 
   const merchantStatus = this.store?.merchantStatus || 'new';
-  const dispatchAllowed = ['accepted', 'preparing', 'ready', 'handed_over'];
+
+  // لا يظهر طلب المتجر للكباتن ولا يُسند قبل أن يقبله المتجر.
+  if (this.broadcast && !MERCHANT_DISPATCH_ALLOWED.includes(merchantStatus)) {
+    return next(new Error('لا يمكن بث طلب المتجر للكباتن قبل قبول المتجر للطلب'));
+  }
 
   if (
     [ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED, ORDER_STATUS.PICKED_UP].includes(this.status) &&
-    !dispatchAllowed.includes(merchantStatus)
+    !MERCHANT_DISPATCH_ALLOWED.includes(merchantStatus)
   ) {
     return next(new Error('لا يمكن إسناد طلب المتجر لكابتن قبل قبول المتجر للطلب'));
   }
 
   if (
     this.status === ORDER_STATUS.PICKED_UP &&
-    !['ready', 'handed_over'].includes(merchantStatus)
+    !MERCHANT_PICKUP_ALLOWED.includes(merchantStatus)
   ) {
     return next(new Error('لا يمكن للكابتن استلام طلب المتجر قبل أن يصبح جاهزًا'));
   }
@@ -168,6 +176,57 @@ orderSchema.pre('validate', function enforceMerchantDeliveryFlow(next) {
     this.adminCredit = Math.max(0, Number(this.commission) || 0);
   }
 
+  return next();
+});
+
+// نحجز القيمة التقديرية كاملة لطلب المتجر قبل إدخاله قاعدة البيانات. هكذا لا يستطيع
+// طلب ثانٍ استهلاك المبلغ المحجوز حتى لو كان الرصيد الإجمالي ما يزال مرتفعًا.
+orderSchema.pre('save', async function reserveStoreOrderWalletHold(next) {
+  try {
+    if (!this.isNew || !this.store?.restaurant) return next();
+    const estimatedTotal = Math.max(
+      0,
+      (Number(this.price) || 0) +
+        (Number(this.store?.itemsTotal) || 0) -
+        (Number(this.rewardDiscount) || 0)
+    );
+    if (estimatedTotal > 0) {
+      await walletHoldService.reserveOrderAmount(this.user, this._id, estimatedTotal);
+    }
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// findOneAndUpdate لا يمر عبر document validation hooks. نضيف حارسًا ذريًا هنا حتى
+// لا يستطيع claimOrder أو أي مسار إسناد مباشر تجاوز موافقة/جاهزية المتجر.
+orderSchema.pre('findOneAndUpdate', function enforceAtomicMerchantFlow(next) {
+  const update = this.getUpdate() || {};
+  const set = update.$set || update;
+  const nextStatus = set.status;
+  const startsBroadcast = set.broadcast === true;
+  const isDispatchUpdate =
+    startsBroadcast ||
+    [ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED].includes(nextStatus) ||
+    (!!set.captain && nextStatus !== ORDER_STATUS.CANCELLED);
+  const isPickupUpdate = nextStatus === ORDER_STATUS.PICKED_UP;
+
+  if (!isDispatchUpdate && !isPickupUpdate) return next();
+
+  const originalQuery = this.getQuery();
+  const merchantStates = isPickupUpdate ? MERCHANT_PICKUP_ALLOWED : MERCHANT_DISPATCH_ALLOWED;
+  this.setQuery({
+    $and: [
+      originalQuery,
+      {
+        $or: [
+          { 'store.restaurant': null },
+          { 'store.merchantStatus': { $in: merchantStates } },
+        ],
+      },
+    ],
+  });
   return next();
 });
 
@@ -219,8 +278,8 @@ orderSchema.post('save', async function createMerchantEarning(doc, next) {
 });
 
 // كل حجز مالي لطلب متجر ينتهي تلقائيًا عند الإلغاء أو بعد نجاح التسليم.
-// عند التسليم يكون chargeForOrder قد خصم المبلغ الحقيقي قبل حفظ حالة delivered،
-// لذلك هذا الـhook يحرر فقط الجزء المحجوز ولا يعيد أي مال للمحفظة.
+// عند التسليم يكون captureOrderHold/chargeForOrder قد خصم المبلغ الحقيقي قبل الحفظ،
+// لذلك هذا الـhook لا يعيد أي مال؛ فقط يتأكد من عدم بقاء حجز نشط.
 orderSchema.post('save', async function releaseTerminalWalletHold(doc, next) {
   try {
     if (![ORDER_STATUS.CANCELLED, ORDER_STATUS.DELIVERED].includes(doc.status)) {
@@ -235,6 +294,44 @@ orderSchema.post('save', async function releaseTerminalWalletHold(doc, next) {
     // لا نفشل حفظ حالة الطلب بسبب تعطل تحرير الحجز؛ العملية idempotent ويمكن إصلاحها لاحقًا.
     return next();
   }
+});
+
+// إعادة عداد استخدام الكوبون مرة واحدة فقط عند إلغاء الطلب. restoredOrders يجعل
+// العملية idempotent حتى لو حُفظ الطلب الملغي أكثر من مرة أو وصل أكثر من طلب إلغاء.
+orderSchema.post('save', async function rollbackCouponOnCancellation(doc, next) {
+  try {
+    const code = String(doc.store?.couponCode || '').trim().toUpperCase();
+    if (doc.status !== ORDER_STATUS.CANCELLED || !code) return next();
+
+    await Coupon.updateOne(
+      {
+        code,
+        usedCount: { $gt: 0 },
+        restoredOrders: { $ne: doc._id },
+      },
+      {
+        $inc: { usedCount: -1 },
+        $addToSet: { restoredOrders: doc._id },
+      }
+    );
+    return next();
+  } catch (_) {
+    // لا نفشل إلغاء الطلب بسبب فشل bookkeeping للكوبون.
+    return next();
+  }
+});
+
+// إذا فشل إنشاء طلب متجر بعد نجاح الحجز (مثل تعارض idempotency نادر)، لا نترك
+// مبلغًا محجوزًا لطلب لم يُحفظ.
+orderSchema.post('save', async function releaseHoldAfterSaveError(error, doc, next) {
+  try {
+    if (error && doc?._id && doc?.store?.restaurant) {
+      await walletHoldService.releaseOrderHold(doc._id, 'order_save_failed');
+    }
+  } catch (_) {
+    // نمرر الخطأ الأصلي دائمًا.
+  }
+  return next(error);
 });
 
 orderSchema.index(
