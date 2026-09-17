@@ -189,7 +189,10 @@ async function createOrder(userId, payload, idempotencyKey) {
 
   // التحقّق من وقت الجدولة (اختياري)
   const scheduleError = validateScheduledAt(payload.scheduledAt);
-  if (scheduleError) throw Object.assign(new Error(scheduleError), { statusCode: 400 });
+  if (scheduleError) {
+    await rewardsService.releaseReservation(userId, reward.pointsUsed);
+    throw Object.assign(new Error(scheduleError), { statusCode: 400 });
+  }
   const scheduledAt = payload.scheduledAt ? new Date(payload.scheduledAt) : null;
 
   // رمز تسليم الطلب (Card 20) — يُعطى لصاحب الطلب لتأكيد الاستلام لاحقًا.
