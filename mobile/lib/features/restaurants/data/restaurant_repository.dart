@@ -96,9 +96,15 @@ class Restaurant {
   }
 
   String get scheduleLabel {
+    final parts = <String>[];
     final o = _minutes(openTime), c = _minutes(closeTime);
-    if (o == null || c == null || o == c) return '';
-    return '${_fmt(o)} - ${_fmt(c)}';
+    if (o != null && c != null && o != c) {
+      parts.add('يفتح ${_fmt(o)}');
+      parts.add('يغلق ${_fmt(c)}');
+    }
+    final mobile = phone.trim();
+    if (mobile.isNotEmpty) parts.add('جوال $mobile');
+    return parts.join('  •  ');
   }
 
   String get opensAtLabel {
