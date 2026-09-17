@@ -33,7 +33,7 @@ const orderSchema = new mongoose.Schema(
       name: { type: String, default: '' },
       merchantStatus: {
         type: String,
-        enum: ['new', 'accepted', 'preparing', 'ready'],
+        enum: ['new', 'accepted', 'preparing', 'ready', 'handed_over'],
         default: 'new',
       },
       merchantUpdatedAt: { type: Date, default: null },

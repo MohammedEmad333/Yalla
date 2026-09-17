@@ -241,7 +241,13 @@ async function listOrders(merchantId, restaurantId, query = {}) {
   return Order.find(filter).populate('user', 'name lastName phone').populate('captain', 'name phone').sort({ createdAt: -1 }).limit(limit).lean();
 }
 
-const MERCHANT_TRANSITIONS = { new: ['accepted'], accepted: ['preparing'], preparing: ['ready'], ready: [] };
+const MERCHANT_TRANSITIONS = {
+  new: ['accepted'],
+  accepted: ['preparing'],
+  preparing: ['ready'],
+  ready: ['handed_over'],
+  handed_over: [],
+};
 async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus) {
   if (arguments.length === 3) {
     nextStatus = orderId;
@@ -254,6 +260,9 @@ async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus) 
   if ([ORDER_STATUS.CANCELLED, ORDER_STATUS.DELIVERED].includes(order.status)) throw httpError('لا يمكن تعديل طلب منتهٍ');
   const current = order.store?.merchantStatus || 'new';
   if (!(MERCHANT_TRANSITIONS[current] || []).includes(nextStatus)) throw httpError(`انتقال غير مسموح: ${current} -> ${nextStatus}`);
+  if (nextStatus === 'handed_over' && !order.captain) {
+    throw httpError('لا يمكن تأكيد التسليم قبل تعيين كابتن للطلب');
+  }
   order.store.merchantStatus = nextStatus;
   order.store.merchantUpdatedAt = new Date();
   await order.save();

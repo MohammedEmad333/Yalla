@@ -116,7 +116,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         children: [
                           Text('إدارة الطلبات', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
                           SizedBox(height: 4),
-                          Text('تابع الطلب من لحظة وصوله حتى يصبح جاهزًا.', style: TextStyle(color: Color(0xFFB8C6D8), fontSize: 12.5)),
+                          Text('تابع الطلب من لحظة وصوله حتى تسليمه للكابتن.', style: TextStyle(color: Color(0xFFB8C6D8), fontSize: 12.5)),
                         ],
                       ),
                     ),
@@ -235,6 +235,7 @@ class _OrderCard extends StatelessWidget {
     'accepted': 'تم القبول',
     'preparing': 'قيد التحضير',
     'ready': 'جاهز للاستلام',
+    'handed_over': 'تم التسليم للكابتن',
   };
   static const next = {
     'new': ('accepted', 'قبول الطلب'),
@@ -249,6 +250,7 @@ class _OrderCard extends StatelessWidget {
     final items = (store['items'] as List?) ?? const [];
     final status = store['merchantStatus']?.toString() ?? 'new';
     final action = next[status];
+    final hasCaptain = order['captain'] != null;
     final id = order['_id']?.toString() ?? '';
     final shortId = id.length > 6 ? id.substring(id.length - 6) : id;
 
@@ -344,6 +346,25 @@ class _OrderCard extends StatelessWidget {
                 icon: Icon(status == 'new' ? Icons.check_rounded : Icons.arrow_forward_rounded),
                 label: Text(action.$2),
               )
+            else if (status == 'ready' && hasCaptain)
+              FilledButton.icon(
+                onPressed: () => onAdvance(order, 'handed_over'),
+                icon: const Icon(Icons.handshake_rounded),
+                label: const Text('تم التسليم للكابتن'),
+              )
+            else if (status == 'handed_over')
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(color: const Color(0xFFEAF8F1), borderRadius: BorderRadius.circular(16)),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: Color(0xFF218A5A)),
+                    SizedBox(width: 8),
+                    Text('تم التسليم للكابتن', style: TextStyle(color: Color(0xFF218A5A), fontWeight: FontWeight.w800)),
+                  ],
+                ),
+              )
             else
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -376,6 +397,7 @@ class _StatusChip extends StatelessWidget {
       'accepted' => const Color(0xFF3578C9),
       'preparing' => const Color(0xFF8B5FBF),
       'ready' => const Color(0xFF218A5A),
+      'handed_over' => const Color(0xFF147A4D),
       _ => const Color(0xFF657287),
     };
     return Container(
