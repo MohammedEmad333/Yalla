@@ -5,7 +5,10 @@ const Coupon = require('../models/Coupon');
 const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
 const orderService = require('./order.service');
+const rewardsService = require('./rewards.service');
+const walletHoldService = require('./walletHold.service');
 const { coordsForNeighborhood } = require('../utils/neighborhoods');
+const { ORDER_STATUS } = require('../utils/constants');
 const {
   normalizeCartItems,
   buildOrderLines,
@@ -174,6 +177,37 @@ async function placeRestaurantOrder(userId, payload = {}, idempotencyKey) {
     },
     idempotencyKey
   );
+
+  // نحجز كامل المطلوب عند إنشاء طلب المتجر بدل الاكتفاء بفحص الرصيد.
+  // الخصم الحقيقي يبقى عند التسليم، وأي فرق في أجرة التوصيل يتحرر تلقائيًا.
+  const holdAmount = Math.max(
+    0,
+    Number(order.price || 0) + Number(order.store?.itemsTotal || 0) - Number(order.rewardDiscount || 0)
+  );
+
+  let hold;
+  try {
+    hold = await walletHoldService.reserveOrderAmount(userId, order._id, holdAmount);
+  } catch (err) {
+    // لم يُستهلك المخزون بعد، لذا نغلق الطلب الذي لم يتمكن من حجز المال ونحرر النقاط.
+    await Order.updateOne(
+      { _id: order._id, status: ORDER_STATUS.PENDING },
+      {
+        $set: {
+          status: ORDER_STATUS.CANCELLED,
+          cancelReason: 'تعذر حجز مبلغ الطلب',
+          'timeline.cancelledAt': new Date(),
+          financialSettlementState: 'refunded',
+        },
+      }
+    ).catch(() => {});
+    await rewardsService.releaseReservation(userId, Number(order.rewardPointsUsed) || 0).catch(() => {});
+    throw err;
+  }
+
+  // إعادة نفس idempotencyKey تعيد الطلب نفسه؛ وجود الحجز يعني أن المخزون والكوبون
+  // عولجا في المحاولة الأصلية، فلا نخصمهما مرة ثانية.
+  if (hold.duplicate) return order;
 
   if (couponInfo && couponDiscount >= promoDiscount) {
     await Coupon.updateOne({ _id: couponInfo.coupon._id, active: true }, { $inc: { usedCount: 1 } });
