@@ -12,6 +12,7 @@ const notifications = require('./notification.service');
 const settingsService = require('./settings.service');
 const chat = require('./chat.service');
 const walletService = require('./wallet.service');
+const rewardsService = require('./rewards.service');
 const captainWallet = require('./captainWallet.service');
 const adminService = require('./admin.service');
 const { coordsForNeighborhood } = require('../utils/neighborhoods');
@@ -173,11 +174,14 @@ async function createOrder(userId, payload, idempotencyKey) {
   // الطلب العادي يحتاج أجرة التوصيل فقط.
   const { balance } = await walletService.getWalletSummary(userId);
   const itemsTotal = Number(payload.store?.itemsTotal) || 0;
-  const requiredBalance = price + itemsTotal;
+  const estimatedTotal = price + itemsTotal;
+  const reward = await rewardsService.reserveForOrder(userId, payload.rewardPoints, estimatedTotal);
+  const requiredBalance = Math.max(0, estimatedTotal - reward.discountIls);
   if (balance < requiredBalance) {
+    await rewardsService.releaseReservation(userId, reward.pointsUsed);
     throw httpError(
-      `رصيد محفظتك غير كافٍ لإتمام الطلب: رصيدك ${balance} ₪ والمطلوب ${requiredBalance} ₪` +
-        (itemsTotal > 0 ? ` (${itemsTotal} ₪ أصناف + ${price} ₪ توصيل)` : '') +
+      `رصيد محفظتك غير كافٍ لإتمام الطلب: رصيدك ${balance} ₪ والمطلوب ${requiredBalance} ₪ بعد خصم النقاط` +
+        (itemsTotal > 0 ? ` (${itemsTotal} ₪ أصناف + ${price} ₪ توصيل - ${reward.discountIls} ₪ نقاط)` : '') +
         ' — اشحن المحفظة ثم حاول مرة أخرى',
       400
     );
@@ -205,14 +209,20 @@ async function createOrder(userId, payload, idempotencyKey) {
       distanceKm,
       deliveryCode,
       scheduledAt,
+      rewardPointsUsed: reward.pointsUsed,
+      rewardPointsPerIls: reward.pointsPerIls,
+      rewardDiscount: reward.discountIls,
+      rewardDiscountApplied: 0,
       idempotencyKey: key || undefined,
       status: ORDER_STATUS.PENDING,
     });
   } catch (err) {
     // سباق: طلبان بنفس المفتاح في آنٍ واحد — نُعيد الأصلي عبر فهرس التفرّد
     if (err.code === 11000 && key) {
+      await rewardsService.releaseReservation(userId, reward.pointsUsed);
       return Order.findOne({ user: userId, idempotencyKey: key });
     }
+    await rewardsService.releaseReservation(userId, reward.pointsUsed);
     throw err;
   }
 
@@ -960,12 +970,18 @@ async function updateOrderStatus(
     }
 
     const itemsTotal = Number(order.store?.itemsTotal) || 0;
+    const grossTotal = realPrice + itemsTotal;
+    const rewardSettlement = await rewardsService.settleOrderDiscount(order, grossTotal);
+    const chargeAmount = Math.max(0, grossTotal - rewardSettlement.discountIls);
     try {
-      await walletService.chargeForOrder(order.user, realPrice + itemsTotal, order._id, {
-        deliveryAmount: realPrice,
-        itemsAmount: itemsTotal,
-        restaurantName: order.store?.name || '',
-      });
+      if (chargeAmount > 0) {
+        await walletService.chargeForOrder(order.user, chargeAmount, order._id, {
+          deliveryAmount: realPrice,
+          itemsAmount: itemsTotal,
+          rewardDiscount: rewardSettlement.discountIls,
+          restaurantName: order.store?.name || '',
+        });
+      }
     } catch (err) {
       await Order.updateOne(
         { _id: order._id, status: ORDER_STATUS.PICKED_UP },
@@ -1001,7 +1017,8 @@ async function updateOrderStatus(
     const net = Math.round(realPrice * CAPTAIN_SHARE);
     order.captainNet = net;
     order.commission = realPrice - net;
-    order.customerCharged = realPrice + (Number(order.store?.itemsTotal) || 0);
+    const grossTotal = realPrice + (Number(order.store?.itemsTotal) || 0);
+    order.customerCharged = Math.max(0, grossTotal - (Number(order.rewardDiscountApplied) || 0));
     order.adminCredit = (Number(order.store?.itemsTotal) || 0) + order.commission;
     order.financialSettledAt = new Date();
     order.financialSettlementState = 'settled';
@@ -1010,6 +1027,7 @@ async function updateOrderStatus(
   if (nextStatus === ORDER_STATUS.CANCELLED) {
     order.timeline.cancelledAt = new Date();
     order.cancelReason = reason || 'ألغاه الكابتن';
+    await rewardsService.refundOrderPoints(order);
   }
   await order.save();
 
@@ -1314,6 +1332,7 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
     order._id,
     reason || (actorRole === 'admin' ? 'إلغاء من الأدمن' : 'إلغاء من المستخدم')
   );
+  await rewardsService.refundOrderPoints(order);
 
   order.status = ORDER_STATUS.CANCELLED;
   order.timeline.cancelledAt = new Date();
