@@ -4,7 +4,7 @@ const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
 const orderService = require('./order.service');
 const { saveImage, deleteFileByUrl } = require('../utils/avatarStore');
-const { isOpenBySchedule } = require('../utils/restaurantHours');
+const { isRestaurantOpen } = require('../utils/restaurantHours');
 const { composeAddress } = require('../utils/address');
 const { coordsForNeighborhood } = require('../utils/neighborhoods');
 const {
@@ -53,15 +53,16 @@ function withNeighborhoodLocation(restaurant) {
   const coordinates = restaurantCoordinates(restaurant);
   return {
     ...restaurant,
-    // الحالة مصدرها ساعات العمل فقط؛ أُلغي المفتاح اليدوي المكرر.
-    isOpen: isOpenBySchedule(restaurant.openTime, restaurant.closeTime),
+    // الجدول الأسبوعي هو مصدر حالة المتجر، مع fallback للمواعيد القديمة فقط
+    // للسجلات التي لم يُحفظ لها weeklyHours بعد.
+    isOpen: isRestaurantOpen(restaurant),
     location: { type: 'Point', coordinates },
   };
 }
 
 // الحقول المُعادة للزبون (نُخفي حقول الإدارة غير الضرورية)
 const PUBLIC_FIELDS =
-  'name description category imageUrl phone city neighborhood street address location minOrder prepMinutes isOpen openTime closeTime sortOrder';
+  'name description category imageUrl phone city neighborhood street address location minOrder prepMinutes isOpen openTime closeTime weeklyHours ratingAverage ratingCount sortOrder';
 
 // يطبّع وقتًا إلى صيغة "HH:MM" (٢٤ ساعة) أو '' إن كان فارغًا/غير صالح.
 function normalizeTime(value) {
@@ -221,8 +222,8 @@ async function getRestaurantWithMenu(restaurantId) {
 async function createRestaurantOrder(userId, payload = {}, idempotencyKey) {
   const restaurant = await Restaurant.findById(payload.restaurantId).catch(() => null);
   if (!restaurant || !restaurant.active) throw httpError('المطعم غير موجود', 404);
-  if (!isOpenBySchedule(restaurant.openTime, restaurant.closeTime)) {
-    throw httpError('المطعم خارج مواعيد العمل حاليًا — جرّب لاحقًا', 400);
+  if (!isRestaurantOpen(restaurant)) {
+    throw httpError('المطعم خارج ساعات العمل الأسبوعية حاليًا — جرّب لاحقًا', 400);
   }
 
   const cart = normalizeCartItems(payload.items);
