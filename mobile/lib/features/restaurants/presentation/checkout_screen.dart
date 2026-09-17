@@ -28,12 +28,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   List<dynamic> _savedAddresses = [];
   Map<String, dynamic>? _saved;
+  Map<String, dynamic>? _rewards;
   bool _loadingAddresses = true;
   bool _submitting = false;
   bool _loadingQuote = false;
   bool _checkingCoupon = false;
   bool _forSomeoneElse = false;
   bool _scheduled = false;
+  bool _usePoints = false;
   DateTime? _scheduledAt;
   num? _deliveryPrice;
   num? _deliveryOriginal;
@@ -43,11 +45,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _couponMessage = '';
 
   Cart get _cart => widget.cart;
+  int get _points => _asInt(_rewards?['points']);
+  Map<String, dynamic> get _rewardRules => Map<String, dynamic>.from((_rewards?['rules'] as Map?) ?? const {});
+  int get _pointsPerIls => _asInt(_rewardRules['pointsPerIls'], fallback: 100);
+  int get _minOrderPoints => _asInt(_rewardRules['minOrderPoints'] ?? _rewardRules['minRedeemPoints'], fallback: _pointsPerIls);
+  bool get _rewardsEnabled => _rewardRules['enabled'] != false;
+
+  num get _itemsAfterDiscount => (_cart.total - _discount).clamp(0, double.infinity);
+  num get _preRewardTotal => _itemsAfterDiscount + (_deliveryPrice ?? 0);
+  int get _usablePoints {
+    if (!_usePoints || !_rewardsEnabled || _deliveryPrice == null || _pointsPerIls <= 0) return 0;
+    final maxByOrder = _preRewardTotal.floor() * _pointsPerIls;
+    final roundedAvailable = (_points ~/ _pointsPerIls) * _pointsPerIls;
+    final value = roundedAvailable < maxByOrder ? roundedAvailable : maxByOrder;
+    return value >= _minOrderPoints ? value : 0;
+  }
+  num get _rewardDiscount => _pointsPerIls > 0 ? _usablePoints / _pointsPerIls : 0;
+  num get _totalAfterRewards => (_preRewardTotal - _rewardDiscount).clamp(0, double.infinity);
 
   @override
   void initState() {
     super.initState();
     _loadAddresses();
+    _loadRewards();
   }
 
   @override
@@ -56,6 +76,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _loadRewards() async {
+    try {
+      final raw = await widget.api.get('/expansion/rewards');
+      if (mounted) setState(() => _rewards = Map<String, dynamic>.from(raw as Map));
+    } catch (_) {
+      // المتابعة بدون نقاط عند تعذر تحميل المكافآت.
+    }
   }
 
   Future<void> _loadAddresses() async {
@@ -171,16 +200,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_scheduled && _scheduledAt == null) return _snack('اختر موعد الطلب');
     setState(() => _submitting = true);
     try {
+      final usedPoints = _usablePoints;
       await widget.api.post('/commerce/restaurant-order', {
         'restaurantId': _cart.restaurant.id,
         'items': _cart.toItemsPayload(),
         'dropoff': dropoff,
         if (_orderNote.text.trim().isNotEmpty) 'note': _orderNote.text.trim(),
         if (_coupon.text.trim().isNotEmpty) 'couponCode': _coupon.text.trim(),
+        if (usedPoints > 0) 'rewardPoints': usedPoints,
         if (_scheduled && _scheduledAt != null) 'scheduledAt': _scheduledAt!.toUtc().toIso8601String(),
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_scheduled ? 'تمت جدولة الطلب بنجاح' : 'تم إرسال طلبك للمطعم')));
+      final base = _scheduled ? 'تمت جدولة الطلب بنجاح' : 'تم إرسال طلبك للمطعم';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(usedPoints > 0 ? '$base واستخدام $usedPoints نقطة كخصم' : base)));
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (mounted) _snack(e.message == 'الرصيد غير كافٍ' ? 'رصيد محفظتك غير كافٍ لإتمام الطلب' : e.message);
@@ -193,8 +225,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final itemsAfterDiscount = (_cart.total - _discount).clamp(0, double.infinity);
-    final total = itemsAfterDiscount + (_deliveryPrice ?? 0);
+    final canUsePoints = _rewardsEnabled && _points >= _minOrderPoints && _deliveryPrice != null;
     return Scaffold(
       appBar: AppBar(title: const Text('إتمام الطلب')),
       body: ListView(
@@ -263,6 +294,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ]),
           if (_couponMessage.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_couponMessage, style: TextStyle(color: _discount > 0 ? YallaColors.success : YallaColors.error))),
           const SizedBox(height: 20),
+
+          if (_rewards != null) ...[
+            _section('نقاط Yalla', Icons.stars_outlined),
+            Card(
+              child: SwitchListTile.adaptive(
+                value: _usePoints && canUsePoints,
+                onChanged: canUsePoints ? (v) => setState(() => _usePoints = v) : null,
+                title: const Text('استخدم النقاط في هذا الطلب', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(canUsePoints
+                    ? 'لديك $_points نقطة · سيُستخدم حتى $_usablePoints نقطة كخصم.'
+                    : 'لديك $_points نقطة · الحد الأدنى $_minOrderPoints نقطة${_deliveryPrice == null ? ' · اختر عنوان التسليم أولًا' : ''}'),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
           _section('ملاحظة للمطعم', Icons.chat_bubble_outline),
           const SizedBox(height: 8),
           TextField(controller: _orderNote, maxLines: 2, decoration: const InputDecoration(labelText: 'مثال: بلا بصل، صلصة زيادة', border: OutlineInputBorder())),
@@ -270,8 +317,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
             _summary('قيمة الأصناف', '${_cart.total} ₪'),
             if (_discount > 0) ...[const SizedBox(height: 8), _summary('خصم الكوبون', '-$_discount ₪', accent: true)],
-            const SizedBox(height: 8), _deliveryRow(), const Divider(height: 22),
-            _summary('المجموع التقريبي', '$total ₪', bold: true),
+            const SizedBox(height: 8), _deliveryRow(),
+            if (_usePoints && _usablePoints > 0) ...[
+              const SizedBox(height: 8),
+              _summary('خصم نقاط Yalla', '-$_rewardDiscount ₪', accent: true),
+            ],
+            const Divider(height: 22),
+            _summary('المجموع التقريبي', '$_totalAfterRewards ₪', bold: true),
             if (_etaMinutes != null) ...[const SizedBox(height: 8), Text('الزمن المتوقع: ~$_etaMinutes دقيقة', style: TextStyle(color: YallaColors.muted, fontSize: 12))],
           ]))),
           const SizedBox(height: 16),
@@ -326,4 +378,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   );
 
   Widget _section(String text, IconData icon) => Row(children: [Icon(icon, size: 20), const SizedBox(width: 8), Expanded(child: Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)))]);
+
+  static int _asInt(dynamic value, {int fallback = 0}) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
+  }
 }
