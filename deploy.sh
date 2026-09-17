@@ -21,6 +21,15 @@ npm ci --omit=dev
 log "Checking backend entry point"
 node --check src/server.js
 
+if ! command -v pm2 >/dev/null 2>&1; then
+  log "PM2 not found — installing it globally"
+  if command -v sudo >/dev/null 2>&1; then
+    sudo npm install -g pm2
+  else
+    npm install -g pm2
+  fi
+fi
+
 log "Restarting backend with PM2"
 if pm2 describe "$PM2_APP" >/dev/null 2>&1; then
   pm2 restart "$PM2_APP" --update-env
