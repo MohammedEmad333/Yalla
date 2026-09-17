@@ -15,7 +15,6 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
   List<dynamic> _issues = [];
   List<dynamic> _orders = [];
   bool _loading = true;
-  bool _redeeming = false;
 
   @override
   void initState() {
@@ -68,61 +67,6 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
       }
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-    }
-  }
-
-  Future<void> _redeem() async {
-    final points = NumberUtil.asInt(_rewards?['points']);
-    final rules = Map<String, dynamic>.from((_rewards?['rules'] as Map?) ?? const {});
-    final pointsPerIls = NumberUtil.asInt(rules['pointsPerIls'], fallback: 100);
-    final minRedeem = NumberUtil.asInt(rules['minRedeemPoints'], fallback: pointsPerIls);
-    final redeemable = (points ~/ pointsPerIls) * pointsPerIls;
-
-    if (redeemable < minRedeem || redeemable <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تحتاج إلى $minRedeem نقطة على الأقل للاستبدال.')),
-      );
-      return;
-    }
-
-    final controller = TextEditingController(text: '$redeemable');
-    final selected = await showDialog<int>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('استبدال نقاط Yalla'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('كل $pointsPerIls نقطة = 1 ₪ يضاف إلى محفظتك.'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'عدد النقاط'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, int.tryParse(controller.text.trim())),
-            child: const Text('استبدال'),
-          ),
-        ],
-      ),
-    );
-    if (selected == null || selected <= 0) return;
-
-    setState(() => _redeeming = true);
-    try {
-      await widget.api.post('/expansion/rewards/redeem', {'points': selected});
-      await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تحويل قيمة النقاط إلى المحفظة بنجاح.')));
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-    } finally {
-      if (mounted) setState(() => _redeeming = false);
     }
   }
 
@@ -202,8 +146,7 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
     final rules = Map<String, dynamic>.from((_rewards?['rules'] as Map?) ?? const {});
     final rewardPoints = NumberUtil.asInt(rules['referralRewardPoints'], fallback: 100);
     final pointsPerIls = NumberUtil.asInt(rules['pointsPerIls'], fallback: 100);
-    final minRedeem = NumberUtil.asInt(rules['minRedeemPoints'], fallback: pointsPerIls);
-    final enabled = rules['enabled'] != false;
+    final minOrder = NumberUtil.asInt(rules['minOrderPoints'] ?? rules['minRedeemPoints'], fallback: pointsPerIls);
 
     return Scaffold(
       appBar: AppBar(title: const Text('مكافآتي ومشاكلي')),
@@ -220,16 +163,26 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
                   const Text('نقاط Yalla', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 8),
                   Text('$points نقطة', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
-                  Text('القيمة الحالية: $valueIls ₪ · كل $pointsPerIls نقطة = 1 ₪'),
+                  Text('قيمة خصم متاحة: $valueIls ₪ · كل $pointsPerIls نقطة = 1 ₪'),
                   const SizedBox(height: 12),
-                  SizedBox(
+                  Container(
                     width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: enabled && !_redeeming && points >= minRedeem ? _redeem : null,
-                      icon: _redeeming
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.account_balance_wallet_outlined),
-                      label: Text(_redeeming ? 'جارٍ الاستبدال...' : 'استبدال النقاط إلى المحفظة'),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: .45),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.shopping_bag_outlined),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'يمكن استخدام النقاط فقط كخصم عند تأكيد طلب توصيل أو طلب من متجر. لا يمكن تحويلها إلى المحفظة أو سحبها.${minOrder > 0 ? '\nالحد الأدنى للاستخدام: $minOrder نقطة.' : ''}',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const Divider(height: 28),
