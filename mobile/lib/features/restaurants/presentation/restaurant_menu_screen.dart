@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
@@ -204,6 +205,29 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     }
   }
 
+  String get _todayHoursLabel {
+    final today = _restaurant.todayHours;
+    if (today != null) {
+      if (today.closed) return 'مغلق اليوم';
+      if (today.open.trim().isNotEmpty && today.close.trim().isNotEmpty) {
+        return 'ساعات اليوم: ${today.open} - ${today.close}';
+      }
+    }
+    if (_restaurant.openTime.trim().isNotEmpty && _restaurant.closeTime.trim().isNotEmpty) {
+      return 'ساعات اليوم: ${_restaurant.openTime} - ${_restaurant.closeTime}';
+    }
+    return '';
+  }
+
+  Future<void> _callStore() async {
+    final phone = _restaurant.phone.trim();
+    if (phone.isEmpty) return;
+    final normalized = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    final uri = Uri(scheme: 'tel', path: normalized);
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) _snack('تعذّر فتح تطبيق الاتصال');
+  }
+
   void _snack(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
   Future<void> _scrollToSection(int index) async {
@@ -397,14 +421,48 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   const SizedBox(height: 12),
                   Text(_restaurant.description, style: TextStyle(color: YallaColors.muted, height: 1.45)),
                 ],
-                if (_restaurant.scheduleLabel.isNotEmpty) ...[
+                if (_todayHoursLabel.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Icon(Icons.schedule_outlined, size: 18, color: YallaColors.muted),
-                      const SizedBox(width: 6),
-                      Expanded(child: Text(_restaurant.scheduleLabel, style: TextStyle(color: YallaColors.muted))),
+                      Icon(Icons.schedule_outlined, size: 19, color: YallaColors.muted),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          _todayHoursLabel,
+                          style: TextStyle(color: YallaColors.muted, fontWeight: FontWeight.w700),
+                        ),
+                      ),
                     ],
+                  ),
+                ],
+                if (_restaurant.phone.trim().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 8, 8),
+                    decoration: BoxDecoration(
+                      color: YallaColors.surfaceContainer,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.phone_outlined, size: 19, color: YallaColors.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _restaurant.phone,
+                            textDirection: TextDirection.ltr,
+                            textAlign: TextAlign.start,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: _callStore,
+                          icon: const Icon(Icons.call_rounded, size: 18),
+                          label: const Text('اتصال'),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ],
