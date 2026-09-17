@@ -5,6 +5,7 @@ const WalletTransaction = require('../models/WalletTransaction');
 const io = require('../sockets/io');
 const logger = require('../utils/logger');
 const notifications = require('./notification.service');
+const walletHoldService = require('./walletHold.service');
 const { canTransition } = require('../utils/topup');
 const {
   ROLES,
@@ -26,20 +27,29 @@ function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
 }
 
+function availableBalanceOf(wallet) {
+  return Math.max(0, Number(wallet?.balance || 0) - Number(wallet?.reservedBalance || 0));
+}
+
 /** جلب محفظة المستخدم أو إنشاؤها إن لم تكن موجودة. */
 async function getOrCreateWallet(userId) {
   const wallet = await Wallet.findOneAndUpdate(
     { user: userId },
-    { $setOnInsert: { user: userId, balance: 0, currency: 'ILS' } },
+    { $setOnInsert: { user: userId, balance: 0, reservedBalance: 0, currency: 'ILS' } },
     { new: true, upsert: true }
   );
   return wallet;
 }
 
-/** ملخّص المحفظة للمستخدم (الرصيد + العملة). */
+/** ملخّص المحفظة للمستخدم (الإجمالي + المحجوز + المتاح + العملة). */
 async function getWalletSummary(userId) {
   const wallet = await getOrCreateWallet(userId);
-  return { balance: wallet.balance, currency: wallet.currency };
+  return {
+    balance: Number(wallet.balance || 0),
+    reservedBalance: Number(wallet.reservedBalance || 0),
+    availableBalance: availableBalanceOf(wallet),
+    currency: wallet.currency,
+  };
 }
 
 /** إضافة رصيد ذرّيًّا وإرجاع الرصيد الجديد. */
@@ -53,34 +63,38 @@ async function creditWallet(userId, amount) {
 }
 
 /**
- * خصم رصيد ذرّيًّا بشرط كفايته (يمنع الرصيد السالب).
- * يُستخدم لاحقًا لدفع قيمة الطلبات من المحفظة.
+ * خصم رصيد ذرّيًّا بشرط كفاية الرصيد المتاح لا الإجمالي، حتى لا تُستهلك مبالغ
+ * محجوزة لطلبات أخرى.
  * @returns {Promise<import('mongoose').Document>} المحفظة بعد الخصم
  */
 async function debitWallet(userId, amount) {
+  const value = Number(amount);
   const wallet = await Wallet.findOneAndUpdate(
-    { user: userId, balance: { $gte: amount } }, // الشرط يضمن عدم النزول تحت الصفر
-    { $inc: { balance: -amount } },
+    {
+      user: userId,
+      $expr: {
+        $gte: [
+          { $subtract: [{ $ifNull: ['$balance', 0] }, { $ifNull: ['$reservedBalance', 0] }] },
+          value,
+        ],
+      },
+    },
+    { $inc: { balance: -value } },
     { new: true }
   );
-  if (!wallet) throw httpError('الرصيد غير كافٍ', 400);
+  if (!wallet) throw httpError('الرصيد المتاح غير كافٍ', 400);
   return wallet;
 }
 
 /**
- * خصم قيمة طلب من محفظة المستخدم عند تأكيد التسليم (Card 27).
- * ذرّي وآمن ضدّ الرصيد السالب، ويسجّل حركة خصم في دفتر الأستاذ ثم يبثّ الرصيد.
- * @param {string} userId
- * @param {number} amount   السعر الحقيقي (₪)
- * @param {string} orderId  الطلب المرتبط (للتدقيق)
- * @returns {Promise<number>} الرصيد بعد الخصم
+ * خصم قيمة طلب من محفظة المستخدم عند تأكيد التسليم.
+ * إن وُجد حجز للطلب نلتقطه atomically: نخصم القيمة الحقيقية ونحرر كامل القيمة
+ * التقديرية في نفس تحديث المحفظة. الفرق يعود متاحًا تلقائيًا.
  */
 async function chargeForOrder(userId, amount, orderId, breakdown = {}) {
   const value = Number(amount);
   if (!(value > 0)) throw httpError('قيمة الخصم غير صالحة', 400);
 
-  // نحجز مفتاح الطلب في دفتر الأستاذ قبل الخصم. الفهرس الفريد يمنع طلبي تسليم
-  // متزامنين من خصم الرصيد مرتين.
   const currentWallet = await getOrCreateWallet(userId);
   let transaction;
   try {
@@ -101,9 +115,22 @@ async function chargeForOrder(userId, amount, orderId, breakdown = {}) {
       const existing = await WalletTransaction.findOne({
         user: userId,
         idempotencyKey: `order-payment:${orderId}`,
-      }).lean();
+      });
       if (existing && Number(existing.amount) === value && existing.balanceAfter !== null) {
         return existing.balanceAfter;
+      }
+
+      // تعافٍ من انقطاع نادر بعد التقاط الحجز وقبل حفظ balanceAfter في الحركة.
+      const hold = await walletHoldService.getOrderHold(orderId);
+      if (
+        existing &&
+        hold?.status === 'released' &&
+        Number(hold.capturedAmount) === value
+      ) {
+        const wallet = await getOrCreateWallet(userId);
+        existing.balanceAfter = wallet.balance;
+        await existing.save();
+        return wallet.balance;
       }
       throw httpError('دفعة هذا الطلب قيد المعالجة', 409);
     }
@@ -111,10 +138,24 @@ async function chargeForOrder(userId, amount, orderId, breakdown = {}) {
   }
 
   let wallet;
+  let capturedHold = false;
   try {
-    wallet = await debitWallet(userId, value); // يرمي "الرصيد غير كافٍ" إن لم يكفِ
+    const hold = await walletHoldService.getOrderHold(orderId);
+    if (hold) {
+      const capture = await walletHoldService.captureOrderHold(userId, orderId, value);
+      if (capture.captured) {
+        capturedHold = true;
+        wallet = capture.wallet || (await getOrCreateWallet(userId));
+      } else if (capture.noHold) {
+        wallet = await debitWallet(userId, value);
+      } else {
+        throw httpError('تعذّر تسوية حجز هذا الطلب', 409);
+      }
+    } else {
+      // توافق مع الطلبات القديمة التي أُنشئت قبل ميزة الحجز.
+      wallet = await debitWallet(userId, value);
+    }
   } catch (err) {
-    // فشل الخصم: نحرّر حجز المفتاح ليتمكن الكابتن من المحاولة بعد شحن الرصيد.
     await WalletTransaction.deleteOne({ _id: transaction._id }).catch(() => {});
     throw err;
   }
@@ -122,7 +163,8 @@ async function chargeForOrder(userId, amount, orderId, breakdown = {}) {
   transaction.balanceAfter = wallet.balance;
   await transaction.save();
 
-  broadcastBalance(userId, wallet.balance);
+  // captureOrderHold يبث الحالة الكاملة بنفسه؛ الطلبات القديمة تحتاج البث التقليدي.
+  if (!capturedHold) broadcastBalance(userId, wallet.balance);
   return wallet.balance;
 }
 
@@ -210,19 +252,16 @@ async function adminCredit(userId, amount, meta = {}) {
 }
 
 /**
- * Card 87: ضبط رصيد محفظة زبون على قيمة محدّدة من الأدمن (تعديل مباشر) — تُستخدم
- * لتصحيح رصيد الحسابات الخارجية المؤقّتة بعد إضافته. نحسب الفرق عن الرصيد الحالي
- * ونطبّقه ذرّيًّا (زيادة أو نقصان)، ونسجّل حركة "تعديل" ثم نبثّ الرصيد.
- * @param {string} userId
- * @param {number} newBalance الرصيد المطلوب بعد التعديل (≥ 0)
- * @param {object} meta بيانات تدقيق (سبب/المنفّذ)
- * @returns {Promise<number>} الرصيد بعد التعديل
+ * Card 87: ضبط رصيد محفظة زبون على قيمة محدّدة من الأدمن (تعديل مباشر).
  */
 async function adminSetBalance(userId, newBalance, meta = {}) {
   const target = Number(newBalance);
   if (!(target >= 0)) throw httpError('قيمة الرصيد غير صالحة', 400);
 
   const current = await getOrCreateWallet(userId);
+  if (target < Number(current.reservedBalance || 0)) {
+    throw httpError('لا يمكن خفض الرصيد عن المبلغ المحجوز للطلبات النشطة', 409);
+  }
   const delta = target - current.balance;
   if (delta === 0) {
     broadcastBalance(userId, current.balance);
