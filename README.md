@@ -23,6 +23,18 @@
 - **Notifications:** Firebase Cloud Messaging + إشعارات داخل التطبيق
 - **Production:** Oracle Cloud للـAPI/Mongo، Vercel/Cloudflare للواجهات
 
+## روابط الإنتاج الرسمية
+
+- **Yalla Web / الموقع:** https://yalladelivery.org
+- **WWW:** https://www.yalladelivery.org → تحويل دائم `301` إلى `https://yalladelivery.org`
+- **Production API:** https://api.yalladelivery.org
+- **API Health:** https://api.yalladelivery.org/api/health
+- **Yalla Admin:** https://admin.yalladelivery.org
+- **API Docs:** https://api.yalladelivery.org/api/docs
+- **OpenAPI JSON:** https://api.yalladelivery.org/api/openapi.json
+
+> `yalla-api.duckdns.org` يُحتفَظ به مؤقتًا كعنوان توافق للإصدارات القديمة من التطبيقات، لكنه لم يعد العنوان الأساسي للإنتاج أو للبنايات الجديدة.
+
 ## أهم المزايا الحالية
 
 ### Yalla — الزبون والكابتن
@@ -160,14 +172,16 @@ flutter run --dart-define=API_ORIGIN=http://10.0.2.2:4000
 ## CI / Builds
 
 - `ci.yml` — اختبارات Backend + build للإدارة.
-- `mobile-apk.yml` — Android لتطبيق Yalla.
-- `partner-apk.yml` — APK/AAB لـYalla Partner.
+- `mobile-apk.yml` — Android لتطبيق Yalla، ويستخدم افتراضيًا `https://api.yalladelivery.org`.
+- `partner-apk.yml` — APK/AAB لـYalla Partner، ويستخدم افتراضيًا `https://api.yalladelivery.org`.
 - `build-admin-apk.yml` — تطبيق Yalla Admin Android.
-- `web-app.yml` — تطبيق الويب.
+- `web-app.yml` — تطبيق الويب، ويستخدم افتراضيًا `https://api.yalladelivery.org`.
 
 ## النشر الحالي
 
-الإنتاج يعمل على Oracle Cloud لخدمة الـBackend وقاعدة البيانات. تحديث الخادم:
+الإنتاج يعمل على Oracle Cloud لخدمة الـBackend وقاعدة البيانات، مع `api.yalladelivery.org` كعنوان API الرسمي. تطبيق الويب يُقدَّم من Cloudflare على `yalladelivery.org`، ولوحة الإدارة على Vercel عبر `admin.yalladelivery.org`.
+
+تحديث الخادم:
 
 ```bash
 cd ~/Yalla
@@ -179,7 +193,7 @@ bash tool/deploy-server.sh
 
 ## توثيق API
 
-- OpenAPI JSON: `http://localhost:4000/api/openapi.json`
-- واجهة التوثيق: `http://localhost:4000/api/docs`
+- OpenAPI JSON: `https://api.yalladelivery.org/api/openapi.json`
+- واجهة التوثيق: `https://api.yalladelivery.org/api/docs`
 
 راجع `docs/` و`HANDOFF.md` للتفاصيل التشغيلية وأحدث حالة للمشروع.
