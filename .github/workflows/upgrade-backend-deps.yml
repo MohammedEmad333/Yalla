@@ -43,7 +43,10 @@ jobs:
         working-directory: backend
         run: |
           npm install firebase-admin@14.4.0 multer@2.0.2 --save
-          npm audit fix
+          npm audit fix || true
+          npm pkg set 'overrides.uuid=11.1.1'
+          npm pkg set 'engines.node=>=22'
+          npm install
 
       - name: Verify backend syntax
         working-directory: backend
