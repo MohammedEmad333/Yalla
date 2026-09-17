@@ -31,8 +31,8 @@ class AppUpdateService {
       if (data is! Map || data['enabled'] == false) return;
 
       final current = info.version;
-      final latest = String(data['latestVersion'] ?? current);
-      final minimum = String(data['minimumVersion'] ?? latest);
+      final latest = (data['latestVersion'] ?? current).toString();
+      final minimum = (data['minimumVersion'] ?? latest).toString();
       final serverForce = data['forceUpdate'] == true;
       final hasUpdate = _compareVersions(current, latest) < 0;
       if (!hasUpdate) return;
@@ -49,8 +49,8 @@ class AppUpdateService {
         builder: (dialogContext) => PopScope(
           canPop: !mustUpdate,
           child: AlertDialog(
-            title: Text(String(data['title'] ?? 'يتوفر إصدار جديد من Yalla')),
-            content: Text(String(data['message'] ?? 'حدّث الآن للحصول على أحدث التحسينات وأفضل تجربة استخدام.')),
+            title: Text((data['title'] ?? 'يتوفر إصدار جديد من Yalla').toString()),
+            content: Text((data['message'] ?? 'حدّث الآن للحصول على أحدث التحسينات وأفضل تجربة استخدام.').toString()),
             actions: [
               if (!mustUpdate)
                 TextButton(
@@ -59,7 +59,7 @@ class AppUpdateService {
                 ),
               FilledButton.icon(
                 onPressed: () async {
-                  final url = Uri.tryParse(String(data['androidStoreUrl'] ?? ''));
+                  final url = Uri.tryParse((data['androidStoreUrl'] ?? '').toString());
                   if (url != null) await launchUrl(url, mode: LaunchMode.externalApplication);
                   if (!mustUpdate && dialogContext.mounted) Navigator.of(dialogContext).pop();
                 },
