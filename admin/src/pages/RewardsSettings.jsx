@@ -46,15 +46,17 @@ export default function RewardsSettings() {
   return <div style={{ maxWidth: 760, margin: '0 auto' }}>
     <div className="yl-card" style={{ padding: 20 }}>
       <h2 style={{ marginTop: 0 }}>برنامج نقاط Yalla والإحالات</h2>
-      <p style={{ opacity: .75 }}>تحكم بقيمة النقاط ومكافأة الإحالة والحد الأدنى للاستبدال. التغييرات تطبق مباشرة من الخادم.</p>
+      <p style={{ opacity: .75 }}>
+        النقاط تُستخدم فقط كخصم عند إنشاء الطلبات، ولا يمكن تحويلها إلى رصيد محفظة أو سحبها. تحكم هنا بقيمتها ومكافأة الإحالة والحد الأدنى لاستخدامها في الطلب.
+      </p>
       <form onSubmit={save} style={{ display: 'grid', gap: 16 }}>
         <label>مكافأة الإحالة لكل طرف (نقطة)
           <input className="yl-input" type="number" min="0" value={form.referralRewardPoints} onChange={(e) => set('referralRewardPoints', Number(e.target.value))} />
         </label>
-        <label>عدد النقاط مقابل 1 شيكل
+        <label>عدد النقاط مقابل 1 شيكل خصم
           <input className="yl-input" type="number" min="1" value={form.pointsPerIls} onChange={(e) => set('pointsPerIls', Number(e.target.value))} />
         </label>
-        <label>الحد الأدنى للاستبدال (نقطة)
+        <label>الحد الأدنى لاستخدام النقاط في الطلب (نقطة)
           <input className="yl-input" type="number" min="0" value={form.minRedeemPoints} onChange={(e) => set('minRedeemPoints', Number(e.target.value))} />
         </label>
         <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
