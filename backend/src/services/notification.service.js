@@ -62,11 +62,14 @@ function ensureInit() {
   }
 
   try {
-    // نحمّل الحزمة كسوليًا حتى لا تكون مطلوبة في بيئة بلا Firebase
+    // نحمّل Firebase Admin كسوليًا حتى لا تكون مطلوبة في بيئة بلا Firebase.
+    // Firebase Admin v14 أزال الـ namespace القديم، لذلك نستخدم الـ modular API.
     // eslint-disable-next-line global-require
-    const admin = require('firebase-admin');
-    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-    messaging = admin.messaging();
+    const { initializeApp, cert, getApps } = require('firebase-admin/app');
+    // eslint-disable-next-line global-require
+    const { getMessaging } = require('firebase-admin/messaging');
+    const app = getApps()[0] || initializeApp({ credential: cert(serviceAccount) });
+    messaging = getMessaging(app);
     logger.info('✅ FCM مُهيّأ — الإشعارات مفعّلة');
   } catch (err) {
     logger.error('فشل تهيئة FCM — الإشعارات معطّلة:', err.message);
