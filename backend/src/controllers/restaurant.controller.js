@@ -10,9 +10,19 @@ async function overlayManualOpen(rows) {
   const list = Array.isArray(rows) ? rows : [];
   const ids = list.map((r) => r?._id || r?.id).filter(Boolean);
   if (!ids.length) return rows;
-  const states = await Restaurant.find({ _id: { $in: ids } }).select('_id isOpen').lean();
-  const byId = new Map(states.map((r) => [String(r._id), r.isOpen !== false]));
-  return list.map((r) => ({ ...r, isOpen: r.isOpen !== false && byId.get(String(r._id || r.id)) !== false }));
+  const states = await Restaurant.find({ _id: { $in: ids } })
+    .select('_id isOpen ratingAverage ratingCount')
+    .lean();
+  const byId = new Map(states.map((r) => [String(r._id), r]));
+  return list.map((r) => {
+    const state = byId.get(String(r._id || r.id));
+    return {
+      ...r,
+      isOpen: r.isOpen !== false && state?.isOpen !== false,
+      ratingAverage: Number(state?.ratingAverage) || 0,
+      ratingCount: Number(state?.ratingCount) || 0,
+    };
+  });
 }
 
 async function listRestaurants(req, res, next) {
@@ -24,8 +34,14 @@ async function listCategories(req, res, next) {
 async function getRestaurant(req, res, next) {
   try {
     const data = await restaurantService.getRestaurantWithMenu(req.params.restaurantId);
-    const state = await Restaurant.findById(req.params.restaurantId).select('isOpen').lean();
-    if (data?.restaurant) data.restaurant.isOpen = data.restaurant.isOpen !== false && state?.isOpen !== false;
+    const state = await Restaurant.findById(req.params.restaurantId)
+      .select('isOpen ratingAverage ratingCount')
+      .lean();
+    if (data?.restaurant) {
+      data.restaurant.isOpen = data.restaurant.isOpen !== false && state?.isOpen !== false;
+      data.restaurant.ratingAverage = Number(state?.ratingAverage) || 0;
+      data.restaurant.ratingCount = Number(state?.ratingCount) || 0;
+    }
     res.json(data);
   } catch (err) { next(err); }
 }
