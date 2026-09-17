@@ -33,15 +33,9 @@ function broadcastWallet(userId, wallet) {
   }
 }
 
-/**
- * Reserve money for one order without charging it yet.
- * The unique order index makes this idempotent.
- */
 async function reserveOrderAmount(userId, orderId, amount) {
   const value = Math.max(0, Number(amount) || 0);
-  if (!(value > 0)) {
-    return { held: false, duplicate: false, amount: 0 };
-  }
+  if (!(value > 0)) return { held: false, duplicate: false, amount: 0 };
 
   const existing = await WalletHold.findOne({ order: orderId });
   if (existing) {
@@ -82,12 +76,7 @@ async function reserveOrderAmount(userId, orderId, amount) {
       _id: wallet._id,
       $expr: {
         $gte: [
-          {
-            $subtract: [
-              { $ifNull: ['$balance', 0] },
-              { $ifNull: ['$reservedBalance', 0] },
-            ],
-          },
+          { $subtract: [{ $ifNull: ['$balance', 0] }, { $ifNull: ['$reservedBalance', 0] }] },
           value,
         ],
       },
@@ -120,7 +109,81 @@ async function reserveOrderAmount(userId, orderId, amount) {
   };
 }
 
-/** Release a hold once when an order is cancelled or successfully delivered. */
+/**
+ * Capture a store-order hold: charge the actual amount and release the entire estimate in one wallet update.
+ * If the actual charge is less than the estimate, the difference simply becomes available again.
+ */
+async function captureOrderHold(userId, orderId, amount) {
+  const value = Number(amount);
+  if (!(value > 0)) throw httpError('قيمة الخصم غير صالحة', 400);
+
+  const hold = await WalletHold.findOneAndUpdate(
+    { order: orderId, user: userId, status: 'active' },
+    { $set: { status: 'capturing' } },
+    { new: true }
+  );
+
+  if (!hold) {
+    const existing = await WalletHold.findOne({ order: orderId, user: userId }).lean();
+    if (existing?.status === 'released' && Number(existing.capturedAmount) === value) {
+      const wallet = await getOrCreateWallet(userId);
+      return { captured: true, duplicate: true, balance: wallet.balance, wallet };
+    }
+    if (existing?.status === 'capturing') throw httpError('دفعة هذا الطلب قيد المعالجة', 409);
+    return { captured: false, noHold: true };
+  }
+
+  const extraNeeded = Math.max(0, value - Number(hold.amount || 0));
+  try {
+    const wallet = await Wallet.findOneAndUpdate(
+      {
+        _id: hold.wallet,
+        balance: { $gte: value },
+        reservedBalance: { $gte: hold.amount },
+        $expr: {
+          $gte: [
+            { $subtract: [{ $ifNull: ['$balance', 0] }, { $ifNull: ['$reservedBalance', 0] }] },
+            extraNeeded,
+          ],
+        },
+      },
+      {
+        $inc: {
+          balance: -value,
+          reservedBalance: -Number(hold.amount || 0),
+        },
+      },
+      { new: true }
+    );
+
+    if (!wallet) throw httpError('الرصيد المتاح غير كافٍ لإتمام تسوية الطلب', 400);
+
+    hold.status = 'released';
+    hold.capturedAmount = value;
+    hold.releasedAt = new Date();
+    hold.releaseReason = 'captured';
+    await hold.save();
+    broadcastWallet(userId, wallet);
+
+    return {
+      captured: true,
+      duplicate: false,
+      amount: value,
+      heldAmount: hold.amount,
+      balance: wallet.balance,
+      reservedBalance: wallet.reservedBalance,
+      availableBalance: availableOf(wallet),
+      wallet,
+    };
+  } catch (err) {
+    await WalletHold.updateOne(
+      { _id: hold._id, status: 'capturing' },
+      { $set: { status: 'active' } }
+    ).catch(() => {});
+    throw err;
+  }
+}
+
 async function releaseOrderHold(orderId, reason = '') {
   const hold = await WalletHold.findOneAndUpdate(
     { order: orderId, status: 'active' },
@@ -171,6 +234,7 @@ async function getOrderHold(orderId) {
 
 module.exports = {
   reserveOrderAmount,
+  captureOrderHold,
   releaseOrderHold,
   getOrderHold,
   availableOf,
