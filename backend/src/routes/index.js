@@ -15,6 +15,7 @@ router.get('/neighborhoods', (req, res) => {
   return res.json(listNeighborhoods());
 });
 router.get('/governorates', (req, res) => res.json(listGovernorates()));
+router.use('/app-update', require('./appUpdate.routes'));
 
 router.use('/auth', require('./auth.routes'));
 router.use('/orders', require('./order.routes'));
