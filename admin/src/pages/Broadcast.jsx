@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
+import AppUpdates from './AppUpdates';
 import {
   Alert,
   Button,
@@ -30,13 +31,12 @@ export default function Broadcast() {
   const [body, setBody] = useState('');
   const [captains, setCaptains] = useState([]);
   const [users, setUsers] = useState([]);
-  const [pickedCaptains, setPickedCaptains] = useState({}); // {id: true}
+  const [pickedCaptains, setPickedCaptains] = useState({});
   const [pickedUsers, setPickedUsers] = useState({});
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
 
-  // نجلب القوائم مرّة واحدة (تُستخدم عند اختيار "محدّدون")
   useEffect(() => {
     api.get('/admin/captains').then(setCaptains).catch(() => {});
     api.get('/admin/users').then(setUsers).catch(() => {});
@@ -81,6 +81,9 @@ export default function Broadcast() {
 
   return (
     <>
+      <AppUpdates />
+
+      <div style={{ height: 'var(--s-6)' }} />
       <PageHeader
         title="الرسائل والإشعارات"
         subtitle="أرسل رسالة أو إشعارًا للجميع أو لكباتن/زبائن محدّدين"
@@ -155,7 +158,6 @@ export default function Broadcast() {
   );
 }
 
-// منتقي مستلِمين مع بحث — يُستخدم للكباتن والزبائن
 function RecipientPicker({ title, items, picked, onToggle }) {
   const [q, setQ] = useState('');
   const filtered = items.filter(
