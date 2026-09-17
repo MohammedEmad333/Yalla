@@ -1,0 +1,81 @@
+name: Apply rewards order patch
+
+on:
+  push:
+    paths:
+      - .github/workflows/apply-rewards-order-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch order rewards flow
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('backend/src/services/order.service.js')
+          s = p.read_text()
+
+          def replace_once(old, new):
+              global s
+              if old not in s:
+                  raise SystemExit('Expected block not found:\n' + old[:300])
+              s = s.replace(old, new, 1)
+
+          replace_once(
+              "const walletService = require('./wallet.service');\nconst captainWallet = require('./captainWallet.service');",
+              "const walletService = require('./wallet.service');\nconst rewardsService = require('./rewards.service');\nconst captainWallet = require('./captainWallet.service');"
+          )
+
+          replace_once(
+          """  const { balance } = await walletService.getWalletSummary(userId);\n  const itemsTotal = Number(payload.store?.itemsTotal) || 0;\n  const requiredBalance = price + itemsTotal;\n  if (balance < requiredBalance) {\n    throw httpError(\n      `رصيد محفظتك غير كافٍ لإتمام الطلب: رصيدك ${balance} ₪ والمطلوب ${requiredBalance} ₪` +\n        (itemsTotal > 0 ? ` (${itemsTotal} ₪ أصناف + ${price} ₪ توصيل)` : '') +\n        ' — اشحن المحفظة ثم حاول مرة أخرى',\n      400\n    );\n  }\n""",
+          """  const { balance } = await walletService.getWalletSummary(userId);\n  const itemsTotal = Number(payload.store?.itemsTotal) || 0;\n  const estimatedTotal = price + itemsTotal;\n  const reward = await rewardsService.reserveForOrder(userId, payload.rewardPoints, estimatedTotal);\n  const requiredBalance = Math.max(0, estimatedTotal - reward.discountIls);\n  if (balance < requiredBalance) {\n    await rewardsService.releaseReservation(userId, reward.pointsUsed);\n    throw httpError(\n      `رصيد محفظتك غير كافٍ لإتمام الطلب: رصيدك ${balance} ₪ والمطلوب ${requiredBalance} ₪ بعد خصم النقاط` +\n        (itemsTotal > 0 ? ` (${itemsTotal} ₪ أصناف + ${price} ₪ توصيل - ${reward.discountIls} ₪ نقاط)` : '') +\n        ' — اشحن المحفظة ثم حاول مرة أخرى',\n      400\n    );\n  }\n"""
+          )
+
+          replace_once(
+          """      scheduledAt,\n      idempotencyKey: key || undefined,\n      status: ORDER_STATUS.PENDING,\n""",
+          """      scheduledAt,\n      rewardPointsUsed: reward.pointsUsed,\n      rewardPointsPerIls: reward.pointsPerIls,\n      rewardDiscount: reward.discountIls,\n      rewardDiscountApplied: 0,\n      idempotencyKey: key || undefined,\n      status: ORDER_STATUS.PENDING,\n"""
+          )
+
+          replace_once(
+          """    if (err.code === 11000 && key) {\n      return Order.findOne({ user: userId, idempotencyKey: key });\n    }\n    throw err;\n""",
+          """    if (err.code === 11000 && key) {\n      await rewardsService.releaseReservation(userId, reward.pointsUsed);\n      return Order.findOne({ user: userId, idempotencyKey: key });\n    }\n    await rewardsService.releaseReservation(userId, reward.pointsUsed);\n    throw err;\n"""
+          )
+
+          replace_once(
+          """    const itemsTotal = Number(order.store?.itemsTotal) || 0;\n    try {\n      await walletService.chargeForOrder(order.user, realPrice + itemsTotal, order._id, {\n        deliveryAmount: realPrice,\n        itemsAmount: itemsTotal,\n        restaurantName: order.store?.name || '',\n      });\n""",
+          """    const itemsTotal = Number(order.store?.itemsTotal) || 0;\n    const grossTotal = realPrice + itemsTotal;\n    const rewardSettlement = await rewardsService.settleOrderDiscount(order, grossTotal);\n    const chargeAmount = Math.max(0, grossTotal - rewardSettlement.discountIls);\n    try {\n      if (chargeAmount > 0) {\n        await walletService.chargeForOrder(order.user, chargeAmount, order._id, {\n          deliveryAmount: realPrice,\n          itemsAmount: itemsTotal,\n          rewardDiscount: rewardSettlement.discountIls,\n          restaurantName: order.store?.name || '',\n        });\n      }\n"""
+          )
+
+          replace_once(
+          """    order.customerCharged = realPrice + (Number(order.store?.itemsTotal) || 0);\n    order.adminCredit = (Number(order.store?.itemsTotal) || 0) + order.commission;\n""",
+          """    const grossTotal = realPrice + (Number(order.store?.itemsTotal) || 0);\n    order.customerCharged = Math.max(0, grossTotal - (Number(order.rewardDiscountApplied) || 0));\n    order.adminCredit = (Number(order.store?.itemsTotal) || 0) + order.commission;\n"""
+          )
+
+          replace_once(
+          """  if (nextStatus === ORDER_STATUS.CANCELLED) {\n    order.timeline.cancelledAt = new Date();\n    order.cancelReason = reason || 'ألغاه الكابتن';\n  }\n  await order.save();\n""",
+          """  if (nextStatus === ORDER_STATUS.CANCELLED) {\n    order.timeline.cancelledAt = new Date();\n    order.cancelReason = reason || 'ألغاه الكابتن';\n    await rewardsService.refundOrderPoints(order);\n  }\n  await order.save();\n"""
+          )
+
+          replace_once(
+          """  const refund = await walletService.refundOrderPayment(\n    order.user,\n    order._id,\n    reason || (actorRole === 'admin' ? 'إلغاء من الأدمن' : 'إلغاء من المستخدم')\n  );\n\n  order.status = ORDER_STATUS.CANCELLED;\n""",
+          """  const refund = await walletService.refundOrderPayment(\n    order.user,\n    order._id,\n    reason || (actorRole === 'admin' ? 'إلغاء من الأدمن' : 'إلغاء من المستخدم')\n  );\n  await rewardsService.refundOrderPoints(order);\n\n  order.status = ORDER_STATUS.CANCELLED;\n"""
+          )
+
+          p.write_text(s)
+          PY
+          node --check backend/src/services/order.service.js
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/src/services/order.service.js
+          git diff --cached --quiet && exit 0
+          git commit -m "feat(rewards): use loyalty points only on orders"
+          git push
