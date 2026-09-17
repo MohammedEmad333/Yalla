@@ -1,0 +1,51 @@
+name: Upgrade backend security dependencies
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/upgrade-backend-deps.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Upgrade Firebase Admin
+        working-directory: backend
+        run: npm install firebase-admin@13.10.0 --save
+
+      - name: Verify backend syntax
+        working-directory: backend
+        run: node --check src/server.js
+
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test
+
+      - name: Audit production dependencies
+        working-directory: backend
+        run: npm audit --omit=dev
+
+      - name: Commit dependency upgrade and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/package.json backend/package-lock.json
+          git rm .github/workflows/upgrade-backend-deps.yml
+          git commit -m "fix(security): upgrade firebase-admin and resolve uuid audit"
+          git push origin HEAD:main
