@@ -133,6 +133,32 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     await _persistCart();
   }
 
+  Future<void> _quickAddItem(MenuItemModel item) async {
+    if (!item.available) return;
+
+    // The + button adds a valid default configuration immediately. Tapping the
+    // card itself remains the way to inspect the item and choose alternatives.
+    final variant = item.variants.isNotEmpty ? item.variants.first : null;
+    final selections = <SelectedMenuOption>[];
+    for (final group in item.optionGroups) {
+      final minimum = group.required ? (group.minSelect < 1 ? 1 : group.minSelect) : group.minSelect;
+      if (minimum <= 0) continue;
+
+      final take = group.multiple ? minimum : 1;
+      if (group.options.length < take) {
+        await _showItemDetails(item);
+        return;
+      }
+      for (final option in group.options.take(take)) {
+        selections.add(SelectedMenuOption(group.name, option.name, option.price));
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _cart.add(item, variant: variant, options: selections));
+    await _persistCart();
+  }
+
   Future<void> _checkout() async {
     if (!_restaurant.openNow) return _snack('المتجر مغلق حاليًا');
     if (!_cart.meetsMinOrder) return _snack('الحد الأدنى للطلب ${_restaurant.minOrder} ₪');
@@ -524,14 +550,18 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                         if (!item.available)
                           Text('غير متاح', style: TextStyle(color: YallaColors.error, fontWeight: FontWeight.w800))
                         else
-                          Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: YallaColors.primary,
+                          Material(
+                            color: YallaColors.primary,
+                            borderRadius: BorderRadius.circular(12),
+                            child: InkWell(
+                              onTap: () => _quickAddItem(item),
                               borderRadius: BorderRadius.circular(12),
+                              child: const SizedBox(
+                                width: 38,
+                                height: 38,
+                                child: Icon(Icons.add_rounded, color: Colors.white),
+                              ),
                             ),
-                            child: const Icon(Icons.add_rounded, color: Colors.white),
                           ),
                       ],
                     ),
