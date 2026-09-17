@@ -18,8 +18,6 @@ class _StoreScreenState extends State<StoreScreen> {
   final _phone = TextEditingController();
   final _minOrder = TextEditingController();
   final _prepMinutes = TextEditingController();
-  final _openTime = TextEditingController();
-  final _closeTime = TextEditingController();
   Map<String, dynamic> _restaurant = {};
   bool _loading = true;
   bool _busy = false;
@@ -37,8 +35,6 @@ class _StoreScreenState extends State<StoreScreen> {
     _phone.dispose();
     _minOrder.dispose();
     _prepMinutes.dispose();
-    _openTime.dispose();
-    _closeTime.dispose();
     super.dispose();
   }
 
@@ -51,8 +47,6 @@ class _StoreScreenState extends State<StoreScreen> {
       _phone.text = restaurant['phone']?.toString() ?? '';
       _minOrder.text = restaurant['minOrder']?.toString() ?? '0';
       _prepMinutes.text = restaurant['prepMinutes']?.toString() ?? '15';
-      _openTime.text = restaurant['openTime']?.toString() ?? '';
-      _closeTime.text = restaurant['closeTime']?.toString() ?? '';
     } catch (error) {
       _error = error.toString();
     } finally {
@@ -68,8 +62,6 @@ class _StoreScreenState extends State<StoreScreen> {
         'phone': _phone.text.trim(),
         'minOrder': double.tryParse(_minOrder.text) ?? 0,
         'prepMinutes': int.tryParse(_prepMinutes.text) ?? 15,
-        'openTime': _openTime.text.trim(),
-        'closeTime': _closeTime.text.trim(),
       });
       if (mounted) {
         setState(() => _restaurant = Map<String, dynamic>.from(saved as Map));
@@ -206,26 +198,6 @@ class _StoreScreenState extends State<StoreScreen> {
                     Expanded(child: TextField(controller: _minOrder, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'أقل طلب (₪)', prefixIcon: Icon(Icons.payments_outlined)))),
                     const SizedBox(width: 10),
                     Expanded(child: TextField(controller: _prepMinutes, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'التحضير (دقيقة)', prefixIcon: Icon(Icons.timer_outlined)))),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _SectionTitle(icon: Icons.schedule_rounded, title: 'ساعات العمل', subtitle: 'تُحسب حالة المتجر تلقائيًا حسب وقت الفتح والإغلاق'),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(child: TextField(controller: _openTime, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'يفتح HH:MM', prefixIcon: Icon(Icons.wb_sunny_outlined)))),
-                    const SizedBox(width: 10),
-                    Expanded(child: TextField(controller: _closeTime, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'يغلق HH:MM', prefixIcon: Icon(Icons.nightlight_outlined)))),
                   ],
                 ),
               ],
