@@ -72,6 +72,13 @@ const orderSchema = new mongoose.Schema(
     scheduledAt: { type: Date, default: null, index: true },
     scheduledActivated: { type: Boolean, default: false },
 
+    // نقاط Yalla لا تتحول إلى المحفظة؛ تُحجز وتُستهلك كخصم على هذا الطلب فقط.
+    rewardPointsUsed: { type: Number, default: 0, min: 0 },
+    rewardPointsRefunded: { type: Number, default: 0, min: 0 },
+    rewardPointsPerIls: { type: Number, default: 0, min: 0 },
+    rewardDiscount: { type: Number, default: 0, min: 0 },
+    rewardDiscountApplied: { type: Number, default: 0, min: 0 },
+
     commission: { type: Number, default: 0 },
     captainNet: { type: Number, default: 0 },
     customerCharged: { type: Number, default: 0 },
