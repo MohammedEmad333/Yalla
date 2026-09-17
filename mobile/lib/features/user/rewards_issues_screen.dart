@@ -15,6 +15,7 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
   List<dynamic> _issues = [];
   List<dynamic> _orders = [];
   bool _loading = true;
+  bool _redeeming = false;
 
   @override
   void initState() {
@@ -60,9 +61,68 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
     try {
       await widget.api.post('/expansion/referrals/apply', {'code': code});
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تطبيق رمز الإحالة وإضافة النقاط')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم حفظ رمز الإحالة. تُضاف المكافأة بعد إكمال أول طلب.')),
+        );
+      }
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _redeem() async {
+    final points = NumberUtil.asInt(_rewards?['points']);
+    final rules = Map<String, dynamic>.from((_rewards?['rules'] as Map?) ?? const {});
+    final pointsPerIls = NumberUtil.asInt(rules['pointsPerIls'], fallback: 100);
+    final minRedeem = NumberUtil.asInt(rules['minRedeemPoints'], fallback: pointsPerIls);
+    final redeemable = (points ~/ pointsPerIls) * pointsPerIls;
+
+    if (redeemable < minRedeem || redeemable <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تحتاج إلى $minRedeem نقطة على الأقل للاستبدال.')),
+      );
+      return;
+    }
+
+    final controller = TextEditingController(text: '$redeemable');
+    final selected = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('استبدال نقاط Yalla'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('كل $pointsPerIls نقطة = 1 ₪ يضاف إلى محفظتك.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'عدد النقاط'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, int.tryParse(controller.text.trim())),
+            child: const Text('استبدال'),
+          ),
+        ],
+      ),
+    );
+    if (selected == null || selected <= 0) return;
+
+    setState(() => _redeeming = true);
+    try {
+      await widget.api.post('/expansion/rewards/redeem', {'points': selected});
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تحويل قيمة النقاط إلى المحفظة بنجاح.')));
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _redeeming = false);
     }
   }
 
@@ -135,7 +195,16 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    final points = _rewards?['points'] ?? 0;
+    final points = NumberUtil.asInt(_rewards?['points']);
+    final valueIls = NumberUtil.asInt(_rewards?['valueIls']);
+    final hasReferral = _rewards?['hasReferral'] == true;
+    final referralRewarded = _rewards?['referralRewarded'] == true;
+    final rules = Map<String, dynamic>.from((_rewards?['rules'] as Map?) ?? const {});
+    final rewardPoints = NumberUtil.asInt(rules['referralRewardPoints'], fallback: 100);
+    final pointsPerIls = NumberUtil.asInt(rules['pointsPerIls'], fallback: 100);
+    final minRedeem = NumberUtil.asInt(rules['minRedeemPoints'], fallback: pointsPerIls);
+    final enabled = rules['enabled'] != false;
+
     return Scaffold(
       appBar: AppBar(title: const Text('مكافآتي ومشاكلي')),
       floatingActionButton: FloatingActionButton.extended(onPressed: _newIssue, icon: const Icon(Icons.report_problem_outlined), label: const Text('مشكلة جديدة')),
@@ -151,12 +220,31 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
                   const Text('نقاط Yalla', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 8),
                   Text('$points نقطة', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
-                  Text('القيمة التقريبية الحالية: ${_rewards?['valueIls'] ?? 0} ₪'),
+                  Text('القيمة الحالية: $valueIls ₪ · كل $pointsPerIls نقطة = 1 ₪'),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: enabled && !_redeeming && points >= minRedeem ? _redeem : null,
+                      icon: _redeeming
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.account_balance_wallet_outlined),
+                      label: Text(_redeeming ? 'جارٍ الاستبدال...' : 'استبدال النقاط إلى المحفظة'),
+                    ),
+                  ),
                   const Divider(height: 28),
                   SelectableText('رمز إحالتك: ${_rewards?['referralCode'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.w800)),
                   Text('عدد الأشخاص الذين استخدموا إحالتك: ${_rewards?['referred'] ?? 0}'),
+                  const SizedBox(height: 8),
+                  Text('مكافأة الإحالة: $rewardPoints نقطة لك ولصديقك بعد إكمال أول طلب بنجاح.'),
+                  if (hasReferral && !referralRewarded)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6),
+                      child: Text('تم حفظ رمز الإحالة، والمكافأة بانتظار إكمال أول طلب.', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
                   const SizedBox(height: 10),
-                  OutlinedButton.icon(onPressed: _applyReferral, icon: const Icon(Icons.group_add_outlined), label: const Text('لدي رمز إحالة')),
+                  if (!hasReferral)
+                    OutlinedButton.icon(onPressed: _applyReferral, icon: const Icon(Icons.group_add_outlined), label: const Text('لدي رمز إحالة')),
                 ]),
               ),
             ),
@@ -180,5 +268,12 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
         ),
       ),
     );
+  }
+}
+
+class NumberUtil {
+  static int asInt(dynamic value, {int fallback = 0}) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
   }
 }
