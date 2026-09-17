@@ -7,6 +7,7 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const Captain = require('../models/Captain');
 const restaurantService = require('./restaurant.service');
+const rewardsService = require('./rewards.service');
 const io = require('../sockets/io');
 const { ORDER_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 const { normalizePhone } = require('../utils/phone');
@@ -235,19 +236,47 @@ async function listOrders(merchantId, restaurantId, query = {}) {
     restaurantId = null;
   }
   const ctx = await requireMerchant(merchantId, restaurantId);
-  const filter = { 'store.restaurant': ctx.restaurantId, status: { $ne: ORDER_STATUS.CANCELLED } };
+  const filter = { 'store.restaurant': ctx.restaurantId };
   if (query.status && query.status !== 'all') filter['store.merchantStatus'] = query.status;
+  else filter.status = { $ne: ORDER_STATUS.CANCELLED };
   const limit = Math.min(100, Math.max(1, Number(query.limit) || 50));
   return Order.find(filter).populate('user', 'name lastName phone').populate('captain', 'name phone').sort({ createdAt: -1 }).limit(limit).lean();
 }
 
 const MERCHANT_TRANSITIONS = {
-  new: ['accepted'],
+  new: ['accepted', 'rejected'],
   accepted: ['preparing'],
   preparing: ['ready'],
   ready: ['handed_over'],
   handed_over: [],
+  rejected: [],
 };
+
+async function restoreTrackedInventory(order) {
+  for (const line of order.store?.items || []) {
+    if (!line.menuItem || !(Number(line.qty) > 0)) continue;
+    const item = await MenuItem.findById(line.menuItem).select('trackInventory inventoryQty available');
+    if (!item?.trackInventory) continue;
+    item.inventoryQty = Math.max(0, Number(item.inventoryQty || 0)) + Number(line.qty);
+    item.available = true;
+    await item.save();
+  }
+}
+
+async function rejectNewOrder(order) {
+  order.store.merchantStatus = 'rejected';
+  order.store.merchantUpdatedAt = new Date();
+  order.status = ORDER_STATUS.CANCELLED;
+  order.timeline.cancelledAt = new Date();
+  order.cancelReason = 'رفض المتجر الطلب';
+  await order.save();
+
+  await Promise.all([
+    restoreTrackedInventory(order),
+    rewardsService.releaseReservation(order.user, Number(order.rewardPointsUsed) || 0),
+  ]);
+}
+
 async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus) {
   if (arguments.length === 3) {
     nextStatus = orderId;
@@ -260,12 +289,21 @@ async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus) 
   if ([ORDER_STATUS.CANCELLED, ORDER_STATUS.DELIVERED].includes(order.status)) throw httpError('لا يمكن تعديل طلب منتهٍ');
   const current = order.store?.merchantStatus || 'new';
   if (!(MERCHANT_TRANSITIONS[current] || []).includes(nextStatus)) throw httpError(`انتقال غير مسموح: ${current} -> ${nextStatus}`);
-  if (nextStatus === 'handed_over' && !order.captain) {
-    throw httpError('لا يمكن تأكيد التسليم قبل تعيين كابتن للطلب');
+
+  if (nextStatus === 'rejected') {
+    await rejectNewOrder(order);
+  } else {
+    if (nextStatus === 'handed_over' && !order.captain) {
+      throw httpError('لا يمكن تأكيد التسليم قبل تعيين كابتن للطلب');
+    }
+    if (nextStatus === 'handed_over' && order.status !== ORDER_STATUS.PICKED_UP) {
+      throw httpError('يجب أن يؤكد الكابتن استلام الطلب الجاهز أولًا');
+    }
+    order.store.merchantStatus = nextStatus;
+    order.store.merchantUpdatedAt = new Date();
+    await order.save();
   }
-  order.store.merchantStatus = nextStatus;
-  order.store.merchantUpdatedAt = new Date();
-  await order.save();
+
   await order.populate('user', 'name lastName phone');
   await order.populate('captain', 'name phone');
   const socket = io.get();
