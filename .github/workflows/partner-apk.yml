@@ -6,7 +6,7 @@ on:
       api_origin:
         description: 'عنوان الـ Backend'
         required: false
-        default: 'https://yalla-api.duckdns.org'
+        default: 'https://api.yalladelivery.org'
   push:
     branches: ['main']
     paths:
@@ -78,7 +78,7 @@ jobs:
         env:
           INPUT_ORIGIN: ${{ github.event.inputs.api_origin }}
         run: |
-          API_ORIGIN="${INPUT_ORIGIN:-https://yalla-api.duckdns.org}"
+          API_ORIGIN="${INPUT_ORIGIN:-https://api.yalladelivery.org}"
           flutter build apk --release --dart-define=API_ORIGIN="$API_ORIGIN"
 
       - name: بناء AAB الموقّع
@@ -86,7 +86,7 @@ jobs:
         env:
           INPUT_ORIGIN: ${{ github.event.inputs.api_origin }}
         run: |
-          API_ORIGIN="${INPUT_ORIGIN:-https://yalla-api.duckdns.org}"
+          API_ORIGIN="${INPUT_ORIGIN:-https://api.yalladelivery.org}"
           flutter build appbundle --release --dart-define=API_ORIGIN="$API_ORIGIN"
 
       - uses: actions/upload-artifact@v4
