@@ -26,6 +26,7 @@ import AdminAccount from './pages/AdminAccount';
 import OperationsFinance from './pages/OperationsFinance';
 import QualitySystem from './pages/QualitySystem';
 import MarketingCenter from './pages/MarketingCenter';
+import RewardsSettings from './pages/RewardsSettings';
 import AdminRoles from './pages/AdminRoles';
 import SmartDispatch from './pages/SmartDispatch';
 
@@ -43,6 +44,7 @@ const NAV = [
     { key: 'support', label: 'الدعم', icon: IconSupport, Page: Support },
     { key: 'broadcast', label: 'الرسائل الجماعية', icon: IconMegaphone, Page: Broadcast },
     { key: 'marketing', label: 'التسويق والعروض', icon: IconMegaphone, Page: MarketingCenter },
+    { key: 'rewards', label: 'المكافآت والإحالات', icon: IconWallet, Page: RewardsSettings },
   ]},
   { group: 'المال', items: [
     { key: 'adminWallet', label: 'محفظة الإدارة', icon: IconWallet, Page: AdminWallet },
@@ -63,7 +65,7 @@ const ROLE_PAGES = {
   operations: ['dashboard','dispatch','orders','restaurants','users','captainDocs','stats','quality'],
   support: ['dashboard','orders','users','chats','support','quality'],
   finance: ['dashboard','opsFinance','adminWallet','wallet','withdrawals','stats'],
-  marketing: ['dashboard','restaurants','broadcast','marketing','stats'],
+  marketing: ['dashboard','restaurants','broadcast','marketing','rewards','stats'],
 };
 
 const THEME_META = {
