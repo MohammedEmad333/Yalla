@@ -117,9 +117,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   }
 
   Future<void> _addressChanged() async {
-    if (mounted) {
-      setState(_resetQuote);
-    }
+    if (mounted) setState(_resetQuote);
     await _refreshQuote();
   }
 
@@ -293,7 +291,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   List<Widget> _addressInputs(_AddressFields f) => [
         if (_loadingAddresses)
           const LinearProgressIndicator()
-        else if (_savedAddresses.isNotEmpty)
+        else if (_savedAddresses.isNotEmpty && f.saved == null)
           _savedAddressPicker(f),
         if (!_loadingAddresses && _savedAddresses.isNotEmpty && f.saved == null) const SizedBox(height: 8),
         if (f.saved == null) ...[
@@ -349,7 +347,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       ];
 
   Widget _savedAddressPicker(_AddressFields f) => DropdownButtonFormField<Map<String, dynamic>?>(
-        value: f.saved,
+        value: null,
         isExpanded: true,
         decoration: const InputDecoration(
           labelText: 'عنوان محفوظ (اختياري)',
@@ -373,6 +371,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           }),
         ],
         onChanged: (value) {
+          if (value == null) return;
           setState(() => f.saved = value);
           _addressChanged();
         },
