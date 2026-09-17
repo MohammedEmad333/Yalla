@@ -33,7 +33,7 @@ const orderSchema = new mongoose.Schema(
       name: { type: String, default: '' },
       merchantStatus: {
         type: String,
-        enum: ['new', 'accepted', 'preparing', 'ready', 'handed_over'],
+        enum: ['new', 'accepted', 'preparing', 'ready', 'handed_over', 'rejected'],
         default: 'new',
       },
       merchantUpdatedAt: { type: Date, default: null },
@@ -130,6 +130,41 @@ const orderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// طلبات المتاجر لها مساران متزامنان: تجهيز المتجر وتوصيل الكابتن.
+// هذه القيود تجعل قاعدة البيانات نفسها تمنع القفز بين المسارين حتى لو كان
+// الاستدعاء آليًا أو يدويًا أو جاء من إصدار قديم من التطبيق.
+orderSchema.pre('validate', function enforceMerchantDeliveryFlow(next) {
+  const isStoreOrder = !!this.store?.restaurant;
+  if (!isStoreOrder) return next();
+
+  const merchantStatus = this.store?.merchantStatus || 'new';
+  const dispatchAllowed = ['accepted', 'preparing', 'ready', 'handed_over'];
+
+  if (
+    [ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED, ORDER_STATUS.PICKED_UP].includes(this.status) &&
+    !dispatchAllowed.includes(merchantStatus)
+  ) {
+    return next(new Error('لا يمكن إسناد طلب المتجر لكابتن قبل قبول المتجر للطلب'));
+  }
+
+  if (
+    this.status === ORDER_STATUS.PICKED_UP &&
+    !['ready', 'handed_over'].includes(merchantStatus)
+  ) {
+    return next(new Error('لا يمكن للكابتن استلام طلب المتجر قبل أن يصبح جاهزًا'));
+  }
+
+  if (merchantStatus === 'handed_over' && !this.captain) {
+    return next(new Error('لا يمكن للمتجر تسليم الطلب قبل تعيين كابتن'));
+  }
+
+  if (merchantStatus === 'rejected' && this.status !== ORDER_STATUS.CANCELLED) {
+    return next(new Error('طلب مرفوض من المتجر يجب أن يكون ملغيًا'));
+  }
+
+  return next();
+});
 
 orderSchema.index(
   { user: 1, idempotencyKey: 1 },
