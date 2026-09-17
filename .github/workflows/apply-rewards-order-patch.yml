@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Fix reward reservation rollback
+      - name: Fix reward reservation rollback and remove one-shot workflow
         run: |
           python3 <<'PY'
           from pathlib import Path
@@ -23,16 +23,18 @@ jobs:
           s = p.read_text()
           old = """  const scheduleError = validateScheduledAt(payload.scheduledAt);\n  if (scheduleError) throw Object.assign(new Error(scheduleError), { statusCode: 400 });\n  const scheduledAt = payload.scheduledAt ? new Date(payload.scheduledAt) : null;\n"""
           new = """  const scheduleError = validateScheduledAt(payload.scheduledAt);\n  if (scheduleError) {\n    await rewardsService.releaseReservation(userId, reward.pointsUsed);\n    throw Object.assign(new Error(scheduleError), { statusCode: 400 });\n  }\n  const scheduledAt = payload.scheduledAt ? new Date(payload.scheduledAt) : null;\n"""
-          if old not in s:
+          if old in s:
+              p.write_text(s.replace(old, new, 1))
+          elif new not in s:
               raise SystemExit('Expected schedule validation block not found')
-          p.write_text(s.replace(old, new, 1))
           PY
           node --check backend/src/services/order.service.js
-      - name: Commit patch
+          git rm .github/workflows/apply-rewards-order-patch.yml
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add backend/src/services/order.service.js
-          git diff --cached --quiet && exit 0
           git commit -m "fix(rewards): return reserved points on invalid schedule"
-          git push
+          git pull --rebase origin main
+          git push origin HEAD:main
