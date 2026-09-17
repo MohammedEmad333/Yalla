@@ -114092,7 +114092,7 @@ case 2:return A.p(o.at(-1),r)}})
 return A.r($async$ye,r)},
 gKO(){var s=this.f.h(0,"avatarUrl"),r=J.aH(s==null?"":s)
 if(r.length===0)return null
-return B.c.bC(r,"http")?r:"https://yalla-api.duckdns.org"+r},
+return B.c.bC(r,"http")?r:"https://api.yalladelivery.org"+r},
 xo(){var s=0,r=A.t(t.H),q,p=2,o=[],n=[],m=this,l,k,j,i,h,g,f
 var $async$xo=A.o(function(a,b){if(a===1){o.push(b)
 s=p}for(;;)switch(s){case 0:s=3
@@ -114527,7 +114527,7 @@ return A.r($async$oy,r)},
 eo(a,b){return this.aNt(a,b)},
 aNt(a,b){var s=0,r=A.t(t.z),q,p=this,o,n
 var $async$eo=A.o(function(c,d){if(c===1)return A.p(d,r)
-for(;;)switch(s){case 0:o=A.e7("https://yalla-api.duckdns.org/api"+a,0,null)
+for(;;)switch(s){case 0:o=A.e7("https://api.yalladelivery.org/api"+a,0,null)
 s=3
 return A.l(p.oy(),$async$eo)
 case 3:n=d
@@ -114542,7 +114542,7 @@ bH(a,b){return this.abJ(0,b)},
 abJ(a,b){var s=0,r=A.t(t.z),q,p=this,o,n
 var $async$bH=A.o(function(c,d){if(c===1)return A.p(d,r)
 for(;;)switch(s){case 0:o=A
-n=A.e7("https://yalla-api.duckdns.org/api"+b,0,null)
+n=A.e7("https://api.yalladelivery.org/api"+b,0,null)
 s=4
 return A.l(p.oy(),$async$bH)
 case 4:s=3
@@ -114555,7 +114555,7 @@ return A.r($async$bH,r)},
 t7(a,b,c){return this.aNH(0,b,c)},
 aNH(a,b,c){var s=0,r=A.t(t.z),q,p=this,o,n
 var $async$t7=A.o(function(d,e){if(d===1)return A.p(e,r)
-for(;;)switch(s){case 0:o=A.e7("https://yalla-api.duckdns.org/api"+b,0,null)
+for(;;)switch(s){case 0:o=A.e7("https://api.yalladelivery.org/api"+b,0,null)
 s=3
 return A.l(p.oy(),$async$t7)
 case 3:n=e
@@ -114569,7 +114569,7 @@ return A.r($async$t7,r)},
 ln(a,b){return this.aNf(a,b)},
 aNf(a,b){var s=0,r=A.t(t.z),q,p=this,o,n
 var $async$ln=A.o(function(c,d){if(c===1)return A.p(d,r)
-for(;;)switch(s){case 0:o=A.e7("https://yalla-api.duckdns.org/api"+a,0,null)
+for(;;)switch(s){case 0:o=A.e7("https://api.yalladelivery.org/api"+a,0,null)
 s=3
 return A.l(p.oy(),$async$ln)
 case 3:n=d
@@ -114584,7 +114584,7 @@ v7(a,b,c){return this.aH2(0,b,c)},
 a6m(a,b){return this.v7(0,b,null)},
 aH2(a,b,c){var s=0,r=A.t(t.z),q,p=this,o,n
 var $async$v7=A.o(function(d,e){if(d===1)return A.p(e,r)
-for(;;)switch(s){case 0:o=A.e7("https://yalla-api.duckdns.org/api"+b,0,null)
+for(;;)switch(s){case 0:o=A.e7("https://api.yalladelivery.org/api"+b,0,null)
 s=3
 return A.l(p.oy(),$async$v7)
 case 3:n=e
@@ -114598,7 +114598,7 @@ return A.r($async$v7,r)},
 pI(a,b,c,d){return this.aNu(a,b,c,d)},
 aNu(a,b,c,d){var s=0,r=A.t(t.z),q,p=this,o,n,m
 var $async$pI=A.o(function(e,f){if(e===1)return A.p(f,r)
-for(;;)switch(s){case 0:o=A.b6m("POST",A.e7("https://yalla-api.duckdns.org/api"+a,0,null))
+for(;;)switch(s){case 0:o=A.b6m("POST",A.e7("https://api.yalladelivery.org/api"+a,0,null))
 s=3
 return A.l(p.a.pN(0),$async$pI)
 case 3:n=f
@@ -114623,7 +114623,7 @@ return A.r($async$pI,r)},
 t5(a,b,c){return this.aNv(a,b,c)},
 aNv(a,b,c){var s=0,r=A.t(t.z),q,p=this,o,n,m,l,k,j,i
 var $async$t5=A.o(function(d,e){if(d===1)return A.p(e,r)
-for(;;)switch(s){case 0:k=A.b6m("POST",A.e7("https://yalla-api.duckdns.org/api"+a,0,null))
+for(;;)switch(s){case 0:k=A.b6m("POST",A.e7("https://api.yalladelivery.org/api"+a,0,null))
 s=3
 return A.l(p.a.pN(0),$async$t5)
 case 3:j=e
@@ -114860,15 +114860,15 @@ m=A.v(a,n)
 m.m(0,"transports",A.b(["websocket"],t.s))
 m.m(0,"autoConnect",!1)
 m.m(0,"auth",A.a4(["token",o],n,n))
-l=A.e7("https://yalla-api.duckdns.org",0,null)
+l=A.e7("https://api.yalladelivery.org",0,null)
 k=l.gf3()+"://"+l.gmf(l)+":"+l.gt4(l)
 j=l.geZ(l)
 i=$.aY0.aw(0,k)&&$.aY0.h(0,k).d.aw(0,j)
 h=J.c(m.h(0,"forceNew"),!0)||J.c(m.h(0,"force new connection"),!0)||!1===m.h(0,"multiplex")||i
 g=A.cw()
-if(h){$.beM().bu(B.N,"ignoring socket cache for https://yalla-api.duckdns.org",null,null)
-g.b=A.b63(m,"https://yalla-api.duckdns.org")}else{f=$.aY0.h(0,k)
-if(f==null){f=A.b63(m,"https://yalla-api.duckdns.org")
+if(h){$.beM().bu(B.N,"ignoring socket cache for https://api.yalladelivery.org",null,null)
+g.b=A.b63(m,"https://api.yalladelivery.org")}else{f=$.aY0.h(0,k)
+if(f==null){f=A.b63(m,"https://api.yalladelivery.org")
 $.aY0.m(0,k,f)}g.b=f}if(l.gnQ(l).length!==0&&m.h(0,"query")==null)m.m(0,"query",l.gnQ(l))
 else{f=m.h(0,"query")
 if(t.f.b(f))m.m(0,"query",A.b1W(m.h(0,"query")))}f=g.ba()
@@ -116699,7 +116699,7 @@ h=B.c.aU(h==null?"":h)
 s=i.y
 r=B.c.aU(s==null?"":s)
 if(r.length===0)q=l
-else q=B.c.bC(r,"http")?r:"https://yalla-api.duckdns.org"+r
+else q=B.c.bC(r,"http")?r:"https://api.yalladelivery.org"+r
 s=$.a2===B.h?B.T:B.U
 p=q==null
 o=!p?new A.qu(q):l
@@ -116986,7 +116986,7 @@ A.qS.prototype={}
 A.jI.prototype={
 gnv(){var s=this.e
 if(s.length===0)return null
-return B.c.bC(s,"http")?s:"https://yalla-api.duckdns.org"+s},
+return B.c.bC(s,"http")?s:"https://api.yalladelivery.org"+s},
 gab2(){var s,r,q,p,o=this.ay
 if(o.length===0)return null
 s=B.f.b4(A.asT(new A.cK(Date.now(),0,!1)),7)
@@ -117039,7 +117039,7 @@ ig(){return A.a4(["group",this.a,"option",this.b],t.N,t.z)}}
 A.qp.prototype={
 gnv(){var s=this.e
 if(s.length===0)return null
-return B.c.bC(s,"http")?s:"https://yalla-api.duckdns.org"+s},
+return B.c.bC(s,"http")?s:"https://api.yalladelivery.org"+s},
 gaO(a){return this.b}}
 A.aqj.prototype={
 $1(a){var s=A.bs(t.f.a(a),t.N,t.z),r=s.h(0,"label")
@@ -118553,7 +118553,7 @@ $S:84}
 A.aRL.prototype={
 $2(a,b){var s,r,q,p,o,n,m,l=null,k="subtitle",j="couponCode",i=this.a,h=A.bs(t.f.a(J.X(i.y,b)),t.N,t.z),g=h.h(0,"imageUrl"),f=J.aH(g==null?"":g)
 if(f.length===0)s=""
-else s=B.c.bC(f,"http")?f:"https://yalla-api.duckdns.org"+f
+else s=B.c.bC(f,"http")?f:"https://api.yalladelivery.org"+f
 g=A.c_(18)
 r=A.c_(18)
 q=$.a2===B.h
@@ -119492,7 +119492,7 @@ r=J.X(r,"captain")
 r=r==null?null:J.X(r,"avatarUrl")
 s=J.aH(r==null?"":r)
 if(s.length===0)return null
-return B.c.bC(s,"http")?s:"https://yalla-api.duckdns.org"+s}}
+return B.c.bC(s,"http")?s:"https://api.yalladelivery.org"+s}}
 A.aNZ.prototype={
 $0(){return this.a.d=t.a.a(this.b)},
 $S:0}
