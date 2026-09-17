@@ -2,23 +2,20 @@
 
 const mongoose = require('mongoose');
 
-/**
- * إعدادات المنظومة القابلة للضبط لحظيًا من لوحة الأدمن (Singleton).
- * وثيقة واحدة فقط (key='global') تحمل المفاتيح القابلة للتبديل أثناء التشغيل
- * دون إعادة نشر الخادم — على رأسها مفتاح «الإسناد التلقائي» (بثّ الطلبات لكل
- * الكباتن ليأخذها أوّل من يقبل).
- */
 const settingsSchema = new mongoose.Schema(
   {
-    // مفتاح ثابت لضمان وجود وثيقة واحدة فقط (فريد)
     key: { type: String, default: 'global', unique: true, index: true },
-
-    // الإسناد التلقائي: عند التفعيل تُبثّ الطلبات الجديدة لكل الكباتن (مع إشعار
-    // Push حتى لو الهاتف مغلق)، ويأخذها أوّل كابتن يقبلها ثم تختفي من الباقين.
     autoAssignBroadcast: { type: Boolean, default: false },
-    // بداية نافذة إحصائيات لوحة الإدارة. إعادة الضبط لا تحذف الطلبات أو السجلات؛
-    // بل تجعل مؤشرات الأداء تبدأ من هذه اللحظة.
     statsResetAt: { type: Date, default: null },
+
+    // إعدادات تحديث تطبيق Yalla — قابلة للتعديل لحظيًا من لوحة الإدارة.
+    latestAppVersion: { type: String, default: '1.0.7' },
+    minimumAppVersion: { type: String, default: '1.0.6' },
+    forceAppUpdate: { type: Boolean, default: false },
+    appUpdateEnabled: { type: Boolean, default: true },
+    appUpdateTitle: { type: String, default: 'يتوفر إصدار جديد من Yalla', trim: true, maxlength: 120 },
+    appUpdateMessage: { type: String, default: 'حدّث الآن للحصول على أحدث التحسينات وأفضل تجربة استخدام.', trim: true, maxlength: 500 },
+    androidStoreUrl: { type: String, default: 'https://play.google.com/store/apps/details?id=com.mohammedemad333.yalla', trim: true },
   },
   { timestamps: true }
 );
