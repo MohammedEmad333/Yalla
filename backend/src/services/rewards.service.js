@@ -74,7 +74,6 @@ async function getRewards(userId) {
       referralRewardPoints: Number(cfg.referralRewardPoints) || 0,
       pointsPerIls,
       minOrderPoints,
-      // إبقاء الاسم القديم مؤقتًا لتوافق نسخ التطبيق السابقة.
       minRedeemPoints: minOrderPoints,
       requireFirstCompletedOrder: !!cfg.requireFirstCompletedOrder,
       enabled: !!cfg.enabled,
@@ -98,16 +97,10 @@ async function applyReferral(userId, code) {
   return getRewards(userId);
 }
 
-// لم يعد مسموحًا بتحويل النقاط إلى المحفظة. نبقي الدالة لنسخ التطبيق القديمة
-// كي تحصل على رسالة واضحة بدل 404، لكن لا تُنشئ أي حركة مالية.
 async function redeem() {
   throw httpError('نقاط Yalla مخصصة للخصم على الطلبات فقط ولا يمكن تحويلها إلى المحفظة', 400);
 }
 
-/**
- * حجز نقاط لطلب جديد. الخصم يكون بوحدات شيكل كاملة حسب pointsPerIls، ولا يتجاوز
- * قيمة الطلب التقريبية. الخصم من النقاط ذرّي لمنع استخدام الرصيد نفسه بطلبين.
- */
 async function reserveForOrder(userId, requestedPoints, maxOrderIls) {
   let requested = Number(requestedPoints);
   if (!Number.isFinite(requested) || requested <= 0) {
@@ -138,14 +131,17 @@ async function reserveForOrder(userId, requestedPoints, maxOrderIls) {
   );
   if (!debited) throw httpError('رصيد النقاط غير كافٍ');
 
-  return {
-    pointsUsed: points,
-    discountIls: points / pointsPerIls,
-    pointsPerIls,
-  };
+  return { pointsUsed: points, discountIls: points / pointsPerIls, pointsPerIls };
 }
 
-/** إعادة نقاط طلب لم يُستكمل. آمنة عند التكرار بفضل rewardPointsRefunded. */
+// إرجاع حجز لم يرتبط بطلب (فشل تحقق الرصيد أو إنشاء الطلب).
+async function releaseReservation(userId, points) {
+  const value = Math.max(0, Number(points) || 0);
+  if (!value) return 0;
+  await User.findByIdAndUpdate(userId, { $inc: { loyaltyPoints: value } });
+  return value;
+}
+
 async function refundOrderPoints(orderOrId) {
   const order = typeof orderOrId === 'object' && orderOrId?._id
     ? orderOrId
@@ -168,10 +164,6 @@ async function refundOrderPoints(orderOrId) {
   return { refunded: remaining };
 }
 
-/**
- * عند التسليم قد تكون أجرة التوصيل الفعلية أقل من التقديرية؛ نطبّق فقط الخصم
- * الممكن على الإجمالي الحقيقي ونعيد أي نقاط زائدة تلقائيًا.
- */
 async function settleOrderDiscount(order, actualOrderTotal) {
   const reservedDiscount = Math.max(0, Number(order.rewardDiscount) || 0);
   const pointsPerIls = Math.max(1, Number(order.rewardPointsPerIls) || 1);
@@ -218,6 +210,7 @@ module.exports = {
   applyReferral,
   redeem,
   reserveForOrder,
+  releaseReservation,
   refundOrderPoints,
   settleOrderDiscount,
   getAdminSettings,
