@@ -15,6 +15,8 @@ const couponSchema = new mongoose.Schema({
   endsAt: { type: Date, default: null },
   usageLimit: { type: Number, default: 0, min: 0 },
   usedCount: { type: Number, default: 0, min: 0 },
+  // طلبات أُعيد عداد استخدامها بعد الإلغاء. يمنع إنقاص usedCount مرتين لنفس الطلب.
+  restoredOrders: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Order', select: false }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Coupon', couponSchema);
