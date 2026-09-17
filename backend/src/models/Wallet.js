@@ -3,10 +3,9 @@
 const mongoose = require('mongoose');
 
 // محفظة المستخدم — سجلّ واحد لكل مستخدم يحمل الرصيد الحالي.
-// الرصيد هو "مصدر الحقيقة" السريع؛ وتفاصيل كل حركة تُحفظ في WalletTransaction.
+// balance هو الرصيد الفعلي، وreservedBalance هو الجزء المحجوز لطلبات نشطة.
 const walletSchema = new mongoose.Schema(
   {
-    // مالك المحفظة (فريد — محفظة واحدة لكل مستخدم)
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -15,12 +14,15 @@ const walletSchema = new mongoose.Schema(
       index: true,
     },
 
-    // الرصيد الحالي بالشيكل (أعداد صحيحة، اتّساقًا مع تسعير الطلبات)
     balance: { type: Number, default: 0, min: 0 },
-
+    reservedBalance: { type: Number, default: 0, min: 0 },
     currency: { type: String, default: 'ILS' },
   },
   { timestamps: true }
 );
+
+walletSchema.virtual('availableBalance').get(function availableBalance() {
+  return Math.max(0, Number(this.balance || 0) - Number(this.reservedBalance || 0));
+});
 
 module.exports = mongoose.model('Wallet', walletSchema);
