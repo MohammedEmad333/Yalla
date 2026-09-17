@@ -62,58 +62,104 @@ export default function AppUpdates() {
     <div className="yl-pagehead">
       <div>
         <h1>تحديثات التطبيق</h1>
-        <p>تحكّم برسالة الإصدار الجديد، أقل نسخة مسموحة، وهل التحديث اختياري أم إجباري.</p>
+        <p className="yl-pagehead__sub">تحكّم برسالة الإصدار الجديد، أقل نسخة مسموحة، وهل التحديث اختياري أم إجباري.</p>
       </div>
-      <button className="yl-btn yl-btn--ghost" onClick={load}>تحديث البيانات</button>
+      <div className="yl-pagehead__actions">
+        <button type="button" className="yl-btn yl-btn--ghost" onClick={load}>تحديث البيانات</button>
+      </div>
     </div>
 
     {error && <div className="yl-alert yl-alert--danger">{error}</div>}
     {ok && <div className="yl-alert yl-alert--success">{ok}</div>}
 
-    <form className="yl-card yl-stack" onSubmit={save}>
-      <label className="yl-field">
-        <span>أحدث إصدار منشور</span>
-        <input value={form.latestVersion} onChange={(e) => set('latestVersion', e.target.value)} placeholder="1.0.7" required />
-      </label>
+    <form className="yl-card yl-card--pad yl-stack" onSubmit={save}>
+      <div className="yl-formgrid">
+        <label className="yl-field">
+          <span className="yl-label">أحدث إصدار منشور</span>
+          <input
+            className="yl-input"
+            dir="ltr"
+            inputMode="decimal"
+            value={form.latestVersion}
+            onChange={(e) => set('latestVersion', e.target.value)}
+            placeholder="1.0.7"
+            required
+          />
+        </label>
+
+        <label className="yl-field">
+          <span className="yl-label">أقل إصدار مسموح</span>
+          <input
+            className="yl-input"
+            dir="ltr"
+            inputMode="decimal"
+            value={form.minimumVersion}
+            onChange={(e) => set('minimumVersion', e.target.value)}
+            placeholder="1.0.6"
+            required
+          />
+          <small className="yl-hint">أي نسخة أقدم من هذا الرقم ستُجبر على التحديث حتى لو كان خيار التحديث الإجباري مغلقًا.</small>
+        </label>
+      </div>
 
       <label className="yl-field">
-        <span>أقل إصدار مسموح</span>
-        <input value={form.minimumVersion} onChange={(e) => set('minimumVersion', e.target.value)} placeholder="1.0.6" required />
-        <small>أي نسخة أقدم من هذا الرقم ستُجبر على التحديث حتى لو كان خيار التحديث الإجباري مغلقًا.</small>
+        <span className="yl-label">عنوان الرسالة</span>
+        <input
+          className="yl-input"
+          value={form.title}
+          onChange={(e) => set('title', e.target.value)}
+          maxLength={120}
+          required
+        />
       </label>
 
       <label className="yl-field">
-        <span>عنوان الرسالة</span>
-        <input value={form.title} onChange={(e) => set('title', e.target.value)} maxLength={120} required />
+        <span className="yl-label">نص الرسالة</span>
+        <textarea
+          className="yl-textarea"
+          rows="4"
+          value={form.message}
+          onChange={(e) => set('message', e.target.value)}
+          maxLength={500}
+          required
+        />
+        <small className="yl-hint">{form.message.length}/500</small>
       </label>
 
       <label className="yl-field">
-        <span>نص الرسالة</span>
-        <textarea rows="4" value={form.message} onChange={(e) => set('message', e.target.value)} maxLength={500} required />
+        <span className="yl-label">رابط Google Play</span>
+        <input
+          className="yl-input"
+          dir="ltr"
+          type="url"
+          value={form.androidStoreUrl}
+          onChange={(e) => set('androidStoreUrl', e.target.value)}
+          style={{ textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          required
+        />
       </label>
 
-      <label className="yl-field">
-        <span>رابط Google Play</span>
-        <input dir="ltr" value={form.androidStoreUrl} onChange={(e) => set('androidStoreUrl', e.target.value)} required />
-      </label>
+      <div className="yl-stack yl-stack--sm">
+        <label className="yl-check">
+          <input type="checkbox" checked={form.enabled} onChange={(e) => set('enabled', e.target.checked)} />
+          <span>تفعيل فحص التحديث داخل التطبيق</span>
+        </label>
 
-      <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        <input type="checkbox" checked={form.enabled} onChange={(e) => set('enabled', e.target.checked)} />
-        <span>تفعيل فحص التحديث داخل التطبيق</span>
-      </label>
-
-      <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        <input type="checkbox" checked={form.forceUpdate} onChange={(e) => set('forceUpdate', e.target.checked)} />
-        <span>إجبار جميع النسخ الأقدم من أحدث إصدار على التحديث</span>
-      </label>
+        <label className="yl-check">
+          <input type="checkbox" checked={form.forceUpdate} onChange={(e) => set('forceUpdate', e.target.checked)} />
+          <span>إجبار جميع النسخ الأقدم من أحدث إصدار على التحديث</span>
+        </label>
+      </div>
 
       <div className="yl-alert">
         النسخة الحالية التي جهزناها للمتجر هي <b>1.0.7</b>. اترك التحديث غير إجباري أولًا، وبعد انتشار النسخة يمكنك رفع «أقل إصدار مسموح» عند الحاجة.
       </div>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button className="yl-btn yl-btn--primary" disabled={saving}>{saving ? 'جارٍ الحفظ...' : 'حفظ إعدادات التحديث'}</button>
-        <button type="button" className="yl-btn yl-btn--ghost" onClick={sendUpdateNotification} disabled={sending}>
+      <div className="yl-btnrow">
+        <button className="yl-btn yl-btn--primary" disabled={saving}>
+          {saving ? 'جارٍ الحفظ...' : 'حفظ إعدادات التحديث'}
+        </button>
+        <button type="button" className="yl-btn yl-btn--outline" onClick={sendUpdateNotification} disabled={sending}>
           {sending ? 'جارٍ إرسال الإشعار...' : 'إرسال إشعار التحديث للجميع'}
         </button>
       </div>
