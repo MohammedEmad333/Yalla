@@ -79,8 +79,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   final _noteController = TextEditingController();
 
   List<dynamic> _savedAddresses = [];
+  Map<String, dynamic>? _rewards;
   bool _loadingAddresses = true;
   bool _submitting = false;
+  bool _usePoints = false;
   DateTime? _scheduledAt;
 
   num? _quotePrice;
@@ -90,10 +92,34 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   num? _quoteEta;
   bool _loadingQuote = false;
 
+  int get _points => _asInt(_rewards?['points']);
+  Map<String, dynamic> get _rewardRules => Map<String, dynamic>.from((_rewards?['rules'] as Map?) ?? const {});
+  int get _pointsPerIls => _asInt(_rewardRules['pointsPerIls'], fallback: 100);
+  int get _minOrderPoints => _asInt(_rewardRules['minOrderPoints'] ?? _rewardRules['minRedeemPoints'], fallback: _pointsPerIls);
+  bool get _rewardsEnabled => _rewardRules['enabled'] != false;
+  int get _usablePoints {
+    if (!_usePoints || !_rewardsEnabled || _quotePrice == null || _pointsPerIls <= 0) return 0;
+    final maxByOrder = (_quotePrice!.floor()) * _pointsPerIls;
+    final roundedAvailable = (_points ~/ _pointsPerIls) * _pointsPerIls;
+    final value = roundedAvailable < maxByOrder ? roundedAvailable : maxByOrder;
+    return value >= _minOrderPoints ? value : 0;
+  }
+  num get _rewardDiscount => _pointsPerIls > 0 ? _usablePoints / _pointsPerIls : 0;
+
   @override
   void initState() {
     super.initState();
     _loadAddresses();
+    _loadRewards();
+  }
+
+  Future<void> _loadRewards() async {
+    try {
+      final raw = await widget.api.get('/expansion/rewards');
+      if (mounted) setState(() => _rewards = Map<String, dynamic>.from(raw as Map));
+    } catch (_) {
+      // الطلب يبقى متاحًا بدون نقاط إن تعذّر تحميل المكافآت.
+    }
   }
 
   Future<void> _loadAddresses() async {
@@ -174,23 +200,29 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
     setState(() => _submitting = true);
     try {
+      final usedPoints = _usablePoints;
       await widget.api.post('/orders', {
         'pickup': _pickup.toJson(),
         'dropoff': _dropoff.toJson(),
         'packageNote': _noteController.text,
+        if (usedPoints > 0) 'rewardPoints': usedPoints,
         if (_scheduledAt != null) 'scheduledAt': _scheduledAt!.toUtc().toIso8601String(),
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم إنشاء الطلب — ستصلك رسالة برمز التسليم')),
+        SnackBar(content: Text(usedPoints > 0
+            ? 'تم إنشاء الطلب واستخدام $usedPoints نقطة كخصم — ستصلك رسالة برمز التسليم'
+            : 'تم إنشاء الطلب — ستصلك رسالة برمز التسليم')),
       );
       setState(() {
         _pickup.clear();
         _dropoff.clear();
         _noteController.clear();
         _scheduledAt = null;
+        _usePoints = false;
         _resetQuote();
       });
+      _loadRewards();
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
@@ -200,6 +232,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canUsePoints = _rewardsEnabled && _points >= _minOrderPoints && _quotePrice != null;
+    final afterPoints = _quotePrice == null ? null : (_quotePrice! - _rewardDiscount).clamp(0, double.infinity);
+
     return Scaffold(
       appBar: AppBar(title: const Text('طلب توصيل جديد')),
       body: ListView(
@@ -273,6 +308,33 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
               ),
             ),
 
+          if (_rewards != null)
+            Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: SwitchListTile.adaptive(
+                value: _usePoints && canUsePoints,
+                onChanged: canUsePoints ? (v) => setState(() => _usePoints = v) : null,
+                secondary: const Icon(Icons.stars_outlined),
+                title: const Text('استخدم نقاط Yalla', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(canUsePoints
+                    ? 'لديك $_points نقطة. سيُستخدم حتى $_usablePoints نقطة كخصم على هذا الطلب فقط.'
+                    : 'لديك $_points نقطة · الحد الأدنى للاستخدام $_minOrderPoints نقطة${_quotePrice == null ? ' · احسب السعر أولًا' : ''}'),
+              ),
+            ),
+
+          if (_usePoints && _usablePoints > 0 && afterPoints != null)
+            Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(children: [
+                  _priceRow('خصم نقاط Yalla', '-$_rewardDiscount ₪'),
+                  const Divider(height: 20),
+                  _priceRow('المطلوب من المحفظة تقريبًا', '$afterPoints ₪', bold: true),
+                ]),
+              ),
+            ),
+
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
@@ -287,6 +349,14 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       ),
     );
   }
+
+  Widget _priceRow(String label, String value, {bool bold = false}) => Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+          Text(value, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.w700, color: YallaColors.primary)),
+        ],
+      );
 
   List<Widget> _addressInputs(_AddressFields f) => [
         if (_loadingAddresses)
@@ -423,6 +493,11 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ],
       );
+
+  static int _asInt(dynamic value, {int fallback = 0}) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
+  }
 
   @override
   void dispose() {
