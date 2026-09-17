@@ -1,6 +1,27 @@
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
 
+class RestaurantHoursDay {
+  final int day; // 0 الأحد .. 6 السبت
+  final String open;
+  final String close;
+  final bool closed;
+
+  const RestaurantHoursDay({
+    required this.day,
+    required this.open,
+    required this.close,
+    required this.closed,
+  });
+
+  factory RestaurantHoursDay.fromJson(Map<String, dynamic> json) => RestaurantHoursDay(
+        day: ((json['day'] as num?) ?? -1).toInt(),
+        open: (json['open'] ?? '').toString(),
+        close: (json['close'] ?? '').toString(),
+        closed: json['closed'] == true,
+      );
+}
+
 class Restaurant {
   final String id;
   final String name;
@@ -15,8 +36,10 @@ class Restaurant {
   final num minOrder;
   final num prepMinutes;
   final bool isOpen;
+  // تبقى للتوافق مع المطاعم القديمة فقط. الجدول الأسبوعي هو المصدر الأساسي.
   final String openTime;
   final String closeTime;
+  final List<RestaurantHoursDay> weeklyHours;
   final double ratingAverage;
   final int ratingCount;
 
@@ -36,12 +59,18 @@ class Restaurant {
     required this.isOpen,
     required this.openTime,
     required this.closeTime,
+    required this.weeklyHours,
     required this.ratingAverage,
     required this.ratingCount,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
     final raw = (json['location']?['coordinates'] as List?) ?? const [];
+    final weekly = ((json['weeklyHours'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => RestaurantHoursDay.fromJson(Map<String, dynamic>.from(e)))
+        .where((e) => e.day >= 0 && e.day <= 6)
+        .toList();
     return Restaurant(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
@@ -58,6 +87,7 @@ class Restaurant {
       isOpen: json['isOpen'] != false,
       openTime: (json['openTime'] ?? '').toString(),
       closeTime: (json['closeTime'] ?? '').toString(),
+      weeklyHours: weekly,
       ratingAverage: ((json['ratingAverage'] as num?) ?? 0).toDouble(),
       ratingCount: ((json['ratingCount'] as num?) ?? 0).toInt(),
     );
@@ -77,14 +107,18 @@ class Restaurant {
     return h * 60 + min;
   }
 
-  bool get openNow {
-    if (!isOpen) return false;
-    final o = _minutes(openTime), c = _minutes(closeTime);
-    if (o == null || c == null || o == c) return true;
-    final now = DateTime.now();
-    final n = now.hour * 60 + now.minute;
-    return c > o ? n >= o && n < c : n >= o || n < c;
+  RestaurantHoursDay? get todayHours {
+    if (weeklyHours.isEmpty) return null;
+    final day = DateTime.now().weekday % 7; // Dart: الأحد=7، API: الأحد=0
+    for (final row in weeklyHours) {
+      if (row.day == day) return row;
+    }
+    return null;
   }
+
+  // الخادم يحسب isOpen من weeklyHours (ويضم حالة الإغلاق اليدوي)، لذلك لا نعيد
+  // حسابه هنا من openTime/closeTime القديمة حتى لا تتعارض الواجهتان.
+  bool get openNow => isOpen;
 
   static String _fmt(int minutes) {
     final h = minutes ~/ 60;
@@ -97,10 +131,24 @@ class Restaurant {
 
   String get scheduleLabel {
     final parts = <String>[];
-    final o = _minutes(openTime), c = _minutes(closeTime);
-    if (o != null && c != null && o != c) {
-      parts.add('يفتح ${_fmt(o)}');
-      parts.add('يغلق ${_fmt(c)}');
+    final today = todayHours;
+    if (today != null) {
+      if (today.closed) {
+        parts.add('مغلق اليوم');
+      } else {
+        final o = _minutes(today.open), c = _minutes(today.close);
+        if (o != null && c != null) {
+          parts.add('يفتح ${_fmt(o)}');
+          parts.add('يغلق ${_fmt(c)}');
+        }
+      }
+    } else {
+      // توافق مع سجل قديم لا يملك weeklyHours بعد.
+      final o = _minutes(openTime), c = _minutes(closeTime);
+      if (o != null && c != null && o != c) {
+        parts.add('يفتح ${_fmt(o)}');
+        parts.add('يغلق ${_fmt(c)}');
+      }
     }
     final mobile = phone.trim();
     if (mobile.isNotEmpty) parts.add('جوال $mobile');
@@ -108,7 +156,9 @@ class Restaurant {
   }
 
   String get opensAtLabel {
-    final o = _minutes(openTime);
+    final today = todayHours;
+    if (today?.closed == true) return 'مغلق اليوم';
+    final o = _minutes(today?.open ?? openTime);
     return o == null ? '' : 'يفتح ${_fmt(o)}';
   }
 }
