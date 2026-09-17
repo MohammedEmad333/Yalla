@@ -3,10 +3,8 @@
 const crypto = require('crypto');
 const User = require('../models/User');
 const Order = require('../models/Order');
-const Wallet = require('../models/Wallet');
-const WalletTransaction = require('../models/WalletTransaction');
 const RewardSettings = require('../models/RewardSettings');
-const { ORDER_STATUS, WALLET_DIRECTION, WALLET_TX_TYPE, TOPUP_STATUS } = require('../utils/constants');
+const { ORDER_STATUS } = require('../utils/constants');
 
 function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
@@ -61,7 +59,9 @@ async function getRewards(userId) {
   const cfg = await settings();
   const referralCode = await ensureReferralCode(user);
   const points = Number(user.loyaltyPoints || 0);
-  const valueIls = Math.floor(points / Math.max(1, Number(cfg.pointsPerIls) || 100));
+  const pointsPerIls = Math.max(1, Number(cfg.pointsPerIls) || 100);
+  const minOrderPoints = Math.max(0, Number(cfg.minRedeemPoints) || 0);
+  const valueIls = Math.floor(points / pointsPerIls);
   return {
     points,
     valueIls,
@@ -69,10 +69,13 @@ async function getRewards(userId) {
     referred: await User.countDocuments({ referredBy: user._id }),
     referralRewarded: !!user.referralRewarded,
     hasReferral: !!user.referredBy,
+    usage: 'orders_only',
     rules: {
       referralRewardPoints: Number(cfg.referralRewardPoints) || 0,
-      pointsPerIls: Number(cfg.pointsPerIls) || 100,
-      minRedeemPoints: Number(cfg.minRedeemPoints) || 0,
+      pointsPerIls,
+      minOrderPoints,
+      // إبقاء الاسم القديم مؤقتًا لتوافق نسخ التطبيق السابقة.
+      minRedeemPoints: minOrderPoints,
       requireFirstCompletedOrder: !!cfg.requireFirstCompletedOrder,
       enabled: !!cfg.enabled,
     },
@@ -95,25 +98,38 @@ async function applyReferral(userId, code) {
   return getRewards(userId);
 }
 
-async function redeem(userId, requestedPoints) {
+// لم يعد مسموحًا بتحويل النقاط إلى المحفظة. نبقي الدالة لنسخ التطبيق القديمة
+// كي تحصل على رسالة واضحة بدل 404، لكن لا تُنشئ أي حركة مالية.
+async function redeem() {
+  throw httpError('نقاط Yalla مخصصة للخصم على الطلبات فقط ولا يمكن تحويلها إلى المحفظة', 400);
+}
+
+/**
+ * حجز نقاط لطلب جديد. الخصم يكون بوحدات شيكل كاملة حسب pointsPerIls، ولا يتجاوز
+ * قيمة الطلب التقريبية. الخصم من النقاط ذرّي لمنع استخدام الرصيد نفسه بطلبين.
+ */
+async function reserveForOrder(userId, requestedPoints, maxOrderIls) {
+  let requested = Number(requestedPoints);
+  if (!Number.isFinite(requested) || requested <= 0) {
+    return { pointsUsed: 0, discountIls: 0, pointsPerIls: 0 };
+  }
+
   const user = await User.findById(userId);
   if (!user) throw httpError('المستخدم غير موجود', 404);
   await settleReferralIfEligible(user);
   const cfg = await settings();
   if (!cfg.enabled) throw httpError('برنامج المكافآت متوقف حاليًا');
 
-  const available = Number(user.loyaltyPoints || 0);
   const pointsPerIls = Math.max(1, Number(cfg.pointsPerIls) || 100);
-  const min = Math.max(0, Number(cfg.minRedeemPoints) || 0);
-  let points = Number(requestedPoints);
-  if (!Number.isFinite(points) || points <= 0) points = available;
-  points = Math.floor(points / pointsPerIls) * pointsPerIls;
+  const minOrderPoints = Math.max(0, Number(cfg.minRedeemPoints) || 0);
+  const available = Number(user.loyaltyPoints || 0);
+  const maxIls = Math.max(0, Number(maxOrderIls) || 0);
+  const maxPointsForOrder = Math.floor(maxIls) * pointsPerIls;
 
-  if (points < min) throw httpError(`الحد الأدنى للاستبدال هو ${min} نقطة`);
-  if (points > available) throw httpError('رصيد النقاط غير كافٍ');
-
-  const ils = points / pointsPerIls;
-  if (ils <= 0) throw httpError('عدد النقاط غير كافٍ للاستبدال');
+  requested = Math.floor(requested / pointsPerIls) * pointsPerIls;
+  const points = Math.min(requested, available, maxPointsForOrder);
+  if (points <= 0) throw httpError(`تحتاج ${pointsPerIls} نقطة على الأقل للحصول على خصم 1 ₪`);
+  if (points < minOrderPoints) throw httpError(`الحد الأدنى لاستخدام النقاط في الطلب هو ${minOrderPoints} نقطة`);
 
   const debited = await User.findOneAndUpdate(
     { _id: userId, loyaltyPoints: { $gte: points } },
@@ -122,30 +138,64 @@ async function redeem(userId, requestedPoints) {
   );
   if (!debited) throw httpError('رصيد النقاط غير كافٍ');
 
-  try {
-    const wallet = await Wallet.findOneAndUpdate(
-      { user: userId },
-      { $inc: { balance: ils }, $setOnInsert: { currency: 'ILS' } },
-      { new: true, upsert: true }
-    );
-    await WalletTransaction.create({
-      user: userId,
-      wallet: wallet._id,
-      direction: WALLET_DIRECTION.CREDIT,
-      type: WALLET_TX_TYPE.ADJUSTMENT,
-      amount: ils,
-      balanceBefore: Number(wallet.balance) - ils,
-      balanceAfter: wallet.balance,
-      status: TOPUP_STATUS.APPROVED,
-      review: { at: new Date(), note: `استبدال ${points} نقطة Yalla` },
-      idempotencyKey: `reward-${Date.now()}-${userId}`,
-    });
-  } catch (err) {
-    await User.findByIdAndUpdate(userId, { $inc: { loyaltyPoints: points } });
-    throw err;
-  }
+  return {
+    pointsUsed: points,
+    discountIls: points / pointsPerIls,
+    pointsPerIls,
+  };
+}
 
-  return getRewards(userId);
+/** إعادة نقاط طلب لم يُستكمل. آمنة عند التكرار بفضل rewardPointsRefunded. */
+async function refundOrderPoints(orderOrId) {
+  const order = typeof orderOrId === 'object' && orderOrId?._id
+    ? orderOrId
+    : await Order.findById(orderOrId);
+  if (!order) return { refunded: 0 };
+
+  const used = Math.max(0, Number(order.rewardPointsUsed) || 0);
+  const already = Math.max(0, Number(order.rewardPointsRefunded) || 0);
+  const remaining = Math.max(0, used - already);
+  if (!remaining) return { refunded: 0 };
+
+  const claimed = await Order.findOneAndUpdate(
+    { _id: order._id, rewardPointsRefunded: already },
+    { $set: { rewardPointsRefunded: used } },
+    { new: true }
+  );
+  if (!claimed) return { refunded: 0 };
+  await User.findByIdAndUpdate(order.user, { $inc: { loyaltyPoints: remaining } });
+  order.rewardPointsRefunded = used;
+  return { refunded: remaining };
+}
+
+/**
+ * عند التسليم قد تكون أجرة التوصيل الفعلية أقل من التقديرية؛ نطبّق فقط الخصم
+ * الممكن على الإجمالي الحقيقي ونعيد أي نقاط زائدة تلقائيًا.
+ */
+async function settleOrderDiscount(order, actualOrderTotal) {
+  const reservedDiscount = Math.max(0, Number(order.rewardDiscount) || 0);
+  const pointsPerIls = Math.max(1, Number(order.rewardPointsPerIls) || 1);
+  const used = Math.max(0, Number(order.rewardPointsUsed) || 0);
+  const alreadyRefunded = Math.max(0, Number(order.rewardPointsRefunded) || 0);
+  const actualDiscount = Math.min(reservedDiscount, Math.max(0, Number(actualOrderTotal) || 0));
+
+  const pointsNeeded = Math.min(used, Math.round(actualDiscount * pointsPerIls));
+  const totalRefundTarget = Math.max(0, used - pointsNeeded);
+  const extraRefund = Math.max(0, totalRefundTarget - alreadyRefunded);
+
+  if (extraRefund > 0) {
+    const claimed = await Order.findOneAndUpdate(
+      { _id: order._id, rewardPointsRefunded: alreadyRefunded },
+      { $set: { rewardPointsRefunded: totalRefundTarget, rewardDiscountApplied: actualDiscount } },
+      { new: true }
+    );
+    if (claimed) {
+      await User.findByIdAndUpdate(order.user, { $inc: { loyaltyPoints: extraRefund } });
+      order.rewardPointsRefunded = totalRefundTarget;
+    }
+  }
+  order.rewardDiscountApplied = actualDiscount;
+  return { discountIls: actualDiscount, pointsRefunded: extraRefund };
 }
 
 async function getAdminSettings() {
@@ -156,10 +206,21 @@ async function updateAdminSettings(payload = {}) {
   const patch = {};
   if (payload.referralRewardPoints !== undefined) patch.referralRewardPoints = Math.max(0, Number(payload.referralRewardPoints) || 0);
   if (payload.pointsPerIls !== undefined) patch.pointsPerIls = Math.max(1, Number(payload.pointsPerIls) || 1);
-  if (payload.minRedeemPoints !== undefined) patch.minRedeemPoints = Math.max(0, Number(payload.minRedeemPoints) || 0);
+  const minimum = payload.minOrderPoints !== undefined ? payload.minOrderPoints : payload.minRedeemPoints;
+  if (minimum !== undefined) patch.minRedeemPoints = Math.max(0, Number(minimum) || 0);
   if (typeof payload.requireFirstCompletedOrder === 'boolean') patch.requireFirstCompletedOrder = payload.requireFirstCompletedOrder;
   if (typeof payload.enabled === 'boolean') patch.enabled = payload.enabled;
   return RewardSettings.findOneAndUpdate({ key: 'global' }, { $set: patch }, { new: true, upsert: true, setDefaultsOnInsert: true });
 }
 
-module.exports = { getRewards, applyReferral, redeem, getAdminSettings, updateAdminSettings, settleReferralIfEligible };
+module.exports = {
+  getRewards,
+  applyReferral,
+  redeem,
+  reserveForOrder,
+  refundOrderPoints,
+  settleOrderDiscount,
+  getAdminSettings,
+  updateAdminSettings,
+  settleReferralIfEligible,
+};
