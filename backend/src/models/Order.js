@@ -83,6 +83,7 @@ const orderSchema = new mongoose.Schema(
     captainNet: { type: Number, default: 0 },
     customerCharged: { type: Number, default: 0 },
     adminCredit: { type: Number, default: 0 },
+    merchantCredit: { type: Number, default: 0 },
     financialSettledAt: { type: Date, default: null },
     financialSettlementState: {
       type: String,
@@ -163,7 +164,67 @@ orderSchema.pre('validate', function enforceMerchantDeliveryFlow(next) {
     return next(new Error('طلب مرفوض من المتجر يجب أن يكون ملغيًا'));
   }
 
+  // قيمة الأصناف ليست إيرادًا ليلا. عند التسليم تكون عمولة التوصيل فقط دخل المنصة،
+  // بينما قيمة الأصناف تصبح مستحقًا للمتجر وتُسجل لاحقًا في MerchantEarning.
+  if (this.status === ORDER_STATUS.DELIVERED && this.financialSettlementState === 'settled') {
+    this.merchantCredit = Math.max(0, Number(this.store?.itemsTotal) || 0);
+    this.adminCredit = Math.max(0, Number(this.commission) || 0);
+  }
+
   return next();
+});
+
+// إنشاء قيد مستحق للمتجر مرة واحدة لكل طلب مسلّم. الفهرس الفريد على order يجعل
+// العملية idempotent حتى لو أُعيد حفظ الطلب أو تكرر إشعار التسليم.
+orderSchema.post('save', async function createMerchantEarning(doc, next) {
+  try {
+    const isStoreOrder = !!doc.store?.restaurant;
+    const amount = Math.max(0, Number(doc.merchantCredit) || 0);
+    if (
+      !isStoreOrder ||
+      doc.status !== ORDER_STATUS.DELIVERED ||
+      doc.financialSettlementState !== 'settled' ||
+      !(amount > 0)
+    ) {
+      return next();
+    }
+
+    const Merchant = mongoose.model('Merchant');
+    const MerchantEarning = mongoose.model('MerchantEarning');
+    const merchant = await Merchant.findOne({
+      $or: [
+        { restaurant: doc.store.restaurant },
+        { restaurants: doc.store.restaurant },
+      ],
+      isActive: { $ne: false },
+    }).select('_id');
+
+    if (!merchant) return next();
+
+    await MerchantEarning.updateOne(
+      { order: doc._id },
+      {
+        $setOnInsert: {
+          order: doc._id,
+          restaurant: doc.store.restaurant,
+          merchant: merchant._id,
+          amount,
+          status: 'available',
+          availableAt: doc.financialSettledAt || new Date(),
+          metadata: {
+            restaurantName: doc.store?.name || '',
+            itemsTotal: Number(doc.store?.itemsTotal) || 0,
+          },
+        },
+      },
+      { upsert: true }
+    );
+    return next();
+  } catch (err) {
+    // لا نفشل تسليم الزبون إن تعذر إنشاء قيد المتجر؛ يمكن إعادة بناء القيد لاحقًا
+    // من الطلب المسلّم لأن كل الأرقام محفوظة عليه.
+    return next();
+  }
 });
 
 orderSchema.index(
