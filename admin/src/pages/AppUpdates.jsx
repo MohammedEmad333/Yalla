@@ -15,6 +15,7 @@ export default function AppUpdates() {
   const [form, setForm] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
 
@@ -38,6 +39,21 @@ export default function AppUpdates() {
       setOk('تم حفظ إعدادات التحديث. ستُطبّق على المستخدمين عند فتح التطبيق أو العودة إليه.');
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
+  }
+
+  async function sendUpdateNotification() {
+    setSending(true); setError(''); setOk('');
+    try {
+      const res = await api.post('/admin/notifications', {
+        audience: 'all',
+        title: `🚀 إصدار Yalla ${form.latestVersion} متوفر الآن`,
+        body: `${form.message} افتح Google Play وحدّث التطبيق الآن.`,
+        captainIds: [],
+        userIds: [],
+      });
+      setOk(res?.message || 'تم إرسال إشعار التحديث لجميع المستخدمين والكباتن.');
+    } catch (e) { setError(e.message); }
+    finally { setSending(false); }
   }
 
   if (loading) return <div className="yl-empty">جارٍ تحميل إعدادات التحديث...</div>;
@@ -95,7 +111,12 @@ export default function AppUpdates() {
         النسخة الحالية التي جهزناها للمتجر هي <b>1.0.7</b>. اترك التحديث غير إجباري أولًا، وبعد انتشار النسخة يمكنك رفع «أقل إصدار مسموح» عند الحاجة.
       </div>
 
-      <div><button className="yl-btn yl-btn--primary" disabled={saving}>{saving ? 'جارٍ الحفظ...' : 'حفظ إعدادات التحديث'}</button></div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button className="yl-btn yl-btn--primary" disabled={saving}>{saving ? 'جارٍ الحفظ...' : 'حفظ إعدادات التحديث'}</button>
+        <button type="button" className="yl-btn yl-btn--ghost" onClick={sendUpdateNotification} disabled={sending}>
+          {sending ? 'جارٍ إرسال الإشعار...' : 'إرسال إشعار التحديث للجميع'}
+        </button>
+      </div>
     </form>
   </div>;
 }
