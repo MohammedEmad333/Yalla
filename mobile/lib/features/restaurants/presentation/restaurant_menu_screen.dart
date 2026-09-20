@@ -396,88 +396,72 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   Widget _restaurantHero() => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Stack(
-            children: [
-              if (_restaurant.fullImageUrl != null)
-                WebSafeNetworkImage(
-                  url: _restaurant.fullImageUrl!,
-                  height: 320,
+          Container(
+            color: Colors.white,
+            child: Stack(
+              children: [
+                SizedBox(
+                  height: 205,
                   width: double.infinity,
-                  fit: BoxFit.cover,
-                  cacheWidth: 1000,
-                  placeholderBuilder: (_) => const SizedBox(
-                    height: 320,
-                    child: Center(child: CircularProgressIndicator()),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    child: _restaurant.fullImageUrl != null
+                        ? WebSafeNetworkImage(
+                            url: _restaurant.fullImageUrl!,
+                            width: double.infinity,
+                            height: 181,
+                            fit: BoxFit.contain,
+                            cacheWidth: 1200,
+                            placeholderBuilder: (_) => const Center(child: CircularProgressIndicator()),
+                            errorBuilder: (_) => _imageFallback(),
+                          )
+                        : _imageFallback(),
                   ),
-                  errorBuilder: (_) => _imageFallback(),
-                )
-              else
-                _imageFallback(),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Colors.black.withValues(alpha: 0.55)],
+                ),
+                PositionedDirectional(
+                  top: 14,
+                  end: 14,
+                  child: Material(
+                    color: Colors.white.withValues(alpha: 0.96),
+                    shape: const CircleBorder(),
+                    elevation: 2,
+                    child: IconButton(
+                      onPressed: _favoriteBusy ? null : _toggleFavorite,
+                      tooltip: _favorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
+                      icon: Icon(
+                        _favorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        color: _favorite ? const Color(0xFFE53935) : const Color(0xFF071D3A),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              PositionedDirectional(
-                top: 14,
-                end: 14,
-                child: Material(
-                  color: Colors.white.withValues(alpha: 0.94),
-                  shape: const CircleBorder(),
-                  elevation: 2,
-                  child: IconButton(
-                    onPressed: _favoriteBusy ? null : _toggleFavorite,
-                    tooltip: _favorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
-                    icon: Icon(
-                      _favorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                      color: _favorite ? const Color(0xFFE53935) : const Color(0xFF071D3A),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _restaurant.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          height: 1,
-                          fontWeight: FontWeight.w900,
-                          shadows: [Shadow(color: Colors.black45, blurRadius: 8)],
+                PositionedDirectional(
+                  start: 14,
+                  bottom: 14,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _restaurant.openNow ? const Color(0xFFDDF7E8) : const Color(0xFFFFE4E1),
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
                         ),
+                      ],
+                    ),
+                    child: Text(
+                      _restaurant.openNow ? 'مفتوح الآن' : 'مغلق',
+                      style: TextStyle(
+                        color: _restaurant.openNow ? const Color(0xFF137A45) : YallaColors.error,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _restaurant.openNow ? const Color(0xFFDDF7E8) : const Color(0xFFFFE4E1),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        _restaurant.openNow ? 'مفتوح الآن' : 'مغلق',
-                        style: TextStyle(
-                          color: _restaurant.openNow ? const Color(0xFF137A45) : YallaColors.error,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -635,9 +619,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       );
 
   Widget _imageFallback() => Container(
-        height: 230,
-        color: YallaColors.surfaceContainer,
-        child: const Center(child: Icon(Icons.storefront, size: 64)),
+        height: 205,
+        color: Colors.white,
+        child: const Center(
+          child: Icon(Icons.storefront_rounded, size: 64, color: Color(0xFF9AA0AA)),
+        ),
       );
 
   Widget _itemTile(MenuItemModel item) {
