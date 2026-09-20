@@ -33,5 +33,9 @@ router.use('/features', require('./feature.routes'));
 router.use('/commerce', require('./commerce.routes'));
 router.use('/expansion', require('./expansion.routes'));
 
-router.get('/health', (req, res) => res.json({ status: 'ok', service: 'yalla-api' }));
+router.get('/health', (req, res) => res.json({
+  status: 'ok',
+  service: 'yalla-api',
+  gitSha: process.env.APP_GIT_SHA || 'unknown',
+}));
 module.exports = router;
