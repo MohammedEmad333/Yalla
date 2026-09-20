@@ -167,7 +167,10 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide.none,
+                  borderSide: BorderSide(
+                    color: Theme.of(context).dividerColor.withValues(alpha: .58),
+                    width: 1,
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
@@ -192,7 +195,12 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                     onSelected: (_) { setState(() => _category = c); _load(); },
                     showCheckmark: false,
                     selectedColor: YallaColors.primary,
-                    side: BorderSide.none,
+                    side: BorderSide(
+                      color: c == _category
+                          ? YallaColors.primary
+                          : Theme.of(context).dividerColor.withValues(alpha: .58),
+                      width: 1,
+                    ),
                     labelStyle: TextStyle(
                       fontWeight: FontWeight.w800,
                       color: c == _category ? Colors.white : null,
@@ -544,13 +552,22 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         decoration: BoxDecoration(
           color: YallaColors.surfaceContainer,
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Theme.of(context).dividerColor.withValues(alpha: .42),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 14, color: YallaColors.primary),
             const SizedBox(width: 4),
-            Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
+              ),
+            ),
           ],
         ),
       );
@@ -560,7 +577,10 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: .24)),
+          border: Border.all(
+            color: Theme.of(context).dividerColor.withValues(alpha: .58),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(
@@ -681,11 +701,11 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             runSpacing: 6,
                             children: [
                               if (r.prepMinutes > 0)
-                                _metricPill(Icons.schedule_rounded, '~${r.prepMinutes} د'),
+                                _metricPill(Icons.schedule_rounded, '${r.prepMinutes} دقيقة'),
                               if (r.minOrder > 0)
                                 _metricPill(
                                   Icons.shopping_bag_outlined,
-                                  'من ${r.minOrder} ₪',
+                                  'الحد الأدنى ${r.minOrder} ₪',
                                 ),
                             ],
                           ),
