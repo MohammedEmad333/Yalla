@@ -330,7 +330,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                         if (coupon.isNotEmpty)
                                           Container(
                                             margin: const EdgeInsetsDirectional.only(start: 8),
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                                             decoration: BoxDecoration(
                                               color: Colors.white.withValues(alpha: .92),
                                               borderRadius: BorderRadius.circular(10),
@@ -507,7 +507,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
       );
 
   Widget _card(Restaurant r) => Container(
-        margin: const EdgeInsets.only(bottom: 14),
+        margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(22),
@@ -528,7 +528,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           child: InkWell(
             onTap: () => _open(r),
             child: SizedBox(
-              height: 150,
+              height: 132,
               child: Row(
                 textDirection: TextDirection.rtl,
                 children: [
@@ -559,8 +559,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                 ),
                         ),
                         PositionedDirectional(
-                          top: 10,
-                          start: 10,
+                          top: 8,
+                          start: 8,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
@@ -594,7 +594,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   Expanded(
                     flex: 52,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 15, 16, 13),
+                      padding: const EdgeInsets.fromLTRB(14, 11, 14, 10),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -603,18 +603,18 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 17.5,
+                              fontSize: 16.5,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 5),
                           Text(
                             r.category,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: YallaColors.muted,
-                              fontSize: 13,
+                              fontSize: 12.5,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
