@@ -1,0 +1,9 @@
+# Cloudflare Worker for the Yalla admin dashboard.
+# Custom domain after deployment: admin.yalladelivery.org
+
+name = "yalla-admin"
+compatibility_date = "2026-09-20"
+
+[assets]
+directory = "./admin/dist"
+not_found_handling = "single-page-application"
