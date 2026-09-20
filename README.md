@@ -32,6 +32,8 @@
 - **Production API:** https://api.yalladelivery.org
 - **API Health:** https://api.yalladelivery.org/api/health
 - **Yalla Admin:** https://admin.yalladelivery.org
+- **Privacy Policy:** https://yalladelivery.org/privacy.html
+- **Delete Account:** https://yalladelivery.org/delete-account.html
 - **API Docs:** https://api.yalladelivery.org/api/docs
 - **OpenAPI JSON:** https://api.yalladelivery.org/api/openapi.json
 
