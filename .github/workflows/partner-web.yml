@@ -47,6 +47,8 @@ jobs:
           if [ ! -d web ]; then
             flutter create --platforms=web --project-name yalla_partner .
           fi
+          # flutter create يولّد اختبار MyApp افتراضي لا يخص Yalla Partner.
+          rm -f test/widget_test.dart
 
       - name: تخصيص PWA
         run: |
