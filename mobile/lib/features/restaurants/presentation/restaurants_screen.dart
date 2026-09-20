@@ -166,21 +166,46 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
 
   IconData _categoryIcon(String category) {
     final c = category.trim().toLowerCase();
+
     if (c == 'الكل') return Icons.grid_view_rounded;
+
     if (c.contains('حلويات')) return Icons.cake_outlined;
-    if (c.contains('مخبوز')) return Icons.bakery_dining_outlined;
+    if (c.contains('مخبوز') || c.contains('معجن')) return Icons.bakery_dining_outlined;
     if (c.contains('كافي') || c.contains('قهوة') || c.contains('مشروب')) {
       return Icons.local_cafe_outlined;
     }
-    if (c.contains('ملابس')) return Icons.checkroom_outlined;
-    if (c.contains('مطعم') || c.contains('برجر') || c.contains('وجبات')) {
+    if (c.contains('كوزمتكس') ||
+        c.contains('كوزمتيكس') ||
+        c.contains('مكياج') ||
+        c.contains('تجميل') ||
+        c.contains('عناية')) {
+      return Icons.face_retouching_natural_outlined;
+    }
+    if (c.contains('عطور') || c.contains('عطر')) return Icons.auto_awesome_outlined;
+    if (c.contains('ملابس') || c.contains('ألبسة') || c.contains('البسة')) {
+      return Icons.checkroom_outlined;
+    }
+    if (c.contains('مطعم') ||
+        c.contains('برجر') ||
+        c.contains('وجبات') ||
+        c.contains('ساندويش') ||
+        c.contains('ساندويتش')) {
       return Icons.lunch_dining_outlined;
     }
+    if (c.contains('بيتزا')) return Icons.local_pizza_outlined;
+    if (c.contains('دجاج')) return Icons.set_meal_outlined;
     if (c.contains('بقال') || c.contains('سوبر') || c.contains('ماركت')) {
       return Icons.local_grocery_store_outlined;
     }
     if (c.contains('صيدل')) return Icons.local_pharmacy_outlined;
     if (c.contains('إلكترون') || c.contains('الكترون')) return Icons.devices_outlined;
+    if (c.contains('ورد') || c.contains('زهور')) return Icons.local_florist_outlined;
+    if (c.contains('هدايا') || c.contains('هدية')) return Icons.redeem_outlined;
+    if (c.contains('مكتبة') || c.contains('كتب')) return Icons.menu_book_outlined;
+    if (c.contains('ألعاب') || c.contains('العاب')) return Icons.toys_outlined;
+    if (c.contains('موبايل') || c.contains('هواتف')) return Icons.smartphone_outlined;
+    if (c.contains('رياضة') || c.contains('رياضي')) return Icons.sports_soccer_outlined;
+
     return Icons.storefront_outlined;
   }
 
@@ -212,13 +237,9 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         child: Row(
           children: [
             _headerAction(
-              icon: Icons.favorite_border_rounded,
-              tooltip: 'المفضلة',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => FavoritesManageScreen(api: widget.api),
-                ),
-              ),
+              icon: _showSearch ? Icons.close_rounded : Icons.search_rounded,
+              tooltip: _showSearch ? 'إغلاق البحث' : 'بحث',
+              onTap: _toggleSearch,
             ),
             Expanded(
               child: Column(
@@ -249,9 +270,13 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
               ),
             ),
             _headerAction(
-              icon: _showSearch ? Icons.close_rounded : Icons.search_rounded,
-              tooltip: _showSearch ? 'إغلاق البحث' : 'بحث',
-              onTap: _toggleSearch,
+              icon: Icons.favorite_border_rounded,
+              tooltip: 'المفضلة',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => FavoritesManageScreen(api: widget.api),
+                ),
+              ),
             ),
           ],
         ),
@@ -265,7 +290,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     required VoidCallback onTap,
   }) =>
       Material(
-        color: const Color(0xFF17191E).withValues(alpha: .92),
+        color: const Color(0xFF8A4A14).withValues(alpha: .82),
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
@@ -359,7 +384,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                     avatar: Icon(
                       _categoryIcon(c),
                       size: 18,
-                      color: c == _category ? Colors.white : null,
+                      color: c == _category ? Colors.white : YallaColors.primary,
                     ),
                     label: Text(c),
                     selected: c == _category,
