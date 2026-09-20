@@ -10,6 +10,8 @@ RUN npm install --omit=dev
 # ثم ننسخ بقيّة الكود
 COPY . .
 
+ARG GIT_SHA=unknown
+ENV APP_GIT_SHA=$GIT_SHA
 ENV NODE_ENV=production
 EXPOSE 4000
 
