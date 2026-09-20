@@ -21,7 +21,7 @@
 - **Mobile/Partner:** Flutter
 - **Admin:** React/Vite + Capacitor Android
 - **Notifications:** Firebase Cloud Messaging + إشعارات داخل التطبيق
-- **Production:** Oracle Cloud للـAPI/Mongo، Vercel/Cloudflare للواجهات
+- **Production:** Oracle Cloud للـAPI/Mongo، Cloudflare Workers Static Assets لكل واجهات الويب
 
 ## روابط الإنتاج الرسمية
 
@@ -178,10 +178,13 @@ flutter run --dart-define=API_ORIGIN=http://10.0.2.2:4000
 - `partner-apk.yml` — APK/AAB لـYalla Partner، ويستخدم افتراضيًا `https://api.yalladelivery.org`.
 - `build-admin-apk.yml` — تطبيق Yalla Admin Android.
 - `web-app.yml` — تطبيق الويب، ويستخدم افتراضيًا `https://api.yalladelivery.org`.
+- `admin-web.yml` — يبني وينشر لوحة الإدارة على Cloudflare (`yalla-admin`).
+- `partner-web.yml` — يبني وينشر Yalla Partner على Cloudflare (`yalla-partner`).
+- `site-web.yml` — ينشر الموقع العام على Cloudflare (`yalla-site`).
 
 ## النشر الحالي
 
-الإنتاج يعمل على Oracle Cloud لخدمة الـBackend وقاعدة البيانات، مع `api.yalladelivery.org` كعنوان API الرسمي. الموقع العام يُقدَّم من Cloudflare على `yalladelivery.org`، تطبيق Yalla Web على `app.yalladelivery.org`، وYalla Partner على `partner.yalladelivery.org`. لوحة الإدارة على `admin.yalladelivery.org`.
+الإنتاج يعمل على Oracle Cloud لخدمة الـBackend وقاعدة البيانات، مع `api.yalladelivery.org` كعنوان API الرسمي. جميع واجهات الويب تُنشر على Cloudflare Workers Static Assets: الموقع العام على `yalladelivery.org`، تطبيق Yalla Web على `app.yalladelivery.org`، Yalla Partner على `partner.yalladelivery.org`، ولوحة الإدارة على `admin.yalladelivery.org`.
 
 تحديث الخادم:
 
