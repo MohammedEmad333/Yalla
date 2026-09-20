@@ -5,6 +5,7 @@ const ctrl = require('../controllers/expansion.controller');
 const rewardsCtrl = require('../controllers/rewards.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { requireAdminCapability } = require('../middlewares/adminAccess.middleware');
+const { uploadImage } = require('../middlewares/upload.middleware');
 const { ROLES } = require('../utils/constants');
 
 router.get('/search', ctrl.searchStores);
@@ -28,6 +29,7 @@ router.patch('/admin/restaurants/:restaurantId/merchandising', authorize(ROLES.A
 router.get('/admin/banners', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), ctrl.adminBanners);
 router.post('/admin/banners', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), ctrl.createBanner);
 router.patch('/admin/banners/:bannerId', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), ctrl.updateBanner);
+router.post('/admin/banners/:bannerId/image', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), uploadImage.single('image'), ctrl.uploadBannerImage);
 router.delete('/admin/banners/:bannerId', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), ctrl.deleteBanner);
 
 module.exports = router;
