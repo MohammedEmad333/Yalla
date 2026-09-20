@@ -22,6 +22,27 @@ function branchIds(merchant) {
   return [...new Set([merchant.restaurant, ...(merchant.restaurants || [])].filter(Boolean).map(String))];
 }
 
+function branchCandidates(merchant) {
+  return [...new Set([
+    merchant.activeRestaurant,
+    merchant.restaurant,
+    ...(merchant.restaurants || []),
+  ].filter(Boolean).map(String))];
+}
+
+function pickFallbackBranch(candidates, restaurants) {
+  const byId = new Map(
+    (restaurants || [])
+      .filter((restaurant) => restaurant && restaurant.active !== false)
+      .map((restaurant) => [String(restaurant._id), restaurant])
+  );
+  for (const id of candidates || []) {
+    const restaurant = byId.get(String(id));
+    if (restaurant) return restaurant;
+  }
+  return null;
+}
+
 async function login(phoneRaw, passwordRaw) {
   const phone = normalizePhone(phoneRaw);
   const password = String(passwordRaw || '');
@@ -31,9 +52,18 @@ async function login(phoneRaw, passwordRaw) {
   if (merchant) {
     if (!(await merchant.verifyPassword(password))) throw httpError('كلمة السر غير صحيحة', 401);
     if (!merchant.isActive) throw httpError('حساب المتجر غير متاح', 403);
-    const selectedId = merchant.activeRestaurant || merchant.restaurant;
-    const restaurant = await Restaurant.findById(selectedId).select('name imageUrl active city neighborhood');
-    if (!restaurant || restaurant.active === false) throw httpError('الفرع المحدد غير متاح', 403);
+    const candidates = branchCandidates(merchant);
+    const restaurants = candidates.length
+      ? await Restaurant.find({ _id: { $in: candidates } }).select('name imageUrl active city neighborhood')
+      : [];
+    const restaurant = pickFallbackBranch(candidates, restaurants);
+    if (!restaurant) throw httpError('لا يوجد فرع نشط مرتبط بحسابك، تواصل مع الإدارة', 403);
+
+    if (String(merchant.activeRestaurant || '') !== String(restaurant._id)) {
+      merchant.activeRestaurant = restaurant._id;
+      await merchant.save();
+    }
+
     return {
       token: signToken(merchant._id, { restaurantId: String(restaurant._id), staffRole: 'owner' }),
       user: {
@@ -124,4 +154,11 @@ async function remove(merchantId, auth, staffId) {
   return { ok: true };
 }
 
-module.exports = { login, list, create, update, remove };
+module.exports = {
+  login,
+  list,
+  create,
+  update,
+  remove,
+  _test: { branchCandidates, pickFallbackBranch },
+};
