@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/web_safe_network_image.dart';
 import '../data/restaurant_repository.dart';
 import 'restaurant_menu_screen.dart';
 
@@ -258,12 +258,12 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                 fit: StackFit.expand,
                                 children: [
                                   if (imageUrl.isNotEmpty)
-                                    CachedNetworkImage(
-                                      imageUrl: imageUrl,
+                                    WebSafeNetworkImage(
+                                      url: imageUrl,
                                       fit: BoxFit.cover,
-                                      memCacheWidth: 900,
-                                      placeholder: (_, __) => const SizedBox.shrink(),
-                                      errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                                      cacheWidth: 900,
+                                      placeholderBuilder: (_) => const SizedBox.shrink(),
+                                      errorBuilder: (_) => const SizedBox.shrink(),
                                     ),
                                   DecoratedBox(
                                     decoration: BoxDecoration(
@@ -432,11 +432,11 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             color: YallaColors.surfaceContainer,
                             child: const Icon(Icons.storefront_rounded, size: 42),
                           )
-                        : CachedNetworkImage(
-                            imageUrl: r.fullImageUrl!,
+                        : WebSafeNetworkImage(
+                            url: r.fullImageUrl!,
                             fit: BoxFit.cover,
-                            memCacheWidth: 600,
-                            errorWidget: (_, __, ___) => const Icon(Icons.storefront_rounded, size: 42),
+                            cacheWidth: 600,
+                            errorBuilder: (_) => const Icon(Icons.storefront_rounded, size: 42),
                           ),
                     PositionedDirectional(
                       top: 10,
@@ -538,12 +538,12 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                 color: YallaColors.surfaceContainer,
                                 child: const Icon(Icons.storefront_rounded, size: 38),
                               )
-                            : CachedNetworkImage(
-                                imageUrl: r.fullImageUrl!,
+                            : WebSafeNetworkImage(
+                                url: r.fullImageUrl!,
                                 fit: BoxFit.cover,
-                                memCacheWidth: 480,
-                                placeholder: (_, __) => Container(color: YallaColors.surfaceContainer),
-                                errorWidget: (_, __, ___) => const Icon(Icons.storefront_rounded, size: 38),
+                                cacheWidth: 480,
+                                placeholderBuilder: (_) => Container(color: YallaColors.surfaceContainer),
+                                errorBuilder: (_) => const Icon(Icons.storefront_rounded, size: 38),
                               ),
                         PositionedDirectional(
                           top: 9,
