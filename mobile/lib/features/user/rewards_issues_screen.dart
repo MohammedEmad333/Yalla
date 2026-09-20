@@ -48,7 +48,7 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
     final code = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('رمز إحالة'),
+        title: const Text('رمز دعوة'),
         content: TextField(controller: c, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'الرمز')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
@@ -62,7 +62,7 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم حفظ رمز الإحالة. تُضاف المكافأة بعد إكمال أول طلب.')),
+          const SnackBar(content: Text('تم حفظ رمز الدعوة. تُضاف المكافأة بعد إكمال أول طلب.')),
         );
       }
     } on ApiException catch (e) {
@@ -186,18 +186,18 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
                     ),
                   ),
                   const Divider(height: 28),
-                  SelectableText('رمز إحالتك: ${_rewards?['referralCode'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  Text('عدد الأشخاص الذين استخدموا إحالتك: ${_rewards?['referred'] ?? 0}'),
+                  SelectableText('رمز دعوتك: ${_rewards?['referralCode'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Text('عدد الأشخاص الذين استخدموا دعوتك: ${_rewards?['referred'] ?? 0}'),
                   const SizedBox(height: 8),
-                  Text('مكافأة الإحالة: $rewardPoints نقطة لك ولصديقك بعد إكمال أول طلب بنجاح.'),
+                  Text('مكافأة الدعوة: $rewardPoints نقطة لك ولصديقك بعد إكمال أول طلب بنجاح.'),
                   if (hasReferral && !referralRewarded)
                     const Padding(
                       padding: EdgeInsets.only(top: 6),
-                      child: Text('تم حفظ رمز الإحالة، والمكافأة بانتظار إكمال أول طلب.', style: TextStyle(fontWeight: FontWeight.w700)),
+                      child: Text('تم حفظ رمز الدعوة، والمكافأة بانتظار إكمال أول طلب.', style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   const SizedBox(height: 10),
                   if (!hasReferral)
-                    OutlinedButton.icon(onPressed: _applyReferral, icon: const Icon(Icons.group_add_outlined), label: const Text('لدي رمز إحالة')),
+                    OutlinedButton.icon(onPressed: _applyReferral, icon: const Icon(Icons.group_add_outlined), label: const Text('لدي رمز دعوة')),
                 ]),
               ),
             ),
