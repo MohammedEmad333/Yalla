@@ -80,6 +80,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         ]);
         nextCategories = (result[0] as List).map((e) => e.toString()).toList();
         nextBanners = result[1] as List;
+      } else {
+        nextBanners = await widget.api.get('/expansion/banners') as List;
       }
 
       List<Restaurant> list;
@@ -163,15 +165,21 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                 fillColor: YallaColors.surfaceContainer,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide.none,
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    width: 1.1,
+                  ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide.none,
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: .85),
+                    width: 1.1,
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(color: YallaColors.primary, width: 1.4),
+                  borderSide: BorderSide(color: YallaColors.primary, width: 1.6),
                 ),
               ),
             ),
@@ -192,7 +200,12 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                     onSelected: (_) { setState(() => _category = c); _load(); },
                     showCheckmark: false,
                     selectedColor: YallaColors.primary,
-                    side: BorderSide.none,
+                    side: BorderSide(
+                      color: c == _category
+                          ? YallaColors.primary
+                          : Theme.of(context).colorScheme.outlineVariant.withValues(alpha: .9),
+                      width: c == _category ? 1.4 : 1.0,
+                    ),
                     labelStyle: TextStyle(
                       fontWeight: FontWeight.w800,
                       color: c == _category ? Colors.white : null,
@@ -460,6 +473,13 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
 
   Widget _desktopCard(Restaurant r) => Card(
         clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: .8),
+            width: 1.1,
+          ),
+        ),
         child: InkWell(
           onTap: () => _open(r),
           child: Column(
@@ -527,7 +547,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                       spacing: 10,
                       runSpacing: 4,
                       children: [
-                        if (r.prepMinutes > 0) Text('~${r.prepMinutes} د'),
+                        if (r.prepMinutes > 0) Text('${r.prepMinutes} دقيقة'),
                         if (r.minOrder > 0) Text('أقل طلب ${r.minOrder} ₪'),
                       ],
                     ),
@@ -544,14 +564,24 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         decoration: BoxDecoration(
           color: YallaColors.surfaceContainer,
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: .72),
+            width: .9,
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: YallaColors.primary),
-            const SizedBox(width: 4),
-            Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
-          ],
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: YallaColors.primary),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
         ),
       );
 
@@ -560,7 +590,10 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: .24)),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: .82),
+            width: 1.1,
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(
@@ -657,6 +690,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                         children: [
                           Text(
                             r.name,
+                            textDirection: TextDirection.rtl,
+                            textAlign: TextAlign.left,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -667,6 +702,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                           const SizedBox(height: 5),
                           Text(
                             r.category,
+                            textDirection: TextDirection.rtl,
+                            textAlign: TextAlign.left,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -681,11 +718,11 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             runSpacing: 6,
                             children: [
                               if (r.prepMinutes > 0)
-                                _metricPill(Icons.schedule_rounded, '~${r.prepMinutes} د'),
+                                _metricPill(Icons.schedule_rounded, '${r.prepMinutes} دقيقة'),
                               if (r.minOrder > 0)
                                 _metricPill(
                                   Icons.shopping_bag_outlined,
-                                  'من ${r.minOrder} ₪',
+                                  'الحد الأدنى ${r.minOrder} ₪',
                                 ),
                             ],
                           ),
