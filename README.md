@@ -25,7 +25,9 @@
 
 ## روابط الإنتاج الرسمية
 
-- **Yalla Web / الموقع:** https://yalladelivery.org
+- **Yalla Delivery Website:** https://yalladelivery.org
+- **Yalla Web App:** https://app.yalladelivery.org
+- **Yalla Partner:** https://partner.yalladelivery.org
 - **WWW:** https://www.yalladelivery.org → تحويل دائم `301` إلى `https://yalladelivery.org`
 - **Production API:** https://api.yalladelivery.org
 - **API Health:** https://api.yalladelivery.org/api/health
@@ -179,7 +181,7 @@ flutter run --dart-define=API_ORIGIN=http://10.0.2.2:4000
 
 ## النشر الحالي
 
-الإنتاج يعمل على Oracle Cloud لخدمة الـBackend وقاعدة البيانات، مع `api.yalladelivery.org` كعنوان API الرسمي. تطبيق الويب يُقدَّم من Cloudflare على `yalladelivery.org`، ولوحة الإدارة على Vercel عبر `admin.yalladelivery.org`.
+الإنتاج يعمل على Oracle Cloud لخدمة الـBackend وقاعدة البيانات، مع `api.yalladelivery.org` كعنوان API الرسمي. الموقع العام يُقدَّم من Cloudflare على `yalladelivery.org`، تطبيق Yalla Web على `app.yalladelivery.org`، وYalla Partner على `partner.yalladelivery.org`. لوحة الإدارة على `admin.yalladelivery.org`.
 
 تحديث الخادم:
 
