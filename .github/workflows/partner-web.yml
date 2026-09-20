@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'partner/**'
+      - 'wrangler-partner.toml'
       - '.github/workflows/partner-web.yml'
   workflow_dispatch:
     inputs:
@@ -15,6 +16,7 @@ on:
     branches: ['main']
     paths:
       - 'partner/**'
+      - 'wrangler-partner.toml'
       - '.github/workflows/partner-web.yml'
 
 permissions:
@@ -99,4 +101,4 @@ jobs:
 
       - name: نشر على Cloudflare Workers
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
-        run: npx --yes wrangler deploy --config wrangler.toml
+        run: npx --yes wrangler deploy --config ../wrangler-partner.toml
