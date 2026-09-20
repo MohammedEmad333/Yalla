@@ -511,10 +511,12 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: .28)),
+          border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: .24)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? .12 : .05),
+              color: Colors.black.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark ? .12 : .05,
+              ),
               blurRadius: 18,
               offset: const Offset(0, 7),
             ),
@@ -526,45 +528,61 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           child: InkWell(
             onTap: () => _open(r),
             child: SizedBox(
-              height: 190,
-              child: Column(
+              height: 150,
+              child: Row(
+                textDirection: TextDirection.rtl,
                 children: [
-                  SizedBox(
-                    height: 104,
-                    width: double.infinity,
+                  Expanded(
+                    flex: 48,
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
                         Container(
                           color: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                           child: r.fullImageUrl == null
-                              ? const Icon(Icons.storefront_rounded, size: 40, color: Color(0xFF9AA0AA))
+                              ? const Icon(
+                                  Icons.storefront_rounded,
+                                  size: 42,
+                                  color: Color(0xFF9AA0AA),
+                                )
                               : WebSafeNetworkImage(
                                   url: r.fullImageUrl!,
                                   fit: BoxFit.contain,
                                   cacheWidth: 900,
                                   placeholderBuilder: (_) => const SizedBox.shrink(),
-                                  errorBuilder: (_) => const Icon(Icons.storefront_rounded, size: 40, color: Color(0xFF9AA0AA)),
+                                  errorBuilder: (_) => const Icon(
+                                    Icons.storefront_rounded,
+                                    size: 42,
+                                    color: Color(0xFF9AA0AA),
+                                  ),
                                 ),
                         ),
                         PositionedDirectional(
                           top: 10,
-                          end: 10,
+                          start: 10,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: .72),
+                              color: Colors.black.withValues(alpha: .68),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.star_rounded, size: 15, color: Color(0xFFFF9A3D)),
-                                const SizedBox(width: 4),
                                 Text(
                                   r.ratingCount > 0 ? r.ratingAverage.toStringAsFixed(1) : '—',
-                                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.star_rounded,
+                                  size: 16,
+                                  color: Color(0xFFFF9A3D),
                                 ),
                               ],
                             ),
@@ -574,53 +592,59 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                     ),
                   ),
                   Expanded(
+                    flex: 52,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                      padding: const EdgeInsets.fromLTRB(16, 15, 16, 13),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  r.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  r.category,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(color: YallaColors.muted, fontSize: 12.5, fontWeight: FontWeight.w700),
-                                ),
-                              ),
-                            ],
+                          Text(
+                            r.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            r.category,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: YallaColors.muted,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           const Spacer(),
-                          Row(
+                          Wrap(
+                            spacing: 7,
+                            runSpacing: 6,
                             children: [
                               if (r.prepMinutes > 0)
                                 _metricPill(Icons.schedule_rounded, '~${r.prepMinutes} د'),
-                              if (r.prepMinutes > 0 && r.minOrder > 0)
-                                const SizedBox(width: 7),
                               if (r.minOrder > 0)
-                                _metricPill(Icons.shopping_bag_outlined, 'من ${r.minOrder} ₪'),
-                              const Spacer(),
-                              if (!r.openNow && r.opensAtLabel.isNotEmpty)
-                                Flexible(
-                                  child: Text(
-                                    r.opensAtLabel,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.end,
-                                    style: TextStyle(color: YallaColors.error, fontSize: 11.5, fontWeight: FontWeight.w700),
-                                  ),
+                                _metricPill(
+                                  Icons.shopping_bag_outlined,
+                                  'من ${r.minOrder} ₪',
                                 ),
                             ],
                           ),
+                          if (!r.openNow && r.opensAtLabel.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              r.opensAtLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: YallaColors.error,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
