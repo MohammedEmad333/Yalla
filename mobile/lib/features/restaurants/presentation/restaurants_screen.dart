@@ -291,22 +291,27 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                         ),
                                       ),
                                     ),
-                                  PositionedDirectional(
-                                    top: 10,
-                                    end: 10,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: .58),
-                                        borderRadius: BorderRadius.circular(999),
-                                        border: Border.all(color: Colors.white24),
-                                      ),
-                                      child: const Text(
-                                        'إعلان',
-                                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
+                                  if (coupon.isNotEmpty)
+                                    PositionedDirectional(
+                                      top: 10,
+                                      start: 10,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: .95),
+                                          borderRadius: BorderRadius.circular(999),
+                                          border: Border.all(color: Colors.white),
+                                        ),
+                                        child: Text(
+                                          coupon,
+                                          style: TextStyle(
+                                            color: YallaColors.primary,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
                                   if (imageUrl.isEmpty)
                                     PositionedDirectional(
                                       start: 16,
@@ -343,27 +348,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                         ],
                                       ),
                                     ),
-                                  if (coupon.isNotEmpty)
-                                    PositionedDirectional(
-                                      start: 14,
-                                      bottom: 12,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: .94),
-                                          borderRadius: BorderRadius.circular(11),
-                                          border: Border.all(color: Colors.white),
-                                        ),
-                                        child: Text(
-                                          coupon,
-                                          style: TextStyle(
-                                            color: YallaColors.primary,
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w900,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+
                                 ],
                               ),
                             ),
