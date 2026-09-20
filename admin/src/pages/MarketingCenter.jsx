@@ -91,7 +91,7 @@ export default function MarketingCenter() {
         : await api.post('/expansion/admin/banners', body);
 
       if (imageFile) {
-        await api.upload(`/expansion/admin/banners/${saved._id}/image`, imageFile);
+        await api.upload(`/admin/banners/${saved._id}/image`, imageFile);
       }
 
       setMessage(editing ? 'تم تحديث الإعلان' : 'تم إنشاء الإعلان');
