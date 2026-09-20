@@ -1,0 +1,9 @@
+# Cloudflare Worker for the public Yalla Delivery website.
+# Custom domain after deployment: yalladelivery.org
+
+name = "yalla-site"
+compatibility_date = "2026-09-20"
+
+[assets]
+directory = "./site"
+not_found_handling = "404-page"
