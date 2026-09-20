@@ -33,7 +33,13 @@ cd "$ROOT"
 git fetch origin "$BRANCH"
 git checkout "$BRANCH"
 git pull --ff-only origin "$BRANCH"
+GIT_SHA="$(git rev-parse HEAD)"
 echo "  آخر كوميت: $(git log --oneline -1)"
+echo "  SHA الكامل: $GIT_SHA"
+
+# تأكد أن نسخة المصدر التي سنبنيها تحتوي إصلاح رفع صور البانرات.
+grep -q "banners/:bannerId/image" "$ROOT/backend/src/routes/admin.routes.js" \
+  || fail "نسخة المصدر الحالية لا تحتوي مسار رفع صور البانرات الجديد"
 
 say "حفظ نسخة للتراجع من الصورة الحاليّة"
 if docker image inspect "$IMAGE:latest" >/dev/null 2>&1; then
@@ -44,7 +50,7 @@ else
 fi
 
 say "بناء صورة الباك اند"
-docker build -t "$IMAGE" "$ROOT/backend"
+docker build --build-arg GIT_SHA="$GIT_SHA" -t "$IMAGE" "$ROOT/backend"
 
 # تشغيل الحاوية بنفس أعلام الإنتاج (راجع docs/12-oracle-cloud-migration.md)
 run_container() {
@@ -83,7 +89,18 @@ if [ -z "$ok" ]; then
   fail "النشر فشل (تمّ التراجع إن أمكن)"
 fi
 
-echo "  ✓ $(curl -fsS --max-time 5 "$HEALTH_URL")"
+HEALTH_JSON="$(curl -fsS --max-time 5 "$HEALTH_URL")"
+echo "  ✓ $HEALTH_JSON"
+
+# لا نكتفي بصحة HTTP: نتحقق أن الحاوية نفسها تحتوي ملف الراوتر الجديد،
+# وأن /health يعلن نفس SHA الذي سحبناه قبل البناء.
+docker exec "$CONTAINER" sh -lc "grep -q \"banners/:bannerId/image\" /app/src/routes/admin.routes.js" \
+  || fail "الحاوية تعمل بكود قديم: مسار رفع صور البانرات غير موجود داخلها"
+
+printf '%s' "$HEALTH_JSON" | grep -q "$GIT_SHA" \
+  || fail "الحاوية لا تعلن SHA المتوقع $GIT_SHA — يبدو أن نسخة قديمة ما زالت تعمل"
+
+echo "  ✓ تم التحقق من نسخة الكود ومسار رفع صور البانرات"
 
 # تعبئة مطاعم تجريبية عند الطلب (SEED_RESTAURANTS=1)
 if [ "${SEED_RESTAURANTS:-0}" = "1" ]; then
