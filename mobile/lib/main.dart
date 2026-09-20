@@ -121,30 +121,9 @@ class ResponsiveWebShell extends StatelessWidget {
   final Widget child;
   const ResponsiveWebShell({super.key, required this.child});
 
-  static const double _maxContentWidth = 500;
-  static const double _wideBreakpoint = 600;
-
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth <= _wideBreakpoint) return child;
-        return ColoredBox(
-          color: const Color(0xFF11131A),
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: _maxContentWidth,
-                minHeight: constraints.maxHeight,
-                maxHeight: constraints.maxHeight,
-              ),
-              child: Material(color: Theme.of(context).scaffoldBackgroundColor, child: child),
-            ),
-          ),
-        );
-      },
-    );
+    return child;
   }
 }
 
