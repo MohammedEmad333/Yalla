@@ -11,6 +11,7 @@ import '../core/network/api_client.dart';
 import '../core/realtime/socket_service.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/support/support_screen.dart';
+import '../features/user/user_hub_screen.dart';
 import '../core/util/vehicles.dart';
 import '../core/widgets/ui.dart';
 import '../core/theme/theme_controller.dart';
@@ -187,7 +188,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('حسابي'),
         actions: [
           IconButton(
             tooltip: 'تعديل البيانات',
@@ -250,6 +250,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(height: 32),
 
                   if (!_isCaptain && widget.socket != null) ...[
+                    ListTile(
+                      leading: const Icon(Icons.bookmarks_outlined),
+                      title: const Text('محفوظاتي'),
+                      subtitle: const Text('العناوين، المتاجر المفضلة، العروض والنقاط'),
+                      trailing: const Icon(Icons.chevron_left),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => UserHubScreen(api: widget.api),
+                      )),
+                    ),
                     ListTile(
                       leading: const Icon(Icons.notifications_outlined),
                       title: const Text('الإشعارات'),
