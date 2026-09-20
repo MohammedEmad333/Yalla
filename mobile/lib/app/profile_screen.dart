@@ -187,15 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         [_me['name'], _me['lastName']].where((p) => p != null && '$p'.trim().isNotEmpty).join(' ');
 
     return Scaffold(
-      appBar: AppBar(
-        actions: [
-          IconButton(
-            tooltip: 'تعديل البيانات',
-            icon: const Icon(Icons.edit),
-            onPressed: _loading ? null : _editProfile,
-          ),
-        ],
-      ),
+      appBar: AppBar(toolbarHeight: 0),
       body: _loading
           ? const LoadingView()
           : RefreshIndicator(
@@ -203,6 +195,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: IconButton.filledTonal(
+                      tooltip: 'تعديل البيانات',
+                      onPressed: _loading ? null : _editProfile,
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   Center(
                     child: Stack(
                       children: [
