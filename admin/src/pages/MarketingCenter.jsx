@@ -15,6 +15,20 @@ function imageSrc(value) {
   return `${API}${raw.startsWith('/') ? '' : '/'}${raw}`;
 }
 
+function toLocalDateTimeInput(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function toUtcIso(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 export default function MarketingCenter() {
   const [banners, setBanners] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
@@ -54,8 +68,8 @@ export default function MarketingCenter() {
       title: row.title || '', subtitle: row.subtitle || '', imageUrl: row.imageUrl || '',
       restaurant: row.restaurant?._id || row.restaurant || '', couponCode: row.couponCode || '',
       active: row.active !== false,
-      startsAt: row.startsAt ? new Date(row.startsAt).toISOString().slice(0, 16) : '',
-      endsAt: row.endsAt ? new Date(row.endsAt).toISOString().slice(0, 16) : '',
+      startsAt: toLocalDateTimeInput(row.startsAt),
+      endsAt: toLocalDateTimeInput(row.endsAt),
       sortOrder: row.sortOrder || 0,
     });
   }
@@ -82,8 +96,8 @@ export default function MarketingCenter() {
       const body = {
         ...form,
         restaurant: form.restaurant || null,
-        startsAt: form.startsAt || null,
-        endsAt: form.endsAt || null,
+        startsAt: toUtcIso(form.startsAt),
+        endsAt: toUtcIso(form.endsAt),
         sortOrder: Number(form.sortOrder) || 0,
       };
       const saved = editing
@@ -91,7 +105,7 @@ export default function MarketingCenter() {
         : await api.post('/expansion/admin/banners', body);
 
       if (imageFile) {
-        await api.upload(`/admin/banners/${saved._id}/image`, imageFile);
+        await api.upload(`/expansion/admin/banners/${saved._id}/image`, imageFile);
       }
 
       setMessage(editing ? 'تم تحديث الإعلان' : 'تم إنشاء الإعلان');
