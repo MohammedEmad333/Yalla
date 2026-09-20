@@ -11,6 +11,7 @@ import '../core/network/api_client.dart';
 import '../core/realtime/socket_service.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/support/support_screen.dart';
+import '../features/user/user_hub_screen.dart';
 import '../core/util/vehicles.dart';
 import '../core/widgets/ui.dart';
 import '../core/theme/theme_controller.dart';
@@ -186,16 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         [_me['name'], _me['lastName']].where((p) => p != null && '$p'.trim().isNotEmpty).join(' ');
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('حسابي'),
-        actions: [
-          IconButton(
-            tooltip: 'تعديل البيانات',
-            icon: const Icon(Icons.edit),
-            onPressed: _loading ? null : _editProfile,
-          ),
-        ],
-      ),
+      appBar: AppBar(toolbarHeight: 0),
       body: _loading
           ? const LoadingView()
           : RefreshIndicator(
@@ -203,6 +195,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: IconButton.filledTonal(
+                      tooltip: 'تعديل البيانات',
+                      onPressed: _loading ? null : _editProfile,
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   Center(
                     child: Stack(
                       children: [
@@ -250,6 +251,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(height: 32),
 
                   if (!_isCaptain && widget.socket != null) ...[
+                    ListTile(
+                      leading: const Icon(Icons.bookmarks_outlined),
+                      title: const Text('محفوظاتي'),
+                      subtitle: const Text('العناوين، المتاجر المفضلة، العروض والنقاط'),
+                      trailing: const Icon(Icons.chevron_left),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => UserHubScreen(api: widget.api),
+                      )),
+                    ),
                     ListTile(
                       leading: const Icon(Icons.notifications_outlined),
                       title: const Text('الإشعارات'),

@@ -111,7 +111,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('المتاجر والمطاعم')),
+        appBar: AppBar(toolbarHeight: 0),
         body: Column(children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -125,8 +125,22 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
               onSubmitted: (_) => _load(),
               decoration: InputDecoration(
                 hintText: 'ابحث عن متجر، مطعم، أو اسم صنف...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _search.text.isEmpty ? null : IconButton(onPressed: () { _search.clear(); _load(); }, icon: const Icon(Icons.close)),
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _search.text.isEmpty ? null : IconButton(onPressed: () { _search.clear(); _load(); }, icon: const Icon(Icons.close_rounded)),
+                filled: true,
+                fillColor: YallaColors.surfaceContainer,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide(color: YallaColors.primary, width: 1.4),
+                ),
               ),
             ),
           ),
@@ -144,6 +158,14 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                     label: Text(c),
                     selected: c == _category,
                     onSelected: (_) { setState(() => _category = c); _load(); },
+                    showCheckmark: false,
+                    selectedColor: YallaColors.primary,
+                    side: BorderSide.none,
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: c == _category ? Colors.white : null,
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                 )).toList(),
               ),
@@ -295,37 +317,156 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         ),
       );
 
-  Widget _card(Restaurant r) => Card(
-        margin: const EdgeInsets.only(bottom: 12),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => _open(r),
-          child: Row(children: [
-            SizedBox(
-              width: 112,
-              height: 112,
-              child: r.fullImageUrl == null
-                  ? Container(color: YallaColors.surfaceContainer, child: const Icon(Icons.storefront, size: 36))
-                  : CachedNetworkImage(imageUrl: r.fullImageUrl!, fit: BoxFit.cover, memCacheWidth: 400, errorWidget: (_, __, ___) => const Icon(Icons.storefront)),
+  Widget _metricPill(IconData icon, String label) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: YallaColors.surfaceContainer,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: YallaColors.primary),
+            const SizedBox(width: 4),
+            Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      );
+
+  Widget _card(Restaurant r) => Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: .28)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? .12 : .05),
+              blurRadius: 18,
+              offset: const Offset(0, 7),
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [Expanded(child: Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900))), const SizedBox(width: 6), Icon(Icons.circle, size: 9, color: r.openNow ? YallaColors.success : YallaColors.error)]),
-                  const SizedBox(height: 5),
-                  Text(r.category, style: TextStyle(color: YallaColors.muted)),
-                  const SizedBox(height: 7),
-                  Wrap(spacing: 8, runSpacing: 4, children: [
-                    if (r.ratingCount > 0) Text('⭐ ${r.ratingAverage.toStringAsFixed(1)}'),
-                    if (r.prepMinutes > 0) Text('~${r.prepMinutes} د'),
-                    if (r.minOrder > 0) Text('أقل طلب ${r.minOrder} ₪'),
-                  ]),
-                  if (!r.openNow) Text(r.opensAtLabel.isEmpty ? 'مغلق حاليًا' : r.opensAtLabel, style: TextStyle(color: YallaColors.error, fontSize: 12)),
-                ]),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _open(r),
+            child: SizedBox(
+              height: 142,
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 132,
+                    height: double.infinity,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        r.fullImageUrl == null
+                            ? Container(
+                                color: YallaColors.surfaceContainer,
+                                child: const Icon(Icons.storefront_rounded, size: 38),
+                              )
+                            : CachedNetworkImage(
+                                imageUrl: r.fullImageUrl!,
+                                fit: BoxFit.cover,
+                                memCacheWidth: 480,
+                                placeholder: (_, __) => Container(color: YallaColors.surfaceContainer),
+                                errorWidget: (_, __, ___) => const Icon(Icons.storefront_rounded, size: 38),
+                              ),
+                        PositionedDirectional(
+                          top: 9,
+                          end: 9,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: .68),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.circle,
+                                  size: 8,
+                                  color: r.openNow ? YallaColors.success : YallaColors.error,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  r.openNow ? 'مفتوح' : 'مغلق',
+                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  r.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                                ),
+                              ),
+                              Icon(Icons.chevron_left_rounded, size: 20, color: YallaColors.muted),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Row(
+                            children: [
+                              Icon(Icons.category_outlined, size: 15, color: YallaColors.muted),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  r.category,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: YallaColors.muted, fontSize: 12.5, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Spacer(),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              if (r.ratingCount > 0)
+                                _metricPill(Icons.star_rounded, r.ratingAverage.toStringAsFixed(1)),
+                              if (r.prepMinutes > 0)
+                                _metricPill(Icons.schedule_rounded, '~${r.prepMinutes} د'),
+                              if (r.minOrder > 0)
+                                _metricPill(Icons.shopping_bag_outlined, 'من ${r.minOrder} ₪'),
+                            ],
+                          ),
+                          if (!r.openNow && r.opensAtLabel.isNotEmpty) ...[
+                            const SizedBox(height: 5),
+                            Text(
+                              r.opensAtLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: YallaColors.error, fontSize: 11.5, fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ]),
+          ),
         ),
       );
 }

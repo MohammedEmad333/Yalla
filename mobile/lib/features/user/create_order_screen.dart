@@ -236,7 +236,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     final afterPoints = _quotePrice == null ? null : (_quotePrice! - _rewardDiscount).clamp(0, double.infinity);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('طلب توصيل جديد')),
+      appBar: AppBar(toolbarHeight: 0),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 920),

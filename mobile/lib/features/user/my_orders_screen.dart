@@ -109,7 +109,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('طلباتي')),
+      appBar: AppBar(toolbarHeight: 0),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading

@@ -27,6 +27,8 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey _heroKey = GlobalKey();
+  double? _menuStartOffset;
   List<MenuSection> _menu = [];
   List<GlobalKey> _sectionKeys = [];
   bool _loading = true;
@@ -94,6 +96,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       _menu = menu;
       _sectionKeys = List.generate(menu.length, (_) => GlobalKey());
       _selectedSection = 0;
+      _menuStartOffset = null;
       await _restoreCart();
       if (mounted) setState(() {});
     } on ApiException catch (e) {
@@ -101,7 +104,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     } catch (_) {
       if (mounted) setState(() => _error = 'تعذّر تحميل القائمة');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _cacheMenuStartOffset();
+        });
+      }
     }
   }
 
@@ -268,17 +276,41 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
   void _snack(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
+  void _cacheMenuStartOffset() {
+    final renderObject = _heroKey.currentContext?.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize) {
+      _menuStartOffset = renderObject.size.height;
+    }
+  }
+
   Future<void> _scrollToSection(int index) async {
     if (index < 0 || index >= _sectionKeys.length) return;
     setState(() => _selectedSection = index);
+
     final target = _sectionKeys[index].currentContext;
-    if (target == null) return;
-    await Scrollable.ensureVisible(
-      target,
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeOutCubic,
-      alignment: 0.08,
-    );
+    if (target != null) {
+      await Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+        alignment: 0.08,
+      );
+      return;
+    }
+
+    // The first section is commonly disposed after scrolling deep into a long menu.
+    // Cache the hero height while it is mounted so tapping the first chip can still
+    // return to the exact start of the menu instead of doing nothing.
+    if (index == 0 && _scrollController.hasClients && _menuStartOffset != null) {
+      final targetOffset = _menuStartOffset!
+          .clamp(0.0, _scrollController.position.maxScrollExtent)
+          .toDouble();
+      await _scrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   @override
@@ -339,7 +371,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
-        SliverToBoxAdapter(child: _restaurantHero()),
+        SliverToBoxAdapter(child: KeyedSubtree(key: _heroKey, child: _restaurantHero())),
         SliverPersistentHeader(
           pinned: true,
           delegate: _CategoryHeaderDelegate(
