@@ -1,0 +1,102 @@
+name: Build & Deploy Yalla Partner Web
+
+on:
+  pull_request:
+    paths:
+      - 'partner/**'
+      - '.github/workflows/partner-web.yml'
+  workflow_dispatch:
+    inputs:
+      api_origin:
+        description: 'عنوان الـ Backend'
+        required: false
+        default: 'https://api.yalladelivery.org'
+  push:
+    branches: ['main']
+    paths:
+      - 'partner/**'
+      - '.github/workflows/partner-web.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: partner-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: partner
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: توليد دعم Web عند الحاجة
+        run: |
+          if [ ! -d web ]; then
+            flutter create --platforms=web --project-name yalla_partner .
+          fi
+          # flutter create يولّد اختبار MyApp افتراضي لا يخص Yalla Partner.
+          rm -f test/widget_test.dart
+
+      - name: تخصيص PWA
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest_path = Path('web/manifest.json')
+          data = json.loads(manifest_path.read_text())
+          data.update({
+              'name': 'Yalla Partner',
+              'short_name': 'Yalla Partner',
+              'description': 'تطبيق شركاء يلا للمطاعم والمحلات',
+              'display': 'standalone',
+              'start_url': '.',
+              'background_color': '#F4F6FA',
+              'theme_color': '#FF7A00',
+              'dir': 'rtl',
+              'lang': 'ar'
+          })
+          manifest_path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+
+          index_path = Path('web/index.html')
+          html = index_path.read_text()
+          html = html.replace('<title>yalla_partner</title>', '<title>Yalla Partner</title>')
+          html = html.replace('content="yalla_partner"', 'content="Yalla Partner"')
+          index_path.write_text(html)
+          PY
+
+      - name: تثبيت التبعيات والتحليل
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-infos
+
+      - name: بناء Flutter Web
+        env:
+          INPUT_ORIGIN: ${{ github.event.inputs.api_origin }}
+        run: |
+          API_ORIGIN="${INPUT_ORIGIN:-https://api.yalladelivery.org}"
+          flutter build web --release --pwa-strategy=offline-first --dart-define=API_ORIGIN="$API_ORIGIN"
+
+      - name: رفع نسخة الويب كـ Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yalla-partner-web
+          path: partner/build/web
+          if-no-files-found: error
+
+      - name: نشر على Cloudflare Workers
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: npx --yes wrangler deploy --config wrangler.toml
