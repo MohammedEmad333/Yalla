@@ -27,6 +27,7 @@ on:
       - 'tool/build-web.sh'
       - 'tool/web-app-headers'
       - '.github/workflows/web-app.yml'
+      - 'wrangler-app.toml'
 
 # صلاحية الكتابة مطلوبة لدفع الناتج (web-app/) إلى الفرع
 permissions:
@@ -88,4 +89,4 @@ jobs:
       # نشر مباشر على Cloudflare (اختياري) — يُنفَّذ فقط عند توفّر أسرار Cloudflare
       - name: نشر على Cloudflare (اختياري)
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
-        run: npx --yes wrangler deploy
+        run: npx --yes wrangler deploy --config wrangler-app.toml
