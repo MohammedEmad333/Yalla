@@ -582,7 +582,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                 textDirection: TextDirection.rtl,
                 children: [
                   AspectRatio(
-                    aspectRatio: 6 / 3,
+                    aspectRatio: 5 / 3,
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
