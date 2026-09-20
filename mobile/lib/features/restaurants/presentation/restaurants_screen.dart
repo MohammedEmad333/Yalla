@@ -416,6 +416,48 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   }
 
 
+  Widget _closedStoreOverlay(Restaurant r) {
+    final label = r.opensAtLabel.isNotEmpty ? r.opensAtLabel : 'مغلق حاليًا';
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: Colors.black.withValues(alpha: .42)),
+        Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .96),
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .10),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              textDirection: TextDirection.rtl,
+              children: [
+                Icon(Icons.schedule_rounded, size: 18, color: YallaColors.primary),
+                const SizedBox(width: 7),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: YallaColors.primary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _desktopCard(Restaurant r) => Card(
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -446,6 +488,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                               ),
                             ),
                           ),
+                    if (!r.openNow) _closedStoreOverlay(r),
                     PositionedDirectional(
                       top: 10,
                       end: 10,
@@ -570,6 +613,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                   ),
                                 ),
                               ),
+                        if (!r.openNow) _closedStoreOverlay(r),
                         PositionedDirectional(
                           top: 8,
                           start: 8,
@@ -643,19 +687,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                 ),
                             ],
                           ),
-                          if (!r.openNow && r.opensAtLabel.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              r.opensAtLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: YallaColors.error,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
+
                         ],
                       ),
                     ),
