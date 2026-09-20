@@ -4,8 +4,9 @@ const router = require('express').Router();
 const ctrl = require('../controllers/admin.controller');
 const support = require('../controllers/support.controller');
 const restaurantCtrl = require('../controllers/restaurant.controller');
+const expansionCtrl = require('../controllers/expansion.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
-const { enforceAdminAccess } = require('../middlewares/adminAccess.middleware');
+const { enforceAdminAccess, requireAdminCapability } = require('../middlewares/adminAccess.middleware');
 const { uploadAvatar, uploadImage } = require('../middlewares/upload.middleware');
 const { ROLES } = require('../utils/constants');
 
@@ -22,6 +23,10 @@ router.patch('/account', ctrl.updateAdminAccount);
 router.get('/settings', ctrl.getSettings);
 router.patch('/settings', ctrl.updateSettings);
 router.post('/notifications', ctrl.sendBroadcast);
+
+// Compatibility upload endpoint for promotion banners.
+// Kept under /api/admin as a stable fallback in addition to /api/expansion/admin/...
+router.post('/banners/:bannerId/image', requireAdminCapability('marketing'), uploadImage.single('image'), expansionCtrl.uploadBannerImage);
 
 router.get('/restaurants', restaurantCtrl.adminListRestaurants);
 router.post('/restaurants', restaurantCtrl.createRestaurant);
