@@ -22,12 +22,28 @@ async function request(path, { method = 'GET', body } = {}) {
   return data;
 }
 
+async function upload(path, file, field = 'image') {
+  const body = new FormData();
+  body.append(field, file);
+  const res = await fetch(`${API}/api${path}`, {
+    method: 'POST',
+    headers: {
+      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+    },
+    body,
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.message || `خطأ ${res.status}`);
+  return data;
+}
+
 export const api = {
   get: (p) => request(p),
   post: (p, body) => request(p, { method: 'POST', body }),
   put: (p, body) => request(p, { method: 'PUT', body }),
   patch: (p, body) => request(p, { method: 'PATCH', body }),
   del: (p, body) => request(p, { method: 'DELETE', body }),
+  upload,
 };
 
 export { API };
