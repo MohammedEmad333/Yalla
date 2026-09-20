@@ -194,6 +194,30 @@
       if (s) { s.classList.add('splash-hidden'); setTimeout(function () { s.remove(); }, 400); }
     });
   </script>
+  <script>
+    // إزالة Service Worker/Cache القديم الخاص ببناء Flutter Web حتى لا يبقى
+    // المستخدم على نسخة قديمة بعد النشر. بناء Yalla الحالي لا يعتمد على SW.
+    (function () {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (registrations) {
+          return Promise.all(registrations.map(function (registration) {
+            return registration.unregister();
+          }));
+        }).catch(function () {});
+      }
+      if ('caches' in window) {
+        caches.keys().then(function (keys) {
+          return Promise.all(
+            keys
+              .filter(function (key) {
+                return key.indexOf('flutter') !== -1 || key.indexOf('yalla') !== -1;
+              })
+              .map(function (key) { return caches.delete(key); })
+          );
+        }).catch(function () {});
+      }
+    }());
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
