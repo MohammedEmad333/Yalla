@@ -1,6 +1,10 @@
 name: Build & Deploy Yalla Partner Web
 
 on:
+  pull_request:
+    paths:
+      - 'partner/**'
+      - '.github/workflows/partner-web.yml'
   workflow_dispatch:
     inputs:
       api_origin:
