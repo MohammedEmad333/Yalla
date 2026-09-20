@@ -6,6 +6,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/web_safe_network_image.dart';
+import '../../user/favorites_manage_screen.dart';
 import '../data/restaurant_repository.dart';
 import 'restaurant_menu_screen.dart';
 
@@ -20,6 +21,7 @@ class RestaurantsScreen extends StatefulWidget {
 class _RestaurantsScreenState extends State<RestaurantsScreen> {
   late final RestaurantRepository _repo = RestaurantRepository(widget.api);
   final _search = TextEditingController();
+  final _searchFocus = FocusNode();
   final _bannerController = PageController(viewportFraction: .94);
   Timer? _debounce;
   Timer? _bannerTimer;
@@ -31,6 +33,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   String _category = 'الكل';
   bool _loading = true;
   bool _searching = false;
+  bool _showSearch = false;
   String _error = '';
 
   @override
@@ -44,6 +47,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     _debounce?.cancel();
     _bannerTimer?.cancel();
     _bannerController.dispose();
+    _searchFocus.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -145,58 +149,218 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     _load();
   }
 
+  void _toggleSearch() {
+    setState(() => _showSearch = !_showSearch);
+    if (_showSearch) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _searchFocus.requestFocus();
+      });
+      return;
+    }
+    _searchFocus.unfocus();
+    if (_search.text.isNotEmpty) {
+      _search.clear();
+      _load();
+    }
+  }
+
+  IconData _categoryIcon(String category) {
+    final c = category.trim().toLowerCase();
+    if (c == 'الكل') return Icons.grid_view_rounded;
+    if (c.contains('حلويات')) return Icons.cake_outlined;
+    if (c.contains('مخبوز')) return Icons.bakery_dining_outlined;
+    if (c.contains('كافي') || c.contains('قهوة') || c.contains('مشروب')) {
+      return Icons.local_cafe_outlined;
+    }
+    if (c.contains('ملابس')) return Icons.checkroom_outlined;
+    if (c.contains('مطعم') || c.contains('برجر') || c.contains('وجبات')) {
+      return Icons.lunch_dining_outlined;
+    }
+    if (c.contains('بقال') || c.contains('سوبر') || c.contains('ماركت')) {
+      return Icons.local_grocery_store_outlined;
+    }
+    if (c.contains('صيدل')) return Icons.local_pharmacy_outlined;
+    if (c.contains('إلكترون') || c.contains('الكترون')) return Icons.devices_outlined;
+    return Icons.storefront_outlined;
+  }
+
+  Widget _topHeader() {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: [
+            YallaColors.primary,
+            const Color(0xFFFFA126),
+          ],
+        ),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: dark ? .18 : .10),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          children: [
+            _headerAction(
+              icon: Icons.favorite_border_rounded,
+              tooltip: 'المفضلة',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => FavoritesManageScreen(api: widget.api),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Text(
+                    'Yalla',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 36,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                      fontStyle: FontStyle.italic,
+                      letterSpacing: -.8,
+                    ),
+                  ),
+                  SizedBox(height: 7),
+                  Text(
+                    'كل اللي تحبه .. يوصل لك',
+                    textDirection: TextDirection.rtl,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _headerAction(
+              icon: _showSearch ? Icons.close_rounded : Icons.search_rounded,
+              tooltip: _showSearch ? 'إغلاق البحث' : 'بحث',
+              onTap: _toggleSearch,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _headerAction({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) =>
+      Material(
+        color: const Color(0xFF17191E).withValues(alpha: .92),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Tooltip(
+            message: tooltip,
+            child: SizedBox.square(
+              dimension: 54,
+              child: Icon(icon, color: Colors.white, size: 27),
+            ),
+          ),
+        ),
+      );
+
+  Widget _searchField() => AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        child: !_showSearch
+            ? const SizedBox.shrink()
+            : Padding(
+                key: const ValueKey('store-search'),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: TextField(
+                  focusNode: _searchFocus,
+                  controller: _search,
+                  onChanged: (_) {
+                    setState(() {});
+                    _debounce?.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 320), _load);
+                  },
+                  onSubmitted: (_) => _load(),
+                  decoration: InputDecoration(
+                    hintText: 'ابحث عن متجر، مطعم، أو اسم صنف...',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: _search.text.isEmpty
+                        ? null
+                        : IconButton(
+                            onPressed: () {
+                              _search.clear();
+                              _load();
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                    filled: true,
+                    fillColor: YallaColors.surfaceContainer,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                        width: 1.1,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .outlineVariant
+                            .withValues(alpha: .85),
+                        width: 1.1,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide(
+                        color: YallaColors.primary,
+                        width: 1.6,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+      );
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(toolbarHeight: 0),
         body: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              controller: _search,
-              onChanged: (_) {
-                setState(() {});
-                _debounce?.cancel();
-                _debounce = Timer(const Duration(milliseconds: 320), _load);
-              },
-              onSubmitted: (_) => _load(),
-              decoration: InputDecoration(
-                hintText: 'ابحث عن متجر، مطعم، أو اسم صنف...',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _search.text.isEmpty ? null : IconButton(onPressed: () { _search.clear(); _load(); }, icon: const Icon(Icons.close_rounded)),
-                filled: true,
-                fillColor: YallaColors.surfaceContainer,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                    width: 1.1,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: .85),
-                    width: 1.1,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(color: YallaColors.primary, width: 1.6),
-                ),
-              ),
-            ),
-          ),
+          _topHeader(),
+          _searchField(),
           if (_searching) const LinearProgressIndicator(minHeight: 2),
           if (_banners.isNotEmpty && _search.text.isEmpty) _bannerCarousel(),
           if (_categories.isNotEmpty)
             SizedBox(
-              height: 46,
+              height: 54,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 children: ['الكل', ..._categories].toSet().map((c) => Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: ChoiceChip(
+                    avatar: Icon(
+                      _categoryIcon(c),
+                      size: 18,
+                      color: c == _category ? Colors.white : null,
+                    ),
                     label: Text(c),
                     selected: c == _category,
                     onSelected: (_) { setState(() => _category = c); _load(); },
@@ -212,7 +376,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                       fontWeight: FontWeight.w800,
                       color: c == _category ? Colors.white : null,
                     ),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                   ),
                 )).toList(),
               ),
