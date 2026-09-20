@@ -237,9 +237,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('طلب توصيل جديد')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 920),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+            children: [
           _sectionLabel('نقطة الاستلام', Icons.store),
           const SizedBox(height: 8),
           ..._addressInputs(_pickup),
@@ -345,7 +348,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
               label: const Text('تأكيد الطلب'),
             ),
           ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

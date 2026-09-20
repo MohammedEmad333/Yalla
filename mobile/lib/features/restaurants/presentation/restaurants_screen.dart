@@ -197,15 +197,103 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
       Icon(Icons.wifi_off, size: 52, color: YallaColors.muted), const SizedBox(height: 10), Text(_error), const SizedBox(height: 10), OutlinedButton(onPressed: () => _load(initial: true), child: const Text('إعادة المحاولة')),
     ]));
     if (_restaurants.isEmpty) return const Center(child: Text('لا توجد نتائج مطابقة'));
-    return RefreshIndicator(
-      onRefresh: () => _load(initial: true),
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        itemCount: _restaurants.length,
-        itemBuilder: (_, i) => _card(_restaurants[i]),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= 900;
+        if (!desktop) {
+          return RefreshIndicator(
+            onRefresh: () => _load(initial: true),
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              itemCount: _restaurants.length,
+              itemBuilder: (_, i) => _card(_restaurants[i]),
+            ),
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: () => _load(initial: true),
+          child: GridView.builder(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 360,
+              mainAxisExtent: 250,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+            ),
+            itemCount: _restaurants.length,
+            itemBuilder: (_, i) => _desktopCard(_restaurants[i]),
+          ),
+        );
+      },
     );
   }
+
+
+  Widget _desktopCard(Restaurant r) => Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _open(r),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    r.fullImageUrl == null
+                        ? Container(
+                            color: YallaColors.surfaceContainer,
+                            child: const Icon(Icons.storefront_rounded, size: 42),
+                          )
+                        : CachedNetworkImage(
+                            imageUrl: r.fullImageUrl!,
+                            fit: BoxFit.cover,
+                            memCacheWidth: 600,
+                            errorWidget: (_, __, ___) => const Icon(Icons.storefront_rounded, size: 42),
+                          ),
+                    PositionedDirectional(
+                      top: 10,
+                      end: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: (r.openNow ? YallaColors.success : YallaColors.error).withValues(alpha: .92),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          r.openNow ? 'مفتوح' : 'مغلق',
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 3),
+                    Text(r.category, style: TextStyle(color: YallaColors.muted, fontSize: 12)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 4,
+                      children: [
+                        if (r.ratingCount > 0) Text('⭐ ${r.ratingAverage.toStringAsFixed(1)}'),
+                        if (r.prepMinutes > 0) Text('~${r.prepMinutes} د'),
+                        if (r.minOrder > 0) Text('أقل طلب ${r.minOrder} ₪'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 
   Widget _card(Restaurant r) => Card(
         margin: const EdgeInsets.only(bottom: 12),

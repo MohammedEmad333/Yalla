@@ -72,25 +72,51 @@ class _UserHomeState extends State<UserHome> {
       body: Row(
         children: [
           SafeArea(
-            child: NavigationRail(
-              minWidth: 88,
-              minExtendedWidth: 220,
-              extended: true,
-              selectedIndex: _index,
-              onDestinationSelected: (i) => setState(() => _index = i),
-              leading: const Padding(
-                padding: EdgeInsets.fromLTRB(16, 18, 16, 24),
-                child: Text(
-                  'Yalla',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+            child: Container(
+              width: 236,
+              color: Theme.of(context).colorScheme.surface,
+              child: NavigationRailTheme(
+                data: NavigationRailThemeData(
+                  backgroundColor: Colors.transparent,
+                  indicatorColor: const Color(0xFFFFE8D5),
+                  selectedIconTheme: const IconThemeData(color: Color(0xFFFF7A00), size: 24),
+                  unselectedIconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurfaceVariant, size: 23),
+                  selectedLabelTextStyle: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFFF7A00)),
+                  unselectedLabelTextStyle: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
-              ),
-              destinations: List.generate(
-                _labels.length,
-                (i) => NavigationRailDestination(
-                  icon: Icon(_icons[i]),
-                  selectedIcon: Icon(_selectedIcons[i]),
-                  label: Text(_labels[i]),
+                child: NavigationRail(
+                  minWidth: 84,
+                  minExtendedWidth: 236,
+                  extended: true,
+                  selectedIndex: _index,
+                  onDestinationSelected: (i) => setState(() => _index = i),
+                  leading: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 26),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF7A00),
+                            borderRadius: BorderRadius.circular(13),
+                          ),
+                          child: const Icon(Icons.two_wheeler_rounded, color: Colors.white),
+                        ),
+                        const SizedBox(width: 10),
+                        const Text('Yalla', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                      ],
+                    ),
+                  ),
+                  destinations: List.generate(
+                    _labels.length,
+                    (i) => NavigationRailDestination(
+                      icon: Icon(_icons[i]),
+                      selectedIcon: Icon(_selectedIcons[i]),
+                      label: Text(_labels[i]),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -102,7 +128,7 @@ class _UserHomeState extends State<UserHome> {
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1440),
+                  constraints: const BoxConstraints(maxWidth: 1260),
                   child: IndexedStack(index: _index, children: pages),
                 ),
               ),

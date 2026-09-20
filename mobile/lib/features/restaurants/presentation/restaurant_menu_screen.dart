@@ -306,7 +306,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                       ],
                     ),
                   )
-                : RefreshIndicator(onRefresh: _load, child: _content()),
+                : Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1180),
+                      child: RefreshIndicator(onRefresh: _load, child: _content()),
+                    ),
+                  ),
         bottomNavigationBar: _cart.isEmpty ? null : _cartBar(),
       );
 
@@ -364,11 +369,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               if (_restaurant.fullImageUrl != null)
                 CachedNetworkImage(
                   imageUrl: _restaurant.fullImageUrl!,
-                  height: 230,
+                  height: 320,
                   width: double.infinity,
                   fit: BoxFit.cover,
                   placeholder: (_, __) => const SizedBox(
-                    height: 230,
+                    height: 320,
                     child: Center(child: CircularProgressIndicator()),
                   ),
                   errorWidget: (_, __, ___) => _imageFallback(),

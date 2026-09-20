@@ -81,11 +81,17 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Card(
+              elevation: 0,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 30),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                 // شعار العلامة داخل دائرة برتقالية ناعمة
                 Container(
                   width: 84,
@@ -238,7 +244,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     icon: const Icon(Icons.two_wheeler),
                     label: const Text('تسجيل ككابتن توصيل'),
                   ),
-              ],
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
