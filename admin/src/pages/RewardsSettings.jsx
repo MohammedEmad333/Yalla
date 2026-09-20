@@ -45,12 +45,12 @@ export default function RewardsSettings() {
 
   return <div style={{ maxWidth: 760, margin: '0 auto' }}>
     <div className="yl-card" style={{ padding: 20 }}>
-      <h2 style={{ marginTop: 0 }}>برنامج نقاط Yalla والإحالات</h2>
+      <h2 style={{ marginTop: 0 }}>برنامج نقاط Yalla والدعوات</h2>
       <p style={{ opacity: .75 }}>
-        النقاط تُستخدم فقط كخصم عند إنشاء الطلبات، ولا يمكن تحويلها إلى رصيد محفظة أو سحبها. تحكم هنا بقيمتها ومكافأة الإحالة والحد الأدنى لاستخدامها في الطلب.
+        النقاط تُستخدم فقط كخصم عند إنشاء الطلبات، ولا يمكن تحويلها إلى رصيد محفظة أو سحبها. تحكم هنا بقيمتها ومكافأة الدعوة والحد الأدنى لاستخدامها في الطلب.
       </p>
       <form onSubmit={save} style={{ display: 'grid', gap: 16 }}>
-        <label>مكافأة الإحالة لكل طرف (نقطة)
+        <label>مكافأة الدعوة لكل طرف (نقطة)
           <input className="yl-input" type="number" min="0" value={form.referralRewardPoints} onChange={(e) => set('referralRewardPoints', Number(e.target.value))} />
         </label>
         <label>عدد النقاط مقابل 1 شيكل خصم
@@ -61,7 +61,7 @@ export default function RewardsSettings() {
         </label>
         <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <input type="checkbox" checked={form.requireFirstCompletedOrder} onChange={(e) => set('requireFirstCompletedOrder', e.target.checked)} />
-          لا تمنح مكافأة الإحالة إلا بعد أول طلب مُسلّم
+          لا تمنح مكافأة الدعوة إلا بعد أول طلب مُسلّم
         </label>
         <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <input type="checkbox" checked={form.enabled} onChange={(e) => set('enabled', e.target.checked)} />
