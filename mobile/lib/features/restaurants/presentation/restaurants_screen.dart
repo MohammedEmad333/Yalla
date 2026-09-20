@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/web_safe_network_image.dart';
 import '../data/restaurant_repository.dart';
 import 'restaurant_menu_screen.dart';
 
@@ -258,12 +258,12 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                 fit: StackFit.expand,
                                 children: [
                                   if (imageUrl.isNotEmpty)
-                                    CachedNetworkImage(
-                                      imageUrl: imageUrl,
+                                    WebSafeNetworkImage(
+                                      url: imageUrl,
                                       fit: BoxFit.cover,
-                                      memCacheWidth: 900,
-                                      placeholder: (_, __) => const SizedBox.shrink(),
-                                      errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                                      cacheWidth: 900,
+                                      placeholderBuilder: (_) => const SizedBox.shrink(),
+                                      errorBuilder: (_) => const SizedBox.shrink(),
                                     ),
                                   DecoratedBox(
                                     decoration: BoxDecoration(
@@ -427,17 +427,19 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    r.fullImageUrl == null
-                        ? Container(
-                            color: YallaColors.surfaceContainer,
-                            child: const Icon(Icons.storefront_rounded, size: 42),
-                          )
-                        : CachedNetworkImage(
-                            imageUrl: r.fullImageUrl!,
-                            fit: BoxFit.cover,
-                            memCacheWidth: 600,
-                            errorWidget: (_, __, ___) => const Icon(Icons.storefront_rounded, size: 42),
-                          ),
+                    Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.all(8),
+                      child: r.fullImageUrl == null
+                          ? const Icon(Icons.storefront_rounded, size: 42, color: Color(0xFF9AA0AA))
+                          : WebSafeNetworkImage(
+                              url: r.fullImageUrl!,
+                              fit: BoxFit.contain,
+                              cacheWidth: 900,
+                              placeholderBuilder: (_) => const SizedBox.shrink(),
+                              errorBuilder: (_) => const Icon(Icons.storefront_rounded, size: 42, color: Color(0xFF9AA0AA)),
+                            ),
+                    ),
                     PositionedDirectional(
                       top: 10,
                       end: 10,
@@ -524,44 +526,45 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           child: InkWell(
             onTap: () => _open(r),
             child: SizedBox(
-              height: 142,
-              child: Row(
+              height: 190,
+              child: Column(
                 children: [
                   SizedBox(
-                    width: 158,
-                    height: double.infinity,
+                    height: 104,
+                    width: double.infinity,
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        r.fullImageUrl == null
-                            ? Container(
-                                color: YallaColors.surfaceContainer,
-                                child: const Icon(Icons.storefront_rounded, size: 38),
-                              )
-                            : CachedNetworkImage(
-                                imageUrl: r.fullImageUrl!,
-                                fit: BoxFit.cover,
-                                memCacheWidth: 480,
-                                placeholder: (_, __) => Container(color: YallaColors.surfaceContainer),
-                                errorWidget: (_, __, ___) => const Icon(Icons.storefront_rounded, size: 38),
-                              ),
+                        Container(
+                          color: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: r.fullImageUrl == null
+                              ? const Icon(Icons.storefront_rounded, size: 40, color: Color(0xFF9AA0AA))
+                              : WebSafeNetworkImage(
+                                  url: r.fullImageUrl!,
+                                  fit: BoxFit.contain,
+                                  cacheWidth: 900,
+                                  placeholderBuilder: (_) => const SizedBox.shrink(),
+                                  errorBuilder: (_) => const Icon(Icons.storefront_rounded, size: 40, color: Color(0xFF9AA0AA)),
+                                ),
+                        ),
                         PositionedDirectional(
-                          top: 9,
-                          end: 9,
+                          top: 10,
+                          end: 10,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: .68),
+                              color: Colors.black.withValues(alpha: .72),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.star_rounded, size: 14, color: Color(0xFFFF9A3D)),
+                                const Icon(Icons.star_rounded, size: 15, color: Color(0xFFFF9A3D)),
                                 const SizedBox(width: 4),
                                 Text(
                                   r.ratingCount > 0 ? r.ratingAverage.toStringAsFixed(1) : '—',
-                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
+                                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900),
                                 ),
                               ],
                             ),
@@ -572,9 +575,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   ),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
@@ -586,44 +588,39 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                   style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
                                 ),
                               ),
-
-                            ],
-                          ),
-                          const SizedBox(height: 5),
-                          Row(
-                            children: [
-                              Icon(Icons.category_outlined, size: 15, color: YallaColors.muted),
-                              const SizedBox(width: 5),
-                              Expanded(
+                              const SizedBox(width: 8),
+                              Flexible(
                                 child: Text(
                                   r.category,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(color: YallaColors.muted, fontSize: 12.5, fontWeight: FontWeight.w600),
+                                  style: TextStyle(color: YallaColors.muted, fontSize: 12.5, fontWeight: FontWeight.w700),
                                 ),
                               ),
                             ],
                           ),
                           const Spacer(),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
+                          Row(
                             children: [
                               if (r.prepMinutes > 0)
                                 _metricPill(Icons.schedule_rounded, '~${r.prepMinutes} د'),
+                              if (r.prepMinutes > 0 && r.minOrder > 0)
+                                const SizedBox(width: 7),
                               if (r.minOrder > 0)
                                 _metricPill(Icons.shopping_bag_outlined, 'من ${r.minOrder} ₪'),
+                              const Spacer(),
+                              if (!r.openNow && r.opensAtLabel.isNotEmpty)
+                                Flexible(
+                                  child: Text(
+                                    r.opensAtLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.end,
+                                    style: TextStyle(color: YallaColors.error, fontSize: 11.5, fontWeight: FontWeight.w700),
+                                  ),
+                                ),
                             ],
                           ),
-                          if (!r.openNow && r.opensAtLabel.isNotEmpty) ...[
-                            const SizedBox(height: 5),
-                            Text(
-                              r.opensAtLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: YallaColors.error, fontSize: 11.5, fontWeight: FontWeight.w700),
-                            ),
-                          ],
                         ],
                       ),
                     ),
@@ -634,4 +631,5 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           ),
         ),
       );
+
 }

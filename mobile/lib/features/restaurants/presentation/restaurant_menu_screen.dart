@@ -1,10 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/web_safe_network_image.dart';
 import '../data/cart_storage.dart';
 import '../data/restaurant_repository.dart';
 import 'checkout_screen.dart';
@@ -399,16 +399,17 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           Stack(
             children: [
               if (_restaurant.fullImageUrl != null)
-                CachedNetworkImage(
-                  imageUrl: _restaurant.fullImageUrl!,
+                WebSafeNetworkImage(
+                  url: _restaurant.fullImageUrl!,
                   height: 320,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => const SizedBox(
+                  cacheWidth: 1000,
+                  placeholderBuilder: (_) => const SizedBox(
                     height: 320,
                     child: Center(child: CircularProgressIndicator()),
                   ),
-                  errorWidget: (_, __, ___) => _imageFallback(),
+                  errorBuilder: (_) => _imageFallback(),
                 )
               else
                 _imageFallback(),
@@ -655,15 +656,22 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               if (item.fullImageUrl != null)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: CachedNetworkImage(
-                    imageUrl: item.fullImageUrl!,
+                  child: WebSafeNetworkImage(
+                    url: item.fullImageUrl!,
                     width: 104,
                     height: 104,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
+                    cacheWidth: 320,
+                    placeholderBuilder: (_) => Container(
                       width: 104,
                       height: 104,
                       color: YallaColors.surfaceContainer,
+                    ),
+                    errorBuilder: (_) => Container(
+                      width: 104,
+                      height: 104,
+                      color: YallaColors.surfaceContainer,
+                      child: const Icon(Icons.fastfood_outlined, size: 34),
                     ),
                   ),
                 )
@@ -993,15 +1001,21 @@ class _ItemDetailsSheetState extends State<_ItemDetailsSheet> {
                   Stack(
                     children: [
                       if (widget.item.fullImageUrl != null)
-                        CachedNetworkImage(
-                          imageUrl: widget.item.fullImageUrl!,
+                        WebSafeNetworkImage(
+                          url: widget.item.fullImageUrl!,
                           height: 250,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
+                          cacheWidth: 900,
+                          placeholderBuilder: (_) => Container(
                             height: 250,
                             color: YallaColors.surfaceContainer,
                             child: const Center(child: CircularProgressIndicator()),
+                          ),
+                          errorBuilder: (_) => Container(
+                            height: 250,
+                            color: YallaColors.surfaceContainer,
+                            child: const Center(child: Icon(Icons.fastfood_outlined, size: 70)),
                           ),
                         )
                       else
