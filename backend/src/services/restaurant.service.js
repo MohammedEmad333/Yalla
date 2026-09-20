@@ -2,6 +2,7 @@
 
 const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
+const Order = require('../models/Order');
 const orderService = require('./order.service');
 const { saveImage, deleteFileByUrl } = require('../utils/avatarStore');
 const { isRestaurantOpen } = require('../utils/restaurantHours');
@@ -182,7 +183,31 @@ async function listRestaurants(query = {}) {
     restaurants = await findRestaurants(fallback);
   }
 
-  return restaurants.map(withNeighborhoodLocation);
+  const ids = restaurants.map((r) => r._id).filter(Boolean);
+  const counts = ids.length
+    ? await Order.aggregate([
+        {
+          $match: {
+            'store.restaurant': { $in: ids },
+            status: 'delivered',
+          },
+        },
+        {
+          $group: {
+            _id: '$store.restaurant',
+            orderCount: { $sum: 1 },
+          },
+        },
+      ])
+    : [];
+  const countByRestaurant = new Map(
+    counts.map((row) => [String(row._id), Number(row.orderCount) || 0])
+  );
+
+  return restaurants.map((restaurant) => ({
+    ...withNeighborhoodLocation(restaurant),
+    orderCount: countByRestaurant.get(String(restaurant._id)) || 0,
+  }));
 }
 
 /** تصنيفات المطاعم المتاحة فعليًّا (لعرضها كرقائق فلترة في التطبيق). */
