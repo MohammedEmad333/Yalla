@@ -2,112 +2,217 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>سياسة الخصوصية — Yalla (يلا)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Yalla Delivery | يلا ديلفري</title>
+  <meta name="description" content="Yalla Delivery — اطلب من المطاعم والمتاجر، تابع طلبك، وخلي يلا توصلها لعندك." />
+  <meta name="theme-color" content="#071D3A" />
   <link rel="icon" type="image/png" href="logo.png" />
-  <link rel="apple-touch-icon" href="logo.png" />
-  <meta name="description" content="سياسة خصوصية تطبيق Yalla (يلا) للتوصيل اللحظي — كيف نجمع بياناتك ونستخدمها ونحميها." />
-  <!-- خطّ الهوية: IBM Plex Sans Arabic (نفس خطّ التطبيق ولوحة التحكّم) -->
+  <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="yalla.css" />
 </head>
-<body>
-  <header class="hero">
-    <div class="brand">Yalla · يلا 🛵</div>
-    <h1>سياسة الخصوصية</h1>
-    <!-- Card 53: زرّ للوصول لصفحة تحميل التطبيق / فتحه كتطبيق ويب -->
-    <a class="hero-btn" href="app.html">⬇ حمّل التطبيق / افتحه كتطبيق ويب</a>
+<body class="landing">
+  <header class="site-header">
+    <div class="site-container nav-wrap">
+      <a class="site-brand" href="/" aria-label="Yalla Delivery">
+        <img src="logo.png" alt="Yalla Delivery" />
+        <span><b>Yalla</b><small>Delivery</small></span>
+      </a>
+      <nav class="main-nav" aria-label="التنقل الرئيسي">
+        <a href="#features">المزايا</a>
+        <a href="#how">كيف تعمل؟</a>
+        <a href="#partners">للشركاء</a>
+        <a href="#faq">الأسئلة الشائعة</a>
+      </nav>
+      <a class="nav-cta" href="https://app.yalladelivery.org">اطلب الآن</a>
+    </div>
   </header>
 
-  <div class="wrap">
-    <main class="card">
-      <span class="updated">آخر تحديث: 18 أغسطس 2026</span>
+  <main>
+    <section class="landing-hero">
+      <div class="hero-glow hero-glow-one"></div>
+      <div class="hero-glow hero-glow-two"></div>
+      <div class="site-container hero-grid">
+        <div class="hero-copy">
+          <span class="eyebrow">توصيل أسهل · أسرع · أوضح</span>
+          <h1>كل اللي بدك إياه،<br /><em>يوصلك مع Yalla</em></h1>
+          <p>
+            اطلب من المطاعم والمتاجر المتاحة عندك، تابع حالة طلبك،
+            وخلي يلا تهتم بالباقي من أول ضغطة لحد بابك.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="https://app.yalladelivery.org">ابدأ الطلب الآن <span>←</span></a>
+            <a class="btn btn-secondary" href="https://play.google.com/store/apps/details?id=com.mohammedemad333.yalla" target="_blank" rel="noopener">حمّل من Google Play</a>
+          </div>
+          <div class="hero-links">
+            <a href="https://partner.yalladelivery.org">عندك مطعم أو متجر؟ <b>ادخل Yalla Partner</b></a>
+          </div>
+        </div>
 
-      <p>
-        يوضّح هذا المستند كيف يجمع تطبيق <strong>Yalla (يلا)</strong> («التطبيق») —
-        الذي تديره <strong>Yalla (يلا)</strong> («نحن») — بياناتك ويستخدمها ويحميها.
-        باستخدامك التطبيق فإنك توافق على الممارسات الموضّحة أدناه.
-      </p>
-
-      <h2>1) البيانات التي نجمعها</h2>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr><th>الفئة</th><th>البيانات</th><th>الغرض</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><strong>بيانات الحساب</strong></td><td>الاسم، رقم الهاتف</td><td>إنشاء الحساب، تسجيل الدخول، وتحديد الدور (مستخدم/كابتن)</td></tr>
-            <tr><td><strong>بيانات الموقع</strong></td><td>الموقع الجغرافي الدقيق (GPS)</td><td>تحديد نقاط الاستلام/التسليم، وتتبّع الكابتن لحظيًا أثناء تنفيذ الطلب</td></tr>
-            <tr><td><strong>بيانات الطلبات</strong></td><td>العناوين، تفاصيل الطلب، الحالة، التقييمات</td><td>تنفيذ خدمة التوصيل وعرض سجلّ الطلبات</td></tr>
-            <tr><td><strong>الصور</strong></td><td>صور إيصالات شحن الرصيد (اختيارية)</td><td>التحقّق من عمليات شحن المحفظة</td></tr>
-            <tr><td><strong>بيانات المحفظة</strong></td><td>الرصيد، الأرباح، المعاملات</td><td>إدارة الدفع الداخلي وأرباح الكباتن</td></tr>
-            <tr><td><strong>مُعرّف الإشعارات</strong></td><td>رمز جهاز Firebase (FCM token)</td><td>إرسال إشعارات الطلبات والتحديثات</td></tr>
-            <tr><td><strong>بيانات تقنية</strong></td><td>نوع الجهاز، إصدار النظام، سجلّات الأخطاء</td><td>تشغيل الخدمة وتحسين الاستقرار</td></tr>
-          </tbody>
-        </table>
+        <div class="hero-visual" aria-label="معاينة تطبيق Yalla">
+          <div class="phone-shell">
+            <div class="phone-top"><span></span><strong>Yalla</strong><i>●</i></div>
+            <div class="phone-content">
+              <div class="mini-greeting"><small>أهلًا 👋</small><b>شو بدك نوصلك اليوم؟</b></div>
+              <div class="mini-search">🔎 ابحث عن متجر أو صنف</div>
+              <div class="mini-banner">
+                <div><small>اطلب بسهولة</small><strong>مطاعمك ومتاجرك<br />في مكان واحد</strong></div>
+                <span>🛵</span>
+              </div>
+              <div class="mini-title"><b>استكشف المتاجر</b><small>عرض الكل</small></div>
+              <div class="mini-stores">
+                <div><span>🍔</span><b>مطاعم</b></div>
+                <div><span>🛒</span><b>متاجر</b></div>
+                <div><span>☕</span><b>قهوة</b></div>
+              </div>
+              <div class="mini-order">
+                <span class="order-icon">📦</span>
+                <div><small>طلبك بالطريق</small><b>الكابتن متجه إليك</b></div>
+                <strong>12 د</strong>
+              </div>
+            </div>
+            <div class="phone-nav"><span>⌂</span><span>▦</span><span>▤</span><span>◉</span></div>
+          </div>
+          <div class="floating-card float-one"><span>✓</span><div><small>طلبك مؤكد</small><b>وجاري التحضير</b></div></div>
+          <div class="floating-card float-two"><span>⚡</span><div><small>تحديثات لحظية</small><b>تابع طلبك بسهولة</b></div></div>
+        </div>
       </div>
-      <p>نجمع <strong>الموقع الدقيق</strong> لأن جوهر الخدمة توصيل لحظي يعتمد على تحديد المواقع والملاحة.</p>
-      <ul>
-        <li>للمستخدم: يُستخدم لتحديد نقطتي الاستلام والتسليم.</li>
-        <li>للكابتن: يُبثّ الموقع أثناء وجود طلب نشط لعرضه للمستخدم وللإدارة.</li>
-      </ul>
-      <div class="note"><strong>لا نجمع الموقع في الخلفية</strong> خارج سياق طلب نشط ما لم يُصرَّح بذلك صراحةً.</div>
+    </section>
 
-      <h2>2) كيف نستخدم بياناتك</h2>
-      <ul>
-        <li>تشغيل خدمة التوصيل ومطابقة الطلبات بالكباتن.</li>
-        <li>عرض المواقع والملاحة عبر خرائط Google.</li>
-        <li>إرسال إشعارات حالة الطلب.</li>
-        <li>منع الاحتيال ومعالجة عمليات شحن الرصيد.</li>
-        <li>تحسين أداء التطبيق وحلّ الأعطال.</li>
-      </ul>
-      <div class="note"><strong>لا نبيع بياناتك الشخصية لأي طرف ثالث.</strong></div>
+    <section class="trust-strip">
+      <div class="site-container trust-grid">
+        <div><span>🛵</span><b>توصيل وتتبع</b><small>متابعة حالة الطلب</small></div>
+        <div><span>🛍️</span><b>مطاعم ومتاجر</b><small>خيارات متعددة في مكان واحد</small></div>
+        <div><span>💳</span><b>محفظة داخلية</b><small>إدارة رصيدك بسهولة</small></div>
+        <div><span>💬</span><b>دعم مباشر</b><small>تواصل عند الحاجة</small></div>
+      </div>
+    </section>
 
-      <h2>3) مشاركة البيانات مع أطراف ثالثة</h2>
-      <p>نشارك الحدّ الأدنى الضروري فقط مع مزوّدي الخدمات التاليين:</p>
-      <ul>
-        <li><strong>Google Maps</strong> — لعرض المواقع والملاحة (تُفتح عبر روابط خرائط Google).</li>
-        <li><strong>Firebase Cloud Messaging (Google)</strong> — لإرسال الإشعارات.</li>
-        <li>مزوّد الاستضافة السحابية <strong>Render</strong> وقاعدة البيانات <strong>MongoDB Atlas</strong> — لتخزين ومعالجة بيانات الخدمة.</li>
-      </ul>
-      <p>بين المستخدم والكابتن: يُعرض رقم هاتف الطرف الآخر والموقع أثناء تنفيذ الطلب فقط، بغرض إتمام التوصيل.</p>
+    <section class="section" id="features">
+      <div class="site-container">
+        <div class="section-heading">
+          <span class="eyebrow">تجربة Yalla</span>
+          <h2>كل شيء مصمم ليخلي الطلب أبسط</h2>
+          <p>من اكتشاف المتاجر وحتى متابعة الطلب، التجربة كلها ضمن مكان واحد.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card feature-accent">
+            <div class="feature-icon">📍</div>
+            <h3>تتبع حالة الطلب</h3>
+            <p>شوف حالة طلبك وتحديثاته من وقت الإنشاء وحتى التسليم.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">🔎</div>
+            <h3>بحث سريع</h3>
+            <p>ابحث بالمتجر أو الصنف ووصل للي بدك إياه بسرعة.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">❤️</div>
+            <h3>مفضلات وإعادة طلب</h3>
+            <p>احفظ متاجرك المفضلة وأعد طلب مشترياتك السابقة بسهولة.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">🎁</div>
+            <h3>عروض وكوبونات</h3>
+            <p>استفد من العروض والكوبونات المتاحة داخل المنصة.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">💰</div>
+            <h3>محفظة Yalla</h3>
+            <p>تابع رصيدك وحركات المحفظة من داخل حسابك.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">🔔</div>
+            <h3>إشعارات فورية</h3>
+            <p>خليك على اطلاع عند كل تحديث مهم يتعلق بطلبك.</p>
+          </article>
+        </div>
+      </div>
+    </section>
 
-      <h2>4) الاحتفاظ بالبيانات</h2>
-      <p>نحتفظ ببياناتك طوال بقاء حسابك نشطًا وبالقدر اللازم لتقديم الخدمة والامتثال للالتزامات القانونية. عند حذف الحساب تُحذف بياناتك الشخصية أو تُجهَّل خلال مدة معقولة.</p>
+    <section class="section section-soft" id="how">
+      <div class="site-container">
+        <div class="section-heading">
+          <span class="eyebrow">ثلاث خطوات</span>
+          <h2>من اختيارك لبابك</h2>
+        </div>
+        <div class="steps-grid">
+          <article><span>01</span><div class="step-icon">🏪</div><h3>اختار</h3><p>افتح التطبيق واختار المتجر أو المطعم والطلب اللي بناسبك.</p></article>
+          <article><span>02</span><div class="step-icon">✅</div><h3>أكد</h3><p>راجع تفاصيل طلبك والعنوان ثم أكّد الطلب.</p></article>
+          <article><span>03</span><div class="step-icon">🛵</div><h3>استلم</h3><p>تابع تحديثات الطلب لحد ما يوصل لعندك.</p></article>
+        </div>
+      </div>
+    </section>
 
-      <h2>5) أمان البيانات</h2>
-      <ul>
-        <li>الاتصال بخوادمنا يتمّ عبر <strong>HTTPS</strong> المشفّر.</li>
-        <li>تُخزَّن رموز الدخول على الجهاز في مخزن آمن (Secure Storage).</li>
-        <li>نطبّق ضوابط وصول على الخوادم لحماية بياناتك.</li>
-      </ul>
+    <section class="partner-section" id="partners">
+      <div class="site-container partner-panel">
+        <div class="partner-copy">
+          <span class="eyebrow light">Yalla Partner</span>
+          <h2>عندك مطعم أو متجر؟<br />خلّي Yalla تساعدك توصل لزبائنك</h2>
+          <p>استقبل الطلبات، حدّث منتجاتك، تابع المخزون، وشوف مبيعاتك من لوحة Yalla Partner.</p>
+          <a class="btn btn-light" href="https://partner.yalladelivery.org">افتح Yalla Partner <span>←</span></a>
+        </div>
+        <div class="partner-dashboard">
+          <div class="dash-top"><b>Yalla Partner</b><span>● المتجر مفتوح</span></div>
+          <div class="dash-stats">
+            <div><small>طلبات اليوم</small><strong>12</strong></div>
+            <div><small>المنتجات</small><strong>48</strong></div>
+            <div><small>حالة المتجر</small><strong>مفتوح</strong></div>
+          </div>
+          <div class="dash-list">
+            <b>إدارة متجرك من مكان واحد</b>
+            <p><span>✓</span> الطلبات والمنتجات</p>
+            <p><span>✓</span> المخزون والإضافات</p>
+            <p><span>✓</span> التحليلات والمستحقات</p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-      <h2>6) حقوقك</h2>
-      <p>لك الحقّ في:</p>
-      <ul>
-        <li>الوصول إلى بياناتك أو تصحيحها.</li>
-        <li>طلب حذف حسابك وبياناتك.</li>
-        <li>سحب أذونات الموقع أو الإشعارات من إعدادات نظام هاتفك في أي وقت (قد يؤثّر ذلك على عمل بعض الميزات).</li>
-      </ul>
-      <p>لحذف حسابك وبياناتك، اتّبع الخطوات في صفحة <a href="delete-account.html">حذف الحساب</a>، أو تواصل معنا عبر البريد أدناه.</p>
+    <section class="section download-section">
+      <div class="site-container download-panel">
+        <div>
+          <span class="eyebrow">جاهز تبدأ؟</span>
+          <h2>جرّب Yalla الآن</h2>
+          <p>استخدم نسخة الويب مباشرة أو حمّل التطبيق على جهازك.</p>
+        </div>
+        <div class="download-actions">
+          <a class="btn btn-primary" href="https://app.yalladelivery.org">افتح تطبيق Yalla</a>
+          <a class="btn btn-secondary" href="https://play.google.com/store/apps/details?id=com.mohammedemad333.yalla" target="_blank" rel="noopener">Google Play</a>
+        </div>
+      </div>
+    </section>
 
-      <h2>7) خصوصية الأطفال</h2>
-      <p>التطبيق غير موجَّه للأطفال دون 13 عامًا، ولا نجمع بياناتهم عن قصد.</p>
+    <section class="section faq-section" id="faq">
+      <div class="site-container faq-layout">
+        <div class="section-heading side">
+          <span class="eyebrow">الأسئلة الشائعة</span>
+          <h2>عندك سؤال؟</h2>
+          <p>هاي بعض الإجابات السريعة عن استخدام Yalla.</p>
+        </div>
+        <div class="faq-list">
+          <details open><summary>هل أقدر أطلب من المتصفح؟</summary><p>نعم، افتح <a href="https://app.yalladelivery.org">app.yalladelivery.org</a> واستخدم Yalla مباشرة من المتصفح.</p></details>
+          <details><summary>وين بلاقي المطاعم والمتاجر المتاحة؟</summary><p>المتاجر المتاحة بتظهر داخل التطبيق بحسب البيانات والخدمة المتوفرة على المنصة.</p></details>
+          <details><summary>كيف أتابع طلبي؟</summary><p>من صفحة طلباتي تقدر تشوف حالة الطلب والتحديثات المرتبطة فيه.</p></details>
+          <details><summary>أنا صاحب مطعم أو متجر، من وين أدخل؟</summary><p>استخدم <a href="https://partner.yalladelivery.org">partner.yalladelivery.org</a> للدخول إلى Yalla Partner وإدارة متجرك.</p></details>
+        </div>
+      </div>
+    </section>
+  </main>
 
-      <h2>8) تغييرات على هذه السياسة</h2>
-      <p>قد نُحدّث هذه السياسة من حين لآخر. سيُحدَّث تاريخ «آخر تحديث» أعلاه، وننشر أي تغييرات جوهرية داخل التطبيق أو على هذه الصفحة.</p>
-
-      <h2>9) التواصل</h2>
-      <p>لأي استفسار حول الخصوصية أو طلبات البيانات:</p>
-      <ul>
-        <li><strong>البريد الإلكتروني:</strong> <a href="mailto:mohammedelrefy28@gmail.com">mohammedelrefy28@gmail.com</a></li>
-        <li><strong>الجهة:</strong> Yalla (يلا)</li>
-      </ul>
-    </main>
-
-    <footer>© 2026 Yalla (يلا) — جميع الحقوق محفوظة.</footer>
-  </div>
+  <footer class="site-footer">
+    <div class="site-container footer-grid">
+      <div class="footer-brand">
+        <a class="site-brand" href="/"><img src="logo.png" alt="" /><span><b>Yalla</b><small>Delivery</small></span></a>
+        <p>منصة توصيل تجمع العميل والمتجر والكابتن في تجربة واحدة.</p>
+      </div>
+      <div><b>Yalla</b><a href="https://app.yalladelivery.org">افتح التطبيق</a><a href="https://play.google.com/store/apps/details?id=com.mohammedemad333.yalla">Google Play</a></div>
+      <div><b>للشركاء</b><a href="https://partner.yalladelivery.org">Yalla Partner</a><a href="https://admin.yalladelivery.org">الإدارة</a></div>
+      <div><b>معلومات</b><a href="privacy.html">سياسة الخصوصية</a><a href="delete-account.html">حذف الحساب</a><a href="https://wa.me/970593456405" target="_blank" rel="noopener">تواصل معنا</a></div>
+    </div>
+    <div class="site-container copyright">© 2026 Yalla Delivery — جميع الحقوق محفوظة.</div>
+  </footer>
 </body>
 </html>
