@@ -42,6 +42,7 @@ class Restaurant {
   final List<RestaurantHoursDay> weeklyHours;
   final double ratingAverage;
   final int ratingCount;
+  final int orderCount;
 
   const Restaurant({
     required this.id,
@@ -62,6 +63,7 @@ class Restaurant {
     required this.weeklyHours,
     required this.ratingAverage,
     required this.ratingCount,
+    required this.orderCount,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
@@ -90,6 +92,7 @@ class Restaurant {
       weeklyHours: weekly,
       ratingAverage: ((json['ratingAverage'] as num?) ?? 0).toDouble(),
       ratingCount: ((json['ratingCount'] as num?) ?? 0).toInt(),
+      orderCount: ((json['orderCount'] as num?) ?? 0).toInt(),
     );
   }
 

@@ -96,6 +96,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
       if (!mounted || requestId != _serial) return;
       list.sort((a, b) {
         if (a.openNow != b.openNow) return a.openNow ? -1 : 1;
+        final byOrders = b.orderCount.compareTo(a.orderCount);
+        if (byOrders != 0) return byOrders;
         return a.name.compareTo(b.name);
       });
       final bannersChanged = nextBanners != null;
@@ -292,15 +294,17 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                       ),
                                     ),
                                   if (coupon.isNotEmpty)
-                                    PositionedDirectional(
+                                    Positioned(
                                       top: 10,
-                                      start: 10,
+                                      left: 10,
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: .95),
+                                          color: Colors.white.withValues(alpha: .76),
                                           borderRadius: BorderRadius.circular(999),
-                                          border: Border.all(color: Colors.white),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: .55),
+                                          ),
                                         ),
                                         child: Text(
                                           coupon,
