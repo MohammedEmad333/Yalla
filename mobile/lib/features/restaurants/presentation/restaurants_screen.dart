@@ -298,20 +298,22 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                       top: 10,
                                       left: 10,
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: .76),
+                                          color: Colors.white.withValues(alpha: .58),
                                           borderRadius: BorderRadius.circular(999),
                                           border: Border.all(
-                                            color: Colors.white.withValues(alpha: .55),
+                                            color: Colors.white.withValues(alpha: .34),
+                                            width: .8,
                                           ),
                                         ),
                                         child: Text(
                                           coupon,
-                                          style: TextStyle(
-                                            color: YallaColors.primary,
-                                            fontSize: 12,
+                                          style: const TextStyle(
+                                            color: Color(0xFFB95400),
+                                            fontSize: 11.5,
                                             fontWeight: FontWeight.w900,
+                                            letterSpacing: .15,
                                           ),
                                         ),
                                       ),
