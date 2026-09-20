@@ -13,6 +13,7 @@ const MenuItem = require('../models/MenuItem');
 const Merchant = require('../models/Merchant');
 const Captain = require('../models/Captain');
 const PromotionBanner = require('../models/PromotionBanner');
+const { saveImage, deleteFileByUrl } = require('../utils/avatarStore');
 const { WALLET_DIRECTION, WALLET_TX_TYPE, TOPUP_STATUS } = require('../utils/constants');
 
 function httpError(message, statusCode = 400) {
@@ -90,9 +91,34 @@ async function updateBanner(adminId, id, payload = {}) {
   return row;
 }
 
+async function setBannerImage(adminId, id, file) {
+  if (!file) throw httpError('أرفق صورة الإعلان', 400);
+  const row = await PromotionBanner.findById(id);
+  if (!row) throw httpError('البانر غير موجود', 404);
+
+  const url = await saveImage(file, {
+    kind: 'promotion-banner',
+    owner: row._id,
+    ownerRole: 'promotion-banner',
+  });
+  const previous = row.imageUrl;
+  row.imageUrl = url;
+  await row.save();
+  await deleteFileByUrl(previous);
+  await AuditLog.create({
+    actor: adminId,
+    action: 'banner_image_update',
+    entityType: 'PromotionBanner',
+    entityId: String(row._id),
+    summary: `تحديث صورة بانر: ${row.title}`,
+  });
+  return row;
+}
+
 async function deleteBanner(adminId, id) {
   const row = await PromotionBanner.findByIdAndDelete(id);
   if (!row) throw httpError('البانر غير موجود', 404);
+  await deleteFileByUrl(row.imageUrl);
   await AuditLog.create({ actor: adminId, action: 'banner_delete', entityType: 'PromotionBanner', entityId: String(row._id), summary: `حذف بانر: ${row.title}` });
   return { ok: true };
 }
@@ -235,7 +261,7 @@ async function setMerchandising(adminId, restaurantId, payload = {}) {
 }
 
 module.exports = {
-  searchStores, publicBanners, adminBanners, createBanner, updateBanner, deleteBanner,
+  searchStores, publicBanners, adminBanners, createBanner, updateBanner, setBannerImage, deleteBanner,
   rewards, applyReferral,
   listIssues, createIssue, adminIssues, resolveIssue,
   auditLogs, systemHealth, setMerchandising,
