@@ -279,12 +279,19 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                         decoration: BoxDecoration(
-                          color: (r.openNow ? YallaColors.success : YallaColors.error).withValues(alpha: .92),
+                          color: Colors.black.withValues(alpha: .68),
                           borderRadius: BorderRadius.circular(999),
                         ),
-                        child: Text(
-                          r.openNow ? 'مفتوح' : 'مغلق',
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star_rounded, size: 14, color: Color(0xFFFF9A3D)),
+                            const SizedBox(width: 4),
+                            Text(
+                              r.ratingCount > 0 ? r.ratingAverage.toStringAsFixed(1) : '—',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -304,7 +311,6 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                       spacing: 10,
                       runSpacing: 4,
                       children: [
-                        if (r.ratingCount > 0) Text('⭐ ${r.ratingAverage.toStringAsFixed(1)}'),
                         if (r.prepMinutes > 0) Text('~${r.prepMinutes} د'),
                         if (r.minOrder > 0) Text('أقل طلب ${r.minOrder} ₪'),
                       ],
@@ -357,7 +363,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
               child: Row(
                 children: [
                   SizedBox(
-                    width: 132,
+                    width: 158,
                     height: double.infinity,
                     child: Stack(
                       fit: StackFit.expand,
@@ -378,7 +384,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                           top: 9,
                           end: 9,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: .68),
                               borderRadius: BorderRadius.circular(999),
@@ -386,15 +392,11 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
-                                  Icons.circle,
-                                  size: 8,
-                                  color: r.openNow ? YallaColors.success : YallaColors.error,
-                                ),
-                                const SizedBox(width: 5),
+                                const Icon(Icons.star_rounded, size: 14, color: Color(0xFFFF9A3D)),
+                                const SizedBox(width: 4),
                                 Text(
-                                  r.openNow ? 'مفتوح' : 'مغلق',
-                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
+                                  r.ratingCount > 0 ? r.ratingAverage.toStringAsFixed(1) : '—',
+                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
                                 ),
                               ],
                             ),
@@ -419,7 +421,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                   style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
                                 ),
                               ),
-                              Icon(Icons.chevron_left_rounded, size: 20, color: YallaColors.muted),
+
                             ],
                           ),
                           const SizedBox(height: 5),
@@ -442,8 +444,6 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             spacing: 6,
                             runSpacing: 6,
                             children: [
-                              if (r.ratingCount > 0)
-                                _metricPill(Icons.star_rounded, r.ratingAverage.toStringAsFixed(1)),
                               if (r.prepMinutes > 0)
                                 _metricPill(Icons.schedule_rounded, '~${r.prepMinutes} د'),
                               if (r.minOrder > 0)
