@@ -650,8 +650,10 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             r.name,
@@ -688,7 +690,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             ],
                           ),
 
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
