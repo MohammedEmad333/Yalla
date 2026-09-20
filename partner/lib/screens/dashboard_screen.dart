@@ -89,18 +89,16 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
   }
 
   Widget _stat(String label, dynamic value, IconData icon) {
-    return Expanded(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(icon, size: 22),
-            const SizedBox(height: 10),
-            Text('$value', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 3),
-            Text(label, style: const TextStyle(color: Color(0xFF7A8595))),
-          ]),
-        ),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, size: 22),
+          const SizedBox(height: 10),
+          Text('$value', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 3),
+          Text(label, style: const TextStyle(color: Color(0xFF7A8595))),
+        ]),
       ),
     );
   }
@@ -116,31 +114,19 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: SwitchListTile.adaptive(
-              title: Text(isOpen == true ? 'المتجر مفتوح' : 'المتجر مغلق مؤقتًا', style: const TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: const Text('يمكنك إيقاف استقبال الطلبات وإعادتها في أي وقت'),
-              value: isOpen == true,
-              onChanged: _toggleOpen,
-              secondary: Icon(isOpen == true ? Icons.storefront_rounded : Icons.storefront_outlined),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(children: [
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 900;
+          final stats = [
             _stat('طلبات اليوم', _n(today['orders']).toInt(), Icons.receipt_long_rounded),
             _stat('مبيعات اليوم', '${_n(today['sales']).toStringAsFixed(2)} ₪', Icons.payments_rounded),
-          ]),
-          Row(children: [
             _stat('آخر 7 أيام', _n(week['orders']).toInt(), Icons.calendar_view_week_rounded),
             _stat('مبيعات 7 أيام', '${_n(week['sales']).toStringAsFixed(2)} ₪', Icons.trending_up_rounded),
-          ]),
-          const SizedBox(height: 12),
-          Card(
+          ];
+
+          final financeCard = Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 const Text('المستحقات', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 12),
@@ -150,26 +136,80 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                 const SizedBox(height: 8),
                 Text('متاح للسحب: ${_n(finance['available']).toStringAsFixed(2)} ₪', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 12),
-                FilledButton.icon(onPressed: _n(finance['available']) > 0 ? _requestSettlement : null, icon: const Icon(Icons.account_balance_wallet_rounded), label: const Text('طلب سحب المستحقات')),
+                FilledButton.icon(
+                  onPressed: _n(finance['available']) > 0 ? _requestSettlement : null,
+                  icon: const Icon(Icons.account_balance_wallet_rounded),
+                  label: const Text('طلب سحب المستحقات'),
+                ),
               ]),
             ),
-          ),
-          const SizedBox(height: 12),
-          Card(
+          );
+
+          final topCard = Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text('الأكثر مبيعًا', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 8),
                 if (top.isEmpty) const Text('لا توجد بيانات كافية بعد')
                 else ...top.map((row) {
                   final m = row is Map ? row : {};
-                  return ListTile(contentPadding: EdgeInsets.zero, dense: true, title: Text('${m['_id'] ?? 'صنف'}'), trailing: Text('${m['qty'] ?? 0} طلب'));
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text('${m['_id'] ?? 'صنف'}'),
+                    trailing: Text('${m['qty'] ?? 0} طلب'),
+                  );
                 }),
               ]),
             ),
-          ),
-        ],
+          );
+
+          return ListView(
+            padding: EdgeInsets.all(wide ? 24 : 16),
+            children: [
+              Card(
+                child: SwitchListTile.adaptive(
+                  title: Text(
+                    isOpen == true ? 'المتجر مفتوح' : 'المتجر مغلق مؤقتًا',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: const Text('يمكنك إيقاف استقبال الطلبات وإعادتها في أي وقت'),
+                  value: isOpen == true,
+                  onChanged: _toggleOpen,
+                  secondary: Icon(
+                    isOpen == true ? Icons.storefront_rounded : Icons.storefront_outlined,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              GridView.count(
+                crossAxisCount: wide ? 4 : 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: wide ? 1.7 : 1.25,
+                children: stats,
+              ),
+              const SizedBox(height: 16),
+              if (wide)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 5, child: financeCard),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 4, child: topCard),
+                  ],
+                )
+              else ...[
+                financeCard,
+                const SizedBox(height: 12),
+                topCard,
+              ],
+            ],
+          );
+        },
       ),
     );
   }
