@@ -169,44 +169,44 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
 
     if (c == 'الكل') return Icons.grid_view_rounded;
 
-    if (c.contains('حلويات')) return Icons.cake_outlined;
-    if (c.contains('مخبوز') || c.contains('معجن')) return Icons.bakery_dining_outlined;
+    if (c.contains('حلويات')) return Icons.cake;
+    if (c.contains('مخبوز') || c.contains('معجن')) return Icons.bakery_dining;
     if (c.contains('كافي') || c.contains('قهوة') || c.contains('مشروب')) {
-      return Icons.local_cafe_outlined;
+      return Icons.local_cafe;
     }
     if (c.contains('كوزمتكس') ||
         c.contains('كوزمتيكس') ||
         c.contains('مكياج') ||
         c.contains('تجميل') ||
         c.contains('عناية')) {
-      return Icons.face_retouching_natural_outlined;
+      return Icons.face_retouching_natural;
     }
-    if (c.contains('عطور') || c.contains('عطر')) return Icons.auto_awesome_outlined;
+    if (c.contains('عطور') || c.contains('عطر')) return Icons.auto_awesome;
     if (c.contains('ملابس') || c.contains('ألبسة') || c.contains('البسة')) {
-      return Icons.checkroom_outlined;
+      return Icons.checkroom;
     }
     if (c.contains('مطعم') ||
         c.contains('برجر') ||
         c.contains('وجبات') ||
         c.contains('ساندويش') ||
         c.contains('ساندويتش')) {
-      return Icons.lunch_dining_outlined;
+      return Icons.restaurant;
     }
-    if (c.contains('بيتزا')) return Icons.local_pizza_outlined;
-    if (c.contains('دجاج')) return Icons.set_meal_outlined;
+    if (c.contains('بيتزا')) return Icons.local_pizza;
+    if (c.contains('دجاج')) return Icons.set_meal;
     if (c.contains('بقال') || c.contains('سوبر') || c.contains('ماركت')) {
-      return Icons.local_grocery_store_outlined;
+      return Icons.local_grocery_store;
     }
-    if (c.contains('صيدل')) return Icons.local_pharmacy_outlined;
-    if (c.contains('إلكترون') || c.contains('الكترون')) return Icons.devices_outlined;
-    if (c.contains('ورد') || c.contains('زهور')) return Icons.local_florist_outlined;
-    if (c.contains('هدايا') || c.contains('هدية')) return Icons.redeem_outlined;
-    if (c.contains('مكتبة') || c.contains('كتب')) return Icons.menu_book_outlined;
-    if (c.contains('ألعاب') || c.contains('العاب')) return Icons.toys_outlined;
-    if (c.contains('موبايل') || c.contains('هواتف')) return Icons.smartphone_outlined;
-    if (c.contains('رياضة') || c.contains('رياضي')) return Icons.sports_soccer_outlined;
+    if (c.contains('صيدل')) return Icons.local_pharmacy;
+    if (c.contains('إلكترون') || c.contains('الكترون')) return Icons.devices;
+    if (c.contains('ورد') || c.contains('زهور')) return Icons.local_florist;
+    if (c.contains('هدايا') || c.contains('هدية')) return Icons.redeem;
+    if (c.contains('مكتبة') || c.contains('كتب')) return Icons.menu_book;
+    if (c.contains('ألعاب') || c.contains('العاب')) return Icons.toys;
+    if (c.contains('موبايل') || c.contains('هواتف')) return Icons.smartphone;
+    if (c.contains('رياضة') || c.contains('رياضي')) return Icons.sports_soccer;
 
-    return Icons.storefront_outlined;
+    return Icons.storefront;
   }
 
   Widget _topHeader() {
@@ -237,7 +237,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         child: Row(
           children: [
             _headerAction(
-              icon: _showSearch ? Icons.close_rounded : Icons.search_rounded,
+              icon: _showSearch ? Icons.close_rounded : Icons.search,
               tooltip: _showSearch ? 'إغلاق البحث' : 'بحث',
               onTap: _toggleSearch,
             ),
@@ -299,7 +299,13 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
             message: tooltip,
             child: SizedBox.square(
               dimension: 54,
-              child: Icon(icon, color: Colors.white, size: 27),
+              child: Center(
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 29,
+                ),
+              ),
             ),
           ),
         ),
@@ -323,7 +329,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   onSubmitted: (_) => _load(),
                   decoration: InputDecoration(
                     hintText: 'ابحث عن متجر، مطعم، أو اسم صنف...',
-                    prefixIcon: const Icon(Icons.search_rounded),
+                    prefixIcon: const Icon(Icons.search),
                     suffixIcon: _search.text.isEmpty
                         ? null
                         : IconButton(
@@ -381,12 +387,18 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                 children: ['الكل', ..._categories].toSet().map((c) => Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: ChoiceChip(
-                    avatar: Icon(
-                      _categoryIcon(c),
-                      size: 18,
-                      color: c == _category ? Colors.white : YallaColors.primary,
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _categoryIcon(c),
+                          size: 18,
+                          color: c == _category ? Colors.white : YallaColors.primary,
+                        ),
+                        const SizedBox(width: 7),
+                        Text(c),
+                      ],
                     ),
-                    label: Text(c),
                     selected: c == _category,
                     onSelected: (_) { setState(() => _category = c); _load(); },
                     showCheckmark: false,
