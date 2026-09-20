@@ -427,19 +427,25 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Container(
-                      color: Colors.white,
-                      padding: const EdgeInsets.all(8),
-                      child: r.fullImageUrl == null
-                          ? const Icon(Icons.storefront_rounded, size: 42, color: Color(0xFF9AA0AA))
-                          : WebSafeNetworkImage(
-                              url: r.fullImageUrl!,
-                              fit: BoxFit.contain,
-                              cacheWidth: 900,
-                              placeholderBuilder: (_) => const SizedBox.shrink(),
-                              errorBuilder: (_) => const Icon(Icons.storefront_rounded, size: 42, color: Color(0xFF9AA0AA)),
+                    r.fullImageUrl == null
+                        ? ColoredBox(
+                            color: YallaColors.surfaceContainer,
+                            child: const Center(
+                              child: Icon(Icons.storefront_rounded, size: 42, color: Color(0xFF9AA0AA)),
                             ),
-                    ),
+                          )
+                        : WebSafeNetworkImage(
+                            url: r.fullImageUrl!,
+                            fit: BoxFit.cover,
+                            cacheWidth: 900,
+                            placeholderBuilder: (_) => const SizedBox.shrink(),
+                            errorBuilder: (_) => ColoredBox(
+                              color: YallaColors.surfaceContainer,
+                              child: const Center(
+                                child: Icon(Icons.storefront_rounded, size: 42, color: Color(0xFF9AA0AA)),
+                              ),
+                            ),
+                          ),
                     PositionedDirectional(
                       top: 10,
                       end: 10,
@@ -491,7 +497,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
       );
 
   Widget _metricPill(IconData icon, String label) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
           color: YallaColors.surfaceContainer,
           borderRadius: BorderRadius.circular(10),
@@ -507,7 +513,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
       );
 
   Widget _card(Restaurant r) => Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(22),
@@ -528,36 +534,42 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           child: InkWell(
             onTap: () => _open(r),
             child: SizedBox(
-              height: 132,
+              height: 116,
               child: Row(
                 textDirection: TextDirection.rtl,
                 children: [
-                  Expanded(
-                    flex: 48,
+                  AspectRatio(
+                    aspectRatio: 4 / 3,
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Container(
-                          color: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          child: r.fullImageUrl == null
-                              ? const Icon(
-                                  Icons.storefront_rounded,
-                                  size: 42,
-                                  color: Color(0xFF9AA0AA),
-                                )
-                              : WebSafeNetworkImage(
-                                  url: r.fullImageUrl!,
-                                  fit: BoxFit.contain,
-                                  cacheWidth: 900,
-                                  placeholderBuilder: (_) => const SizedBox.shrink(),
-                                  errorBuilder: (_) => const Icon(
+                        r.fullImageUrl == null
+                            ? ColoredBox(
+                                color: YallaColors.surfaceContainer,
+                                child: const Center(
+                                  child: Icon(
                                     Icons.storefront_rounded,
-                                    size: 42,
+                                    size: 38,
                                     color: Color(0xFF9AA0AA),
                                   ),
                                 ),
-                        ),
+                              )
+                            : WebSafeNetworkImage(
+                                url: r.fullImageUrl!,
+                                fit: BoxFit.cover,
+                                cacheWidth: 720,
+                                placeholderBuilder: (_) => const SizedBox.shrink(),
+                                errorBuilder: (_) => ColoredBox(
+                                  color: YallaColors.surfaceContainer,
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.storefront_rounded,
+                                      size: 38,
+                                      color: Color(0xFF9AA0AA),
+                                    ),
+                                  ),
+                                ),
+                              ),
                         PositionedDirectional(
                           top: 8,
                           start: 8,
@@ -592,9 +604,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                     ),
                   ),
                   Expanded(
-                    flex: 52,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 11, 14, 10),
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
