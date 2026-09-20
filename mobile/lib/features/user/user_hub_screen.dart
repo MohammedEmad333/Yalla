@@ -38,8 +38,8 @@ class UserHubScreen extends StatelessWidget {
             Card(
               child: ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.card_giftcard_outlined)),
-                title: const Text('النقاط والإحالات والشكاوى'),
-                subtitle: const Text('تابع نقاط Yalla، استخدم رمز إحالة، وقدّم مشكلة أو طلب استرداد لطلب سابق.'),
+                title: const Text('النقاط والدعوات والشكاوى'),
+                subtitle: const Text('تابع نقاط Yalla، استخدم رمز دعوة، وقدّم مشكلة أو طلب استرداد لطلب سابق.'),
                 trailing: const Icon(Icons.chevron_left),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RewardsIssuesScreen(api: api))),
               ),

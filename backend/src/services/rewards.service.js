@@ -26,7 +26,7 @@ async function ensureReferralCode(user) {
       return code;
     }
   }
-  throw httpError('تعذّر إنشاء رمز إحالة');
+  throw httpError('تعذّر إنشاء رمز دعوة');
 }
 
 async function hasCompletedOrder(userId) {
@@ -84,11 +84,11 @@ async function getRewards(userId) {
 async function applyReferral(userId, code) {
   const user = await User.findById(userId);
   if (!user) throw httpError('المستخدم غير موجود', 404);
-  if (user.referredBy) throw httpError('تم استخدام رمز إحالة سابقًا');
+  if (user.referredBy) throw httpError('تم استخدام رمز دعوة سابقًا');
 
   const normalized = String(code || '').trim().toUpperCase();
   const inviter = await User.findOne({ referralCode: normalized, _id: { $ne: user._id }, role: 'user', isActive: true });
-  if (!inviter) throw httpError('رمز الإحالة غير صالح', 404);
+  if (!inviter) throw httpError('رمز الدعوة غير صالح', 404);
 
   user.referredBy = inviter._id;
   user.referralRewarded = false;
