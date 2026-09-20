@@ -27,30 +27,15 @@ import { IconPlus, IconStore, IconTrash } from '../components/icons';
 const imageSrc = (url) => (url ? (url.startsWith('http') ? url : `${API}${url}`) : '');
 
 const RESTAURANT_COVER = Object.freeze({
-  width: 1200,
+  width: 1500,
   height: 900,
-  ratio: '4:3',
+  ratio: '5:3',
 });
 
 async function validateRestaurantCover(file) {
   const accepted = new Set(['image/jpeg', 'image/png', 'image/webp']);
   if (!file || !accepted.has(file.type)) {
     throw new Error('صورة المتجر يجب أن تكون JPG أو PNG أو WebP');
-  }
-
-  let bitmap;
-  try {
-    bitmap = await createImageBitmap(file);
-    if (bitmap.width !== RESTAURANT_COVER.width || bitmap.height !== RESTAURANT_COVER.height) {
-      throw new Error(
-        `مقاس صورة المتجر يجب أن يكون ${RESTAURANT_COVER.width}×${RESTAURANT_COVER.height} بكسل (${RESTAURANT_COVER.ratio}) بالضبط`
-      );
-    }
-  } catch (error) {
-    if (error?.message?.includes('مقاس صورة المتجر')) throw error;
-    throw new Error('تعذّر قراءة أبعاد الصورة. استخدم JPG أو PNG أو WebP بمقاس 1200×900 بكسل');
-  } finally {
-    bitmap?.close?.();
   }
 }
 
@@ -512,7 +497,7 @@ export default function Restaurants() {
               <div className="yl-restaurant-form__wide">
                 <Field
                   label="صورة الغلاف"
-                  hint={selected ? 'المقاس المطلوب فقط: 1200×900 بكسل (4:3) — JPG / PNG / WebP' : 'احفظ المطعم أولًا، ثم ارفع صورة 1200×900 بكسل'}
+                  hint={selected ? `المقاس المقترح: ${RESTAURANT_COVER.width}×${RESTAURANT_COVER.height} بكسل (${RESTAURANT_COVER.ratio}) — JPG / PNG / WebP` : `احفظ المطعم أولًا، ثم ارفع صورة. المقاس المقترح ${RESTAURANT_COVER.width}×${RESTAURANT_COVER.height} بكسل (${RESTAURANT_COVER.ratio})`}
                 >
                 <div className="yl-row yl-restaurant-cover">
                   {imageSrc(form.imageUrl) ? (
