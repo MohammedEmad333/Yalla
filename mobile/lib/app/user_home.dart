@@ -1,4 +1,4 @@
-// الشاشة الرئيسية لتطبيق المستخدم — تنقّل سفلي بين الشاشات.
+// الشاشة الرئيسية لتطبيق المستخدم — تنقّل سفلي على الجوال وجانبي على الديسكتوب.
 
 import 'package:flutter/material.dart';
 
@@ -25,6 +25,24 @@ class UserHome extends StatefulWidget {
 class _UserHomeState extends State<UserHome> {
   int _index = 0;
 
+  static const _labels = ['طلب', 'المتاجر', 'طلباتي', 'محفوظاتي', 'المحفظة', 'حسابي'];
+  static const _icons = [
+    Icons.add_location_alt_outlined,
+    Icons.storefront_outlined,
+    Icons.receipt_long_outlined,
+    Icons.bookmarks_outlined,
+    Icons.account_balance_wallet_outlined,
+    Icons.person_outline,
+  ];
+  static const _selectedIcons = [
+    Icons.add_location_alt,
+    Icons.storefront,
+    Icons.receipt_long,
+    Icons.bookmarks,
+    Icons.account_balance_wallet,
+    Icons.person,
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -40,31 +58,86 @@ class _UserHomeState extends State<UserHome> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final pages = [
-      CreateOrderScreen(api: widget.api),
-      RestaurantsScreen(api: widget.api),
-      MyOrdersScreen(api: widget.api, socket: widget.socket),
-      UserHubScreen(api: widget.api),
-      WalletScreen(api: widget.api, socket: widget.socket),
-      ProfileScreen(api: widget.api, socket: widget.socket, onLogout: widget.onLogout),
-    ];
+  List<Widget> _pages() => [
+        CreateOrderScreen(api: widget.api),
+        RestaurantsScreen(api: widget.api),
+        MyOrdersScreen(api: widget.api, socket: widget.socket),
+        UserHubScreen(api: widget.api),
+        WalletScreen(api: widget.api, socket: widget.socket),
+        ProfileScreen(api: widget.api, socket: widget.socket, onLogout: widget.onLogout),
+      ];
 
+  Widget _desktop(List<Widget> pages) {
+    return Scaffold(
+      body: Row(
+        children: [
+          SafeArea(
+            child: NavigationRail(
+              minWidth: 88,
+              minExtendedWidth: 220,
+              extended: true,
+              selectedIndex: _index,
+              onDestinationSelected: (i) => setState(() => _index = i),
+              leading: const Padding(
+                padding: EdgeInsets.fromLTRB(16, 18, 16, 24),
+                child: Text(
+                  'Yalla',
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+                ),
+              ),
+              destinations: List.generate(
+                _labels.length,
+                (i) => NavigationRailDestination(
+                  icon: Icon(_icons[i]),
+                  selectedIcon: Icon(_selectedIcons[i]),
+                  label: Text(_labels[i]),
+                ),
+              ),
+            ),
+          ),
+          const VerticalDivider(width: 1),
+          Expanded(
+            child: ColoredBox(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1440),
+                  child: IndexedStack(index: _index, children: pages),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mobile(List<Widget> pages) {
     return Scaffold(
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.add_location_alt), label: 'طلب'),
-          NavigationDestination(icon: Icon(Icons.storefront), label: 'المتاجر'),
-          NavigationDestination(icon: Icon(Icons.receipt_long), label: 'طلباتي'),
-          NavigationDestination(icon: Icon(Icons.bookmarks_outlined), label: 'محفوظاتي'),
-          NavigationDestination(icon: Icon(Icons.account_balance_wallet), label: 'المحفظة'),
-          NavigationDestination(icon: Icon(Icons.person), label: 'حسابي'),
-        ],
+        destinations: List.generate(
+          _labels.length,
+          (i) => NavigationDestination(
+            icon: Icon(_icons[i]),
+            selectedIcon: Icon(_selectedIcons[i]),
+            label: _labels[i],
+          ),
+        ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = _pages();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return constraints.maxWidth >= 1000 ? _desktop(pages) : _mobile(pages);
+      },
     );
   }
 }
