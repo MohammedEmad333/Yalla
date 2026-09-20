@@ -14,6 +14,7 @@ import '../features/support/support_screen.dart';
 import '../features/user/user_hub_screen.dart';
 import '../core/util/vehicles.dart';
 import '../core/widgets/ui.dart';
+import '../core/theme/app_theme.dart';
 import '../core/theme/theme_controller.dart';
 import '../main.dart' show themeController;
 
