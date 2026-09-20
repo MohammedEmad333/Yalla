@@ -1,0 +1,9 @@
+# Cloudflare Worker for the Yalla customer web app.
+# Custom domain after deployment: app.yalladelivery.org
+
+name = "yalla-app"
+compatibility_date = "2026-09-20"
+
+[assets]
+directory = "./web-app"
+not_found_handling = "single-page-application"
