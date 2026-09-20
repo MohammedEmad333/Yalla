@@ -167,46 +167,48 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   IconData _categoryIcon(String category) {
     final c = category.trim().toLowerCase();
 
-    if (c == 'الكل') return Icons.grid_view_rounded;
-
-    if (c.contains('حلويات')) return Icons.cake;
-    if (c.contains('مخبوز') || c.contains('معجن')) return Icons.bakery_dining;
+    if (c == 'الكل') return Icons.apps;
+    if (c.contains('حلويات') || c.contains('مخبوز') || c.contains('معجن')) {
+      return Icons.cake;
+    }
     if (c.contains('كافي') || c.contains('قهوة') || c.contains('مشروب')) {
       return Icons.local_cafe;
     }
-    if (c.contains('كوزمتكس') ||
-        c.contains('كوزمتيكس') ||
+    if (c.contains('ملابس') || c.contains('ألبسة') || c.contains('البسة')) {
+      return Icons.shopping_bag;
+    }
+    if (c.contains('كوزمت') ||
         c.contains('مكياج') ||
         c.contains('تجميل') ||
-        c.contains('عناية')) {
-      return Icons.face_retouching_natural;
-    }
-    if (c.contains('عطور') || c.contains('عطر')) return Icons.auto_awesome;
-    if (c.contains('ملابس') || c.contains('ألبسة') || c.contains('البسة')) {
-      return Icons.checkroom;
+        c.contains('عناية') ||
+        c.contains('عطر')) {
+      return Icons.auto_awesome;
     }
     if (c.contains('مطعم') ||
-        c.contains('برجر') ||
         c.contains('وجبات') ||
-        c.contains('ساندويش') ||
-        c.contains('ساندويتش')) {
+        c.contains('برجر') ||
+        c.contains('بيتزا') ||
+        c.contains('دجاج')) {
       return Icons.restaurant;
     }
-    if (c.contains('بيتزا')) return Icons.local_pizza;
-    if (c.contains('دجاج')) return Icons.set_meal;
     if (c.contains('بقال') || c.contains('سوبر') || c.contains('ماركت')) {
-      return Icons.local_grocery_store;
+      return Icons.shopping_cart;
     }
-    if (c.contains('صيدل')) return Icons.local_pharmacy;
-    if (c.contains('إلكترون') || c.contains('الكترون')) return Icons.devices;
-    if (c.contains('ورد') || c.contains('زهور')) return Icons.local_florist;
-    if (c.contains('هدايا') || c.contains('هدية')) return Icons.redeem;
-    if (c.contains('مكتبة') || c.contains('كتب')) return Icons.menu_book;
-    if (c.contains('ألعاب') || c.contains('العاب')) return Icons.toys;
-    if (c.contains('موبايل') || c.contains('هواتف')) return Icons.smartphone;
+    if (c.contains('صيدل')) return Icons.local_hospital;
+    if (c.contains('إلكترون') ||
+        c.contains('الكترون') ||
+        c.contains('موبايل') ||
+        c.contains('هواتف')) {
+      return Icons.phone_android;
+    }
+    if (c.contains('ورد') || c.contains('زهور') || c.contains('هدايا')) {
+      return Icons.card_giftcard;
+    }
+    if (c.contains('كتب') || c.contains('مكتبة')) return Icons.menu_book;
+    if (c.contains('ألعاب') || c.contains('العاب')) return Icons.sports_esports;
     if (c.contains('رياضة') || c.contains('رياضي')) return Icons.sports_soccer;
 
-    return Icons.storefront;
+    return Icons.store;
   }
 
   Widget _topHeader() {
@@ -389,11 +391,20 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   child: ChoiceChip(
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
+                      textDirection: TextDirection.ltr,
                       children: [
-                        Icon(
-                          _categoryIcon(c),
-                          size: 18,
-                          color: c == _category ? Colors.white : YallaColors.primary,
+                        SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: Center(
+                            child: Icon(
+                              _categoryIcon(c),
+                              size: 19,
+                              color: c == _category
+                                  ? Colors.white
+                                  : YallaColors.primary,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 7),
                         Text(c),
