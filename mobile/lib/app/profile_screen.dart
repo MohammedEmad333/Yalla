@@ -176,6 +176,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _openExternal(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      _snack('تعذّر فتح الرابط');
+    }
+  }
+
   void _snack(String m) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
@@ -193,172 +200,292 @@ class _ProfileScreenState extends State<ProfileScreen> {
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
                 children: [
-                  Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: IconButton.filledTonal(
-                      tooltip: 'تعديل البيانات',
-                      onPressed: _loading ? null : _editProfile,
-                      icon: const Icon(Icons.edit_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Center(
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 48,
-                          backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
-                          child: _avatarUrl == null ? const Icon(Icons.person, size: 48) : null,
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: CircleAvatar(
-                            radius: 16,
-                            child: IconButton(
-                              iconSize: 16,
-                              padding: EdgeInsets.zero,
-                              icon: _saving
-                                  ? const SizedBox(
-                                      width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                                  : const Icon(Icons.camera_alt),
-                              onPressed: _saving ? null : _changeAvatar,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: Text(fullName.isEmpty ? '—' : fullName,
-                        style: Theme.of(context).textTheme.titleLarge),
-                  ),
-                  const SizedBox(height: 24),
+                  _profileHeader(fullName),
+                  const SizedBox(height: 14),
 
-                  _infoTile(Icons.phone, 'رقم الجوال', _me['phone']),
-                  if (!_isCaptain) ...[
-                    _infoTile(Icons.email, 'البريد الإلكتروني', _me['email']),
-                    _infoTile(Icons.location_city, 'المدينة', _me['city']),
-                  ] else ...[
-                    _infoTile(Icons.two_wheeler, 'نوع المركبة', vehicleLabel(_me['vehicleType'])),
-                    _infoTile(Icons.confirmation_number, 'رقم اللوحة', _me['vehiclePlate']),
-                    _infoTile(Icons.star, 'التقييم', '${_me['rating'] ?? '—'}'),
-                  ],
-
-                  const Divider(height: 32),
+                  _sectionTitle('بيانات الحساب'),
+                  _sectionCard([
+                    _infoTile(Icons.phone_outlined, 'رقم الجوال', _me['phone']),
+                    if (!_isCaptain) ...[
+                      _infoTile(Icons.email_outlined, 'البريد الإلكتروني', _me['email']),
+                      _infoTile(Icons.location_city_outlined, 'المدينة', _me['city']),
+                    ] else ...[
+                      _infoTile(Icons.two_wheeler_outlined, 'نوع المركبة', vehicleLabel(_me['vehicleType'])),
+                      _infoTile(Icons.confirmation_number_outlined, 'رقم اللوحة', _me['vehiclePlate']),
+                      _infoTile(Icons.star_outline_rounded, 'التقييم', '${_me['rating'] ?? '—'}'),
+                    ],
+                  ]),
 
                   if (!_isCaptain && widget.socket != null) ...[
-                    ListTile(
-                      leading: const Icon(Icons.bookmarks_outlined),
-                      title: const Text('محفوظاتي'),
-                      subtitle: const Text('العناوين، المتاجر المفضلة، العروض والنقاط'),
-                      trailing: const Icon(Icons.chevron_left),
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => UserHubScreen(api: widget.api),
-                      )),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.notifications_outlined),
-                      title: const Text('الإشعارات'),
-                      trailing: const Icon(Icons.chevron_left),
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => NotificationsScreen(api: widget.api, socket: widget.socket!),
-                      )),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.support_agent_outlined),
-                      title: const Text('الدعم'),
-                      trailing: const Icon(Icons.chevron_left),
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => SupportScreen(api: widget.api, socket: widget.socket!),
-                      )),
-                    ),
-                    const Divider(height: 32),
+                    const SizedBox(height: 18),
+                    _sectionTitle('حسابي وخدماتي'),
+                    _sectionCard([
+                      _actionTile(
+                        icon: Icons.bookmarks_outlined,
+                        title: 'محفوظاتي',
+                        subtitle: 'العناوين، المفضلة، العروض والنقاط',
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => UserHubScreen(api: widget.api),
+                        )),
+                      ),
+                      _actionTile(
+                        icon: Icons.notifications_outlined,
+                        title: 'الإشعارات',
+                        subtitle: 'تابع تحديثات الطلبات والحساب',
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => NotificationsScreen(api: widget.api, socket: widget.socket!),
+                        )),
+                      ),
+                      _actionTile(
+                        icon: Icons.support_agent_outlined,
+                        title: 'الدعم',
+                        subtitle: 'تواصل معنا عند وجود مشكلة',
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => SupportScreen(api: widget.api, socket: widget.socket!),
+                        )),
+                      ),
+                    ]),
                   ],
 
-                  // وضع العرض: فاتح / ليلي / حسب النظام (يُحفظ على الجهاز)
-                  ValueListenableBuilder<ThemeMode>(
-                    valueListenable: themeController.mode,
-                    builder: (context, mode, _) => ListTile(
-                      leading: Icon(themeModeIcon(mode)),
-                      title: const Text('المظهر'),
-                      subtitle: Text(themeModeLabel(mode)),
-                      trailing: SegmentedButton<ThemeMode>(
-                        showSelectedIcon: false,
-                        style: SegmentedButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                  const SizedBox(height: 18),
+                  _sectionTitle('الإعدادات والأمان'),
+                  _sectionCard([
+                    ValueListenableBuilder<ThemeMode>(
+                      valueListenable: themeController.mode,
+                      builder: (context, mode, _) => ListTile(
+                        leading: _leadingIcon(themeModeIcon(mode)),
+                        title: const Text('المظهر', style: TextStyle(fontWeight: FontWeight.w800)),
+                        subtitle: Text(themeModeLabel(mode)),
+                        trailing: SegmentedButton<ThemeMode>(
+                          showSelectedIcon: false,
+                          style: SegmentedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          segments: const [
+                            ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode_outlined, size: 17)),
+                            ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto_outlined, size: 17)),
+                            ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode_outlined, size: 17)),
+                          ],
+                          selected: {mode},
+                          onSelectionChanged: (s) => themeController.set(s.first),
                         ),
-                        segments: const [
-                          ButtonSegment(
-                            value: ThemeMode.light,
-                            icon: Icon(Icons.light_mode_outlined, size: 18),
-                            tooltip: 'فاتح',
-                          ),
-                          ButtonSegment(
-                            value: ThemeMode.system,
-                            icon: Icon(Icons.brightness_auto_outlined, size: 18),
-                            tooltip: 'حسب النظام',
-                          ),
-                          ButtonSegment(
-                            value: ThemeMode.dark,
-                            icon: Icon(Icons.dark_mode_outlined, size: 18),
-                            tooltip: 'ليلي',
-                          ),
-                        ],
-                        selected: {mode},
-                        onSelectionChanged: (s) => themeController.set(s.first),
                       ),
                     ),
-                  ),
+                    _actionTile(
+                      icon: Icons.lock_outline_rounded,
+                      title: 'تغيير كلمة السر',
+                      subtitle: 'حدّث كلمة السر الخاصة بحسابك',
+                      onTap: _saving ? null : _changePassword,
+                    ),
+                  ]),
 
-                  // تغيير كلمة سر الحساب (Card 72)
-                  ListTile(
-                    leading: const Icon(Icons.lock_outline),
-                    title: const Text('تغيير كلمة السر'),
-                    trailing: const Icon(Icons.chevron_left, size: 18),
-                    onTap: _saving ? null : _changePassword,
-                  ),
+                  const SizedBox(height: 18),
+                  _sectionTitle('Yalla والخصوصية'),
+                  _sectionCard([
+                    _actionTile(
+                      icon: Icons.language_rounded,
+                      title: 'موقع Yalla الرسمي',
+                      subtitle: 'yalladelivery.org',
+                      external: true,
+                      onTap: () => _openExternal('https://yalladelivery.org'),
+                    ),
+                    _actionTile(
+                      icon: Icons.privacy_tip_outlined,
+                      title: 'سياسة الخصوصية',
+                      subtitle: 'كيف نتعامل مع بياناتك ونحميها',
+                      external: true,
+                      onTap: () => _openExternal('https://yalladelivery.org/privacy.html'),
+                    ),
+                    _actionTile(
+                      icon: Icons.manage_accounts_outlined,
+                      title: 'حذف الحساب والبيانات',
+                      subtitle: 'معلومات وخيارات حذف الحساب',
+                      external: true,
+                      onTap: () => _openExternal('https://yalladelivery.org/delete-account.html'),
+                    ),
+                  ]),
 
-                  // تواصل عبر واتس اب الشركة (Card 43)
-                  ListTile(
-                    leading: const Icon(Icons.chat, color: Color(0xFF25D366)),
-                    title: const Text('تواصل عبر واتس اب'),
-                    subtitle: const Text('+${Company.whatsappNumber}'),
-                    trailing: const Icon(Icons.open_in_new, size: 18),
-                    onTap: _openWhatsapp,
-                  ),
+                  const SizedBox(height: 18),
+                  _sectionTitle('التواصل'),
+                  _sectionCard([
+                    _actionTile(
+                      icon: Icons.chat_outlined,
+                      iconColor: const Color(0xFF25D366),
+                      title: 'تواصل عبر واتس اب',
+                      subtitle: '+${Company.whatsappNumber}',
+                      external: true,
+                      onTap: _openWhatsapp,
+                    ),
+                  ]),
 
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                    onPressed: widget.onLogout,
-                    icon: const Icon(Icons.logout),
-                    label: const Text('تسجيل الخروج'),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50),
+                        foregroundColor: Colors.red,
+                      ),
+                      onPressed: widget.onLogout,
+                      icon: const Icon(Icons.logout_rounded),
+                      label: const Text('تسجيل الخروج'),
+                    ),
                   ),
-
-                  const SizedBox(height: 8),
-                  // حذف الحساب نهائيًا (متطلّب Google Play)
+                  const SizedBox(height: 6),
                   TextButton.icon(
                     style: TextButton.styleFrom(foregroundColor: Colors.red),
                     onPressed: _saving ? null : _deleteAccount,
-                    icon: const Icon(Icons.delete_forever),
-                    label: const Text('حذف الحساب'),
+                    icon: const Icon(Icons.delete_forever_outlined),
+                    label: const Text('حذف الحساب نهائيًا'),
+                  ),
+                ],
+              )            ),
+    );
+  }
+
+  Widget _profileHeader(String fullName) => Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: .75),
+          ),
+        ),
+        child: Row(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                CircleAvatar(
+                  radius: 38,
+                  backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
+                  child: _avatarUrl == null ? const Icon(Icons.person_rounded, size: 38) : null,
+                ),
+                Positioned(
+                  bottom: -2,
+                  right: -2,
+                  child: Material(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      tooltip: 'تغيير الصورة',
+                      iconSize: 17,
+                      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                      padding: EdgeInsets.zero,
+                      onPressed: _saving ? null : _changeAvatar,
+                      icon: _saving
+                          ? const SizedBox.square(
+                              dimension: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.camera_alt_outlined),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    fullName.isEmpty ? 'حساب Yalla' : fullName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _isCaptain ? 'حساب كابتن' : 'حساب مستخدم',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
             ),
-    );
-  }
+            IconButton.filledTonal(
+              tooltip: 'تعديل البيانات',
+              onPressed: _saving ? null : _editProfile,
+              icon: const Icon(Icons.edit_outlined),
+            ),
+          ],
+        ),
+      );
+
+  Widget _sectionTitle(String title) => Padding(
+        padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
+        child: Text(
+          title,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+      );
+
+  Widget _sectionCard(List<Widget> children) => Card(
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              children[i],
+              if (i != children.length - 1)
+                Divider(
+                  height: 1,
+                  indent: 64,
+                  color: Theme.of(context).dividerColor.withValues(alpha: .45),
+                ),
+            ],
+          ],
+        ),
+      );
+
+  Widget _leadingIcon(IconData icon, {Color? color}) => Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: (color ?? Theme.of(context).colorScheme.primary).withValues(alpha: .10),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          icon,
+          size: 20,
+          color: color ?? Theme.of(context).colorScheme.primary,
+        ),
+      );
+
+  Widget _actionTile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    Color? iconColor,
+    bool external = false,
+    VoidCallback? onTap,
+  }) =>
+      ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
+        leading: _leadingIcon(icon, color: iconColor),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+        subtitle: subtitle == null ? null : Text(subtitle),
+        trailing: Icon(external ? Icons.open_in_new_rounded : Icons.chevron_left_rounded, size: 19),
+        onTap: onTap,
+      );
 
   Widget _infoTile(IconData icon, String label, dynamic value) {
     final v = (value ?? '').toString().trim();
     return ListTile(
-      leading: Icon(icon),
-      title: Text(label),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+      leading: _leadingIcon(icon),
+      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
       subtitle: Text(v.isEmpty ? '—' : v),
       dense: true,
     );
