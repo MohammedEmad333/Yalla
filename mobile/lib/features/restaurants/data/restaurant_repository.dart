@@ -94,8 +94,8 @@ class Restaurant {
   }
 
   String? get fullImageUrl {
-    if (imageUrl.isEmpty) return null;
-    return imageUrl.startsWith('http') ? imageUrl : '${AppConfig.origin}$imageUrl';
+    final url = AppConfig.imageUrl(imageUrl);
+    return url.isEmpty ? null : url;
   }
 
   static int? _minutes(String value) {
@@ -262,8 +262,8 @@ class MenuItemModel {
       );
 
   String? get fullImageUrl {
-    if (imageUrl.isEmpty) return null;
-    return imageUrl.startsWith('http') ? imageUrl : '${AppConfig.origin}$imageUrl';
+    final url = AppConfig.imageUrl(imageUrl);
+    return url.isEmpty ? null : url;
   }
 }
 

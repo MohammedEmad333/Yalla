@@ -25,4 +25,20 @@ class AppConfig {
       _apiOrigin == '' ? 'http://$apiHost:$apiPort' : _apiOrigin;
   // جذر الـ REST API
   static const String apiBaseUrl = '$origin/api';
+
+  /// يبني رابط صورة صالحًا للتطبيق والويب.
+  ///
+  /// بعض السجلات القديمة قد تحتوي روابط http مطلقة. عند نشر التطبيق نفسه عبر
+  /// HTTPS يمنع المتصفح هذه الصور كـ mixed content، لذلك نرفع السكيمة إلى HTTPS
+  /// في بيئة HTTPS. الروابط النسبية تبقى على نفس أصل الـ API.
+  static String imageUrl(String? value) {
+    final raw = (value ?? '').trim();
+    if (raw.isEmpty) return '';
+    if (raw.startsWith('http://')) {
+      return origin.startsWith('https://') ? 'https://${raw.substring(7)}' : raw;
+    }
+    if (raw.startsWith('https://')) return raw;
+    if (raw.startsWith('/')) return '$origin$raw';
+    return '$origin/$raw';
+  }
 }
