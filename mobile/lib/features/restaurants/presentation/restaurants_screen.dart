@@ -278,26 +278,28 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                       placeholderBuilder: (_) => const SizedBox.shrink(),
                                       errorBuilder: (_) => const SizedBox.shrink(),
                                     ),
-                                  DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Colors.black.withValues(alpha: imageUrl.isEmpty ? .04 : .08),
-                                          Colors.black.withValues(alpha: imageUrl.isEmpty ? .20 : .68),
-                                        ],
+                                  if (imageUrl.isEmpty)
+                                    DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [
+                                            Colors.black.withValues(alpha: .04),
+                                            Colors.black.withValues(alpha: .24),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  ),
                                   PositionedDirectional(
-                                    top: 12,
-                                    start: 12,
+                                    top: 10,
+                                    end: 10,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                                       decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: .48),
+                                        color: Colors.black.withValues(alpha: .58),
                                         borderRadius: BorderRadius.circular(999),
+                                        border: Border.all(color: Colors.white24),
                                       ),
                                       child: const Text(
                                         'إعلان',
@@ -305,57 +307,63 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                       ),
                                     ),
                                   ),
-                                  PositionedDirectional(
-                                    start: 16,
-                                    end: 16,
-                                    bottom: 13,
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                b['title']?.toString() ?? '',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.w900,
-                                                  shadows: [Shadow(color: Colors.black45, blurRadius: 8)],
-                                                ),
+                                  if (imageUrl.isEmpty)
+                                    PositionedDirectional(
+                                      start: 16,
+                                      end: 16,
+                                      bottom: 13,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            b['title']?.toString() ?? '',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w900,
+                                              shadows: [Shadow(color: Colors.black45, blurRadius: 8)],
+                                            ),
+                                          ),
+                                          if (subtitle.isNotEmpty) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              subtitle,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w600,
                                               ),
-                                              if (subtitle.isNotEmpty) ...[
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  subtitle,
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: const TextStyle(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w600),
-                                                ),
-                                              ],
-                                            ],
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  if (coupon.isNotEmpty)
+                                    PositionedDirectional(
+                                      start: 14,
+                                      bottom: 12,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: .94),
+                                          borderRadius: BorderRadius.circular(11),
+                                          border: Border.all(color: Colors.white),
+                                        ),
+                                        child: Text(
+                                          coupon,
+                                          style: TextStyle(
+                                            color: YallaColors.primary,
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w900,
                                           ),
                                         ),
-                                        if (coupon.isNotEmpty)
-                                          Container(
-                                            margin: const EdgeInsetsDirectional.only(start: 8),
-                                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withValues(alpha: .92),
-                                              borderRadius: BorderRadius.circular(10),
-                                            ),
-                                            child: Text(
-                                              coupon,
-                                              style: TextStyle(color: YallaColors.primary, fontSize: 11.5, fontWeight: FontWeight.w900),
-                                            ),
-                                          ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -576,9 +584,13 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
             children: [
               Icon(icon, size: 14, color: YallaColors.primary),
               const SizedBox(width: 4),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11.2, fontWeight: FontWeight.w800),
+                ),
               ),
             ],
           ),
@@ -713,16 +725,23 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             ),
                           ),
                           const Spacer(),
-                          Wrap(
-                            spacing: 7,
-                            runSpacing: 6,
+                          Row(
                             children: [
                               if (r.prepMinutes > 0)
-                                _metricPill(Icons.schedule_rounded, '${r.prepMinutes} دقيقة'),
+                                Flexible(
+                                  child: _metricPill(
+                                    Icons.schedule_rounded,
+                                    '${r.prepMinutes} دقيقة',
+                                  ),
+                                ),
+                              if (r.prepMinutes > 0 && r.minOrder > 0)
+                                const SizedBox(width: 6),
                               if (r.minOrder > 0)
-                                _metricPill(
-                                  Icons.shopping_bag_outlined,
-                                  'الحد الأدنى ${r.minOrder} ₪',
+                                Flexible(
+                                  child: _metricPill(
+                                    Icons.shopping_bag_outlined,
+                                    '${r.minOrder} ₪ حد أدنى',
+                                  ),
                                 ),
                             ],
                           ),
