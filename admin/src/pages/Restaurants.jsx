@@ -26,6 +26,34 @@ import { IconPlus, IconStore, IconTrash } from '../components/icons';
 // للمسار النسبيّ (تمامًا كما في صفحة المستخدمين)، ونترك الروابط الخارجيّة كما هي.
 const imageSrc = (url) => (url ? (url.startsWith('http') ? url : `${API}${url}`) : '');
 
+const RESTAURANT_COVER = Object.freeze({
+  width: 1200,
+  height: 900,
+  ratio: '4:3',
+});
+
+async function validateRestaurantCover(file) {
+  const accepted = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  if (!file || !accepted.has(file.type)) {
+    throw new Error('صورة المتجر يجب أن تكون JPG أو PNG أو WebP');
+  }
+
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+    if (bitmap.width !== RESTAURANT_COVER.width || bitmap.height !== RESTAURANT_COVER.height) {
+      throw new Error(
+        `مقاس صورة المتجر يجب أن يكون ${RESTAURANT_COVER.width}×${RESTAURANT_COVER.height} بكسل (${RESTAURANT_COVER.ratio}) بالضبط`
+      );
+    }
+  } catch (error) {
+    if (error?.message?.includes('مقاس صورة المتجر')) throw error;
+    throw new Error('تعذّر قراءة أبعاد الصورة. استخدم JPG أو PNG أو WebP بمقاس 1200×900 بكسل');
+  } finally {
+    bitmap?.close?.();
+  }
+}
+
 // نصغّر الصورة ونحوّلها إلى WebP قبل الرفع. هذا يمنع تخزين صور كاميرا
 // بحجم عدّة ميغابايت بينما التطبيق يعرضها داخل بطاقة صغيرة.
 async function optimizeImage(file, maxDimension = 1400, quality = 0.78) {
@@ -254,6 +282,7 @@ export default function Restaurants() {
     setMessage('');
     setCoverBusy(true);
     try {
+      await validateRestaurantCover(file);
       const imageUrl = await uploadImageTo(`/admin/restaurants/${selected._id}/image`, file);
       setForm((f) => ({ ...f, imageUrl }));
       setMessage('تم تحديث صورة المطعم');
@@ -481,16 +510,19 @@ export default function Restaurants() {
                 <Input type="time" value={form.closeTime || ''} onChange={set('closeTime')} dir="ltr" />
               </Field>
               <div className="yl-restaurant-form__wide">
-                <Field label="صورة الغلاف" hint={selected ? 'ارفع من الجهاز أو الصق رابطًا' : 'احفظ المطعم أولًا لرفع صورة'}>
+                <Field
+                  label="صورة الغلاف"
+                  hint={selected ? 'المقاس المطلوب فقط: 1200×900 بكسل (4:3) — JPG / PNG / WebP' : 'احفظ المطعم أولًا، ثم ارفع صورة 1200×900 بكسل'}
+                >
                 <div className="yl-row yl-restaurant-cover">
                   {imageSrc(form.imageUrl) ? (
                     <img
                       src={imageSrc(form.imageUrl)}
                       alt=""
-                      style={{ width: 56, height: 56, borderRadius: 'var(--r-2)', objectFit: 'cover', flex: 'none' }}
+                      style={{ width: 96, height: 72, borderRadius: 'var(--r-2)', objectFit: 'cover', flex: 'none' }}
                     />
                   ) : (
-                    <span className="yl-avatar" style={{ width: 56, height: 56 }}>
+                    <span className="yl-avatar" style={{ width: 96, height: 72 }}>
                       <IconStore size={22} />
                     </span>
                   )}
@@ -502,7 +534,7 @@ export default function Restaurants() {
                     {coverBusy ? '...جارٍ الرفع' : 'رفع من الجهاز'}
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp"
                       onChange={uploadCover}
                       disabled={!selected || coverBusy}
                       style={{ display: 'none' }}
