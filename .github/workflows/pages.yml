@@ -1,23 +1,19 @@
-name: Deploy Privacy Policy (Pages)
+name: Redirect Legacy GitHub Pages URLs
 
-# ينشر صفحة سياسة الخصوصية (site/) على GitHub Pages.
-# الرابط الناتج: https://mohammedemad333.github.io/Yalla/
-# يعمل تلقائيًا عند تعديل الصفحة، أو يدويًا من تبويب Actions.
+# Keep old Google Play / bookmarked GitHub Pages URLs working while
+# yalladelivery.org is the canonical home for legal pages.
 on:
   push:
     branches: ['main']
     paths:
-      - 'site/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
-# صلاحيات مطلوبة لنشر Pages عبر Actions
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# نسمح بنشر واحد في كل مرّة (نُلغي الأقدم إن بدأ نشر جديد)
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -28,21 +24,51 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - uses: actions/checkout@v4
 
-      # يُهيّئ Pages ويُفعّلها تلقائيًا إن لم تكن مُفعّلة (enablement)
-      - name: تهيئة Pages
-        uses: actions/configure-pages@v5
+      - name: Build redirect pages
+        run: |
+          mkdir -p legacy-pages
+          cat > legacy-pages/index.html <<'EOF'
+          <!doctype html>
+          <html><head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=https://yalladelivery.org/">
+            <link rel="canonical" href="https://yalladelivery.org/">
+            <script>location.replace('https://yalladelivery.org/');</script>
+          </head><body><a href="https://yalladelivery.org/">Yalla Delivery</a></body></html>
+          EOF
+
+          cat > legacy-pages/privacy.html <<'EOF'
+          <!doctype html>
+          <html><head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=https://yalladelivery.org/privacy.html">
+            <link rel="canonical" href="https://yalladelivery.org/privacy.html">
+            <script>location.replace('https://yalladelivery.org/privacy.html');</script>
+          </head><body><a href="https://yalladelivery.org/privacy.html">سياسة الخصوصية</a></body></html>
+          EOF
+
+          cat > legacy-pages/delete-account.html <<'EOF'
+          <!doctype html>
+          <html><head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=https://yalladelivery.org/delete-account.html">
+            <link rel="canonical" href="https://yalladelivery.org/delete-account.html">
+            <script>location.replace('https://yalladelivery.org/delete-account.html');</script>
+          </head><body><a href="https://yalladelivery.org/delete-account.html">حذف الحساب</a></body></html>
+          EOF
+
+      - uses: actions/configure-pages@v5
         with:
           enablement: true
 
-      # نرفع محتوى مجلّد site/ فقط كأثر للنشر
-      - name: رفع محتوى الموقع
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: legacy-pages
 
-      - name: النشر على GitHub Pages
+      - name: Deploy redirects
         id: deployment
         uses: actions/deploy-pages@v4
