@@ -82,7 +82,7 @@ class _WalletScreenState extends State<WalletScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('المحفظة')),
+      appBar: AppBar(toolbarHeight: 0),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
