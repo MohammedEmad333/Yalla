@@ -366,23 +366,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: _avatarUrl == null ? const Icon(Icons.person_rounded, size: 38) : null,
                 ),
                 Positioned(
-                  bottom: -2,
-                  right: -2,
-                  child: Material(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    shape: const CircleBorder(),
-                    child: IconButton(
-                      tooltip: 'تغيير الصورة',
-                      iconSize: 17,
-                      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-                      padding: EdgeInsets.zero,
-                      onPressed: _saving ? null : _changeAvatar,
-                      icon: _saving
-                          ? const SizedBox.square(
-                              dimension: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.camera_alt_outlined),
+                  bottom: -3,
+                  right: -3,
+                  child: Semantics(
+                    button: true,
+                    label: 'تغيير الصورة',
+                    child: Material(
+                      color: YallaColors.primary,
+                      shape: const CircleBorder(),
+                      elevation: 1,
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: _saving ? null : _changeAvatar,
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.surface,
+                              width: 2,
+                            ),
+                          ),
+                          child: _saving
+                              ? const SizedBox.square(
+                                  dimension: 12,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.camera_alt_outlined,
+                                  size: 15,
+                                  color: Colors.white,
+                                ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
