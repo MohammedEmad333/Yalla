@@ -396,72 +396,75 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   Widget _restaurantHero() => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            color: Colors.white,
-            child: Stack(
-              children: [
-                SizedBox(
-                  height: 205,
-                  width: double.infinity,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    child: _restaurant.fullImageUrl != null
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final heroHeight = (constraints.maxWidth * .42).clamp(176.0, 300.0).toDouble();
+              return SizedBox(
+                height: heroHeight,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _restaurant.fullImageUrl != null
                         ? WebSafeNetworkImage(
                             url: _restaurant.fullImageUrl!,
                             width: double.infinity,
-                            height: 181,
-                            fit: BoxFit.contain,
+                            height: heroHeight,
+                            fit: BoxFit.cover,
                             cacheWidth: 1200,
-                            placeholderBuilder: (_) => const Center(child: CircularProgressIndicator()),
-                            errorBuilder: (_) => _imageFallback(),
+                            placeholderBuilder: (_) => ColoredBox(
+                              color: YallaColors.surfaceContainer,
+                              child: const Center(child: CircularProgressIndicator()),
+                            ),
+                            errorBuilder: (_) => _imageFallback(height: heroHeight),
                           )
-                        : _imageFallback(),
-                  ),
-                ),
-                PositionedDirectional(
-                  top: 14,
-                  end: 14,
-                  child: Material(
-                    color: Colors.white.withValues(alpha: 0.96),
-                    shape: const CircleBorder(),
-                    elevation: 2,
-                    child: IconButton(
-                      onPressed: _favoriteBusy ? null : _toggleFavorite,
-                      tooltip: _favorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
-                      icon: Icon(
-                        _favorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        color: _favorite ? const Color(0xFFE53935) : const Color(0xFF071D3A),
-                      ),
-                    ),
-                  ),
-                ),
-                PositionedDirectional(
-                  start: 14,
-                  bottom: 14,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: _restaurant.openNow ? const Color(0xFFDDF7E8) : const Color(0xFFFFE4E1),
-                      borderRadius: BorderRadius.circular(999),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: .08),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
+                        : _imageFallback(height: heroHeight),
+                    PositionedDirectional(
+                      top: 14,
+                      end: 14,
+                      child: Material(
+                        color: Colors.white.withValues(alpha: 0.94),
+                        shape: const CircleBorder(),
+                        elevation: 2,
+                        child: IconButton(
+                          onPressed: _favoriteBusy ? null : _toggleFavorite,
+                          tooltip: _favorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
+                          icon: Icon(
+                            _favorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            color: _favorite ? const Color(0xFFE53935) : const Color(0xFF071D3A),
+                          ),
                         ),
-                      ],
-                    ),
-                    child: Text(
-                      _restaurant.openNow ? 'مفتوح الآن' : 'مغلق',
-                      style: TextStyle(
-                        color: _restaurant.openNow ? const Color(0xFF137A45) : YallaColors.error,
-                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                  ),
+                    PositionedDirectional(
+                      start: 14,
+                      bottom: 14,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _restaurant.openNow ? const Color(0xFFDDF7E8) : const Color(0xFFFFE4E1),
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: .08),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          _restaurant.openNow ? 'مفتوح الآن' : 'مغلق',
+                          style: TextStyle(
+                            color: _restaurant.openNow ? const Color(0xFF137A45) : YallaColors.error,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -618,11 +621,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         ),
       );
 
-  Widget _imageFallback() => Container(
-        height: 205,
-        color: Colors.white,
+  Widget _imageFallback({double height = 176}) => Container(
+        height: height,
+        color: YallaColors.surfaceContainer,
         child: const Center(
-          child: Icon(Icons.storefront_rounded, size: 64, color: Color(0xFF9AA0AA)),
+          child: Icon(Icons.storefront_rounded, size: 56, color: Color(0xFF9AA0AA)),
         ),
       );
 
