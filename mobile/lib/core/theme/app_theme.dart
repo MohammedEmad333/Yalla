@@ -265,14 +265,14 @@ ThemeData buildYallaTheme([Brightness brightness = Brightness.light]) {
           fontSize: 11,
           fontWeight: states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
           color: states.contains(WidgetState.selected)
-              ? YallaColors.primaryDeep
+              ? YallaColors.primary
               : YallaColors.muted,
         ),
       ),
       iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
           size: 24,
-          color: states.contains(WidgetState.selected) ? YallaColors.primaryDeep : YallaColors.muted,
+          color: states.contains(WidgetState.selected) ? YallaColors.primary : YallaColors.muted,
         ),
       ),
     ),
