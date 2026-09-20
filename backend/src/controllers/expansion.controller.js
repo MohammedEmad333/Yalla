@@ -13,6 +13,7 @@ module.exports = {
     try { res.status(201).json(await service.createBanner(req.auth.id, req.body)); } catch (err) { next(err); }
   },
   updateBanner: wrap((req) => service.updateBanner(req.auth.id, req.params.bannerId, req.body)),
+  uploadBannerImage: wrap((req) => service.setBannerImage(req.auth.id, req.params.bannerId, req.file)),
   deleteBanner: wrap((req) => service.deleteBanner(req.auth.id, req.params.bannerId)),
   rewards: wrap((req) => service.rewards(req.auth.id)),
   applyReferral: wrap((req) => service.applyReferral(req.auth.id, req.body.code)),
