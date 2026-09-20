@@ -14,6 +14,14 @@ try {
 // يعمل تطبيق الأندرويد دون الحاجة لإضافة أصله يدويًا في CORS_ORIGIN بكلّ نشر/بناء.
 const CAPACITOR_ORIGINS = ['https://localhost', 'capacitor://localhost', 'http://localhost'];
 
+const OFFICIAL_WEB_ORIGINS = [
+  'https://yalladelivery.org',
+  'https://www.yalladelivery.org',
+  'https://app.yalladelivery.org',
+  'https://admin.yalladelivery.org',
+  'https://partner.yalladelivery.org',
+];
+
 // يقبل CORS_ORIGIN رابطًا واحدًا أو عدّة روابط مفصولة بفاصلة، مثل:
 //   CORS_ORIGIN=https://gazalook-admin.netlify.app,https://yalla.workers.dev
 // القيمة "*" تسمح لأي نطاق. نُرجع "*" أو مصفوفة أصول — وكلاهما مدعوم من حزمة
@@ -25,8 +33,9 @@ function parseCorsOrigin(value) {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
-  // ندمج الأصول المضبوطة مع أصول Capacitor بلا تكرار حتى تعمل نسخة الأندرويد دائمًا
-  return [...new Set([...list, ...CAPACITOR_ORIGINS])];
+  // ندمج الأصول المضبوطة مع نطاقات Yalla الرسمية وأصول Capacitor بلا تكرار.
+  // بهذا لا يتعطل تطبيق الويب إن كان CORS_ORIGIN في السيرفر يحتوي نطاقًا قديمًا فقط.
+  return [...new Set([...list, ...OFFICIAL_WEB_ORIGINS, ...CAPACITOR_ORIGINS])];
 }
 
 const env = {
@@ -55,3 +64,4 @@ module.exports = env;
 // مكشوفة للاختبار فقط (منطق نقيّ لدمج أصول CORS)
 module.exports.parseCorsOrigin = parseCorsOrigin;
 module.exports.CAPACITOR_ORIGINS = CAPACITOR_ORIGINS;
+module.exports.OFFICIAL_WEB_ORIGINS = OFFICIAL_WEB_ORIGINS;
