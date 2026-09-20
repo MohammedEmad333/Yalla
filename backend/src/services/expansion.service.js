@@ -24,12 +24,39 @@ function safeRegex(value) {
   return String(value || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+async function withStoreOrderCounts(rows = []) {
+  const ids = rows.map((row) => row?._id).filter(Boolean);
+  if (!ids.length) return rows;
+
+  const counts = await Order.aggregate([
+    {
+      $match: {
+        'store.restaurant': { $in: ids },
+        status: 'delivered',
+      },
+    },
+    {
+      $group: {
+        _id: '$store.restaurant',
+        orderCount: { $sum: 1 },
+      },
+    },
+  ]);
+  const byRestaurant = new Map(
+    counts.map((row) => [String(row._id), Number(row.orderCount) || 0])
+  );
+  return rows.map((row) => ({
+    ...row,
+    orderCount: byRestaurant.get(String(row._id)) || 0,
+  }));
+}
+
 async function searchStores(query = {}) {
   const q = String(query.q || '').trim();
   const category = String(query.category || '').trim();
   const base = { active: true };
   if (category && category !== 'الكل') base.category = category;
-  if (!q) return Restaurant.find(base).sort({ 'merchandising.featured': -1, sortOrder: 1, name: 1 }).limit(100).lean();
+  if (!q) return withStoreOrderCounts(await Restaurant.find(base).sort({ 'merchandising.featured': -1, sortOrder: 1, name: 1 }).limit(100).lean());
 
   const rx = new RegExp(safeRegex(q), 'i');
   const menuRestaurantIds = await MenuItem.distinct('restaurant', {
@@ -42,10 +69,12 @@ async function searchStores(query = {}) {
       { name: rx }, { description: rx }, { category: rx }, { _id: { $in: menuRestaurantIds } },
     ],
   };
-  return Restaurant.find(filter)
-    .sort({ 'merchandising.featured': -1, 'merchandising.popular': -1, sortOrder: 1, name: 1 })
-    .limit(100)
-    .lean();
+  return withStoreOrderCounts(
+    await Restaurant.find(filter)
+      .sort({ 'merchandising.featured': -1, 'merchandising.popular': -1, sortOrder: 1, name: 1 })
+      .limit(100)
+      .lean()
+  );
 }
 
 async function publicBanners() {
