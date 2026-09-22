@@ -21,7 +21,7 @@
     "express": "^4.19.2",
     "firebase-admin": "^14.4.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.5.0",
+    "mongoose": "^8.24.4",
     "multer": "^2.0.2",
     "socket.io": "^4.7.5"
   },
