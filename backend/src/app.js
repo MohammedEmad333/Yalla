@@ -12,6 +12,14 @@ const { notFound, errorHandler } = require('./middlewares/error.middleware');
 const app = express();
 
 app.set('trust proxy', 1);               // نثق ببروكسي واحد أمامنا لقراءة req.ip الحقيقي
+// ترويسات أمان أساسية للـ API. TLS/HSTS يبقيان مسؤولية البروكسي الأمامي (Caddy/Cloudflare).
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('X-Frame-Options', 'DENY');
+  res.set('Referrer-Policy', 'no-referrer');
+  res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 app.use(cors({ origin: env.corsOrigin }));
 app.use(express.json({ limit: '100kb' })); // تحليل JSON بحدّ حجم يمنع الحمولات الضخمة
 
