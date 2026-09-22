@@ -254,52 +254,6 @@ async function adminCredit(userId, amount, meta = {}) {
 /**
  * Card 87: ضبط رصيد محفظة زبون على قيمة محدّدة من الأدمن (تعديل مباشر).
  */
-async function adminSetBalance(userId, newBalance, meta = {}) {
-  const target = Number(newBalance);
-  if (!(target >= 0)) throw httpError('قيمة الرصيد غير صالحة', 400);
-
-  const current = await getOrCreateWallet(userId);
-  if (target < Number(current.reservedBalance || 0)) {
-    throw httpError('لا يمكن خفض الرصيد عن المبلغ المحجوز للطلبات النشطة', 409);
-  }
-  const delta = target - current.balance;
-  if (delta === 0) {
-    broadcastBalance(userId, current.balance);
-    return current.balance;
-  }
-
-  const wallet = await creditWallet(userId, delta); // delta قد يكون سالبًا
-  try {
-    await WalletTransaction.create({
-      user: userId,
-      wallet: wallet._id,
-      type: WALLET_TX_TYPE.ADJUSTMENT,
-      direction: delta > 0 ? WALLET_DIRECTION.CREDIT : WALLET_DIRECTION.DEBIT,
-      amount: Math.abs(delta),
-      status: TOPUP_STATUS.APPROVED,
-      balanceAfter: wallet.balance,
-      gatewayResponse: { ...meta, setTo: target },
-    });
-  } catch (err) {
-    logger.warn('تعذّر تسجيل حركة تعديل الرصيد:', err.message);
-  }
-
-  broadcastBalance(userId, wallet.balance);
-  return wallet.balance;
-}
-
-/** بثّ الرصيد المحدّث لحظيًا لصاحب المحفظة. */
-function broadcastBalance(userId, balance) {
-  try {
-    io.get().to(ROOMS.user(String(userId))).emit(EVENTS.WALLET_UPDATED, { balance });
-  } catch (_) {
-    // السوكت غير مهيّأ (اختبارات) — تجاهل بأمان
-  }
-}
-
-// ── حركات الشحن (Top-up) ─────────────────────────────────────────
-
-/** إنشاء حركة شحن في دفتر الأستاذ (تستدعيها استراتيجيات الدفع). */
 async function createTopupTransaction({
   userId,
   amount,
@@ -462,7 +416,6 @@ module.exports = {
   getWalletSummary,
   creditWallet,
   adminCredit,
-  adminSetBalance,
   debitWallet,
   chargeForOrder,
   refundOrderPayment,
