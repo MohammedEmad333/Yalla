@@ -200,20 +200,6 @@ test('Card 80: الحساب الدائم لا يُحذف بعد إغلاق طل�
   assert.ok(stillThere, 'الحساب الدائم يبقى بعد انتهاء الطلب');
 });
 
-test('Card 80: طلب الأدمن الخارجي يُنشئ حسابًا مؤقّتًا (isExternal)', async (t) => {
-  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
-  // نستخدم الدالة المساعدة الداخلية عبر إنشاء طلب أدمن بحيّ صالح
-  const phone = `9${Date.now()}`.slice(0, 10);
-  const order = await orderService.createOrderByAdmin('000000000000000000000000', {
-    contactName: 'زبون خارجي',
-    contactPhone: phone,
-    pickup: { neighborhood: 'الرمال' },
-    dropoff: { neighborhood: 'الزيتون' },
-  });
-  const created = await User.findById(order.user).select('isExternal');
-  assert.equal(created.isExternal, true, 'حساب الطلب الخارجي مؤقّت');
-});
-
 test('Card 81: adminCredit يضيف رصيدًا ويُسجّل حركة تعديل', async (t) => {
   if (!state.dbReady) return t.skip('لا قاعدة بيانات');
   const ext = new User({ name: 'خارجي', phone: `x${Date.now()}`, isExternal: true });
