@@ -19,7 +19,7 @@ on:
         required: false
         default: 'https://api.yalladelivery.org'
   push:
-    branches: ['**']
+    branches: [main]
     paths:
       - 'mobile/**'
       - '.github/workflows/mobile-apk.yml'
