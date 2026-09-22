@@ -67,7 +67,8 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
     }
 
     await _secureStorage.write(key: _migrationKey, value: '1');
-    return missing.isEmpty ? serverRows : _serverFavorites();
+    if (missing.isEmpty) return serverRows;
+    return await _serverFavorites();
   }
 
   Future<void> _syncLocalCache(Set<String> ids) =>
@@ -498,3 +499,4 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
           ],
         ),
       );
+}
