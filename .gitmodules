@@ -1,0 +1,4 @@
+[submodule "yalla-delivery-bot"]
+	path = yalla-delivery-bot
+	url = https://github.com/MohammedEmad333/yalla-delivery-bot.git
+	branch = main
