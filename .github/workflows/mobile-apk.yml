@@ -24,6 +24,9 @@ on:
       - 'mobile/**'
       - '.github/workflows/mobile-apk.yml'
 
+permissions:
+  contents: write
+
 concurrency:
   group: mobile-release-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -74,6 +77,21 @@ jobs:
           mkdir -p android/app/src/main/res/xml
           cp "$RUNNER_TEMP/nsc.xml" android/app/src/main/res/xml/network_security_config.xml
           rm -f test/widget_test.dart
+
+      - name: تثبيت Android scaffold داخل الفرع
+        if: github.actor != 'github-actions[bot]'
+        run: |
+          rm -f android/local.properties android/yalla_android.iml
+          rm -f android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f android
+          if git diff --cached --quiet; then
+            echo "Android scaffold already tracked."
+          else
+            git commit -m "chore(android): track complete generated scaffold [skip ci]"
+            git push
+          fi
 
       - name: رفع Android scaffold للمراجعة
         uses: actions/upload-artifact@v4
