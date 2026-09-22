@@ -59,33 +59,12 @@ jobs:
           echo "API_ORIGIN=$ORIGIN" >> "$GITHUB_ENV"
           echo "سيُبنى التطبيق للاتصال بـ: $ORIGIN"
 
-      # مشروع Android لم يُثبّت كاملًا في Git بعد؛ لذلك نُكمل الملفات الناقصة عبر
-      # flutter create بدون حذف android/. نحفظ ملفات Yalla المخصّصة ونستعيدها
-      # بعد التوليد حتى لا تضيع إعدادات الأمان أو MainActivity.
-      - name: إكمال سقالة Android مع الحفاظ على ملفات Yalla
-        run: |
-          cp android/app/src/main/AndroidManifest.xml "$RUNNER_TEMP/AndroidManifest.xml"
-          cp android/app/src/main/res/xml/network_security_config.xml "$RUNNER_TEMP/nsc.xml"
-          cp android/app/src/main/kotlin/com/mohammedemad333/yalla/MainActivity.kt "$RUNNER_TEMP/MainActivity.kt"
-          flutter create --platforms=android --org com.mohammedemad333 --project-name yalla .
-          cp "$RUNNER_TEMP/AndroidManifest.xml" android/app/src/main/AndroidManifest.xml
-          mkdir -p android/app/src/main/kotlin/com/mohammedemad333/yalla
-          cp "$RUNNER_TEMP/MainActivity.kt" android/app/src/main/kotlin/com/mohammedemad333/yalla/MainActivity.kt
-          mkdir -p android/app/src/main/res/xml
-          cp "$RUNNER_TEMP/nsc.xml" android/app/src/main/res/xml/network_security_config.xml
-          rm -f test/widget_test.dart
-
       - name: تثبيت التبعيات
         run: flutter pub get
 
       # اختبارات الوحدة/الواجهة (نظام الألوان والوضع الليلي) قبل البناء
       - name: اختبارات Flutter
         run: flutter test
-
-      # تفعيل core library desugaring في سقالة Android المولّدة — تتطلّبه حزمة
-      # flutter_local_notifications (إشعارات شاشة القفل/heads-up)، وإلّا يفشل البناء.
-      - name: تفعيل desugaring (flutter_local_notifications)
-        run: python3 tool/enable_desugaring.py
 
       # توليد أيقونة يلا في mipmap (غير حاسم — البناء يكمل بأيقونة افتراضية عند الفشل)
       - name: توليد أيقونة التطبيق
