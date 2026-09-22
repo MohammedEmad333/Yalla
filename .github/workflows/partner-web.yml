@@ -37,7 +37,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: subosito/flutter-action@v2
         with:
@@ -93,7 +93,7 @@ jobs:
           flutter build web --release --pwa-strategy=offline-first --dart-define=API_ORIGIN="$API_ORIGIN"
 
       - name: رفع نسخة الويب كـ Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: yalla-partner-web
           path: partner/build/web
