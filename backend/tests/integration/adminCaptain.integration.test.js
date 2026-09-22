@@ -200,16 +200,16 @@ test('Card 80: الحساب الدائم لا يُحذف بعد إغلاق طل�
   assert.ok(stillThere, 'الحساب الدائم يبقى بعد انتهاء الطلب');
 });
 
-test('Card 81: adminCredit يضيف رصيدًا ويُسجّل حركة تعديل', async (t) => {
+test('adminCredit يضيف رصيدًا للزبون ويُسجّل حركة تعديل', async (t) => {
   if (!state.dbReady) return t.skip('لا قاعدة بيانات');
-  const ext = new User({ name: 'خارجي', phone: `x${Date.now()}`, isExternal: true });
-  await ext.setPassword('secret1');
-  await ext.save();
+  const customer = new User({ name: 'زبون', phone: `x${Date.now()}` });
+  await customer.setPassword('secret1');
+  await customer.save();
 
-  const balance = await walletService.adminCredit(ext._id, 30, { reason: 'external_topup' });
+  const balance = await walletService.adminCredit(customer._id, 30, { reason: 'admin_credit' });
   assert.equal(balance, 30, 'أُضيف الرصيد');
 
-  const wallet = await Wallet.findOne({ user: ext._id });
+  const wallet = await Wallet.findOne({ user: customer._id });
   assert.equal(wallet.balance, 30);
 });
 
