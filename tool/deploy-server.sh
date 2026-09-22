@@ -28,6 +28,22 @@ fail() { printf '\n✖ %s\n' "$1" >&2; exit 1; }
 
 [ -f "$ENV_FILE" ] || fail "ملفّ البيئة غير موجود: $ENV_FILE"
 
+# تحقّق مبكر من إعدادات الأمان من دون طباعة قيم الأسرار في السجل.
+# التطبيق نفسه يكرر التحقق عند الإقلاع، لكن الفشل هنا أوضح ويمنع استبدال الحاوية بإعداد غير آمن.
+env_value() {
+  local key="$1"
+  sed -n "s/^${key}=//p" "$ENV_FILE" | tail -n 1 | tr -d '\r'
+}
+
+JWT_VALUE="$(env_value JWT_SECRET)"
+[ -n "$JWT_VALUE" ] || fail "JWT_SECRET غير مضبوط في $ENV_FILE"
+[ "$JWT_VALUE" != "change_me_super_secret" ] || fail "JWT_SECRET ما زال على القيمة الافتراضية غير الآمنة"
+[ "${#JWT_VALUE}" -ge 32 ] || fail "JWT_SECRET يجب أن يكون 32 محرفًا على الأقل"
+
+CORS_VALUE="$(env_value CORS_ORIGIN)"
+[ -n "$CORS_VALUE" ] || fail "CORS_ORIGIN غير مضبوط في $ENV_FILE"
+[ "$CORS_VALUE" != "*" ] || fail "CORS_ORIGIN=* غير مسموح في الإنتاج؛ حدّد نطاقات Yalla الموثوقة"
+
 say "سحب آخر كود من الفرع $BRANCH"
 cd "$ROOT"
 git fetch origin "$BRANCH"
@@ -112,5 +128,5 @@ say "تمّ النشر بنجاح"
 echo "  الحاويات:"
 docker ps --format '  {{.Names}}\t{{.Status}}' | grep -E 'yalla|caddy' || true
 echo
-echo "  فحص خارجي:  curl -s https://yalla-api.duckdns.org/api/health"
-echo "  المطاعم:     curl -s https://yalla-api.duckdns.org/api/restaurants"
+echo "  فحص خارجي:  curl -s https://api.yalladelivery.org/api/health"
+echo "  المطاعم:     curl -s https://api.yalladelivery.org/api/restaurants"

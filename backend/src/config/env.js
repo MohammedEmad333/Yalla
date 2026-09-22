@@ -38,6 +38,22 @@ function parseCorsOrigin(value) {
   return [...new Set([...list, ...OFFICIAL_WEB_ORIGINS, ...CAPACITOR_ORIGINS])];
 }
 
+function validateProductionEnv() {
+  if ((process.env.NODE_ENV || 'development') !== 'production') return;
+
+  const jwtSecret = (process.env.JWT_SECRET || '').trim();
+  if (!jwtSecret || jwtSecret === 'change_me_super_secret' || jwtSecret.length < 32) {
+    throw new Error('JWT_SECRET must be explicitly set to a strong value (32+ chars) in production');
+  }
+
+  const corsOrigin = (process.env.CORS_ORIGIN || '').trim();
+  if (!corsOrigin || corsOrigin === '*') {
+    throw new Error('CORS_ORIGIN must explicitly list trusted origins in production');
+  }
+}
+
+validateProductionEnv();
+
 const env = {
   port: parseInt(process.env.PORT, 10) || 4000,
   nodeEnv: process.env.NODE_ENV || 'development',
