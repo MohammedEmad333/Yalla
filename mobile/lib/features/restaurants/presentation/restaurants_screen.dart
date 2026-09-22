@@ -215,7 +215,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: AlignmentDirectional.topStart,
@@ -292,20 +292,22 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     required VoidCallback onTap,
   }) =>
       Material(
-        color: const Color(0xFF8A4A14).withValues(alpha: .82),
-        shape: const CircleBorder(),
+        color: Colors.white.withValues(alpha: .18),
+        shape: CircleBorder(
+          side: BorderSide(color: Colors.white.withValues(alpha: .24), width: 1),
+        ),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onTap,
           child: Tooltip(
             message: tooltip,
             child: SizedBox.square(
-              dimension: 54,
+              dimension: 46,
               child: Center(
                 child: Icon(
                   icon,
                   color: Colors.white,
-                  size: 29,
+                  size: 25,
                 ),
               ),
             ),
@@ -382,32 +384,32 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           if (_banners.isNotEmpty && _search.text.isEmpty) _bannerCarousel(),
           if (_categories.isNotEmpty)
             SizedBox(
-              height: 54,
+              height: 50,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 children: ['الكل', ..._categories].toSet().map((c) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
                   child: ChoiceChip(
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
                       textDirection: TextDirection.ltr,
                       children: [
                         SizedBox(
-                          width: 22,
-                          height: 22,
+                          width: 20,
+                          height: 20,
                           child: Center(
                             child: Icon(
                               _categoryIcon(c),
-                              size: 19,
+                              size: 18,
                               color: c == _category
                                   ? Colors.white
                                   : YallaColors.primary,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 7),
-                        Text(c),
+                        const SizedBox(width: 6),
+                        Text(c, maxLines: 1, softWrap: false),
                       ],
                     ),
                     selected: c == _category,
@@ -422,10 +424,12 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                     ),
                     labelStyle: TextStyle(
                       fontWeight: FontWeight.w800,
+                      fontSize: 12.8,
                       color: c == _category ? Colors.white : null,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                 )).toList(),
               ),
@@ -616,7 +620,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           return RefreshIndicator(
             onRefresh: () => _load(initial: true),
             child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
               itemCount: _restaurants.length,
               itemBuilder: (_, i) => _card(_restaurants[i]),
             ),
@@ -640,6 +644,49 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     );
   }
 
+
+  Widget _ratingBadge(Restaurant r, {bool compact = false}) {
+    final hasRating = r.ratingCount > 0;
+    final bg = hasRating
+        ? Colors.black.withValues(alpha: .68)
+        : YallaColors.primary.withValues(alpha: .94);
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 5 : 6,
+      ),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .10),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            hasRating ? Icons.star_rounded : Icons.auto_awesome_rounded,
+            size: compact ? 14 : 16,
+            color: hasRating ? const Color(0xFFFF9A3D) : Colors.white,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            hasRating ? r.ratingAverage.toStringAsFixed(1) : 'جديد',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: compact ? 11 : 12.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _closedStoreOverlay(Restaurant r) {
     final label = r.opensAtLabel.isNotEmpty ? r.opensAtLabel : 'مغلق حاليًا';
@@ -724,24 +771,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                     PositionedDirectional(
                       top: 10,
                       end: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: .68),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.star_rounded, size: 14, color: Color(0xFFFF9A3D)),
-                            const SizedBox(width: 4),
-                            Text(
-                              r.ratingCount > 0 ? r.ratingAverage.toStringAsFixed(1) : '—',
-                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
-                            ),
-                          ],
-                        ),
-                      ),
+                      child: _ratingBadge(r, compact: true),
                     ),
                   ],
                 ),
@@ -772,7 +802,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
       );
 
   Widget _metricPill(IconData icon, String label) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        constraints: const BoxConstraints(minHeight: 30),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
         decoration: BoxDecoration(
           color: YallaColors.surfaceContainer,
           borderRadius: BorderRadius.circular(10),
@@ -784,7 +815,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         child: Directionality(
           textDirection: TextDirection.rtl,
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 14, color: YallaColors.primary),
               const SizedBox(width: 4),
@@ -792,8 +823,9 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                 child: Text(
                   label,
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11.2, fontWeight: FontWeight.w800),
+                  softWrap: false,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 10.6, fontWeight: FontWeight.w800),
                 ),
               ),
             ],
@@ -866,32 +898,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                         PositionedDirectional(
                           top: 8,
                           start: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: .68),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  r.ratingCount > 0 ? r.ratingAverage.toStringAsFixed(1) : '—',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.star_rounded,
-                                  size: 16,
-                                  color: Color(0xFFFF9A3D),
-                                ),
-                              ],
-                            ),
-                          ),
+                          child: _ratingBadge(r),
                         ),
                       ],
                     ),
@@ -932,7 +939,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                           Row(
                             children: [
                               if (r.prepMinutes > 0)
-                                Flexible(
+                                Expanded(
                                   child: _metricPill(
                                     Icons.schedule_rounded,
                                     '${r.prepMinutes} دقيقة',
@@ -941,10 +948,10 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                               if (r.prepMinutes > 0 && r.minOrder > 0)
                                 const SizedBox(width: 6),
                               if (r.minOrder > 0)
-                                Flexible(
+                                Expanded(
                                   child: _metricPill(
                                     Icons.shopping_bag_outlined,
-                                    '${r.minOrder} ₪ حد أدنى',
+                                    'حد أدنى ${r.minOrder} ₪',
                                   ),
                                 ),
                             ],
