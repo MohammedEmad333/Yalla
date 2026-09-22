@@ -117520,7 +117520,7 @@ j=k>0
 if(j)l.push(A.bp(i.a1a(B.k5,A.h(k)+" \u062f\u0642\u064a\u0642\u0629"),1))
 if(j&&a.z>0)l.push(B.e4)
 k=a.z
-if(k>0)l.push(A.bp(i.a1a(B.k4,"\u062d\u062f \u0623\u062f\u0646\u0649 "+A.h(k)+" \u20aa"),1))
+if(k>0)l.push(A.bp(i.a1a(B.k4,A.h(k)+" \u20aa"),1))
 return A.bL(h,A.d0(!1,B.B,!0,h,A.eD(!1,h,!0,A.c_(A.aO(A.b([new A.xa(1.6666666666666667,q,h),A.bp(new A.ag(B.hU,A.nk(A.aX(A.b([n,B.FN,m,B.iI,A.aO(l,B.n,B.i,B.m,0,h)],o),B.T,B.i,B.m,0,B.r),B.a8),h),1)],o),B.n,B.i,B.m,0,B.al),116,h),h,!0,h,h,h,h,h,h,h,h,h,h,h,new A.aQy(i,a),h,h,h,h,h,h,h),B.q,B.D,0,h,h,h,h,h,B.aR),B.b6,h,h,new A.bv(g.ax.k2,h,r,s,p,h,B.R),h,h,B.tp,h,h,h,h)}}
 A.aQN.prototype={
 $1(a){var s=this.a
@@ -118472,7 +118472,7 @@ h=i>0
 if(h)k.push(A.bp(g.a_P(B.k5,A.h(i)+" \u062f\u0642\u064a\u0642\u0629"),1))
 if(h&&a.z>0)k.push(B.e4)
 i=a.z
-if(i>0)k.push(A.bp(g.a_P(B.k4,"\u062d\u062f \u0623\u062f\u0646\u0649 "+A.h(i)+" \u20aa"),1))
+if(i>0)k.push(A.bp(g.a_P(B.k4,A.h(i)+" \u20aa"),1))
 return A.bL(f,A.d0(!1,B.B,!0,f,A.eD(!1,f,!0,A.c_(A.aO(A.b([new A.xa(1.6666666666666667,q,f),A.bp(new A.ag(B.OQ,A.nk(A.aX(A.b([m,l,B.iI,A.aO(k,B.n,B.i,B.m,0,f)],o),B.T,B.i,B.m,0,B.r),B.a8),f),1)],o),B.n,B.i,B.m,0,B.al),122,f),f,!0,f,f,f,f,f,f,f,f,f,f,f,new A.aI0(g,a),f,f,f,f,f,f,f),B.q,B.D,0,f,f,f,f,f,B.aR),B.b6,f,f,new A.bv(e.ax.k2,f,r,s,p,f,B.R),f,f,B.OA,f,f,f,f)},
 G(a){var s,r,q,p=this,o=null,n=p.at5()
 if(p.f)s=B.bT
