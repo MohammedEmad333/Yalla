@@ -249,6 +249,18 @@ async function adminCredit(userId, amount, meta = {}) {
   return wallet.balance;
 }
 
+/** بثّ الرصيد المحدّث لحظيًا لصاحب المحفظة. */
+function broadcastBalance(userId, balance) {
+  try {
+    io.get().to(ROOMS.user(String(userId))).emit(EVENTS.WALLET_UPDATED, { balance });
+  } catch (_) {
+    // السوكت غير مهيّأ (اختبارات) — تجاهل بأمان
+  }
+}
+
+// ── حركات الشحن (Top-up) ─────────────────────────────────────────
+
+/** إنشاء حركة شحن في دفتر الأستاذ (تستدعيها استراتيجيات الدفع). */
 async function createTopupTransaction({
   userId,
   amount,
