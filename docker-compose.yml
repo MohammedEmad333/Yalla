@@ -25,12 +25,14 @@ services:
       - '4000:4000'
     environment:
       PORT: 4000
-      NODE_ENV: production
+      NODE_ENV: development
       # اسم الخدمة "mongo" يُحلّ داخل شبكة compose
       MONGO_URI: mongodb://mongo:27017/yalla
+      # قيمة افتراضية محلية فقط؛ إنتاج Oracle يستخدم ملف بيئة مستقل ويتم التحقق منه عند الإقلاع.
       JWT_SECRET: ${JWT_SECRET:-change_me_super_secret}
       JWT_EXPIRES_IN: 7d
       # يقبل عدّة أصول مفصولة بفواصل؛ أضِف https://localhost لتطبيق أندرويد
+      # wildcard محلي فقط؛ الإنتاج يرفض CORS_ORIGIN=* عند الإقلاع.
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       AUTO_ASSIGN: ${AUTO_ASSIGN:-false}
       # إشعارات Firebase (Card 103): ألصق مفتاح خدمة Firebase (JSON بسطر واحد)
