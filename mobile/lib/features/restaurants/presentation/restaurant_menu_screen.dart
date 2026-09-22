@@ -51,13 +51,49 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     super.dispose();
   }
 
+  Future<Set<String>> _serverFavoriteIds() async {
+    final rows = List<dynamic>.from(await widget.api.get('/features/favorites') as List);
+    return rows
+        .map((row) {
+          final restaurant = (row as Map)['restaurant'];
+          if (restaurant is Map) {
+            return (restaurant['_id'] ?? restaurant['id'] ?? '').toString();
+          }
+          return restaurant?.toString() ?? '';
+        })
+        .where((id) => id.isNotEmpty)
+        .toSet();
+  }
+
+  Future<Set<String>> _migrateLegacyFavorites(Set<String> serverIds) async {
+    const migrationKey = 'favorite_restaurant_ids_migrated_v1';
+    if (await _secureStorage.read(key: migrationKey) == '1') return serverIds;
+
+    final raw = await _secureStorage.read(key: _favoritesStorageKey) ?? '';
+    final localIds = raw.split('|').where((id) => id.isNotEmpty).toSet();
+    for (final id in localIds.difference(serverIds)) {
+      try {
+        final result = await widget.api.post('/features/favorites/$id/toggle', {});
+        if ((result as Map)['favorite'] == true) serverIds.add(id);
+      } on ApiException {
+        // متجر قديم أو لم يعد متاحًا: نتجاهله أثناء الترحيل.
+      }
+    }
+    await _secureStorage.write(key: migrationKey, value: '1');
+    return serverIds;
+  }
+
   Future<void> _loadFavorite() async {
+    final localRaw = await _secureStorage.read(key: _favoritesStorageKey) ?? '';
+    final localIds = localRaw.split('|').where((id) => id.isNotEmpty).toSet();
     try {
-      final raw = await _secureStorage.read(key: _favoritesStorageKey) ?? '';
-      final ids = raw.split('|').where((id) => id.isNotEmpty).toSet();
+      var ids = await _serverFavoriteIds();
+      ids = await _migrateLegacyFavorites(ids);
+      await _secureStorage.write(key: _favoritesStorageKey, value: ids.join('|'));
       if (mounted) setState(() => _favorite = ids.contains(widget.restaurant.id));
     } catch (_) {
-      // المفضلة تحسين اختياري ولا ينبغي أن تمنع فتح قائمة المتجر.
+      // عند تعذّر الشبكة نستخدم الكاش المحلي فقط كي لا يتعطل فتح المتجر.
+      if (mounted) setState(() => _favorite = localIds.contains(widget.restaurant.id));
     }
   }
 
@@ -65,18 +101,23 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     if (_favoriteBusy) return;
     setState(() => _favoriteBusy = true);
     try {
+      final result = await widget.api.post('/features/favorites/${_restaurant.id}/toggle', {});
+      final favorite = (result as Map)['favorite'] == true;
+
       final raw = await _secureStorage.read(key: _favoritesStorageKey) ?? '';
       final ids = raw.split('|').where((id) => id.isNotEmpty).toSet();
-      final willFavorite = !ids.contains(_restaurant.id);
-      if (willFavorite) {
+      if (favorite) {
         ids.add(_restaurant.id);
       } else {
         ids.remove(_restaurant.id);
       }
       await _secureStorage.write(key: _favoritesStorageKey, value: ids.join('|'));
+
       if (!mounted) return;
-      setState(() => _favorite = willFavorite);
-      _snack(willFavorite ? 'تمت إضافة المتجر إلى المفضلة' : 'تمت إزالة المتجر من المفضلة');
+      setState(() => _favorite = favorite);
+      _snack(favorite ? 'تمت إضافة المتجر إلى المفضلة' : 'تمت إزالة المتجر من المفضلة');
+    } on ApiException catch (e) {
+      if (mounted) _snack(e.message);
     } catch (_) {
       if (mounted) _snack('تعذّر تحديث المفضلة');
     } finally {
