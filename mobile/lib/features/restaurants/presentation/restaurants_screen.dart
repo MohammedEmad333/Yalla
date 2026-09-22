@@ -951,7 +951,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                 Expanded(
                                   child: _metricPill(
                                     Icons.shopping_bag_outlined,
-                                    'حد أدنى ${r.minOrder} ₪',
+                                    '${r.minOrder} ₪',
                                   ),
                                 ),
                             ],
