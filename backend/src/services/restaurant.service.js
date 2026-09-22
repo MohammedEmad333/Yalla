@@ -8,7 +8,6 @@ const { saveImage, deleteFileByUrl } = require('../utils/avatarStore');
 const { isRestaurantOpen } = require('../utils/restaurantHours');
 const { composeAddress } = require('../utils/address');
 const { coordsForNeighborhood } = require('../utils/neighborhoods');
-const { assertRestaurantCover } = require('../utils/imageDimensions');
 const {
   normalizeCartItems,
   buildOrderLines,
@@ -356,7 +355,6 @@ async function deleteRestaurant(restaurantId) {
  */
 async function setRestaurantImage(restaurantId, file) {
   if (!file) throw httpError('أرفق صورة', 400);
-  assertRestaurantCover(file);
   const restaurant = await Restaurant.findById(restaurantId).catch(() => null);
   if (!restaurant) throw httpError('المطعم غير موجود', 404);
 
