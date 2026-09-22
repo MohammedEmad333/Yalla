@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/web_safe_network_image.dart';
 import '../restaurants/data/restaurant_repository.dart';
 import '../restaurants/presentation/restaurant_menu_screen.dart';
 
@@ -79,9 +81,7 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
       final favorites = _favoriteRestaurants(rows);
       await _syncLocalCache(favorites.map((r) => r.id).toSet());
 
-      if (mounted) {
-        setState(() => _favorites = favorites);
-      }
+      if (mounted) setState(() => _favorites = favorites);
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
@@ -114,68 +114,387 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('المفضلة')),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _favorites.isEmpty
-                ? RefreshIndicator(
-                    onRefresh: _load,
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(height: 170),
-                        Icon(Icons.favorite_border_rounded, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Center(
-                          child: Text(
-                            'لا توجد متاجر مفضلة بعد',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                        SizedBox(height: 6),
-                        Center(
-                          child: Text(
-                            'أضف المتاجر التي تحبها لتظهر هنا',
-                            style: TextStyle(color: Colors.grey),
-                          ),
+  Widget _header() {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: dark
+              ? const [Color(0xFF3A2618), Color(0xFF2B211B)]
+              : const [Color(0xFFFFF4EA), Color(0xFFFFE2C5)],
+        ),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
+        border: Border(
+          bottom: BorderSide(
+            color: YallaColors.primary.withValues(alpha: dark ? .22 : .12),
+          ),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+          child: Row(
+            textDirection: TextDirection.rtl,
+            children: [
+              IconButton(
+                tooltip: 'رجوع',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.arrow_forward_rounded),
+              ),
+              Expanded(
+                child: Column(
+                  children: [
+                    const Text(
+                      'المفضلة',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${_favorites.length} متجر محفوظ',
+                      style: TextStyle(
+                        color: YallaColors.muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: YallaColors.primary.withValues(alpha: .12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.favorite_rounded,
+                  color: YallaColors.primary,
+                  size: 23,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _ratingBadge(Restaurant r) {
+    final hasRating = r.ratingCount > 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: hasRating
+            ? Colors.black.withValues(alpha: .68)
+            : YallaColors.primary.withValues(alpha: .94),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            hasRating ? Icons.star_rounded : Icons.auto_awesome_rounded,
+            size: 14,
+            color: hasRating ? const Color(0xFFFF9A3D) : Colors.white,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            hasRating ? r.ratingAverage.toStringAsFixed(1) : 'جديد',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricPill(IconData icon, String label) => Container(
+        constraints: const BoxConstraints(minHeight: 30),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+        decoration: BoxDecoration(
+          color: YallaColors.surfaceContainer,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: .72),
+            width: .9,
+          ),
+        ),
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14, color: YallaColors.primary),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 10.6, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _closedStoreOverlay(Restaurant r) {
+    final label = r.opensAtLabel.isNotEmpty ? r.opensAtLabel : 'مغلق حاليًا';
+    return ColoredBox(
+      color: Colors.black.withValues(alpha: .36),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .94),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: YallaColors.primary,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _favoriteCard(Restaurant r) => Container(
+        margin: const EdgeInsets.only(bottom: 9),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: .82),
+            width: 1.1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark ? .12 : .045,
+              ),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => RestaurantMenuScreen(api: widget.api, restaurant: r),
+                ),
+              );
+              if (mounted) _load();
+            },
+            child: SizedBox(
+              height: 122,
+              child: Row(
+                textDirection: TextDirection.rtl,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 5 / 3,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        r.fullImageUrl == null
+                            ? ColoredBox(
+                                color: YallaColors.surfaceContainer,
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.storefront_rounded,
+                                    size: 38,
+                                    color: Color(0xFF9AA0AA),
+                                  ),
+                                ),
+                              )
+                            : WebSafeNetworkImage(
+                                url: r.fullImageUrl!,
+                                fit: BoxFit.cover,
+                                cacheWidth: 720,
+                                placeholderBuilder: (_) => const SizedBox.shrink(),
+                                errorBuilder: (_) => ColoredBox(
+                                  color: YallaColors.surfaceContainer,
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.storefront_rounded,
+                                      size: 38,
+                                      color: Color(0xFF9AA0AA),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                        if (!r.openNow) _closedStoreOverlay(r),
+                        PositionedDirectional(
+                          top: 8,
+                          start: 8,
+                          child: _ratingBadge(r),
                         ),
                       ],
                     ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _load,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _favorites.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (_, i) {
-                        final r = _favorites[i];
-                        return Card(
-                          child: ListTile(
-                            leading: const CircleAvatar(child: Icon(Icons.storefront_outlined)),
-                            title: Text(r.name),
-                            subtitle: Text(
-                              [r.category, r.address].where((e) => e.isNotEmpty).join(' · '),
-                            ),
-                            onTap: () async {
-                              await Navigator.of(context).push(MaterialPageRoute(
-                                builder: (_) => RestaurantMenuScreen(
-                                  api: widget.api,
-                                  restaurant: r,
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    r.name,
+                                    textDirection: TextDirection.rtl,
+                                    textAlign: TextAlign.left,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 16.5,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
                                 ),
-                              ));
-                              if (mounted) _load();
-                            },
-                            trailing: IconButton(
-                              tooltip: 'إزالة من المفضلة',
-                              onPressed: () => _remove(r),
-                              icon: const Icon(Icons.favorite_rounded, color: Colors.redAccent),
+                                IconButton(
+                                  tooltip: 'إزالة من المفضلة',
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 36,
+                                    height: 36,
+                                  ),
+                                  onPressed: () => _remove(r),
+                                  icon: const Icon(
+                                    Icons.favorite_rounded,
+                                    color: Color(0xFFE53935),
+                                    size: 23,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        );
-                      },
+                            Text(
+                              r.category,
+                              textDirection: TextDirection.rtl,
+                              textAlign: TextAlign.left,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: YallaColors.muted,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const Spacer(),
+                            Row(
+                              children: [
+                                if (r.prepMinutes > 0)
+                                  Expanded(
+                                    child: _metricPill(
+                                      Icons.schedule_rounded,
+                                      '${r.prepMinutes} دقيقة',
+                                    ),
+                                  ),
+                                if (r.prepMinutes > 0 && r.minOrder > 0)
+                                  const SizedBox(width: 6),
+                                if (r.minOrder > 0)
+                                  Expanded(
+                                    child: _metricPill(
+                                      Icons.shopping_bag_outlined,
+                                      'حد أدنى ${r.minOrder} ₪',
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+  Widget _emptyState() => RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(24, 72, 24, 24),
+          children: [
+            Container(
+              width: 82,
+              height: 82,
+              margin: const EdgeInsets.only(bottom: 18),
+              decoration: BoxDecoration(
+                color: YallaColors.primary.withValues(alpha: .10),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.favorite_border_rounded,
+                size: 40,
+                color: YallaColors.primary,
+              ),
+            ),
+            const Center(
+              child: Text(
+                'لا توجد متاجر مفضلة بعد',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+              ),
+            ),
+            const SizedBox(height: 7),
+            Center(
+              child: Text(
+                'اضغط على القلب داخل أي متجر، وسيظهر هنا مباشرة.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: YallaColors.muted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: Column(
+          children: [
+            _header(),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _favorites.isEmpty
+                      ? _emptyState()
+                      : RefreshIndicator(
+                          onRefresh: _load,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
+                            itemCount: _favorites.length,
+                            itemBuilder: (_, i) => _favoriteCard(_favorites[i]),
+                          ),
+                        ),
+            ),
+          ],
+        ),
       );
