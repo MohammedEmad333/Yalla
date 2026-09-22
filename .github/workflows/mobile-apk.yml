@@ -1,6 +1,6 @@
 name: Build Mobile Release
 
-# بناء حزم Yalla للنشر:
+# بناء حزم Yalla للنشر من مشروع Android المتتبّع في Git:
 #   • AAB موقّع للإصدار (app-release.aab) — الحزمة المطلوبة لرفعها على Google Play.
 #   • APK موقّع (app-release.apk) — للتثبيت المباشر والاختبار على الأجهزة.
 #
