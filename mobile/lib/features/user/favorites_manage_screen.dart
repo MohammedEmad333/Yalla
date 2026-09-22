@@ -125,7 +125,7 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
           end: AlignmentDirectional.bottomEnd,
           colors: dark
               ? const [Color(0xFF3A2618), Color(0xFF2B211B)]
-              : const [Color(0xFFFFF4EA), Color(0xFFFFE2C5)],
+              : const [Color(0xFFFFF8F1), Color(0xFFFFEAD6)],
         ),
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
         border: Border(
@@ -137,7 +137,7 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
           child: Row(
             textDirection: TextDirection.rtl,
             children: [
@@ -151,7 +151,7 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                   children: [
                     const Text(
                       'المفضلة',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -166,8 +166,8 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                 ),
               ),
               Container(
-                width: 42,
-                height: 42,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
                   color: YallaColors.primary.withValues(alpha: .12),
                   shape: BoxShape.circle,
@@ -175,7 +175,7 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                 child: Icon(
                   Icons.favorite_rounded,
                   color: YallaColors.primary,
-                  size: 23,
+                  size: 21,
                 ),
               ),
             ],
@@ -218,8 +218,8 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
   }
 
   Widget _metricPill(IconData icon, String label) => Container(
-        constraints: const BoxConstraints(minHeight: 30),
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+        constraints: const BoxConstraints(minHeight: 28),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         decoration: BoxDecoration(
           color: YallaColors.surfaceContainer,
           borderRadius: BorderRadius.circular(10),
@@ -231,18 +231,17 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
         child: Directionality(
           textDirection: TextDirection.rtl,
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 14, color: YallaColors.primary),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  softWrap: false,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 10.6, fontWeight: FontWeight.w800),
-                ),
+              Icon(icon, size: 12, color: YallaColors.primary),
+              const SizedBox(width: 2),
+              Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 10.2, fontWeight: FontWeight.w800),
               ),
             ],
           ),
@@ -274,7 +273,7 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
   }
 
   Widget _favoriteCard(Restaurant r) => Container(
-        margin: const EdgeInsets.only(bottom: 9),
+        margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(22),
@@ -305,7 +304,7 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
               if (mounted) _load();
             },
             child: SizedBox(
-              height: 122,
+              height: 116,
               child: Row(
                 textDirection: TextDirection.rtl,
                 children: [
@@ -352,7 +351,7 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                   ),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                       child: Directionality(
                         textDirection: TextDirection.ltr,
                         child: Column(
@@ -403,23 +402,19 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                               ),
                             ),
                             const Spacer(),
-                            Row(
+                            Wrap(
+                              spacing: 5,
+                              runSpacing: 4,
                               children: [
                                 if (r.prepMinutes > 0)
-                                  Expanded(
-                                    child: _metricPill(
-                                      Icons.schedule_rounded,
-                                      '${r.prepMinutes} دقيقة',
-                                    ),
+                                  _metricPill(
+                                    Icons.schedule_rounded,
+                                    '${r.prepMinutes} دقيقة',
                                   ),
-                                if (r.prepMinutes > 0 && r.minOrder > 0)
-                                  const SizedBox(width: 6),
                                 if (r.minOrder > 0)
-                                  Expanded(
-                                    child: _metricPill(
-                                      Icons.shopping_bag_outlined,
-                                      '${r.minOrder} ₪',
-                                    ),
+                                  _metricPill(
+                                    Icons.shopping_bag_outlined,
+                                    '${r.minOrder} ₪',
                                   ),
                               ],
                             ),
@@ -490,7 +485,7 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                       : RefreshIndicator(
                           onRefresh: _load,
                           child: ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
+                            padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
                             itemCount: _favorites.length,
                             itemBuilder: (_, i) => _favoriteCard(_favorites[i]),
                           ),
