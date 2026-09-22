@@ -11,16 +11,16 @@
     "android:apk": "npm run build && cap sync android && cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
-    "@capacitor/android": "^6.2.1",
-    "@capacitor/core": "^6.2.1",
-    "@capacitor/push-notifications": "^6.0.5",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/push-notifications": "^8.1.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "socket.io-client": "^4.7.5"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.2.1",
-    "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.3.4"
+    "@capacitor/cli": "^8.5.2",
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.3.0"
   }
 }
