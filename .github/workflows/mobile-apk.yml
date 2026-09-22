@@ -19,7 +19,7 @@ on:
         required: false
         default: 'https://api.yalladelivery.org'
   push:
-    branches: [main]
+    branches: ['**']
     paths:
       - 'mobile/**'
       - '.github/workflows/mobile-apk.yml'
@@ -74,6 +74,13 @@ jobs:
           mkdir -p android/app/src/main/res/xml
           cp "$RUNNER_TEMP/nsc.xml" android/app/src/main/res/xml/network_security_config.xml
           rm -f test/widget_test.dart
+
+      - name: رفع Android scaffold للمراجعة
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-android-scaffold
+          path: mobile/android
+          include-hidden-files: true
 
       - name: تثبيت التبعيات
         run: flutter pub get
