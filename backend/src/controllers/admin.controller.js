@@ -345,30 +345,6 @@ async function rejectTopup(req, res, next) {
   }
 }
 
-// Card 81: إضافة رصيد لحساب خارجي مؤقّت فقط (طلبات الأدمن/الواتساب) — ليكفي
-// رصيده لدفع قيمة طلبه. يُرفض للحسابات الدائمة (لها مسار الشحن العاديّ).
-async function creditExternalUser(req, res, next) {
-  try {
-    const { amount } = req.body || {};
-    const value = Number(amount);
-    if (!(value > 0)) return res.status(400).json({ message: 'أدخل مبلغًا صحيحًا' });
-
-    const user = await User.findById(req.params.userId).select('isExternal role');
-    if (!user) return res.status(404).json({ message: 'المستخدم غير موجود' });
-    if (user.role !== ROLES.USER || !user.isExternal) {
-      return res.status(400).json({ message: 'إضافة الرصيد متاحة للحسابات الخارجية المؤقّتة فقط' });
-    }
-
-    const balance = await walletService.adminCredit(user._id, value, {
-      reason: 'external_topup',
-      by: String(req.auth.id),
-    });
-    res.json({ balance });
-  } catch (err) {
-    next(err);
-  }
-}
-
 // إضافة رصيد لأي زبون (دائم أو خارجي) من لوحة الأدمن — يشحن محفظة الزبون يدويًا
 // بالمبلغ المطلوب ويسجّل حركة "تعديل" في دفتر الأستاذ.
 async function creditUser(req, res, next) {
@@ -388,30 +364,6 @@ async function creditUser(req, res, next) {
       by: String(req.auth.id),
     });
     res.json({ balance });
-  } catch (err) {
-    next(err);
-  }
-}
-
-// Card 87: تعديل رصيد حساب خارجي مؤقّت على قيمة محدّدة (بعد إضافته) — يُرفض
-// للحسابات الدائمة (لها مسار الشحن العاديّ). يعرض الأدمن الرصيد الحالي ويعدّله.
-async function setExternalUserBalance(req, res, next) {
-  try {
-    const { balance } = req.body || {};
-    const value = Number(balance);
-    if (!(value >= 0)) return res.status(400).json({ message: 'أدخل رصيدًا صحيحًا' });
-
-    const user = await User.findById(req.params.userId).select('isExternal role');
-    if (!user) return res.status(404).json({ message: 'المستخدم غير موجود' });
-    if (user.role !== ROLES.USER || !user.isExternal) {
-      return res.status(400).json({ message: 'تعديل الرصيد متاح للحسابات الخارجية المؤقّتة فقط' });
-    }
-
-    const newBalance = await walletService.adminSetBalance(user._id, value, {
-      reason: 'external_balance_edit',
-      by: String(req.auth.id),
-    });
-    res.json({ balance: newBalance });
   } catch (err) {
     next(err);
   }
@@ -654,9 +606,7 @@ module.exports = {
   listTopups,
   approveTopup,
   rejectTopup,
-  creditExternalUser,
   creditUser,
-  setExternalUserBalance,
   userWallet,
   listWithdrawals,
   processWithdrawal,
