@@ -1,16 +1,12 @@
 name: Build & Deploy Web App
 
-# يبني نسخة الويب من تطبيق Yalla (Flutter web) تلقائيًا ويحدّث مجلّد web-app/
-# ثمّ يدفع الناتج إلى نفس الفرع — فينشره Cloudflare تلقائيًا عبر ربط GitHub.
+# يبني نسخة الويب من تطبيق Yalla (Flutter web) من مصدر mobile/ ويعامل الناتج
+# كـ build artifact فقط. لا يكتب Git commits تلقائية للملفات المولّدة، حتى لا
+# يغيّر رأس Pull Requests أو يسبب ضوضاء/تعارضات في تاريخ Git.
 #
-# لماذا؟ محتوى web-app/ مُجمَّع مسبقًا (main.dart.js)، فأي تعديل على mobile/ لا يظهر
-# على الويب إلا بعد إعادة بناء. هذا الـ Workflow يقوم بذلك بدل البناء اليدوي.
-#
-# النشر التلقائي:
-#   • إن كان مستودعك مربوطًا بـ Cloudflare Pages/Workers عبر GitHub، فدفع web-app/
-#     يكفي لبدء النشر تلقائيًا.
-#   • بديلًا (اختياري): أضِف السرّين CLOUDFLARE_API_TOKEN و CLOUDFLARE_ACCOUNT_ID
-#     ليُنفَّذ `wrangler deploy` مباشرةً من هذا الـ Workflow.
+# على Pull Requests: build + artifact للتحقق فقط.
+# على main أو التشغيل اليدوي: build + artifact ثم نشر مباشر على Cloudflare عند
+# توفّر CLOUDFLARE_API_TOKEN وCLOUDFLARE_ACCOUNT_ID.
 on:
   workflow_dispatch:
     inputs:
@@ -18,10 +14,15 @@ on:
         description: 'عنوان الـ Backend الذي يتصل به تطبيق الويب (API_ORIGIN)'
         required: false
         default: 'https://api.yalladelivery.org'
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - 'tool/build-web.sh'
+      - 'tool/web-app-headers'
+      - '.github/workflows/web-app.yml'
+      - 'wrangler-app.toml'
   push:
-    branches: ['**']
-    # نبني فقط عند تغيّر مصدر التطبيق أو أداة البناء — لا عند تغيّر web-app/ نفسه
-    # (حتى لا يُعيد الـ Workflow تشغيل نفسه بعد دفعه للناتج).
+    branches: [main]
     paths:
       - 'mobile/**'
       - 'tool/build-web.sh'
@@ -29,9 +30,8 @@ on:
       - '.github/workflows/web-app.yml'
       - 'wrangler-app.toml'
 
-# صلاحية الكتابة مطلوبة لدفع الناتج (web-app/) إلى الفرع
 permissions:
-  contents: write
+  contents: read
 
 # نسمح ببناء واحد لكل فرع في كل مرّة
 concurrency:
@@ -68,25 +68,14 @@ jobs:
           chmod +x tool/build-web.sh
           tool/build-web.sh
 
-      # دفع الناتج إلى نفس الفرع إن تغيّر (لا شيء يُدفَع إن كان مطابقًا)
-      - name: تحديث web-app/ في المستودع
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web-app
-          if git diff --cached --quiet; then
-            echo "لا تغييرات في web-app/ — تخطّي الدفع."
-          else
-            git commit -m "بناء تطبيق الويب تلقائيًا (CI) [skip ci]"
-            # قد تُدفَع كوميتات جديدة للفرع أثناء البناء؛ نُعيد الأساس ثمّ ندفع
-            # (وإلّا رُفض الدفع بـ non-fast-forward وفشلت المهمّة بلا سبب حقيقي).
-            # --autostash: بناء Flutter يخلّف ملفّات غير مُدرَجة (مثل .dart_tool)
-            # فيرفض rebase العمل بدونها.
-            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
-          fi
+      - name: رفع نسخة الويب كـ Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yalla-web
+          path: web-app
+          if-no-files-found: error
 
-      # نشر مباشر على Cloudflare (اختياري) — يُنفَّذ فقط عند توفّر أسرار Cloudflare
-      - name: نشر على Cloudflare (اختياري)
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
+      # النشر يتم فقط من main/تشغيل يدوي، ولا يحتاج أي commit مولّد.
+      - name: نشر على Cloudflare
+        if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         run: npx --yes wrangler deploy --config wrangler-app.toml
