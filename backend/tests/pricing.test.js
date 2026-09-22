@@ -59,33 +59,13 @@ test('METERS_PER_SHEKEL = ٢٥٠', () => {
   assert.equal(pricing.METERS_PER_SHEKEL, 250);
 });
 
-// Card 89: عرض السقف ١٠ شيكل خلال فترة العرض
-test('applyOffer: يخفّض السعر الأعلى من ١٠ إلى ١٠ خلال العرض ويحفظ الأصلي', () => {
-  const during = new Date('2026-09-01T00:00:00Z'); // ضمن فترة العرض
-  const r = pricing.applyOffer(20, during);
-  assert.equal(r.price, 10);
-  assert.equal(r.originalPrice, 20);
-  assert.equal(r.offerApplied, true);
-});
-
-test('applyOffer: لا يغيّر السعر الأقلّ من أو يساوي ١٠', () => {
-  const during = new Date('2026-09-01T00:00:00Z');
-  const r = pricing.applyOffer(6, during);
-  assert.equal(r.price, 6);
-  assert.equal(r.offerApplied, false);
-});
-
-test('applyOffer: بعد انتهاء العرض لا يُطبَّق السقف', () => {
-  const after = new Date('2026-12-01T00:00:00Z'); // بعد ١/١٠
-  const r = pricing.applyOffer(20, after);
-  assert.equal(r.price, 20);
-  assert.equal(r.offerApplied, false);
-});
-
-test('quote: يرفق السعر الأصلي وحالة العرض والسقف', () => {
+test('quote: يستخدم التعرفة العادية بدون سقف أو حقول عرض ترويجي', () => {
   const q = pricing.quote(TAHRIR, GIZA);
-  assert.equal(q.offerCap, pricing.OFFER_PRICE_CAP);
-  assert.ok(q.originalPrice >= q.price);
+  assert.equal(q.price, pricing.calculatePrice(q.distanceKm));
+  assert.ok(q.price > 10);
+  assert.equal(Object.hasOwn(q, 'offerApplied'), false);
+  assert.equal(Object.hasOwn(q, 'originalPrice'), false);
+  assert.equal(Object.hasOwn(q, 'offerCap'), false);
 });
 
 test('quote: الرمال الجنوبي إلى تل الهوا يُحسب من مركزي الحيّين', () => {
