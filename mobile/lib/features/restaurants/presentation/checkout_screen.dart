@@ -38,8 +38,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _usePoints = false;
   DateTime? _scheduledAt;
   num? _deliveryPrice;
-  num? _deliveryOriginal;
-  bool _offerApplied = false;
   num? _etaMinutes;
   num _discount = 0;
   String _couponMessage = '';
@@ -147,8 +145,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       setState(() {
         _deliveryPrice = q['price'] as num?;
-        _deliveryOriginal = q['originalPrice'] as num?;
-        _offerApplied = q['offerApplied'] == true;
         _etaMinutes = ((q['etaMinutes'] as num?) ?? 0) + _cart.restaurant.prepMinutes;
       });
     } finally {
@@ -349,12 +345,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget _deliveryRow() {
     if (_loadingQuote) return _summary('أجرة التوصيل', 'جارٍ الحساب...');
     if (_deliveryPrice == null) return _summary('أجرة التوصيل', 'اختر عنوان التسليم');
-    if (_offerApplied && _deliveryOriginal != null) {
-      return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('أجرة التوصيل'), Row(children: [
-        Text('$_deliveryOriginal ₪', style: TextStyle(decoration: TextDecoration.lineThrough, color: YallaColors.muted)),
-        const SizedBox(width: 8), Text('$_deliveryPrice ₪', style: TextStyle(fontWeight: FontWeight.bold, color: YallaColors.primary)),
-      ])]);
-    }
     return _summary('أجرة التوصيل', '$_deliveryPrice ₪');
   }
 

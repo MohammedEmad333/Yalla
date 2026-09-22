@@ -86,8 +86,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   DateTime? _scheduledAt;
 
   num? _quotePrice;
-  num? _quoteOriginal;
-  bool _offerApplied = false;
   num? _quoteDistance;
   num? _quoteEta;
   bool _loadingQuote = false;
@@ -136,10 +134,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   void _resetQuote() {
     _quotePrice = null;
-    _quoteOriginal = null;
     _quoteDistance = null;
     _quoteEta = null;
-    _offerApplied = false;
   }
 
   Future<void> _addressChanged() async {
@@ -161,8 +157,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       if (!mounted) return;
       setState(() {
         _quotePrice = q['price'];
-        _quoteOriginal = q['originalPrice'];
-        _offerApplied = q['offerApplied'] == true;
         _quoteDistance = q['distanceKm'];
         _quoteEta = q['etaMinutes'];
       });
@@ -279,32 +273,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 leading: const Icon(Icons.payments),
                 title: _loadingQuote
                     ? const Text('جارٍ حساب السعر...')
-                    : _offerApplied && _quoteOriginal != null
-                        ? Row(
-                            children: [
-                              const Text('السعر التقريبي: '),
-                              Text(
-                                '$_quoteOriginal ₪',
-                                style: TextStyle(
-                                  decoration: TextDecoration.lineThrough,
-                                  color: YallaColors.muted,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '$_quotePrice ₪',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: YallaColors.primary,
-                                ),
-                              ),
-                            ],
-                          )
-                        : Text('السعر التقريبي: $_quotePrice ₪'),
+                    : Text('السعر التقريبي: $_quotePrice ₪'),
                 subtitle: _quoteDistance != null
                     ? Text('المسافة: ~$_quoteDistance كم'
                         '${_quoteEta != null ? ' · الزمن المتوقّع: ~$_quoteEta دقيقة' : ''}'
-                        '${_offerApplied ? '\n🎉 عرض لفترة محدودة: أقصى سعر ١٠ ₪' : ''}'
                         '\nالسعر النهائي يحدّده الكابتن عند التسليم (لا يتجاوز التقريبي)')
                     : null,
                 isThreeLine: _quoteDistance != null,
