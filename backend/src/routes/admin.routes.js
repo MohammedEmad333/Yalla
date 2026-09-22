@@ -79,8 +79,6 @@ router.get('/wallet/topups', ctrl.listTopups);
 router.post('/wallet/topups/:txId/approve', ctrl.approveTopup);
 router.post('/wallet/topups/:txId/reject', ctrl.rejectTopup);
 router.get('/users/:userId/wallet', ctrl.userWallet);
-router.post('/users/:userId/wallet/credit', ctrl.creditExternalUser);
 router.post('/users/:userId/wallet/add', ctrl.creditUser);
-router.patch('/users/:userId/wallet/balance', ctrl.setExternalUserBalance);
 
 module.exports = router;

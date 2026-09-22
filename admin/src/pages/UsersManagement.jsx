@@ -170,10 +170,7 @@ function UsersTab() {
             {users.map((u) => (
               <tr key={u.id}>
                 <td data-label="الاسم">
-                  <NameCell url={u.avatarUrl} name={u.name}>
-                    {/* Card 80: تمييز الحساب الخارجي المؤقّت عن الدائم */}
-                    {u.isExternal && <Badge tone="warning">مؤقّت</Badge>}
-                  </NameCell>
+                  <NameCell url={u.avatarUrl} name={u.name} />
                 </td>
                 <td data-label="الهاتف" className="yl-num">{u.phone}</td>
                 <td data-label="العنوان">{u.address || '—'}</td>
@@ -215,7 +212,6 @@ function UsersTab() {
             ['المحافظة', detail.governorate || '—'],
             ['العنوان', detail.address],
             ['الرصيد المتوفّر', `${detail.balance} ₪`],
-            ['نوع الحساب', detail.isExternal ? 'خارجي مؤقّت' : 'دائم'],
             ['الحالة', detail.isActive ? 'مفعّل' : 'معطّل'],
             ['تاريخ الانضمام', fmtDate(detail.createdAt)],
           ]}

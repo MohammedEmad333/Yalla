@@ -13,10 +13,8 @@ import {
   Button,
   Card,
   EmptyState,
-  Field,
   IconButton,
   Input,
-  Modal,
   PageHeader,
   Select,
 } from '../components/ui';
@@ -30,10 +28,8 @@ import {
   IconEdit,
   IconOrders,
   IconPin,
-  IconPlus,
   IconStar,
   IconUsers,
-  IconWallet,
 } from '../components/icons';
 
 // Card 110: هل يقع الطلب ضمن نطاق مناطق الأدمن؟ (مدينة الاستلام أو التسليم)
@@ -205,8 +201,6 @@ export default function LiveDashboard() {
   const [delayed, setDelayed] = useState({});      // {orderId: warning} الطلبات المتأخّرة (Card 40)
   const [timeouts, setTimeouts] = useState({});    // {orderId: info} طلبات لم يقبلها الكابتن خلال المهلة (Card 54)
   const [priceEdit, setPriceEdit] = useState({}); // Card 74: {orderId: value} تحرير السعر التقريبي
-  const [showCreate, setShowCreate] = useState(false); // Card 68: نافذة إنشاء طلب من الأدمن
-  const [neighborhoods, setNeighborhoods] = useState({}); // Card 109: {المدينة: [الأحياء]} لمنتقي العنوان
   const [autoAssignOn, setAutoAssignOn] = useState(false); // الإسناد التلقائي (بثّ لكل الكباتن)
   const [autoBusy, setAutoBusy] = useState(false);        // أثناء تبديل الإسناد التلقائي
   const token = localStorage.getItem('token');     // توكن الأدمن
@@ -241,9 +235,6 @@ export default function LiveDashboard() {
       .then((r) => r.json())
       .then((s) => setAutoAssignOn(!!s?.autoAssignBroadcast))
       .catch(() => {});
-    // Card 68 + Card 109: نجلب الأحياء مُجمّعة حسب المدينة لمنتقي المدينة ثمّ الحي
-    fetch(`${API}/api/neighborhoods?grouped=1`).then((r) => r.json()).then(setNeighborhoods).catch(() => {});
-
     socket.connect();
 
     // طلب جديد أنشأه مستخدم (أو عاد للمجمّع بعد رفض) -> أضِفه أعلى القائمة فورًا.
@@ -333,55 +324,6 @@ export default function LiveDashboard() {
     }
     // نغلق المحرّر — التحديث يصل عبر حدث order:status_updated فيُحدَّث السعر تلقائيًا
     setPriceEdit((p) => { const n = { ...p }; delete n[orderId]; return n; });
-  }
-
-  // يحدّث رصيد صاحب الطلب في الحالة المحلية لكل الطلبات التي تخصّه (Card 87/88)
-  function setUserBalance(userId, balance) {
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.user?._id === userId ? { ...o, user: { ...o.user, balance } } : o
-      )
-    );
-  }
-
-  // Card 81: إضافة رصيد لحساب خارجي مؤقّت ليكفي لدفع قيمة طلبه
-  async function creditExternal(o) {
-    const userId = o.user?._id;
-    if (!userId) return;
-    const raw = window.prompt(`المبلغ المراد إضافته لرصيد صاحب الطلب (₪):`, String(o.price));
-    if (raw == null) return;
-    const amount = Number(raw);
-    if (!Number.isFinite(amount) || amount <= 0) return alert('أدخل مبلغًا صحيحًا');
-    const res = await fetch(`${API}/api/admin/users/${userId}/wallet/credit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ amount }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) return alert(data?.message || 'تعذّر إضافة الرصيد');
-    // Card 87: نعرض الرصيد المحدّث فورًا في اللوحة بعد الإضافة
-    setUserBalance(userId, data.balance);
-    alert(`تمت إضافة الرصيد. الرصيد الحالي: ${data.balance} ₪`);
-  }
-
-  // Card 87: تعديل رصيد الحساب الخارجي على قيمة محدّدة (بعد إضافته)
-  async function editBalance(o) {
-    const userId = o.user?._id;
-    if (!userId) return;
-    const current = Number(o.user?.balance) || 0;
-    const raw = window.prompt(`الرصيد الجديد لصاحب الطلب (₪):`, String(current));
-    if (raw == null) return;
-    const balance = Number(raw);
-    if (!Number.isFinite(balance) || balance < 0) return alert('أدخل رصيدًا صحيحًا');
-    const res = await fetch(`${API}/api/admin/users/${userId}/wallet/balance`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ balance }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) return alert(data?.message || 'تعذّر تعديل الرصيد');
-    setUserBalance(userId, data.balance);
-    alert(`تم تعديل الرصيد. الرصيد الحالي: ${data.balance} ₪`);
   }
 
   // Card 82: إرسال رمز التسليم إلى إشعارات الكابتن المُسنَد
@@ -474,10 +416,6 @@ export default function LiveDashboard() {
         >
           {autoBusy ? '…' : `الإسناد التلقائي: ${autoAssignOn ? 'مفعّل' : 'متوقّف'}`}
         </Button>
-        {/* Card 68: إنشاء طلب من لوحة الأدمن */}
-        <Button variant="primary" icon={<IconPlus size={18} />} onClick={() => setShowCreate(true)}>
-          إنشاء طلب
-        </Button>
       </PageHeader>
 
       {/* ملخّص سريع: الطلبات النشطة والكباتن المتصلون ونطاق الأدمن */}
@@ -513,15 +451,6 @@ export default function LiveDashboard() {
           </div>
         )}
       </div>
-
-      {/* Card 68: نافذة إنشاء طلب نيابةً عن صاحب الطلب */}
-      {showCreate && (
-        <CreateOrderModal
-          token={token}
-          neighborhoods={neighborhoods}
-          onClose={() => setShowCreate(false)}
-        />
-      )}
 
       {/* Card 54: طلبات لم يقبلها الكابتن خلال المهلة وعادت للمجمّع */}
       {Object.keys(timeouts).length > 0 && (
@@ -675,24 +604,12 @@ export default function LiveDashboard() {
                 )}
               </div>
 
-              {/* Card 81 + 82 + 87: إجراءات الحسابات الخارجية وإرسال الرمز للكابتن */}
-              {(o.user?.isExternal || (o.captain && o.deliveryCode)) && (
+              {/* إرسال رمز التسليم للكابتن عند الحاجة */}
+              {o.captain && o.deliveryCode && (
                 <div className="yl-btnrow" style={{ marginTop: 'var(--s-3)' }}>
-                  {o.user?.isExternal && (
-                    <Button size="sm" variant="success" icon={<IconWallet size={16} />} onClick={() => creditExternal(o)}>
-                      أضف رصيدًا لصاحب الطلب
-                    </Button>
-                  )}
-                  {o.user?.isExternal && (
-                    <Button size="sm" variant="soft" icon={<IconEdit size={16} />} onClick={() => editBalance(o)}>
-                      تعديل الرصيد
-                    </Button>
-                  )}
-                  {o.captain && o.deliveryCode && (
-                    <Button size="sm" variant="soft" onClick={() => sendCode(o._id)}>
-                      أرسل الرمز للكابتن
-                    </Button>
-                  )}
+                  <Button size="sm" variant="soft" onClick={() => sendCode(o._id)}>
+                    أرسل الرمز للكابتن
+                  </Button>
                 </div>
               )}
 
@@ -784,119 +701,5 @@ export default function LiveDashboard() {
         </aside>
       </div>
     </>
-  );
-}
-
-// Card 68: نافذة إنشاء طلب من الأدمن — اسم صاحب الطلب وهاتفه + تفاصيل نقطتَي
-// الاستلام والتسليم. يُنشأ الطلب pending فيظهر في اللوحة فورًا عبر order:created.
-function CreateOrderModal({ token, neighborhoods, onClose }) {
-  // Card 109: neighborhoods = {المدينة: [الأحياء]}؛ نختار المدينة ثمّ الحي
-  const cities = Object.keys(neighborhoods || {});
-  const emptyPoint = { city: '', neighborhood: '', street: '', details: '', note: '' };
-  const [contactName, setContactName] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [pickup, setPickup] = useState({ ...emptyPoint });
-  const [dropoff, setDropoff] = useState({ ...emptyPoint });
-  const [packageNote, setPackageNote] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  async function submit() {
-    setError('');
-    if (!contactName.trim()) return setError('اسم صاحب الطلب مطلوب');
-    if (!contactPhone.trim()) return setError('رقم جوال صاحب الطلب مطلوب');
-    if (!pickup.city || !pickup.neighborhood) return setError('اختر مدينة وحي الاستلام');
-    if (!dropoff.city || !dropoff.neighborhood) return setError('اختر مدينة وحي التسليم');
-    setSaving(true);
-    try {
-      const res = await fetch(`${API}/api/orders/admin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ contactName, contactPhone, pickup, dropoff, packageNote }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.message || 'تعذّر إنشاء الطلب');
-      }
-      onClose(); // الطلب يظهر في اللوحة تلقائيًا عبر حدث order:created
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // حقول نقطة (استلام/تسليم): المدينة ← الحي ← الشارع ← التفاصيل ← ملاحظة
-  const pointFields = (label, point, setPoint) => (
-    <div className="yl-stack yl-stack--sm">
-      <b className="yl-label">{label}</b>
-      {/* Card 109: المدينة قبل الحي — تغيير المدينة يُصفّر الحي */}
-      <Select
-        value={point.city}
-        onChange={(e) => setPoint((p) => ({ ...p, city: e.target.value, neighborhood: '' }))}
-      >
-        <option value="">— اختر المدينة —</option>
-        {cities.map((c) => (
-          <option key={c} value={c}>{c}</option>
-        ))}
-      </Select>
-      <Select
-        value={point.neighborhood}
-        onChange={(e) => setPoint((p) => ({ ...p, neighborhood: e.target.value }))}
-        disabled={!point.city}
-      >
-        <option value="">— اختر الحي —</option>
-        {(neighborhoods[point.city] || []).map((n) => (
-          <option key={n} value={n}>{n}</option>
-        ))}
-      </Select>
-      <Input placeholder="الشارع" value={point.street}
-        onChange={(e) => setPoint((p) => ({ ...p, street: e.target.value }))} />
-      <Input placeholder="العنوان بالتفاصيل" value={point.details}
-        onChange={(e) => setPoint((p) => ({ ...p, details: e.target.value }))} />
-      <Input placeholder="ملاحظة (اختياري)" value={point.note}
-        onChange={(e) => setPoint((p) => ({ ...p, note: e.target.value }))} />
-    </div>
-  );
-
-  return (
-    <Modal
-      title="إنشاء طلب جديد"
-      onClose={onClose}
-      footer={
-        <>
-          <Button variant="primary" onClick={submit} disabled={saving} loading={saving}>
-            {saving ? 'جارٍ الإنشاء…' : 'إنشاء الطلب'}
-          </Button>
-          <Button onClick={onClose}>إلغاء</Button>
-        </>
-      }
-    >
-      <div className="yl-stack">
-        <div className="yl-formgrid">
-          <Field label="اسم صاحب الطلب">
-            <Input value={contactName} onChange={(e) => setContactName(e.target.value)} />
-          </Field>
-          <Field label="رقم الجوال">
-            <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} inputMode="tel" />
-          </Field>
-        </div>
-
-        <div className="yl-split yl-split--even">
-          {pointFields('نقطة الاستلام', pickup, setPickup)}
-          {pointFields('نقطة التسليم', dropoff, setDropoff)}
-        </div>
-
-        <Field label="وصف الشحنة (اختياري)">
-          <Input
-            placeholder="وصف مختصر لما يُوصَّل"
-            value={packageNote}
-            onChange={(e) => setPackageNote(e.target.value)}
-          />
-        </Field>
-
-        {error && <Alert tone="error">{error}</Alert>}
-      </div>
-    </Modal>
   );
 }

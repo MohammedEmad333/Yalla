@@ -200,30 +200,16 @@ test('Card 80: الحساب الدائم لا يُحذف بعد إغلاق طل�
   assert.ok(stillThere, 'الحساب الدائم يبقى بعد انتهاء الطلب');
 });
 
-test('Card 80: طلب الأدمن الخارجي يُنشئ حسابًا مؤقّتًا (isExternal)', async (t) => {
+test('adminCredit يضيف رصيدًا للزبون ويُسجّل حركة تعديل', async (t) => {
   if (!state.dbReady) return t.skip('لا قاعدة بيانات');
-  // نستخدم الدالة المساعدة الداخلية عبر إنشاء طلب أدمن بحيّ صالح
-  const phone = `9${Date.now()}`.slice(0, 10);
-  const order = await orderService.createOrderByAdmin('000000000000000000000000', {
-    contactName: 'زبون خارجي',
-    contactPhone: phone,
-    pickup: { neighborhood: 'الرمال' },
-    dropoff: { neighborhood: 'الزيتون' },
-  });
-  const created = await User.findById(order.user).select('isExternal');
-  assert.equal(created.isExternal, true, 'حساب الطلب الخارجي مؤقّت');
-});
+  const customer = new User({ name: 'زبون', phone: `x${Date.now()}` });
+  await customer.setPassword('secret1');
+  await customer.save();
 
-test('Card 81: adminCredit يضيف رصيدًا ويُسجّل حركة تعديل', async (t) => {
-  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
-  const ext = new User({ name: 'خارجي', phone: `x${Date.now()}`, isExternal: true });
-  await ext.setPassword('secret1');
-  await ext.save();
-
-  const balance = await walletService.adminCredit(ext._id, 30, { reason: 'external_topup' });
+  const balance = await walletService.adminCredit(customer._id, 30, { reason: 'admin_credit' });
   assert.equal(balance, 30, 'أُضيف الرصيد');
 
-  const wallet = await Wallet.findOne({ user: ext._id });
+  const wallet = await Wallet.findOne({ user: customer._id });
   assert.equal(wallet.balance, 30);
 });
 

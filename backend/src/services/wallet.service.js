@@ -219,9 +219,7 @@ async function refundOrderPayment(userId, orderId, reason = '') {
 }
 
 /**
- * Card 81: إضافة رصيد يدويًا من الأدمن (تعديل) — تُستخدم لتمويل الحسابات الخارجية
- * المؤقّتة كي يكفي رصيدها لدفع قيمة طلبها عند التسليم. تُسجّل حركة "تعديل" وتبثّ
- * الرصيد. التحقّق من كون الحساب خارجيًا يتمّ في طبقة المتحكّم.
+ * إضافة رصيد يدويًا من الأدمن لزبون، مع تسجيل حركة تعديل وبث الرصيد الجديد.
  * @param {string} userId
  * @param {number} amount
  * @param {object} meta  بيانات تدقيق (سبب/المنفّذ)
@@ -245,43 +243,6 @@ async function adminCredit(userId, amount, meta = {}) {
     });
   } catch (err) {
     logger.warn('تعذّر تسجيل حركة إضافة الرصيد:', err.message);
-  }
-
-  broadcastBalance(userId, wallet.balance);
-  return wallet.balance;
-}
-
-/**
- * Card 87: ضبط رصيد محفظة زبون على قيمة محدّدة من الأدمن (تعديل مباشر).
- */
-async function adminSetBalance(userId, newBalance, meta = {}) {
-  const target = Number(newBalance);
-  if (!(target >= 0)) throw httpError('قيمة الرصيد غير صالحة', 400);
-
-  const current = await getOrCreateWallet(userId);
-  if (target < Number(current.reservedBalance || 0)) {
-    throw httpError('لا يمكن خفض الرصيد عن المبلغ المحجوز للطلبات النشطة', 409);
-  }
-  const delta = target - current.balance;
-  if (delta === 0) {
-    broadcastBalance(userId, current.balance);
-    return current.balance;
-  }
-
-  const wallet = await creditWallet(userId, delta); // delta قد يكون سالبًا
-  try {
-    await WalletTransaction.create({
-      user: userId,
-      wallet: wallet._id,
-      type: WALLET_TX_TYPE.ADJUSTMENT,
-      direction: delta > 0 ? WALLET_DIRECTION.CREDIT : WALLET_DIRECTION.DEBIT,
-      amount: Math.abs(delta),
-      status: TOPUP_STATUS.APPROVED,
-      balanceAfter: wallet.balance,
-      gatewayResponse: { ...meta, setTo: target },
-    });
-  } catch (err) {
-    logger.warn('تعذّر تسجيل حركة تعديل الرصيد:', err.message);
   }
 
   broadcastBalance(userId, wallet.balance);
@@ -462,7 +423,6 @@ module.exports = {
   getWalletSummary,
   creditWallet,
   adminCredit,
-  adminSetBalance,
   debitWallet,
   chargeForOrder,
   refundOrderPayment,
