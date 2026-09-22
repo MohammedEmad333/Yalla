@@ -61,7 +61,6 @@ jobs:
 
       - name: تثبيت التبعيات
         run: flutter pub get
-        run: flutter pub get
 
       # اختبارات الوحدة/الواجهة (نظام الألوان والوضع الليلي) قبل البناء
       - name: اختبارات Flutter
