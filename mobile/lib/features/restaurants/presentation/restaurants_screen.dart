@@ -215,20 +215,20 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: AlignmentDirectional.topStart,
           end: AlignmentDirectional.bottomEnd,
-          colors: [
-            YallaColors.primary,
-            const Color(0xFFFFA126),
+          colors: const [
+            Color(0xFFFFB45A),
+            Color(0xFFFF8A2A),
           ],
         ),
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: dark ? .18 : .10),
+            color: Colors.black.withValues(alpha: dark ? .15 : .07),
             blurRadius: 18,
             offset: const Offset(0, 7),
           ),
@@ -292,9 +292,9 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     required VoidCallback onTap,
   }) =>
       Material(
-        color: Colors.white.withValues(alpha: .18),
+        color: Colors.white.withValues(alpha: .12),
         shape: CircleBorder(
-          side: BorderSide(color: Colors.white.withValues(alpha: .24), width: 1),
+          side: BorderSide(color: Colors.white.withValues(alpha: .20), width: 1),
         ),
         child: InkWell(
           customBorder: const CircleBorder(),
@@ -302,12 +302,12 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           child: Tooltip(
             message: tooltip,
             child: SizedBox.square(
-              dimension: 46,
+              dimension: 40,
               child: Center(
                 child: Icon(
                   icon,
                   color: Colors.white,
-                  size: 25,
+                  size: 22,
                 ),
               ),
             ),
@@ -384,31 +384,32 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           if (_banners.isNotEmpty && _search.text.isEmpty) _bannerCarousel(),
           if (_categories.isNotEmpty)
             SizedBox(
-              height: 50,
+              height: 46,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+                physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 children: ['الكل', ..._categories].toSet().map((c) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
                   child: ChoiceChip(
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
                       textDirection: TextDirection.ltr,
                       children: [
                         SizedBox(
-                          width: 20,
-                          height: 20,
+                          width: 18,
+                          height: 18,
                           child: Center(
                             child: Icon(
                               _categoryIcon(c),
-                              size: 18,
+                              size: 17,
                               color: c == _category
                                   ? Colors.white
                                   : YallaColors.primary,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 5),
                         Text(c, maxLines: 1, softWrap: false),
                       ],
                     ),
@@ -424,12 +425,12 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                     ),
                     labelStyle: TextStyle(
                       fontWeight: FontWeight.w800,
-                      fontSize: 12.8,
+                      fontSize: 12.4,
                       color: c == _category ? Colors.white : null,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                     visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
                 )).toList(),
               ),
@@ -802,8 +803,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
       );
 
   Widget _metricPill(IconData icon, String label) => Container(
-        constraints: const BoxConstraints(minHeight: 30),
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+        constraints: const BoxConstraints(minHeight: 28),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         decoration: BoxDecoration(
           color: YallaColors.surfaceContainer,
           borderRadius: BorderRadius.circular(10),
@@ -815,18 +816,17 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         child: Directionality(
           textDirection: TextDirection.rtl,
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 14, color: YallaColors.primary),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  softWrap: false,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 10.6, fontWeight: FontWeight.w800),
-                ),
+              Icon(icon, size: 12, color: YallaColors.primary),
+              const SizedBox(width: 2),
+              Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 10.2, fontWeight: FontWeight.w800),
               ),
             ],
           ),
@@ -936,23 +936,19 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             ),
                           ),
                           const Spacer(),
-                          Row(
+                          Wrap(
+                            spacing: 5,
+                            runSpacing: 4,
                             children: [
                               if (r.prepMinutes > 0)
-                                Expanded(
-                                  child: _metricPill(
-                                    Icons.schedule_rounded,
-                                    '${r.prepMinutes} دقيقة',
-                                  ),
+                                _metricPill(
+                                  Icons.schedule_rounded,
+                                  '${r.prepMinutes} دقيقة',
                                 ),
-                              if (r.prepMinutes > 0 && r.minOrder > 0)
-                                const SizedBox(width: 6),
                               if (r.minOrder > 0)
-                                Expanded(
-                                  child: _metricPill(
-                                    Icons.shopping_bag_outlined,
-                                    '${r.minOrder} ₪',
-                                  ),
+                                _metricPill(
+                                  Icons.shopping_bag_outlined,
+                                  '${r.minOrder} ₪',
                                 ),
                             ],
                           ),
