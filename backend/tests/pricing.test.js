@@ -28,6 +28,11 @@ test('calculatePrice: يحترم الحدّ الأدنى للأجرة لمساف
   assert.ok(price >= pricing.TARIFF.minFare);
 });
 
+test('الحدّ الأدنى لأجرة التوصيل = ٨ ₪', () => {
+  assert.equal(pricing.TARIFF.minFare, 8);
+  assert.equal(pricing.calculatePrice(0), 8);
+});
+
 test('calculatePrice: يزيد السعر بزيادة المسافة', () => {
   const near = pricing.calculatePrice(2);
   const far = pricing.calculatePrice(10);
@@ -43,7 +48,7 @@ test('quote: يُرجع مسافة وسعر وعملة صحيحة', () => {
 
 // نموذج التسعير المطلوب (Card 55): "سعر المئتين وخمسين مترًا = ١ شيكل"
 test('calculatePrice: كل ٢٥٠ مترًا = ١ شيكل', () => {
-  // ٢٥٠ مترًا = ٠.٢٥ كم → ١ ₪ (لكنّ الحدّ الأدنى ٦ ₪ يرفعه)
+  // ٢٥٠ مترًا = ٠.٢٥ كم → ١ ₪ (لكنّ الحدّ الأدنى ٨ ₪ يرفعه)
   assert.equal(pricing.calculatePrice(0.25), pricing.TARIFF.minFare);
   // ٢٥٠٠ مترًا = ٢.٥ كم → ٢٥٠٠ ÷ ٢٥٠ = ١٠ ₪
   assert.equal(pricing.calculatePrice(2.5), 10);
