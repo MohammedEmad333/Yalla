@@ -159,6 +159,7 @@ docker compose exec api npm run seed:admin "المدير" 0100000000 "StrongPass
 ```bash
 cd backend
 cp .env.example .env
+# يتطلب Node.js 22+
 npm install
 npm run dev
 npm test
@@ -175,7 +176,7 @@ flutter run --dart-define=API_ORIGIN=http://10.0.2.2:4000
 
 ## CI / Builds
 
-- `ci.yml` — اختبارات Backend + build للإدارة.
+- `ci.yml` — اختبارات Backend + build للإدارة + تحليل/اختبارات Flutter لتطبيق Yalla وتحليل Yalla Partner.
 - `mobile-apk.yml` — Android لتطبيق Yalla، ويستخدم افتراضيًا `https://api.yalladelivery.org`.
 - `partner-apk.yml` — APK/AAB لـYalla Partner، ويستخدم افتراضيًا `https://api.yalladelivery.org`.
 - `build-admin-apk.yml` — تطبيق Yalla Admin Android.
