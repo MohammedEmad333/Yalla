@@ -418,7 +418,7 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                                   Expanded(
                                     child: _metricPill(
                                       Icons.shopping_bag_outlined,
-                                      'حد أدنى ${r.minOrder} ₪',
+                                      '${r.minOrder} ₪',
                                     ),
                                   ),
                               ],
