@@ -251,9 +251,6 @@ async function adminCredit(userId, amount, meta = {}) {
   return wallet.balance;
 }
 
-/**
- * Card 87: ضبط رصيد محفظة زبون على قيمة محدّدة من الأدمن (تعديل مباشر).
- */
 async function createTopupTransaction({
   userId,
   amount,
