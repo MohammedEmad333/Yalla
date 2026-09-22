@@ -12,13 +12,8 @@ build/
 .idea/
 .vscode/
 
-# مجلّدات المنصّات المولّدة عبر `flutter create` (نُبقي فقط ملفّ المانيفست
-# الخاصّ بنا تحت المتابعة — راجع android/app/src/main/AndroidManifest.xml).
-# نستثني المانيفست صراحةً حتى لا يُتجاهَل.
+# Android project is tracked in Git; ignore only local/generated Android files.
 /android/.gradle/
-/android/gradle/
-/android/gradlew
-/android/gradlew.bat
 /android/local.properties
 /android/key.properties
 /android/*.iml
