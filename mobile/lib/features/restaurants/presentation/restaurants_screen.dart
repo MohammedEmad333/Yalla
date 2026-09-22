@@ -76,7 +76,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     });
     try {
       List<String>? nextCategories;
-      List<dynamic>? nextBanners;
+      late final List<dynamic> nextBanners;
       if (initial || _categories.isEmpty) {
         final result = await Future.wait<dynamic>([
           _repo.categories(),
@@ -104,16 +104,13 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         if (byOrders != 0) return byOrders;
         return a.name.compareTo(b.name);
       });
-      final bannersChanged = nextBanners != null;
       setState(() {
-        if (nextCategories != null) _categories = nextCategories!;
-        if (nextBanners != null) {
-          _banners = nextBanners!;
-          _bannerIndex = 0;
-        }
+        if (nextCategories != null) _categories = nextCategories;
+        _banners = nextBanners;
+        _bannerIndex = 0;
         _restaurants = list;
       });
-      if (bannersChanged) {
+      {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           if (_bannerController.hasClients && _banners.isNotEmpty) {
