@@ -1,0 +1,18 @@
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Signing / service credentials
+*.jks
+*.keystore
+**/key.properties
+**/google-services.json
+**/*service-account*.json
+**/*credentials*.json
+
+# Common generated/local state
+.DS_Store
+Thumbs.db
+*.log
