@@ -8,7 +8,7 @@ on:
         required: false
         default: 'https://api.yalladelivery.org'
   push:
-    branches: ['main', 'chore/partner-android-scaffold-20260923']
+    branches: ['main']
     paths:
       - 'partner/**'
       - '.github/workflows/partner-apk.yml'
