@@ -54,7 +54,7 @@ function phoneFromJid(value) {
   return user;
 }
 
-function resolveMessagePhone(msg) {
+async function resolveMessagePhone(msg, sock) {
   const key = msg?.key || {};
   const candidates = [
     key.remoteJidAlt,
@@ -84,6 +84,21 @@ function resolveMessagePhone(msg) {
 
   const remote = String(key.remoteJid || '');
   if (!remote.endsWith('@lid')) return phoneFromJid(remote);
+
+  // Newer WhatsApp clients often emit only an opaque LID JID. Baileys keeps a
+  // persistent LID -> phone-number mapping in the Signal repository; use that
+  // mapping before giving up. Never treat the numeric LID itself as a phone.
+  try {
+    const getPNForLID = sock?.signalRepository?.lidMapping?.getPNForLID;
+    if (typeof getPNForLID === 'function') {
+      const pnJid = await getPNForLID.call(sock.signalRepository.lidMapping, remote);
+      const phone = phoneFromJid(pnJid);
+      if (phone) return phone;
+    }
+  } catch (error) {
+    console.warn('⚠️ تعذّر حل WhatsApp LID إلى رقم هاتف:', error?.message || error);
+  }
+
   return '';
 }
 
@@ -1419,7 +1434,7 @@ async function startBot() {
         }
         if (!text && !hasMedia) continue;
 
-        const phone = resolveMessagePhone(msg);
+        const phone = await resolveMessagePhone(msg, sock);
         incrementStat('inboundMessages');
 
         if (!phone) {
