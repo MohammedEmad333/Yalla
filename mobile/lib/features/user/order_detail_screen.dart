@@ -1,6 +1,7 @@
 // شاشة تفاصيل الطلب مع الخطّ الزمني (Timeline).
 // تجلب الطلب من /orders/:id وتعرض بياناته وخطوات دورة حياته.
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/config/app_config.dart';
@@ -247,7 +248,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const SizedBox(width: 90, child: Text('الكابتن', style: TextStyle(color: Colors.grey))),
           CircleAvatar(
             radius: 18,
-            backgroundImage: avatar != null ? NetworkImage(avatar) : null,
+            backgroundImage: avatar != null ? CachedNetworkImageProvider(avatar) : null,
             child: avatar == null ? const Icon(Icons.person, size: 20) : null,
           ),
           const SizedBox(width: 10),

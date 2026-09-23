@@ -2,6 +2,7 @@
 // تُتاح خلال فترة التوصيل فقط، وتُحذف رسائلها فور تسليم الطلب أو إلغائه.
 // تحمّل السجلّ عبر REST ثم تستقبل الرسائل الجديدة لحظيًا عبر السوكت.
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -158,7 +159,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return CircleAvatar(
       radius: 14,
       backgroundColor: YallaColors.primary,
-      backgroundImage: url != null ? NetworkImage(url) : null,
+      backgroundImage: url != null ? CachedNetworkImageProvider(url) : null,
       child: url == null
           ? Icon(_roleIcon(widget.peerRole), size: 16, color: Colors.white)
           : null,

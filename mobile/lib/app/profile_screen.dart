@@ -1,6 +1,7 @@
 // شاشة الحساب "حسابي" (Card 17) — تعرض بيانات المستخدم/الكابتن مع صورة شخصية،
 // وتتيح تعديل البيانات ورفع صورة، إضافةً لتسجيل الخروج.
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -363,7 +364,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 CircleAvatar(
                   radius: 38,
-                  backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
+                  backgroundImage: _avatarUrl != null ? CachedNetworkImageProvider(_avatarUrl!) : null,
                   child: _avatarUrl == null ? const Icon(Icons.person_rounded, size: 38) : null,
                 ),
                 Positioned(
