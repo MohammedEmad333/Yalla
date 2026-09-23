@@ -16,12 +16,23 @@ function phoneCandidates(value) {
   if (!digits) return [];
   values.add(digits);
   values.add('+' + digits);
-  if (digits.startsWith('970') && digits.length >= 11) {
-    values.add('0' + digits.slice(3));
+  if ((digits.startsWith('970') || digits.startsWith('972')) && digits.length >= 11) {
+    const local = '0' + digits.slice(3);
+    const subscriber = digits.slice(3);
+    values.add(local);
+    // Palestinian mobile numbers may arrive from WhatsApp/Baileys with either
+    // 970 or 972 country-code prefixes. Treat both aliases as the same account.
+    values.add('970' + subscriber);
+    values.add('+970' + subscriber);
+    values.add('972' + subscriber);
+    values.add('+972' + subscriber);
   }
   if (digits.startsWith('0')) {
-    values.add('970' + digits.slice(1));
-    values.add('+970' + digits.slice(1));
+    const subscriber = digits.slice(1);
+    values.add('970' + subscriber);
+    values.add('+970' + subscriber);
+    values.add('972' + subscriber);
+    values.add('+972' + subscriber);
   }
   return [...values];
 }
