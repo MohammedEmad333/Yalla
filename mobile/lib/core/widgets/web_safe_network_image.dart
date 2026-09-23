@@ -1,3 +1,5 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Network image that is resilient on Flutter Web.
@@ -32,22 +34,44 @@ class WebSafeNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.network(
-      url,
+    // Keep Flutter Web's HTML fallback for cross-origin images. On mobile,
+    // CachedNetworkImage gives us a persistent disk cache so list items that
+    // are disposed/rebuilt while scrolling do not refetch and briefly vanish.
+    if (kIsWeb) {
+      return Image.network(
+        url,
+        key: ValueKey(url),
+        width: width,
+        height: height,
+        fit: fit,
+        cacheWidth: cacheWidth,
+        gaplessPlayback: true,
+        webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+        loadingBuilder: placeholderBuilder == null
+            ? null
+            : (context, child, progress) =>
+                progress == null ? child : placeholderBuilder!(context),
+        errorBuilder: errorBuilder == null
+            ? null
+            : (context, error, stackTrace) => errorBuilder!(context),
+      );
+    }
+
+    return CachedNetworkImage(
+      imageUrl: url,
       key: ValueKey(url),
       width: width,
       height: height,
       fit: fit,
-      cacheWidth: cacheWidth,
-      gaplessPlayback: true,
-      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
-      loadingBuilder: placeholderBuilder == null
+      memCacheWidth: cacheWidth,
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
+      placeholder: placeholderBuilder == null
           ? null
-          : (context, child, progress) =>
-              progress == null ? child : placeholderBuilder!(context),
-      errorBuilder: errorBuilder == null
+          : (context, _) => placeholderBuilder!(context),
+      errorWidget: errorBuilder == null
           ? null
-          : (context, error, stackTrace) => errorBuilder!(context),
+          : (context, _, __) => errorBuilder!(context),
     );
   }
 }

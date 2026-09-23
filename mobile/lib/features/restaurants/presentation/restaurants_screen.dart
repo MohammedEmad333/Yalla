@@ -620,7 +620,10 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
               itemCount: _restaurants.length,
-              itemBuilder: (_, i) => _card(_restaurants[i]),
+              itemBuilder: (_, i) => KeyedSubtree(
+                key: ValueKey('store-${_restaurants[i].id}'),
+                child: _card(_restaurants[i]),
+              ),
             ),
           );
         }
@@ -635,7 +638,10 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
               mainAxisSpacing: 16,
             ),
             itemCount: _restaurants.length,
-            itemBuilder: (_, i) => _desktopCard(_restaurants[i]),
+            itemBuilder: (_, i) => KeyedSubtree(
+              key: ValueKey('store-${_restaurants[i].id}'),
+              child: _desktopCard(_restaurants[i]),
+            ),
           ),
         );
       },
@@ -757,7 +763,9 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             url: r.fullImageUrl!,
                             fit: BoxFit.cover,
                             cacheWidth: 900,
-                            placeholderBuilder: (_) => const SizedBox.shrink(),
+                            placeholderBuilder: (_) => ColoredBox(
+                              color: YallaColors.surfaceContainer,
+                            ),
                             errorBuilder: (_) => ColoredBox(
                               color: YallaColors.surfaceContainer,
                               child: const Center(
@@ -879,7 +887,9 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                 url: r.fullImageUrl!,
                                 fit: BoxFit.cover,
                                 cacheWidth: 720,
-                                placeholderBuilder: (_) => const SizedBox.shrink(),
+                                placeholderBuilder: (_) => ColoredBox(
+                                  color: YallaColors.surfaceContainer,
+                                ),
                                 errorBuilder: (_) => ColoredBox(
                                   color: YallaColors.surfaceContainer,
                                   child: const Center(
