@@ -47,6 +47,46 @@ try {
   console.error('⚠️ تعذّر تحميل ملف .env:', e?.message || e);
 }
 
+function phoneFromJid(value) {
+  const jid = String(value || '').trim();
+  if (!jid) return '';
+  const user = jid.split('@')[0].replace(/\D/g, '');
+  return user;
+}
+
+function resolveMessagePhone(msg) {
+  const key = msg?.key || {};
+  const candidates = [
+    key.remoteJidAlt,
+    key.participantAlt,
+    key.participant,
+    key.remoteJid,
+  ];
+
+  // Prefer a real WhatsApp phone JID. LID identifiers are internal account IDs
+  // and must never be sent to the Yalla customer lookup endpoint as phone numbers.
+  for (const candidate of candidates) {
+    if (String(candidate || '').endsWith('@s.whatsapp.net')) {
+      const phone = phoneFromJid(candidate);
+      if (phone) return phone;
+    }
+  }
+
+  // Some Baileys versions expose the alternate phone JID without the standard
+  // suffix. Accept it only when it looks like a plausible international/local
+  // mobile number. Never fall back to @lid IDs.
+  for (const candidate of [key.remoteJidAlt, key.participantAlt, key.participant]) {
+    const raw = String(candidate || '');
+    if (!raw || raw.endsWith('@lid')) continue;
+    const phone = phoneFromJid(raw);
+    if (phone.length >= 9 && phone.length <= 15) return phone;
+  }
+
+  const remote = String(key.remoteJid || '');
+  if (!remote.endsWith('@lid')) return phoneFromJid(remote);
+  return '';
+}
+
 // ==========================================================
 //  الإعدادات العامة
 // ==========================================================
@@ -1379,8 +1419,16 @@ async function startBot() {
         }
         if (!text && !hasMedia) continue;
 
-        const phone = jid.split('@')[0];
+        const phone = resolveMessagePhone(msg);
         incrementStat('inboundMessages');
+
+        if (!phone) {
+          console.warn('⚠️ تعذّر استخراج رقم الهاتف الحقيقي من رسالة واتساب؛ تم تجاهل ربط الحساب لهذه الرسالة.', {
+            jidType: jid.endsWith('@lid') ? 'lid' : 'unknown',
+            hasRemoteJidAlt: Boolean(msg.key?.remoteJidAlt),
+            hasParticipantAlt: Boolean(msg.key?.participantAlt),
+          });
+        }
 
         await sock.sendPresenceUpdate('composing', jid).catch(() => {});
 
@@ -1435,4 +1483,4 @@ if (require.main === module) {
 }
 
 // تصدير منطق المحادثة لاختباره محلياً بلا واتساب (test-flow.js)
-module.exports = { handleMessage, resetSession, STATES, isAdmin, pingAI, toWhatsAppText, redactSensitiveText, activateHumanTakeover, isHumanTakeoverActive, resumeBotForChat, detectIntent, buildHandoffSummary, app };
+module.exports = { handleMessage, resetSession, STATES, isAdmin, pingAI, toWhatsAppText, redactSensitiveText, activateHumanTakeover, isHumanTakeoverActive, resumeBotForChat, detectIntent, buildHandoffSummary, resolveMessagePhone, app };
