@@ -1,0 +1,42 @@
+# وحدة systemd لتشغيل بوت يلا ديلفري على خادم Oracle 24/7
+# انسخها إلى: /etc/systemd/system/yalla-bot.service
+# ثم:  sudo systemctl daemon-reload && sudo systemctl enable --now yalla-bot
+#
+# عدّل User و WorkingDirectory إن اختلف اسم المستخدم أو مسار المشروع.
+[Unit]
+Description=Yalla Delivery WhatsApp Bot (Baileys)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/Yalla/bot
+# متغيّرات البيئة تُقرأ من ملف .env داخل المشروع (اختياري — الكود يحمّله تلقائياً)
+EnvironmentFile=-/home/ubuntu/Yalla/bot/.env
+ExecStart=/usr/bin/node index.js
+# إعادة التشغيل تلقائياً عند أي توقّف أو انهيار أو نفاد الذاكرة
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=10
+
+# تقوية الخدمة بدون منع كتابة جلسة واتساب.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077
+ReadWritePaths=/home/ubuntu/Yalla/bot/auth_info
+
+# سجلّات موحّدة عبر journalctl
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yalla-bot
+
+[Install]
+WantedBy=multi-user.target
