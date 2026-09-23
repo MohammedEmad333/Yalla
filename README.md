@@ -12,6 +12,7 @@
 | `web-app/` | Web/PWA | نسخة الويب القابلة للتثبيت |
 | `site/` | Web | صفحات الموقع العامة |
 | `backend/` | Node.js + Express + Socket.io | API، الطلبات، MongoDB، المحافظ، الإشعارات والتحديث اللحظي |
+| `bot/` | Node.js + Baileys + Express | بوت واتساب لخدمة العملاء، AI، Human Takeover، وروابط التطبيق |
 | `docs/` | Markdown | التوثيق المعماري والتشغيلي |
 
 ## الحزمة التقنية
@@ -176,7 +177,7 @@ flutter run --dart-define=API_ORIGIN=http://10.0.2.2:4000
 
 ## CI / Builds
 
-- `ci.yml` — اختبارات Backend + build للإدارة + تحليل/اختبارات Flutter لتطبيق Yalla وتحليل Yalla Partner.
+- `ci.yml` — اختبارات Backend + build للإدارة + Flutter checks + فحص واختبارات Yalla Bot.
 - `mobile-apk.yml` — Android لتطبيق Yalla، ويستخدم افتراضيًا `https://api.yalladelivery.org`.
 - `partner-apk.yml` — APK/AAB لـYalla Partner، ويستخدم افتراضيًا `https://api.yalladelivery.org`.
 - `build-admin-apk.yml` — تطبيق Yalla Admin Android.
@@ -205,3 +206,19 @@ bash tool/deploy-server.sh
 - واجهة التوثيق: `https://api.yalladelivery.org/api/docs`
 
 راجع `docs/` و`HANDOFF.md` للتفاصيل التشغيلية وأحدث حالة للمشروع.
+
+## Yalla Bot
+
+بوت واتساب موجود الآن داخل `bot/` كجزء من نفس المستودع، وليس Submodule منفصلًا.
+
+تشغيله محليًا:
+
+```bash
+cd bot
+cp .env.example .env
+npm ci
+npm test
+npm start
+```
+
+دليل النشر الكامل: `bot/DEPLOY-ORACLE.md`.
