@@ -109,3 +109,24 @@ jobs:
         run: flutter pub get
       - name: تحليل Flutter
         run: flutter analyze --no-fatal-infos
+
+  bot-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bot
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: bot/package-lock.json
+      - name: تثبيت التبعيات
+        run: npm ci
+      - name: فحص Syntax
+        run: npm run check
+      - name: اختبارات البوت
+        run: npm test
+      - name: فحص أمني
+        run: npm audit --omit=dev --audit-level=high
