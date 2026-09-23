@@ -1,3 +1,5 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -139,7 +141,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       _selectedSection = 0;
       _menuStartOffset = null;
       await _restoreCart();
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+        _precacheMenuImages(restaurant, menu);
+      }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
@@ -152,6 +157,30 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         });
       }
     }
+  }
+
+  void _precacheMenuImages(Restaurant restaurant, List<MenuSection> menu) {
+    if (kIsWeb) return;
+    final urls = <String>[];
+    final heroUrl = restaurant.fullImageUrl;
+    if (heroUrl != null && heroUrl.isNotEmpty) urls.add(heroUrl);
+
+    for (final section in menu) {
+      for (final item in section.items) {
+        final url = item.fullImageUrl;
+        if (url != null && url.isNotEmpty) urls.add(url);
+        if (urls.length >= 9) break;
+      }
+      if (urls.length >= 9) break;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final url in urls) {
+        precacheImage(CachedNetworkImageProvider(url), context)
+            .catchError((_) {});
+      }
+    });
   }
 
   Future<void> _restoreCart() async {
@@ -410,6 +439,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
     return CustomScrollView(
       controller: _scrollController,
+      cacheExtent: 700,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(child: KeyedSubtree(key: _heroKey, child: _restaurantHero())),
