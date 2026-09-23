@@ -15,8 +15,16 @@ const {
   activateHumanTakeover,
   isHumanTakeoverActive,
   resumeBotForChat,
+  detectIntent,
+  buildHandoffSummary,
   app,
 } = require('../index');
+
+const {
+  formatOrderStatus,
+  formatWallet,
+  contextForAI,
+} = require('../src/yallaApi');
 
 test('admin matching requires the complete normalized international number', () => {
   assert.equal(isAdmin('970593456405'), true);
@@ -87,4 +95,69 @@ test('admin HTTP endpoints require token and cached ai-status does not require a
 
   const qrUnauthorized = await fetch(`${base}/qr`);
   assert.equal(qrUnauthorized.status, 401);
+});
+
+
+test('detectIntent distinguishes live customer-data requests', () => {
+  assert.equal(detectIntent('وين طلبي؟'), 'order_status');
+  assert.equal(detectIntent('كم رصيدي بالمحفظة؟'), 'wallet_balance');
+  assert.equal(detectIntent('بدي احكي مع موظف'), 'human_support');
+});
+
+test('live order formatter exposes only support-safe fields', () => {
+  const reply = formatOrderStatus({
+    linked: true,
+    latestOrder: {
+      status: 'picked_up',
+      storeName: 'Yalla Store',
+      merchantStatus: 'handed_over',
+      etaMinutes: 12,
+      captainName: 'Ahmed',
+    },
+  });
+  assert.match(reply, /في الطريق/);
+  assert.match(reply, /Yalla Store/);
+  assert.match(reply, /Ahmed/);
+  assert.doesNotMatch(reply, /phone|address|deliveryCode/i);
+});
+
+test('wallet formatter reports balance, reserved and available amounts', () => {
+  const reply = formatWallet({
+    linked: true,
+    wallet: { balance: 30, reservedBalance: 8, availableBalance: 22, currency: 'ILS' },
+  });
+  assert.match(reply, /30\.00/);
+  assert.match(reply, /8\.00/);
+  assert.match(reply, /22\.00/);
+});
+
+test('AI live context is intentionally minimized', () => {
+  const payload = JSON.parse(contextForAI({
+    linked: true,
+    customer: { firstName: 'Mohammed', phone: 'should-not-leak' },
+    wallet: { balance: 40, reservedBalance: 5, availableBalance: 35, currency: 'ILS' },
+    latestOrder: {
+      status: 'accepted',
+      storeName: 'Store',
+      merchantStatus: 'preparing',
+      etaMinutes: 20,
+      captainName: 'Captain',
+      pickup: { address: 'secret' },
+    },
+  }));
+  assert.equal(payload.customerFirstName, 'Mohammed');
+  assert.equal(payload.wallet.availableBalance, 35);
+  assert.equal(payload.wallet.balance, undefined);
+  assert.equal(payload.latestOrder.pickup, undefined);
+});
+
+test('handoff summary keeps a compact redacted support snapshot', () => {
+  const summary = buildHandoffSummary({
+    lastIntent: 'support',
+    lastSupportReason: 'مشكلة بالدفع',
+    supportHistory: [{ text: 'انخصم المبلغ' }, { text: 'بدي موظف' }],
+  }, 'طلب التحدث مع موظف');
+  assert.match(summary, /طلب التحدث مع موظف/);
+  assert.match(summary, /مشكلة بالدفع/);
+  assert.match(summary, /انخصم المبلغ/);
 });
