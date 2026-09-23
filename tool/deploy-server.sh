@@ -74,6 +74,7 @@ run_container() {
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   docker run -d --name "$CONTAINER" --restart unless-stopped \
     --network host --env-file "$ENV_FILE" \
+    -e APP_GIT_SHA="$GIT_SHA" \
     ${FCM_MOUNT:-} \
     -v yalla_uploads:/app/uploads \
     "$tag" >/dev/null
