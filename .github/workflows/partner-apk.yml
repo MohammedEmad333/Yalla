@@ -30,21 +30,6 @@ jobs:
           channel: stable
           cache: true
 
-      - name: توليد سقالة Android
-        run: |
-          cp android/app/src/main/AndroidManifest.xml "$RUNNER_TEMP/AndroidManifest.xml"
-          cp android/app/src/main/res/xml/network_security_config.xml "$RUNNER_TEMP/network_security_config.xml"
-          cp android/app/src/main/res/drawable/yalla_partner_launcher.xml "$RUNNER_TEMP/yalla_partner_launcher.xml"
-          cp android/app/src/main/kotlin/com/mohammedemad333/yallapartner/MainActivity.kt "$RUNNER_TEMP/MainActivity.kt"
-          rm -rf android
-          flutter create --platforms=android --org com.mohammedemad333 --project-name yallapartner .
-          cp "$RUNNER_TEMP/AndroidManifest.xml" android/app/src/main/AndroidManifest.xml
-          mkdir -p android/app/src/main/res/xml android/app/src/main/res/drawable android/app/src/main/kotlin/com/mohammedemad333/yallapartner
-          cp "$RUNNER_TEMP/network_security_config.xml" android/app/src/main/res/xml/network_security_config.xml
-          cp "$RUNNER_TEMP/yalla_partner_launcher.xml" android/app/src/main/res/drawable/yalla_partner_launcher.xml
-          cp "$RUNNER_TEMP/MainActivity.kt" android/app/src/main/kotlin/com/mohammedemad333/yallapartner/MainActivity.kt
-          rm -f test/widget_test.dart
-
       - name: تثبيت التبعيات والتحليل
         run: |
           flutter pub get
