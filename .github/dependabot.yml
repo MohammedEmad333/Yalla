@@ -26,6 +26,20 @@ updates:
         patterns:
           - "*"
 
+
+  - package-ecosystem: npm
+    directory: /bot
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    groups:
+      bot-dependencies:
+        patterns:
+          - "*"
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
