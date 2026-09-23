@@ -5,6 +5,7 @@
 
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/config/app_config.dart';
@@ -340,7 +341,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     return Card(
       child: ListTile(
         leading: CircleAvatar(
-          backgroundImage: url != null ? NetworkImage(url) : null,
+          backgroundImage: url != null ? CachedNetworkImageProvider(url) : null,
           child: url == null ? const Icon(Icons.person) : null,
         ),
         title: const Text('الكابتن'),
