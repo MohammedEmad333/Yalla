@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/config/app_config.dart';
@@ -25,7 +27,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   final _bannerController = PageController(viewportFraction: .94);
   Timer? _debounce;
   Timer? _bannerTimer;
-  int _bannerIndex = 0;
+  final ValueNotifier<int> _bannerIndex = ValueNotifier<int>(0);
   int _serial = 0;
   List<Restaurant> _restaurants = [];
   List<String> _categories = [];
@@ -47,6 +49,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     _debounce?.cancel();
     _bannerTimer?.cancel();
     _bannerController.dispose();
+    _bannerIndex.dispose();
     _searchFocus.dispose();
     _search.dispose();
     super.dispose();
@@ -57,7 +60,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     if (_banners.length <= 1) return;
     _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || !_bannerController.hasClients || _banners.length <= 1) return;
-      final next = (_bannerIndex + 1) % _banners.length;
+      final next = (_bannerIndex.value + 1) % _banners.length;
       _bannerController.animateToPage(
         next,
         duration: const Duration(milliseconds: 520),
@@ -76,16 +79,14 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     });
     try {
       List<String>? nextCategories;
-      late final List<dynamic> nextBanners;
-      if (initial || _categories.isEmpty) {
+      List<dynamic>? nextBanners;
+      if (initial || _categories.isEmpty || _banners.isEmpty) {
         final result = await Future.wait<dynamic>([
           _repo.categories(),
           widget.api.get('/expansion/banners'),
         ]);
         nextCategories = (result[0] as List).map((e) => e.toString()).toList();
         nextBanners = result[1] as List;
-      } else {
-        nextBanners = await widget.api.get('/expansion/banners') as List;
       }
 
       List<Restaurant> list;
@@ -106,11 +107,12 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
       });
       setState(() {
         if (nextCategories != null) _categories = nextCategories;
-        _banners = nextBanners;
-        _bannerIndex = 0;
+        if (nextBanners != null) _banners = nextBanners;
         _restaurants = list;
       });
-      {
+      _precacheStoreImages(list);
+      if (nextBanners != null) {
+        _bannerIndex.value = 0;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           if (_bannerController.hasClients && _banners.isNotEmpty) {
@@ -126,6 +128,19 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     } finally {
       if (mounted && requestId == _serial) setState(() { _loading = false; _searching = false; });
     }
+  }
+
+  void _precacheStoreImages(List<Restaurant> restaurants) {
+    if (kIsWeb) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final restaurant in restaurants.take(6)) {
+        final url = restaurant.fullImageUrl;
+        if (url == null || url.isEmpty) continue;
+        precacheImage(CachedNetworkImageProvider(url), context)
+            .catchError((_) {});
+      }
+    });
   }
 
   void _open(Restaurant r) => Navigator.of(context).push(MaterialPageRoute(
@@ -448,7 +463,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                   itemCount: _banners.length,
                   onPageChanged: (index) {
                     if (!mounted) return;
-                    setState(() => _bannerIndex = index);
+                    _bannerIndex.value = index;
                     _restartBannerTimer();
                   },
                   itemBuilder: (_, i) {
@@ -582,20 +597,25 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
               ),
             ),
             if (_banners.length > 1)
-              Padding(
-                padding: const EdgeInsets.only(top: 2, bottom: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    _banners.length,
-                    (i) => AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: i == _bannerIndex ? 18 : 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: i == _bannerIndex ? YallaColors.primary : YallaColors.muted.withValues(alpha: .35),
-                        borderRadius: BorderRadius.circular(999),
+              ValueListenableBuilder<int>(
+                valueListenable: _bannerIndex,
+                builder: (context, bannerIndex, _) => Padding(
+                  padding: const EdgeInsets.only(top: 2, bottom: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      _banners.length,
+                      (i) => AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: i == bannerIndex ? 18 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: i == bannerIndex
+                              ? YallaColors.primary
+                              : YallaColors.muted.withValues(alpha: .35),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
                       ),
                     ),
                   ),
@@ -618,6 +638,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           return RefreshIndicator(
             onRefresh: () => _load(initial: true),
             child: ListView.builder(
+              cacheExtent: 700,
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
               itemCount: _restaurants.length,
               itemBuilder: (_, i) => KeyedSubtree(
@@ -630,6 +651,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         return RefreshIndicator(
           onRefresh: () => _load(initial: true),
           child: GridView.builder(
+            cacheExtent: 700,
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
               maxCrossAxisExtent: 360,
