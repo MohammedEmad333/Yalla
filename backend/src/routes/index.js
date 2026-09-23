@@ -23,6 +23,7 @@ router.use('/restaurants', require('./restaurant.routes'));
 router.use('/captains', require('./captain.routes'));
 router.use('/wallet', require('./wallet.routes'));
 router.use('/support', require('./support.routes'));
+router.use('/bot', require('./bot.routes'));
 router.use('/admin/access', require('./adminAccess.routes'));
 router.use('/admin/dispatch', require('./smartDispatch.routes'));
 router.use('/admin', require('./admin.routes'));
