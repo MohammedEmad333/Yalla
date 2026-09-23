@@ -36,18 +36,18 @@ jobs:
       run:
         working-directory: admin
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: إعداد Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
 
-      - name: إعداد Node 20
-        uses: actions/setup-node@v4
+      - name: إعداد Node 22
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: إعداد Android SDK
         uses: android-actions/setup-android@v3
@@ -55,7 +55,7 @@ jobs:
           packages: platform-tools
 
       - name: تثبيت التبعيات
-        run: npm install
+        run: npm ci
 
       - name: إضافة google-services.json (لتفعيل الإشعارات) إن توفّر
         env:
