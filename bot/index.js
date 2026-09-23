@@ -54,6 +54,42 @@ function phoneFromJid(value) {
   return user;
 }
 
+const lidPhoneCache = new Map();
+
+function normalizeLidJid(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return raw.endsWith('@lid') ? raw : '';
+}
+
+function rememberLidPhone(lidValue, phoneValue) {
+  const lid = normalizeLidJid(lidValue);
+  const phone = phoneFromJid(phoneValue);
+  if (!lid || !phone) return false;
+  lidPhoneCache.set(lid, phone);
+  return true;
+}
+
+function hydrateLidPhoneCache(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return;
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (!parsed || typeof parsed !== 'object') return;
+    for (const [lid, phone] of Object.entries(parsed)) rememberLidPhone(lid, phone);
+  } catch (error) {
+    console.warn('⚠️ تعذّر تحميل خريطة LID المحفوظة:', error?.message || error);
+  }
+}
+
+function persistLidPhoneCache(filePath) {
+  try {
+    const payload = Object.fromEntries(lidPhoneCache.entries());
+    fs.writeFileSync(filePath, JSON.stringify(payload), { mode: 0o600 });
+  } catch (error) {
+    console.warn('⚠️ تعذّر حفظ خريطة LID:', error?.message || error);
+  }
+}
+
 async function resolveMessagePhone(msg, sock) {
   const key = msg?.key || {};
   const candidates = [
@@ -85,6 +121,9 @@ async function resolveMessagePhone(msg, sock) {
   const remote = String(key.remoteJid || '');
   if (!remote.endsWith('@lid')) return phoneFromJid(remote);
 
+  const cachedPhone = lidPhoneCache.get(remote);
+  if (cachedPhone) return cachedPhone;
+
   // Newer WhatsApp clients often emit only an opaque LID JID. Baileys keeps a
   // persistent LID -> phone-number mapping in the Signal repository; use that
   // mapping before giving up. Never treat the numeric LID itself as a phone.
@@ -109,6 +148,8 @@ const PORT = process.env.PORT || 3000;
 // نثبّت مسار جلسة الواتساب على مسار مطلق مرتبط بمجلد المشروع، حتى لا تُفقد
 // الجلسة إذا شغّل systemd العملية من دليل عمل مختلف (سبب شائع لطلب ربط جديد).
 const AUTH_FOLDER = path.resolve(__dirname, process.env.AUTH_FOLDER || 'auth_info');
+const LID_PHONE_CACHE_FILE = path.join(AUTH_FOLDER, 'lid-phone-map.json');
+hydrateLidPhoneCache(LID_PHONE_CACHE_FILE);
 // روابط تحميل تطبيق يلا ديلفري (عدّلها لروابطك الحقيقية)
 const OFFICIAL_ANDROID_URL = 'https://play.google.com/store/apps/details?id=com.mohammedemad333.yalla';
 const OFFICIAL_ANDROID_SHORT_URL = 'https://yalladelivery.org/android';
@@ -1284,6 +1325,30 @@ async function startBot() {
     } catch (e) {
       /* المجلد قد يكون حُذف أثناء تنظيف جلسة غير صالحة — نتجاهل بأمان */
     }
+  });
+
+  // احتفظ بأي LID ↔ phone mapping يصل من واتساب حتى يبقى متاحًا بعد restart.
+  sock.ev.on('lid-mapping.update', (mapping) => {
+    const changed = rememberLidPhone(mapping?.lid, mapping?.pn);
+    if (changed) persistLidPhoneCache(LID_PHONE_CACHE_FILE);
+  });
+
+  sock.ev.on('messaging-history.set', (history) => {
+    let changed = false;
+
+    for (const mapping of history?.lidPnMappings || []) {
+      changed = rememberLidPhone(mapping?.lid, mapping?.pn) || changed;
+    }
+
+    for (const contact of history?.contacts || []) {
+      const lid = contact?.lid || contact?.lidJid || contact?.accountLid;
+      const pn = contact?.phoneNumber || contact?.pnJid || (
+        String(contact?.id || '').endsWith('@s.whatsapp.net') ? contact.id : ''
+      );
+      changed = rememberLidPhone(lid, pn) || changed;
+    }
+
+    if (changed) persistLidPhoneCache(LID_PHONE_CACHE_FILE);
   });
 
   // الربط برمز اقتران (Pairing Code) — يُطلب رمز جديد لكل محاولة اتصال غير مربوطة
