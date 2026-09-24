@@ -47,6 +47,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   int _etaMinutes = 0;         // الزمن التقديري للتوصيل (دقائق)
   DateTime? _etaStart;         // لحظة بدء العدّ (قبول الكابتن أو الإسناد أو الإنشاء)
   Timer? _ticker;             // مؤقّت يحدّث العدّ التنازلي كل ثانية
+  final ValueNotifier<DateTime> _etaTick = ValueNotifier<DateTime>(DateTime.now());
 
   @override
   void initState() {
@@ -55,13 +56,14 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     _subscribeRealtime();
     // تحديث العدّ التنازلي كل ثانية أثناء التوصيل
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && _showEta) setState(() {});
+      if (mounted && _showEta) _etaTick.value = DateTime.now();
     });
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
+    _etaTick.dispose();
     super.dispose();
   }
 
@@ -223,7 +225,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           const SizedBox(height: 12),
 
           // ساعة موقّت الوصول التقديري + تحذير التأخّر (Card 39)
-          if (_showEta) _etaCard(),
+          if (_showEta)
+            ValueListenableBuilder<DateTime>(
+              valueListenable: _etaTick,
+              builder: (context, _, __) => _etaCard(),
+            ),
 
           _tile(Icons.store, 'الاستلام', _pickup),
           _tile(Icons.flag, 'التسليم', _dropoff),
