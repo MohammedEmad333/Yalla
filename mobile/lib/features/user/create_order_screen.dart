@@ -637,7 +637,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                         ),
                         Text(
                           '$price ₪',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
                             color: YallaColors.primary,
@@ -752,7 +752,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(
+        borderSide: BorderSide(
           color: YallaColors.primary,
           width: 1.5,
         ),
@@ -848,7 +848,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.bookmark_added_outlined,
                   color: YallaColors.primary,
                 ),
