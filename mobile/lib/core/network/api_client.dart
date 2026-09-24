@@ -219,6 +219,16 @@ class ApiClient {
     return MediaType('image', 'jpeg');
   }
 
+  void _logRequest(String method, String path, http.Response res, int elapsedMs) {
+    final kb = res.bodyBytes.length / 1024;
+    final slow = elapsedMs >= 500;
+    developer.log(
+      '$method $path -> ${res.statusCode} · ${elapsedMs}ms · ${kb.toStringAsFixed(1)}KB',
+      name: 'Yalla.Network',
+      level: slow ? 900 : 700,
+    );
+  }
+
   // توحيد معالجة الاستجابة والأخطاء
   dynamic _handle(http.Response res) {
     final data = res.body.isNotEmpty ? jsonDecode(res.body) : null;
