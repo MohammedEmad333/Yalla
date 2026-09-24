@@ -686,7 +686,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
             onRefresh: () => _load(initial: true),
             child: ListView.builder(
               controller: _storeScrollController,
-              scrollCacheExtent: 700,
+              cacheExtent: 700,
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
               itemCount: _restaurants.length + (_loadingMore ? 1 : 0),
               itemBuilder: (_, i) {
@@ -708,7 +708,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           onRefresh: () => _load(initial: true),
           child: GridView.builder(
             controller: _storeScrollController,
-            scrollCacheExtent: 700,
+            cacheExtent: 700,
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
               maxCrossAxisExtent: 360,
