@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/data/gaza_neighborhoods.dart';
@@ -41,6 +43,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   num? _etaMinutes;
   num _discount = 0;
   String _couponMessage = '';
+  Timer? _quoteDebounce;
+  int _quoteSerial = 0;
 
   Cart get _cart => widget.cart;
   int get _points => _asInt(_rewards?['points']);
@@ -64,36 +68,46 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAddresses();
-    _loadRewards();
+    _loadInitialData();
   }
 
   @override
   void dispose() {
+    _quoteDebounce?.cancel();
     for (final c in [_street, _details, _addressNote, _orderNote, _coupon, _recipientName, _recipientPhone]) {
       c.dispose();
     }
     super.dispose();
   }
 
-  Future<void> _loadRewards() async {
+  Future<void> _loadInitialData() async {
+    dynamic rewards;
+    dynamic addresses;
     try {
-      final raw = await widget.api.get('/expansion/rewards');
-      if (mounted) setState(() => _rewards = Map<String, dynamic>.from(raw as Map));
+      final results = await Future.wait<dynamic>([
+        widget.api.getCached('/expansion/rewards', ttl: const Duration(seconds: 30)),
+        widget.api.getCached('/features/addresses', ttl: const Duration(seconds: 30)),
+      ]);
+      rewards = results[0];
+      addresses = results[1];
     } catch (_) {
-      // المتابعة بدون نقاط عند تعذر تحميل المكافآت.
+      // يبقى الإدخال اليدوي متاحًا إذا تعذر جزء من بيانات البداية.
     }
+    if (!mounted) return;
+    setState(() {
+      if (rewards is Map) {
+        _rewards = Map<String, dynamic>.from(rewards);
+      }
+      if (addresses is List) {
+        _savedAddresses = addresses;
+      }
+      _loadingAddresses = false;
+    });
   }
 
-  Future<void> _loadAddresses() async {
-    try {
-      final data = await widget.api.get('/features/addresses');
-      if (mounted) setState(() => _savedAddresses = data as List);
-    } catch (_) {
-      // يبقى الإدخال اليدوي متاحًا.
-    } finally {
-      if (mounted) setState(() => _loadingAddresses = false);
-    }
+  void _scheduleQuoteRefresh() {
+    _quoteDebounce?.cancel();
+    _quoteDebounce = Timer(const Duration(milliseconds: 250), _refreshQuote);
   }
 
   List<double>? get _manualDropoffCoords => coordsOf(_city, _neighborhood);
@@ -139,16 +153,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _refreshQuote() async {
     final pickup = _pickupCoords, dropoff = _dropoffCoords;
     if (pickup == null || dropoff == null) return;
+
+    final requestId = ++_quoteSerial;
     setState(() => _loadingQuote = true);
     try {
       final q = await _repo.deliveryQuote(pickup, dropoff);
-      if (!mounted) return;
+      if (!mounted || requestId != _quoteSerial) return;
       setState(() {
         _deliveryPrice = q['price'] as num?;
         _etaMinutes = ((q['etaMinutes'] as num?) ?? 0) + _cart.restaurant.prepMinutes;
       });
     } finally {
-      if (mounted) setState(() => _loadingQuote = false);
+      if (mounted && requestId == _quoteSerial) {
+        setState(() => _loadingQuote = false);
+      }
     }
   }
 
@@ -245,7 +263,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   return DropdownMenuItem<Map<String, dynamic>?>(value: a, child: Text('${a['label'] ?? 'عنوان'} — ${a['address'] ?? ''}', overflow: TextOverflow.ellipsis));
                 }),
               ],
-              onChanged: (v) { setState(() { _saved = v; _deliveryPrice = null; }); if (v != null) _refreshQuote(); },
+              onChanged: (v) { setState(() { _saved = v; _deliveryPrice = null; }); if (v != null) _scheduleQuoteRefresh(); },
             ),
           if (_saved == null) ...[
             if (_savedAddresses.isNotEmpty) const SizedBox(height: 10),
@@ -364,7 +382,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     value: _neighborhood, isExpanded: true,
     decoration: InputDecoration(labelText: 'الحي', prefixIcon: const Icon(Icons.holiday_village_outlined), border: const OutlineInputBorder(), hintText: _city == null ? 'اختر المدينة أولًا' : null),
     items: neighborhoodsOf(_city).map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
-    onChanged: _city == null ? null : (v) { setState(() => _neighborhood = v); _refreshQuote(); },
+    onChanged: _city == null ? null : (v) { setState(() => _neighborhood = v); _scheduleQuoteRefresh(); },
   );
 
   Widget _section(String text, IconData icon) => Row(children: [Icon(icon, size: 20), const SizedBox(width: 8), Expanded(child: Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)))]);
