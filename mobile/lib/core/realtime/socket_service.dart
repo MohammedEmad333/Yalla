@@ -64,57 +64,66 @@ class SocketService {
   }
 
   // تسجيل مستمع لحدث. يدعم عدّة مستمعين للحدث نفسه (مثل شاشتَي الطلب والأرباح).
-  void _addListener(String event, void Function(Map<String, dynamic>) cb) {
+  void Function() _addListener(String event, void Function(Map<String, dynamic>) cb) {
     final list = _listeners.putIfAbsent(event, () => []);
     list.add(cb);
     // إن كان السوكت موجودًا بالفعل ولم يُربط هذا الحدث بعد، اربطه الآن
     if (_socket != null && list.length == 1) {
       _socket!.on(event, (data) => _dispatch(event, data));
     }
+
+    var removed = false;
+    return () {
+      if (removed) return;
+      removed = true;
+      final listeners = _listeners[event];
+      listeners?.remove(cb);
+      if (listeners != null && listeners.isEmpty) _listeners.remove(event);
+    };
   }
 
   // الانضمام لغرفة طلب معيّن لاستقبال تحديثاته وموقع الكابتن
   void joinOrder(String orderId) => _socket?.emit('order:join', {'orderId': orderId});
 
   // الاستماع لموقع الكابتن اللحظي
-  void onCaptainLocation(void Function(Map<String, dynamic>) cb) =>
+  void Function() onCaptainLocation(void Function(Map<String, dynamic>) cb) =>
       _addListener('captain:location', cb);
 
   // الاستماع لتحديثات حالة الطلب
-  void onOrderStatusUpdated(void Function(Map<String, dynamic>) cb) =>
+  void Function() onOrderStatusUpdated(void Function(Map<String, dynamic>) cb) =>
       _addListener('order:status_updated', cb);
 
   // (للكابتن) الاستماع لطلب جديد مُسنَد لحظيًا
-  void onOrderAssigned(void Function(Map<String, dynamic>) cb) =>
+  void Function() onOrderAssigned(void Function(Map<String, dynamic>) cb) =>
       _addListener('order:assigned', cb);
 
   // (للكابتن) الإسناد التلقائي: طلب جديد مبثوث لكل الكباتن ليقبله أوّلهم
-  void onOrderBroadcast(void Function(Map<String, dynamic>) cb) =>
+  void Function() onOrderBroadcast(void Function(Map<String, dynamic>) cb) =>
       _addListener('order:broadcast', cb);
 
   // (للكابتن) الإسناد التلقائي: طلب مبثوث أُخِذ (قَبِله كابتن آخر) — يُزال من القائمة
-  void onOrderTaken(void Function(Map<String, dynamic>) cb) =>
+  void Function() onOrderTaken(void Function(Map<String, dynamic>) cb) =>
       _addListener('order:taken', cb);
 
   // الاستماع لإشعار داخلي جديد يُبثّ لحظيًا للمستلِم
-  void onNotificationNew(void Function(Map<String, dynamic>) cb) =>
+  void Function() onNotificationNew(void Function(Map<String, dynamic>) cb) =>
       _addListener('notification:new', cb);
 
   // (للمستخدم) الاستماع لتحديث رصيد المحفظة لحظيًا (بعد موافقة الأدمن على الشحن)
-  void onWalletUpdated(void Function(Map<String, dynamic>) cb) =>
+  void Function() onWalletUpdated(void Function(Map<String, dynamic>) cb) =>
       _addListener('wallet:updated', cb);
 
   // (للكابتن) الاستماع لتحديث رصيد محفظة الأرباح لحظيًا (بعد تنفيذ الأدمن للسحب)
-  void onCaptainWalletUpdated(void Function(Map<String, dynamic>) cb) =>
+  void Function() onCaptainWalletUpdated(void Function(Map<String, dynamic>) cb) =>
       _addListener('captain_wallet:updated', cb);
 
   // دردشة الطلب (Card 18): الاستماع لرسالة جديدة، ولحذف رسائل الطلب بعد التسليم
-  void onChatMessage(void Function(Map<String, dynamic>) cb) =>
+  void Function() onChatMessage(void Function(Map<String, dynamic>) cb) =>
       _addListener('chat:message', cb);
-  void onChatCleared(void Function(Map<String, dynamic>) cb) =>
+  void Function() onChatCleared(void Function(Map<String, dynamic>) cb) =>
       _addListener('chat:cleared', cb);
   // Card 94: حذف الأدمن لرسالة دردشة واحدة — تُزال فورًا لدى الطرفين
-  void onChatMessageDeleted(void Function(Map<String, dynamic>) cb) =>
+  void Function() onChatMessageDeleted(void Function(Map<String, dynamic>) cb) =>
       _addListener('chat:message_deleted', cb);
 
   // إرسال رسالة دردشة لحظيًا (يتحقّق الخادم من العضويّة والحالة ويبثّها لغرفة الطلب)
@@ -122,7 +131,7 @@ class SocketService {
       _socket?.emit('chat:message', {'orderId': orderId, 'text': text});
 
   // التواصل المباشر مع الأدمن (Card 44/46): استقبال رسالة دعم جديدة لحظيًا
-  void onSupportMessage(void Function(Map<String, dynamic>) cb) =>
+  void Function() onSupportMessage(void Function(Map<String, dynamic>) cb) =>
       _addListener('support:message', cb);
 
   // (للكابتن) بثّ الموقع الحالي أثناء التوصيل
