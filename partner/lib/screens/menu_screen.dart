@@ -165,7 +165,14 @@ class _MenuScreenState extends State<MenuScreen> {
                                       color: const Color(0xFFF1F3F6),
                                       child: const Icon(Icons.fastfood_rounded, color: Color(0xFF98A1B2), size: 30),
                                     )
-                                  : Image.network(image, width: 72, height: 72, fit: BoxFit.cover),
+                                  : Image.network(
+                                      image,
+                                      width: 72,
+                                      height: 72,
+                                      fit: BoxFit.cover,
+                                      cacheWidth: 216,
+                                      gaplessPlayback: true,
+                                    ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -343,7 +350,11 @@ class _ItemEditorState extends State<_ItemEditor> {
             const SizedBox(height: 4),
             OutlinedButton.icon(
               onPressed: () async {
-                final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 82, maxWidth: 1400);
+                final image = await ImagePicker().pickImage(
+                  source: ImageSource.gallery,
+                  imageQuality: 76,
+                  maxWidth: 900,
+                );
                 if (image != null) setState(() => _image = image);
               },
               icon: const Icon(Icons.add_photo_alternate_outlined),
