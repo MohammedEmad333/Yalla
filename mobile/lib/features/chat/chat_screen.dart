@@ -50,6 +50,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<Map<String, dynamic>> _messages = [];
   bool _loading = true;
   bool _sending = false;
+  final ValueNotifier<int> _messageRevision = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -68,7 +69,8 @@ class _ChatScreenState extends State<ChatScreen> {
     widget.socket.onChatCleared((data) {
       if (!mounted) return;
       if ('${data['orderId']}' != widget.orderId) return;
-      setState(() => _messages.clear());
+      _messages.clear();
+      _messageRevision.value++;
       _snack('انتهى التوصيل — حُذفت المحادثة');
     });
 
@@ -76,7 +78,8 @@ class _ChatScreenState extends State<ChatScreen> {
     widget.socket.onChatMessageDeleted((data) {
       if (!mounted) return;
       if ('${data['orderId']}' != widget.orderId) return;
-      setState(() => _messages.removeWhere((m) => '${m['_id']}' == '${data['id']}'));
+      _messages.removeWhere((m) => '${m['_id']}' == '${data['id']}');
+      _messageRevision.value++;
     });
   }
 
@@ -84,12 +87,11 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final data = await widget.api.get('/orders/${widget.orderId}/messages');
       if (!mounted) return;
-      setState(() {
-        _messages
-          ..clear()
-          ..addAll((data as List).cast<Map<String, dynamic>>());
-        _loading = false;
-      });
+      _messages
+        ..clear()
+        ..addAll((data as List).cast<Map<String, dynamic>>());
+      setState(() => _loading = false);
+      _messageRevision.value++;
       _scrollToBottom();
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -102,7 +104,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void _appendUnique(Map<String, dynamic> msg) {
     final id = msg['_id'];
     if (id != null && _messages.any((m) => m['_id'] == id)) return;
-    setState(() => _messages.add(msg));
+    _messages.add(msg);
+    _messageRevision.value++;
     _scrollToBottom();
   }
 
@@ -120,6 +123,14 @@ class _ChatScreenState extends State<ChatScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _messageRevision.dispose();
+    _input.dispose();
+    _scroll.dispose();
+    super.dispose();
   }
 
   void _scrollToBottom() {
@@ -222,17 +233,29 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : _messages.isEmpty
-                    ? Center(
-                        child: Text('ابدأ المحادثة أثناء التوصيل',
-                            style: TextStyle(color: YallaColors.muted)),
-                      )
-                    : ListView.builder(
-                        controller: _scroll,
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _messages.length,
-                        itemBuilder: (_, i) => _bubble(_messages[i]),
-                      ),
+                : ValueListenableBuilder<int>(
+                    valueListenable: _messageRevision,
+                    builder: (context, _, __) => _messages.isEmpty
+                        ? Center(
+                            child: Text(
+                              'ابدأ المحادثة أثناء التوصيل',
+                              style: TextStyle(color: YallaColors.muted),
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: _scroll,
+                            cacheExtent: 600,
+                            padding: const EdgeInsets.all(12),
+                            itemCount: _messages.length,
+                            itemBuilder: (_, i) => KeyedSubtree(
+                              key: ValueKey(
+                                _messages[i]['_id'] ??
+                                    'chat-$i-${_messages[i]['createdAt'] ?? ''}',
+                              ),
+                              child: _bubble(_messages[i]),
+                            ),
+                          ),
+                  ),
           ),
           _composer(),
         ],
