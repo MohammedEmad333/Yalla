@@ -347,7 +347,7 @@ class RestaurantRepository {
   RestaurantRepository(this._api);
 
   Future<List<String>> categories() async {
-    final data = await _api.get('/restaurants/categories');
+    final data = await _api.getCached('/restaurants/categories', ttl: const Duration(minutes: 5));
     return (data as List).map((e) => e.toString()).toList();
   }
 
@@ -358,12 +358,12 @@ class RestaurantRepository {
       if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
     };
     final query = params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&');
-    final data = await _api.get('/restaurants${query.isEmpty ? '' : '?$query'}');
+    final data = await _api.getCached('/restaurants${query.isEmpty ? '' : '?$query'}', ttl: const Duration(seconds: 20));
     return (data as List).map((e) => Restaurant.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
 
   Future<(Restaurant, List<MenuSection>)> getWithMenu(String restaurantId) async {
-    final data = Map<String, dynamic>.from(await _api.get('/restaurants/$restaurantId') as Map);
+    final data = Map<String, dynamic>.from(await _api.getCached('/restaurants/$restaurantId', ttl: const Duration(seconds: 30)) as Map);
     final restaurant = Restaurant.fromJson(Map<String, dynamic>.from(data['restaurant'] as Map));
     final menu = ((data['menu'] as List?) ?? const []).map((g) {
       final group = Map<String, dynamic>.from(g as Map);
