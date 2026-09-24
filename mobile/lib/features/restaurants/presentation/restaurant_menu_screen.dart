@@ -34,11 +34,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   List<MenuSection> _menu = [];
   List<GlobalKey> _sectionKeys = [];
   bool _loading = true;
-  bool _rating = false;
-  bool _favorite = false;
-  bool _favoriteBusy = false;
+  final ValueNotifier<bool> _rating = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _favorite = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _favoriteBusy = ValueNotifier<bool>(false);
+  final ValueNotifier<int> _cartRevision = ValueNotifier<int>(0);
+  final ValueNotifier<int> _selectedSection = ValueNotifier<int>(0);
   String _error = '';
-  int _selectedSection = 0;
 
   @override
   void initState() {
@@ -50,6 +51,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _rating.dispose();
+    _favorite.dispose();
+    _favoriteBusy.dispose();
+    _cartRevision.dispose();
+    _selectedSection.dispose();
     super.dispose();
   }
 
@@ -92,16 +98,16 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       var ids = await _serverFavoriteIds();
       ids = await _migrateLegacyFavorites(ids);
       await _secureStorage.write(key: _favoritesStorageKey, value: ids.join('|'));
-      if (mounted) setState(() => _favorite = ids.contains(widget.restaurant.id));
+      if (mounted) _favorite.value = ids.contains(widget.restaurant.id);
     } catch (_) {
       // عند تعذّر الشبكة نستخدم الكاش المحلي فقط كي لا يتعطل فتح المتجر.
-      if (mounted) setState(() => _favorite = localIds.contains(widget.restaurant.id));
+      if (mounted) _favorite.value = localIds.contains(widget.restaurant.id);
     }
   }
 
   Future<void> _toggleFavorite() async {
-    if (_favoriteBusy) return;
-    setState(() => _favoriteBusy = true);
+    if (_favoriteBusy.value) return;
+    _favoriteBusy.value = true;
     try {
       final result = await widget.api.post('/features/favorites/${_restaurant.id}/toggle', {});
       final favorite = (result as Map)['favorite'] == true;
@@ -116,14 +122,14 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       await _secureStorage.write(key: _favoritesStorageKey, value: ids.join('|'));
 
       if (!mounted) return;
-      setState(() => _favorite = favorite);
+      _favorite.value = favorite;
       _snack(favorite ? 'تمت إضافة المتجر إلى المفضلة' : 'تمت إزالة المتجر من المفضلة');
     } on ApiException catch (e) {
       if (mounted) _snack(e.message);
     } catch (_) {
       if (mounted) _snack('تعذّر تحديث المفضلة');
     } finally {
-      if (mounted) setState(() => _favoriteBusy = false);
+      if (mounted) _favoriteBusy.value = false;
     }
   }
 
@@ -138,7 +144,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       _restaurant = restaurant;
       _menu = menu;
       _sectionKeys = List.generate(menu.length, (_) => GlobalKey());
-      _selectedSection = 0;
+      _selectedSection.value = 0;
       _menuStartOffset = null;
       await _restoreCart();
       if (mounted) {
@@ -248,7 +254,8 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       builder: (_) => _ItemDetailsSheet(item: item),
     );
     if (choice == null || !mounted || !item.available) return;
-    setState(() => _cart.add(item, variant: choice.variant, options: choice.options));
+    _cart.add(item, variant: choice.variant, options: choice.options);
+    _cartRevision.value++;
     await _persistCart();
   }
 
@@ -272,7 +279,8 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     }
 
     if (!mounted) return;
-    setState(() => _cart.add(item, variant: variant, options: selections));
+    _cart.add(item, variant: variant, options: selections);
+    _cartRevision.value++;
     await _persistCart();
   }
 
@@ -289,7 +297,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       return;
     }
     await _persistCart();
-    if (mounted) setState(() {});
+    if (mounted) _cartRevision.value++;
   }
 
   Future<void> _rate() async {
@@ -310,14 +318,14 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       ),
     );
     if (stars == null) return;
-    setState(() => _rating = true);
+    _rating.value = true;
     try {
       await _repo.rate(_restaurant.id, stars);
       await _load();
     } on ApiException catch (e) {
       _snack(e.message);
     } finally {
-      if (mounted) setState(() => _rating = false);
+      if (mounted) _rating.value = false;
     }
   }
 
@@ -355,7 +363,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
   Future<void> _scrollToSection(int index) async {
     if (index < 0 || index >= _sectionKeys.length) return;
-    setState(() => _selectedSection = index);
+    _selectedSection.value = index;
 
     final target = _sectionKeys[index].currentContext;
     if (target != null) {
@@ -414,7 +422,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                       child: RefreshIndicator(onRefresh: _load, child: _content()),
                     ),
                   ),
-        bottomNavigationBar: _cart.isEmpty ? null : _cartBar(),
+        bottomNavigationBar: ValueListenableBuilder<int>(
+          valueListenable: _cartRevision,
+          builder: (context, _, __) =>
+              _cart.isEmpty ? const SizedBox.shrink() : _cartBar(),
+        ),
       );
 
   Widget _content() {
@@ -493,16 +505,29 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                     PositionedDirectional(
                       top: 14,
                       end: 14,
-                      child: Material(
-                        color: Colors.white.withValues(alpha: 0.94),
-                        shape: const CircleBorder(),
-                        elevation: 2,
-                        child: IconButton(
-                          onPressed: _favoriteBusy ? null : _toggleFavorite,
-                          tooltip: _favorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
-                          icon: Icon(
-                            _favorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                            color: _favorite ? const Color(0xFFE53935) : const Color(0xFF071D3A),
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: _favorite,
+                        builder: (context, favorite, _) =>
+                            ValueListenableBuilder<bool>(
+                          valueListenable: _favoriteBusy,
+                          builder: (context, busy, __) => Material(
+                            color: Colors.white.withValues(alpha: 0.94),
+                            shape: const CircleBorder(),
+                            elevation: 2,
+                            child: IconButton(
+                              onPressed: busy ? null : _toggleFavorite,
+                              tooltip: favorite
+                                  ? 'إزالة من المفضلة'
+                                  : 'إضافة للمفضلة',
+                              icon: Icon(
+                                favorite
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                color: favorite
+                                    ? const Color(0xFFE53935)
+                                    : const Color(0xFF071D3A),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -562,14 +587,17 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                         ],
                       ),
                     ),
-                    IconButton.filledTonal(
-                      onPressed: _rating ? null : _rate,
-                      tooltip: 'تقييم المتجر',
-                      style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFF3CD),
-                        foregroundColor: const Color(0xFFFFB300),
+                    ValueListenableBuilder<bool>(
+                      valueListenable: _rating,
+                      builder: (context, rating, _) => IconButton.filledTonal(
+                        onPressed: rating ? null : _rate,
+                        tooltip: 'تقييم المتجر',
+                        style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFF3CD),
+                          foregroundColor: const Color(0xFFFFB300),
+                        ),
+                        icon: const Icon(Icons.star_rounded, color: Color(0xFFFFB300)),
                       ),
-                      icon: const Icon(Icons.star_rounded, color: Color(0xFFFFB300)),
                     ),
                   ],
                 ),
@@ -677,16 +705,24 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           itemCount: _menu.length,
           separatorBuilder: (_, __) => const SizedBox(width: 8),
           itemBuilder: (_, index) {
-            final selected = index == _selectedSection;
             final section = _menu[index];
-            return ChoiceChip(
-              selected: selected,
-              onSelected: (_) => _scrollToSection(index),
-              label: Text('${section.category} (${section.items.length})'),
-              labelStyle: TextStyle(fontWeight: FontWeight.w800, color: selected ? Colors.white : null),
-              selectedColor: YallaColors.primary,
-              showCheckmark: false,
-              side: BorderSide.none,
+            return ValueListenableBuilder<int>(
+              valueListenable: _selectedSection,
+              builder: (context, selectedSection, _) {
+                final selected = index == selectedSection;
+                return ChoiceChip(
+                  selected: selected,
+                  onSelected: (_) => _scrollToSection(index),
+                  label: Text('${section.category} (${section.items.length})'),
+                  labelStyle: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: selected ? Colors.white : null,
+                  ),
+                  selectedColor: YallaColors.primary,
+                  showCheckmark: false,
+                  side: BorderSide.none,
+                );
+              },
             );
           },
         ),
@@ -701,7 +737,6 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       );
 
   Widget _itemTile(MenuItemModel item) {
-    final count = _cart.qtyOf(item.id);
     final hasOptions = item.variants.isNotEmpty || item.optionGroups.isNotEmpty;
     return Card(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -759,18 +794,27 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
                           ),
                         ),
-                        if (count > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: YallaColors.primary,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              '$count',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
-                            ),
-                          ),
+                        ValueListenableBuilder<int>(
+                          valueListenable: _cartRevision,
+                          builder: (context, _, __) {
+                            final count = _cart.qtyOf(item.id);
+                            if (count <= 0) return const SizedBox.shrink();
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: YallaColors.primary,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ],
                     ),
                     if (item.description.isNotEmpty) ...[

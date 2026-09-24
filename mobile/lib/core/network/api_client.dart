@@ -16,11 +16,22 @@ class ApiException implements Exception {
   String toString() => 'ApiException($statusCode): $message';
 }
 
+class _GetCacheEntry {
+  final dynamic value;
+  final DateTime expiresAt;
+  const _GetCacheEntry(this.value, this.expiresAt);
+
+  bool get isFresh => DateTime.now().isBefore(expiresAt);
+}
+
 class ApiClient {
   // العنوان يُضبط عبر --dart-define=API_HOST=... (راجع AppConfig)
   static const String baseUrl = AppConfig.apiBaseUrl;
 
   final TokenStorage _tokenStorage;
+  final Map<String, _GetCacheEntry> _getCache = {};
+  final Map<String, Future<dynamic>> _inFlightGets = {};
+
   ApiClient(this._tokenStorage);
 
   // بناء الترويسات مع إرفاق التوكن إن وُجد
@@ -38,12 +49,53 @@ class ApiClient {
       headers: await _headers(),
       body: jsonEncode(body),
     );
-    return _handle(res);
+    final data = _handle(res);
+    clearGetCache();
+    return data;
   }
 
   Future<dynamic> get(String path) async {
+    final existing = _inFlightGets[path];
+    if (existing != null) return existing;
+
+    final request = _performGet(path);
+    _inFlightGets[path] = request;
+    try {
+      return await request;
+    } finally {
+      _inFlightGets.remove(path);
+    }
+  }
+
+  Future<dynamic> _performGet(String path) async {
     final res = await http.get(Uri.parse('$baseUrl$path'), headers: await _headers());
     return _handle(res);
+  }
+
+  /// Short-lived opt-in cache for read-heavy endpoints. Concurrent requests for
+  /// the same path are also coalesced so a fast sequence of rebuilds cannot
+  /// trigger duplicate HTTP calls.
+  Future<dynamic> getCached(
+    String path, {
+    Duration ttl = const Duration(seconds: 20),
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh) {
+      final cached = _getCache[path];
+      if (cached != null && cached.isFresh) return cached.value;
+    }
+
+    final data = await get(path);
+    _getCache[path] = _GetCacheEntry(data, DateTime.now().add(ttl));
+    return data;
+  }
+
+  void clearGetCache({String? prefix}) {
+    if (prefix == null) {
+      _getCache.clear();
+      return;
+    }
+    _getCache.removeWhere((path, _) => path.startsWith(prefix));
   }
 
   Future<dynamic> put(String path, dynamic body) async {
@@ -52,7 +104,9 @@ class ApiClient {
       headers: await _headers(),
       body: jsonEncode(body),
     );
-    return _handle(res);
+    final data = _handle(res);
+    clearGetCache();
+    return data;
   }
 
   Future<dynamic> patch(String path, Map<String, dynamic> body) async {
@@ -61,7 +115,9 @@ class ApiClient {
       headers: await _headers(),
       body: jsonEncode(body),
     );
-    return _handle(res);
+    final data = _handle(res);
+    clearGetCache();
+    return data;
   }
 
   Future<dynamic> delete(String path, [Map<String, dynamic>? body]) async {
@@ -70,7 +126,9 @@ class ApiClient {
       headers: await _headers(),
       body: body != null ? jsonEncode(body) : null,
     );
-    return _handle(res);
+    final data = _handle(res);
+    clearGetCache();
+    return data;
   }
 
   // رفع متعدّد الأجزاء (multipart) — لإرسال حقول نصّية مع ملفّ (صورة إيصال).
@@ -96,7 +154,9 @@ class ApiClient {
     }
     final streamed = await req.send();
     final res = await http.Response.fromStream(streamed);
-    return _handle(res);
+    final data = _handle(res);
+    clearGetCache();
+    return data;
   }
 
   // رفع متعدّد الأجزاء بعدّة ملفّات (Card 79) — حقول نصّية + عدّة صور
@@ -120,7 +180,9 @@ class ApiClient {
     }
     final streamed = await req.send();
     final res = await http.Response.fromStream(streamed);
-    return _handle(res);
+    final data = _handle(res);
+    clearGetCache();
+    return data;
   }
 
   // نوع محتوى الصورة من امتداد الملفّ (افتراضيًّا jpeg)

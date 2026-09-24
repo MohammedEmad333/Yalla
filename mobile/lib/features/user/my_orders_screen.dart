@@ -121,6 +121,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                     message: 'أنشئ طلب توصيل أو اطلب من أحد المطاعم لتظهر طلباتك هنا.',
                   )
                 : ListView.separated(
+                    cacheExtent: 650,
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                     itemCount: _orders.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
