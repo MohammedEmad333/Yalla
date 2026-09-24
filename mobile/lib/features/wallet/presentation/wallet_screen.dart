@@ -22,16 +22,21 @@ class WalletScreen extends StatefulWidget {
 
 class _WalletScreenState extends State<WalletScreen> {
   late final WalletRepository _repo = WalletRepository(widget.api);
+  static const int _pageSize = 20;
+  final ScrollController _scrollController = ScrollController();
 
   num _balance = 0;
   String _currency = 'ILS';
   List<dynamic> _transactions = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
   void Function()? _walletUnsubscribe;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_maybeLoadMore);
     _load();
     // تحديث الرصيد فور موافقة الأدمن (بثّ لحظي)
     _walletUnsubscribe = widget.socket.onWalletUpdated((data) {
@@ -47,7 +52,7 @@ class _WalletScreenState extends State<WalletScreen> {
     try {
       final results = await Future.wait([
         _repo.getBalance(),
-        _repo.getTransactions(),
+        _repo.getTransactions(limit: _pageSize),
       ]);
       if (!mounted) return;
       final balance = results[0] as Map<String, dynamic>;
@@ -55,6 +60,7 @@ class _WalletScreenState extends State<WalletScreen> {
         _balance = balance['balance'] as num? ?? 0;
         _currency = balance['currency'] as String? ?? 'ILS';
         _transactions = results[1] as List;
+        _hasMore = _transactions.length >= _pageSize;
         _loading = false;
       });
     } on ApiException catch (e) {
@@ -67,16 +73,49 @@ class _WalletScreenState extends State<WalletScreen> {
   Future<void> _loadTransactionsOnly() async {
     try {
       widget.api.clearGetCache(prefix: '/wallet/transactions');
-      final data = await _repo.getTransactions();
-      if (mounted) setState(() => _transactions = data);
+      final data = await _repo.getTransactions(limit: _pageSize);
+      if (mounted) {
+        setState(() {
+          _transactions = data;
+          _hasMore = data.length >= _pageSize;
+        });
+      }
     } catch (_) {
       // تحديث الرصيد اللحظي لا يتأثر إذا تعذر تحديث السجل مؤقتًا.
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await _repo.getTransactions(
+        limit: _pageSize,
+        skip: _transactions.length,
+      );
+      if (!mounted) return;
+      setState(() {
+        _transactions.addAll(page);
+        _hasMore = page.length >= _pageSize;
+      });
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  void _maybeLoadMore() {
+    if (!_scrollController.hasClients || _loadingMore || !_hasMore) return;
+    final position = _scrollController.position;
+    if (position.maxScrollExtent > 0 &&
+        position.pixels >= position.maxScrollExtent * .75) {
+      _loadMore();
     }
   }
 
   @override
   void dispose() {
     _walletUnsubscribe?.call();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -103,6 +142,8 @@ class _WalletScreenState extends State<WalletScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          controller: _scrollController,
+          cacheExtent: 650,
           padding: const EdgeInsets.all(16),
           children: [
             _balanceCard(),
@@ -123,6 +164,11 @@ class _WalletScreenState extends State<WalletScreen> {
               )
             else
               ..._transactions.map(_txTile),
+            if (_loadingMore)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 14),
+                child: Center(child: CircularProgressIndicator()),
+              ),
           ],
         ),
       ),
