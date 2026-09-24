@@ -36,15 +36,20 @@ class CaptainWalletScreen extends StatefulWidget {
 }
 
 class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
+  static const int _pageSize = 20;
+  final ScrollController _scrollController = ScrollController();
   Map<String, dynamic> _balance = {};
   List<dynamic> _withdrawals = [];
   List<dynamic> _payoutWallets = []; // المحافظ الإلكترونية المحفوظة (Card 67)
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
   void Function()? _walletUnsubscribe;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_maybeLoadMore);
     _load();
     // تحديث الرصيد لحظيًا بعد تنفيذ الأدمن للسحب
     _walletUnsubscribe = widget.socket.onCaptainWalletUpdated((data) {
@@ -59,13 +64,14 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
     try {
       final results = await Future.wait([
         widget.api.get('/captains/me/balance'),
-        widget.api.get('/captains/me/withdrawals'),
+        widget.api.get('/captains/me/withdrawals?limit=$_pageSize&skip=0'),
         widget.api.get('/captains/me/payout-wallets'),
       ]);
       if (!mounted) return;
       setState(() {
         _balance = Map<String, dynamic>.from(results[0] as Map);
         _withdrawals = results[1] as List;
+        _hasMore = _withdrawals.length >= _pageSize;
         _payoutWallets = results[2] as List;
         _loading = false;
       });
@@ -78,16 +84,52 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
 
   Future<void> _loadWithdrawalsOnly() async {
     try {
-      final data = await widget.api.get('/captains/me/withdrawals');
-      if (mounted) setState(() => _withdrawals = data as List);
+      final data = await widget.api.get(
+        '/captains/me/withdrawals?limit=$_pageSize&skip=0',
+      );
+      if (mounted) {
+        final page = data as List;
+        setState(() {
+          _withdrawals = page;
+          _hasMore = page.length >= _pageSize;
+        });
+      }
     } catch (_) {
       // الرصيد اللحظي يبقى صحيحًا حتى لو تعذر تحديث السجل.
+    }
+  }
+
+  Future<void> _loadMoreWithdrawals() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final data = await widget.api.get(
+        '/captains/me/withdrawals?limit=$_pageSize&skip=${_withdrawals.length}',
+      );
+      if (!mounted) return;
+      final page = data as List;
+      setState(() {
+        _withdrawals.addAll(page);
+        _hasMore = page.length >= _pageSize;
+      });
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  void _maybeLoadMore() {
+    if (!_scrollController.hasClients || _loadingMore || !_hasMore) return;
+    final position = _scrollController.position;
+    if (position.maxScrollExtent > 0 &&
+        position.pixels >= position.maxScrollExtent * .75) {
+      _loadMoreWithdrawals();
     }
   }
 
   @override
   void dispose() {
     _walletUnsubscribe?.call();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -139,6 +181,8 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          controller: _scrollController,
+          cacheExtent: 650,
           padding: const EdgeInsets.all(16),
           children: [
             _balanceCard(),
@@ -157,6 +201,11 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
               )
             else
               ..._withdrawals.map(_withdrawalTile),
+            if (_loadingMore)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 14),
+                child: Center(child: CircularProgressIndicator()),
+              ),
           ],
         ),
       ),
