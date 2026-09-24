@@ -129,20 +129,6 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     }
   }
 
-  // جلب حالة توفّر الكابتن من الخادم لضبط المفتاح عند فتح التطبيق.
-  // مهم: الكابتن يظلّ "متصلًا" حتى لو أُغلق التطبيق، فيجب أن يعكس المفتاح ذلك.
-  Future<void> _loadStatus() async {
-    try {
-      final me = await widget.api.get('/auth/me');
-      final status = me['captain']?['status'];
-      if (mounted && status != null) {
-        setState(() => _isOnline = status != 'offline');
-      }
-    } catch (_) {
-      // نتجاهل — يبقى المفتاح على قيمته الافتراضية
-    }
-  }
-
   // جلب الطلب النشط الحالي من الخادم (سجلّ الكابتن → أوّل طلب غير منتهٍ)
   Future<void> _loadActiveOrder() async {
     if (_activeLoadInFlight) return;
