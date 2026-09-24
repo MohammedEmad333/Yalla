@@ -21,6 +21,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
   Map<String, dynamic>? _wallet;
   List<dynamic> _orders = [];
   bool _loading = true;
+  void Function()? _orderStatusUnsubscribe;
 
   @override
   void initState() {
@@ -28,11 +29,20 @@ class _EarningsScreenState extends State<EarningsScreen> {
     _load();
 
     // تحديث لحظي: عند تسليم/إلغاء طلب للكابتن تتغيّر الأرباح والسجلّ فأعِد الجلب فورًا
-    widget.socket.onOrderStatusUpdated((order) {
+    _orderStatusUnsubscribe = widget.socket.onOrderStatusUpdated((order) {
       if (!mounted) return;
       final status = order['status'];
-      if (status == 'delivered' || status == 'cancelled') _load();
+      if (status == 'delivered' || status == 'cancelled') {
+        widget.api.clearGetCache(prefix: '/captains/me/');
+        _load();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _orderStatusUnsubscribe?.call();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -40,9 +50,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
     try {
       // نجلب الأرباح والمحفظة والسجلّ بالتوازي
       final results = await Future.wait([
-        widget.api.get('/captains/me/earnings'),
-        widget.api.get('/captains/me/orders'),
-        widget.api.get('/captains/me/wallet'),
+        widget.api.getCached('/captains/me/earnings', ttl: const Duration(seconds: 10)),
+        widget.api.getCached('/captains/me/orders', ttl: const Duration(seconds: 10)),
+        widget.api.getCached('/captains/me/wallet', ttl: const Duration(seconds: 10)),
       ]);
       setState(() {
         _earnings = results[0] as Map<String, dynamic>;
