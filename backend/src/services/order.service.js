@@ -1522,12 +1522,17 @@ async function getOrderForTracking(orderId, requesterId, requesterRole) {
 
 // سجلّ طلبات المستخدم (كل الحالات) — مرتّبة من الأحدث، مع ترقيم بسيط
 async function getMyOrders(userId, { limit = 20, skip = 0 } = {}) {
+  const safeLimit = Math.min(50, Math.max(1, Number(limit) || 20));
+  const safeSkip = Math.max(0, Number(skip) || 0);
   return Order.find({ user: userId })
+    // قائمة "طلباتي" تحتاج ملخصًا فقط؛ التفاصيل الكاملة تأتي من /orders/:id.
+    .select('_id status price finalPrice pickup.address dropoff.address store captain rating createdAt')
     // Card 77: صورة الكابتن تظهر للعميل في سجلّ طلباته
     .populate('captain', 'name phone vehicleType rating avatarUrl')
     .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit);
+    .skip(safeSkip)
+    .limit(safeLimit)
+    .lean();
 }
 
 // سجلّ طلبات الكابتن (المُسنَدة إليه) — مرتّبة من الأحدث.

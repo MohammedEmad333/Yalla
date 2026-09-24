@@ -235,8 +235,8 @@ async function getAssignableCaptains(req, res, next) {
 // المستخدم يجلب سجلّ طلباته
 async function getMyOrders(req, res, next) {
   try {
-    const limit = parseInt(req.query.limit, 10) || 20;
-    const skip = parseInt(req.query.skip, 10) || 0;
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const skip = Math.max(0, parseInt(req.query.skip, 10) || 0);
     const orders = await orderService.getMyOrders(req.auth.id, { limit, skip });
     res.json(orders);
   } catch (err) {

@@ -54,9 +54,20 @@ async function withStoreOrderCounts(rows = []) {
 async function searchStores(query = {}) {
   const q = String(query.q || '').trim();
   const category = String(query.category || '').trim();
+  const limit = Math.min(60, Math.max(1, parseInt(query.limit, 10) || 24));
+  const skip = Math.max(0, parseInt(query.skip, 10) || 0);
   const base = { active: true };
   if (category && category !== 'الكل') base.category = category;
-  if (!q) return withStoreOrderCounts(await Restaurant.find(base).sort({ 'merchandising.featured': -1, sortOrder: 1, name: 1 }).limit(100).lean());
+  if (!q) {
+    return withStoreOrderCounts(
+      await Restaurant.find(base)
+        .select('name category imageUrl minOrder prepMinutes isOpen openTime closeTime weeklyHours ratingAverage ratingCount sortOrder merchandising')
+        .sort({ 'merchandising.featured': -1, sortOrder: 1, name: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    );
+  }
 
   const rx = new RegExp(safeRegex(q), 'i');
   const menuRestaurantIds = await MenuItem.distinct('restaurant', {
@@ -71,8 +82,10 @@ async function searchStores(query = {}) {
   };
   return withStoreOrderCounts(
     await Restaurant.find(filter)
+      .select('name category imageUrl minOrder prepMinutes isOpen openTime closeTime weeklyHours ratingAverage ratingCount sortOrder merchandising')
       .sort({ 'merchandising.featured': -1, 'merchandising.popular': -1, sortOrder: 1, name: 1 })
-      .limit(100)
+      .skip(skip)
+      .limit(limit)
       .lean()
   );
 }
