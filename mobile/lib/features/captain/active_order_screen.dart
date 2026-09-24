@@ -446,8 +446,10 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
           ? const LoadingView()
           : RefreshIndicator(
               onRefresh: () async {
-                await _loadActiveOrder();
-                await _loadAvailable();
+                await Future.wait([
+                  _loadActiveOrder(),
+                  _loadAvailable(),
+                ]);
               },
               child: _buildBody(),
             ),
