@@ -451,7 +451,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
     return CustomScrollView(
       controller: _scrollController,
-      cacheExtent: 700,
+      scrollCacheExtent: 700,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(child: KeyedSubtree(key: _heroKey, child: _restaurantHero())),
