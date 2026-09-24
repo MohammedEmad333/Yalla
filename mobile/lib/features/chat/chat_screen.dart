@@ -244,7 +244,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           )
                         : ListView.builder(
                             controller: _scroll,
-                            cacheExtent: 600,
+                            scrollCacheExtent: 600,
                             padding: const EdgeInsets.all(12),
                             itemCount: _messages.length,
                             itemBuilder: (_, i) => KeyedSubtree(
