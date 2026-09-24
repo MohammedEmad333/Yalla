@@ -49,10 +49,13 @@ async function getBalance(captainId) {
 }
 
 /** طلبات سحب الكابتن (الأحدث أولًا). */
-async function listWithdrawals(captainId, { limit = 30 } = {}) {
+async function listWithdrawals(captainId, { limit = 30, skip = 0 } = {}) {
+  const safeLimit = Math.min(50, Math.max(1, Number(limit) || 30));
+  const safeSkip = Math.max(0, Number(skip) || 0);
   return CaptainWithdrawal.find({ captain: captainId })
     .sort({ createdAt: -1 })
-    .limit(limit)
+    .skip(safeSkip)
+    .limit(safeLimit)
     .lean();
 }
 
