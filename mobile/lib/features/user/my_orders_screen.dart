@@ -175,7 +175,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                   )
                 : ListView.separated(
                     controller: _scrollController,
-                    scrollCacheExtent: 650,
+                    cacheExtent: 650,
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                     itemCount: _orders.length + (_loadingMore ? 1 : 0),
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
