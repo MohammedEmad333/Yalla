@@ -45,6 +45,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _couponMessage = '';
   Timer? _quoteDebounce;
   int _quoteSerial = 0;
+  final ValueNotifier<int> _cartRevision = ValueNotifier<int>(0);
+  final ValueNotifier<int> _pricingRevision = ValueNotifier<int>(0);
 
   Cart get _cart => widget.cart;
   int get _points => _asInt(_rewards?['points']);
@@ -74,6 +76,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void dispose() {
     _quoteDebounce?.cancel();
+    _cartRevision.dispose();
+    _pricingRevision.dispose();
     for (final c in [_street, _details, _addressNote, _orderNote, _coupon, _recipientName, _recipientPhone]) {
       c.dispose();
     }
@@ -155,25 +159,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (pickup == null || dropoff == null) return;
 
     final requestId = ++_quoteSerial;
-    setState(() => _loadingQuote = true);
+    _loadingQuote = true;
+    _pricingRevision.value++;
     try {
       final q = await _repo.deliveryQuote(pickup, dropoff);
       if (!mounted || requestId != _quoteSerial) return;
-      setState(() {
-        _deliveryPrice = q['price'] as num?;
-        _etaMinutes = ((q['etaMinutes'] as num?) ?? 0) + _cart.restaurant.prepMinutes;
-      });
+      _deliveryPrice = q['price'] as num?;
+      _etaMinutes = ((q['etaMinutes'] as num?) ?? 0) + _cart.restaurant.prepMinutes;
+      _pricingRevision.value++;
     } finally {
       if (mounted && requestId == _quoteSerial) {
-        setState(() => _loadingQuote = false);
+        _loadingQuote = false;
+        _pricingRevision.value++;
       }
     }
   }
 
   Future<void> _validateCoupon() async {
     final code = _coupon.text.trim();
-    if (code.isEmpty) return setState(() { _discount = 0; _couponMessage = ''; });
-    setState(() => _checkingCoupon = true);
+    if (code.isEmpty) {
+      _discount = 0;
+      _couponMessage = '';
+      _pricingRevision.value++;
+      return;
+    }
+    _checkingCoupon = true;
+    _pricingRevision.value++;
     try {
       final raw = await widget.api.post('/features/coupons/validate', {
         'code': code,
@@ -181,14 +192,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'restaurantId': _cart.restaurant.id,
       });
       final data = Map<String, dynamic>.from(raw as Map);
-      if (mounted) setState(() {
+      if (mounted) {
         _discount = (data['discount'] as num?) ?? 0;
         _couponMessage = 'تم تطبيق الكوبون: خصم $_discount ₪';
-      });
+        _pricingRevision.value++;
+      }
     } on ApiException catch (e) {
-      if (mounted) setState(() { _discount = 0; _couponMessage = e.message; });
+      if (mounted) {
+        _discount = 0;
+        _couponMessage = e.message;
+        _pricingRevision.value++;
+      }
     } finally {
-      if (mounted) setState(() => _checkingCoupon = false);
+      if (mounted) {
+        _checkingCoupon = false;
+        _pricingRevision.value++;
+      }
     }
   }
 
@@ -239,7 +258,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canUsePoints = _rewardsEnabled && _points >= _minOrderPoints && _deliveryPrice != null;
     return Scaffold(
       appBar: AppBar(title: const Text('إتمام الطلب')),
       body: ListView(
@@ -247,7 +265,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         children: [
           _section('طلبك من ${_cart.restaurant.name}', Icons.storefront),
           const SizedBox(height: 8),
-          ..._cart.lines.values.map(_cartLine),
+          ValueListenableBuilder<int>(
+            valueListenable: _cartRevision,
+            builder: (context, _, __) => Column(
+              children: _cart.lines.values.map(_cartLine).toList(growable: false),
+            ),
+          ),
           const SizedBox(height: 20),
           _section('عنوان التسليم', Icons.location_on_outlined),
           const SizedBox(height: 8),
@@ -263,7 +286,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   return DropdownMenuItem<Map<String, dynamic>?>(value: a, child: Text('${a['label'] ?? 'عنوان'} — ${a['address'] ?? ''}', overflow: TextOverflow.ellipsis));
                 }),
               ],
-              onChanged: (v) { setState(() { _saved = v; _deliveryPrice = null; }); if (v != null) _scheduleQuoteRefresh(); },
+              onChanged: (v) { setState(() { _saved = v; _deliveryPrice = null; }); _pricingRevision.value++; if (v != null) _scheduleQuoteRefresh(); },
             ),
           if (_saved == null) ...[
             if (_savedAddresses.isNotEmpty) const SizedBox(height: 10),
@@ -301,45 +324,84 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const SizedBox(height: 20),
           _section('كوبون الخصم', Icons.local_offer_outlined),
           const SizedBox(height: 8),
-          Row(children: [
-            Expanded(child: TextField(controller: _coupon, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'رمز الكوبون', border: OutlineInputBorder()))),
-            const SizedBox(width: 8),
-            FilledButton.tonal(onPressed: _checkingCoupon ? null : _validateCoupon, child: _checkingCoupon ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('تطبيق')),
-          ]),
-          if (_couponMessage.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_couponMessage, style: TextStyle(color: _discount > 0 ? YallaColors.success : YallaColors.error))),
+          ValueListenableBuilder<int>(
+            valueListenable: _pricingRevision,
+            builder: (context, _, __) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(children: [
+                  Expanded(child: TextField(controller: _coupon, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'رمز الكوبون', border: OutlineInputBorder()))),
+                  const SizedBox(width: 8),
+                  FilledButton.tonal(onPressed: _checkingCoupon ? null : _validateCoupon, child: _checkingCoupon ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('تطبيق')),
+                ]),
+                if (_couponMessage.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(_couponMessage, style: TextStyle(color: _discount > 0 ? YallaColors.success : YallaColors.error)),
+                  ),
+              ],
+            ),
+          ),
           const SizedBox(height: 20),
 
-          if (_rewards != null) ...[
-            _section('نقاط Yalla', Icons.stars_outlined),
-            Card(
-              child: SwitchListTile.adaptive(
-                value: _usePoints && canUsePoints,
-                onChanged: canUsePoints ? (v) => setState(() => _usePoints = v) : null,
-                title: const Text('استخدم النقاط في هذا الطلب', style: TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text(canUsePoints
-                    ? 'لديك $_points نقطة · سيُستخدم حتى $_usablePoints نقطة كخصم.'
-                    : 'لديك $_points نقطة · الحد الأدنى $_minOrderPoints نقطة${_deliveryPrice == null ? ' · اختر عنوان التسليم أولًا' : ''}'),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
+          ValueListenableBuilder<int>(
+            valueListenable: _pricingRevision,
+            builder: (context, _, __) {
+              final canUsePoints = _rewardsEnabled && _points >= _minOrderPoints && _deliveryPrice != null;
+              if (_rewards == null) return const SizedBox.shrink();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _section('نقاط Yalla', Icons.stars_outlined),
+                  Card(
+                    child: SwitchListTile.adaptive(
+                      value: _usePoints && canUsePoints,
+                      onChanged: canUsePoints
+                          ? (v) {
+                              _usePoints = v;
+                              _pricingRevision.value++;
+                            }
+                          : null,
+                      title: const Text('استخدم النقاط في هذا الطلب', style: TextStyle(fontWeight: FontWeight.w800)),
+                      subtitle: Text(canUsePoints
+                          ? 'لديك $_points نقطة · سيُستخدم حتى $_usablePoints نقطة كخصم.'
+                          : 'لديك $_points نقطة · الحد الأدنى $_minOrderPoints نقطة${_deliveryPrice == null ? ' · اختر عنوان التسليم أولًا' : ''}'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              );
+            },
+          ),
 
           _section('ملاحظة للمطعم', Icons.chat_bubble_outline),
           const SizedBox(height: 8),
           TextField(controller: _orderNote, maxLines: 2, decoration: const InputDecoration(labelText: 'مثال: بلا بصل، صلصة زيادة', border: OutlineInputBorder())),
           const SizedBox(height: 20),
-          Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-            _summary('قيمة الأصناف', '${_cart.total} ₪'),
-            if (_discount > 0) ...[const SizedBox(height: 8), _summary('خصم الكوبون', '-$_discount ₪', accent: true)],
-            const SizedBox(height: 8), _deliveryRow(),
-            if (_usePoints && _usablePoints > 0) ...[
-              const SizedBox(height: 8),
-              _summary('خصم نقاط Yalla', '-$_rewardDiscount ₪', accent: true),
-            ],
-            const Divider(height: 22),
-            _summary('المجموع التقريبي', '$_totalAfterRewards ₪', bold: true),
-            if (_etaMinutes != null) ...[const SizedBox(height: 8), Text('الزمن المتوقع: ~$_etaMinutes دقيقة', style: TextStyle(color: YallaColors.muted, fontSize: 12))],
-          ]))),
+          ValueListenableBuilder<int>(
+            valueListenable: _pricingRevision,
+            builder: (context, _, __) => Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(children: [
+                  _summary('قيمة الأصناف', '${_cart.total} ₪'),
+                  if (_discount > 0) ...[const SizedBox(height: 8), _summary('خصم الكوبون', '-$_discount ₪', accent: true)],
+                  const SizedBox(height: 8),
+                  _deliveryRow(),
+                  if (_usePoints && _usablePoints > 0) ...[
+                    const SizedBox(height: 8),
+                    _summary('خصم نقاط Yalla', '-$_rewardDiscount ₪', accent: true),
+                  ],
+                  const Divider(height: 22),
+                  _summary('المجموع التقريبي', '$_totalAfterRewards ₪', bold: true),
+                  if (_etaMinutes != null) ...[
+                    const SizedBox(height: 8),
+                    Text('الزمن المتوقع: ~$_etaMinutes دقيقة', style: TextStyle(color: YallaColors.muted, fontSize: 12)),
+                  ],
+                ]),
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
           FilledButton.icon(onPressed: _submitting ? null : _submit, icon: _submitting ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send), label: Text(_scheduled ? 'تأكيد الجدولة' : 'تأكيد الطلب')),
         ],
@@ -353,9 +415,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       title: Text(line.label),
       subtitle: Text('${line.unitPrice} ₪ للوحدة'),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-        IconButton(onPressed: () { setState(() => _cart.removeLine(line)); if (_cart.isEmpty) Navigator.of(context).pop(false); }, icon: const Icon(Icons.remove_circle_outline)),
+        IconButton(onPressed: () {
+          _cart.removeLine(line);
+          _cartRevision.value++;
+          _pricingRevision.value++;
+          if (_cart.isEmpty) Navigator.of(context).pop(false);
+        }, icon: const Icon(Icons.remove_circle_outline)),
         Text('${line.qty}', style: const TextStyle(fontWeight: FontWeight.bold)),
-        IconButton(onPressed: () => setState(() => _cart.add(line.item, variant: line.variant, options: line.options)), icon: Icon(Icons.add_circle, color: YallaColors.primary)),
+        IconButton(onPressed: () {
+          _cart.add(line.item, variant: line.variant, options: line.options);
+          _cartRevision.value++;
+          _pricingRevision.value++;
+        }, icon: Icon(Icons.add_circle, color: YallaColors.primary)),
       ]),
     ),
   );
@@ -375,7 +446,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     value: _city, isExpanded: true,
     decoration: const InputDecoration(labelText: 'المدينة', prefixIcon: Icon(Icons.location_city), border: OutlineInputBorder()),
     items: gazaCities.map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
-    onChanged: (v) => setState(() { _city = v; _neighborhood = null; _deliveryPrice = null; }),
+    onChanged: (v) { setState(() { _city = v; _neighborhood = null; _deliveryPrice = null; }); _pricingRevision.value++; },
   );
 
   Widget _neighborhoodPicker() => DropdownButtonFormField<String>(

@@ -96,26 +96,36 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
   }
 
   Future<void> _bootstrap() async {
-    await Future.wait([
-      _loadStatus(),
-      _loadActiveOrder(),
-    ]);
-    if (mounted && _order == null && _isOnline) {
-      await _loadAvailable();
-    }
-  }
-
-  // جلب حالة توفّر الكابتن من الخادم لضبط المفتاح عند فتح التطبيق.
-  // مهم: الكابتن يظلّ "متصلًا" حتى لو أُغلق التطبيق، فيجب أن يعكس المفتاح ذلك.
-  Future<void> _loadStatus() async {
+    if (_activeLoadInFlight) return;
+    _activeLoadInFlight = true;
     try {
-      final me = await widget.api.get('/auth/me');
-      final status = me['captain']?['status'];
-      if (mounted && status != null) {
-        setState(() => _isOnline = status != 'offline');
+      final results = await Future.wait<dynamic>([
+        widget.api.get('/auth/me'),
+        widget.api.get('/captains/me/orders'),
+      ]);
+      if (!mounted) return;
+
+      final me = Map<String, dynamic>.from(results[0] as Map);
+      final orders = (results[1] as List).cast<Map<String, dynamic>>();
+      final active = orders.where((o) => _activeStatuses.contains(o['status'])).toList();
+      final online = me['captain']?['status'] != 'offline';
+
+      setState(() {
+        _isOnline = online;
+        _order = active.isNotEmpty ? active.first : null;
+        _loading = false;
+      });
+
+      if (_order == null && online) {
+        await _loadAvailable();
       }
+    } on ApiException catch (e) {
+      if (mounted) _snack(e.message);
     } catch (_) {
-      // نتجاهل — يبقى المفتاح على قيمته الافتراضية
+      if (mounted) _snack('تعذّر الاتصال بالخادم');
+    } finally {
+      _activeLoadInFlight = false;
+      if (mounted && _loading) setState(() => _loading = false);
     }
   }
 
@@ -471,10 +481,10 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
           ? const LoadingView()
           : RefreshIndicator(
               onRefresh: () async {
-                await Future.wait([
-                  _loadActiveOrder(),
-                  _loadAvailable(),
-                ]);
+                await _loadActiveOrder();
+                if (mounted && _order == null && _isOnline) {
+                  await _loadAvailable();
+                }
               },
               child: _buildBody(),
             ),
@@ -487,28 +497,36 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     // لا يوجد طلب نشط حاليًا — نعرض الطلبات المبثوثة المتاحة (الإسناد التلقائي) إن وُجدت
     if (order == null) {
       if (_isOnline && _available.isNotEmpty) {
-        return ListView(
+        return ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
+          cacheExtent: 650,
           padding: const EdgeInsets.all(16),
-          children: [
-            Row(
-              children: [
-                Icon(Icons.campaign, color: YallaColors.success),
-                const SizedBox(width: 8),
-                const Text(
-                  'طلبات متاحة — سارع بالقبول',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          itemCount: _available.length + 3,
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return Row(
+                children: [
+                  Icon(Icons.campaign, color: YallaColors.success),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'طلبات متاحة — سارع بالقبول',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ],
+              );
+            }
+            if (index == 1) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'يأخذ الطلب أوّل كابتن يقبله.',
+                  style: TextStyle(color: YallaColors.muted, fontSize: 13),
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'يأخذ الطلب أوّل كابتن يقبله.',
-              style: TextStyle(color: YallaColors.muted, fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            ..._available.map(_availableCard),
-          ],
+              );
+            }
+            if (index == 2) return const SizedBox(height: 12);
+            return _availableCard(_available[index - 3]);
+          },
         );
       }
       return ListView(
