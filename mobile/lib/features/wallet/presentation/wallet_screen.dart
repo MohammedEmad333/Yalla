@@ -27,18 +27,19 @@ class _WalletScreenState extends State<WalletScreen> {
   String _currency = 'ILS';
   List<dynamic> _transactions = [];
   bool _loading = true;
+  void Function()? _walletUnsubscribe;
 
   @override
   void initState() {
     super.initState();
     _load();
     // تحديث الرصيد فور موافقة الأدمن (بثّ لحظي)
-    widget.socket.onWalletUpdated((data) {
+    _walletUnsubscribe = widget.socket.onWalletUpdated((data) {
       if (!mounted) return;
       if (data['balance'] != null) {
         setState(() => _balance = data['balance'] as num);
       }
-      _load(); // إعادة تحميل الحركات لعكس الحالة الجديدة
+      _loadTransactionsOnly();
     });
   }
 
@@ -61,6 +62,22 @@ class _WalletScreenState extends State<WalletScreen> {
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
+  }
+
+  Future<void> _loadTransactionsOnly() async {
+    try {
+      widget.api.clearGetCache(prefix: '/wallet/transactions');
+      final data = await _repo.getTransactions();
+      if (mounted) setState(() => _transactions = data);
+    } catch (_) {
+      // تحديث الرصيد اللحظي لا يتأثر إذا تعذر تحديث السجل مؤقتًا.
+    }
+  }
+
+  @override
+  void dispose() {
+    _walletUnsubscribe?.call();
+    super.dispose();
   }
 
   // فتح شاشة الشحن ثم إعادة التحميل عند نجاح إرسال الطلب
