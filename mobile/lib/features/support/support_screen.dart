@@ -25,13 +25,14 @@ class _SupportScreenState extends State<SupportScreen> {
   List<Map<String, dynamic>> _messages = [];
   bool _loading = true;
   bool _sending = false;
+  void Function()? _supportUnsubscribe;
 
   @override
   void initState() {
     super.initState();
     _load();
     // استقبال ردّ الإدارة لحظيًا
-    widget.socket.onSupportMessage((m) {
+    _supportUnsubscribe = widget.socket.onSupportMessage((m) {
       if (!mounted) return;
       setState(() => _messages.add(Map<String, dynamic>.from(m)));
       _scrollToBottom();
@@ -210,6 +211,7 @@ class _SupportScreenState extends State<SupportScreen> {
 
   @override
   void dispose() {
+    _supportUnsubscribe?.call();
     _controller.dispose();
     _scroll.dispose();
     super.dispose();
