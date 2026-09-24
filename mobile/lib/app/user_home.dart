@@ -23,6 +23,7 @@ class UserHome extends StatefulWidget {
 
 class _UserHomeState extends State<UserHome> {
   int _index = 0;
+  late final List<Widget> _pages;
 
   static const _labels = ['المتاجر', 'طلب', 'طلباتي', 'المحفظة', 'حسابي'];
   static const _icons = [
@@ -43,6 +44,13 @@ class _UserHomeState extends State<UserHome> {
   @override
   void initState() {
     super.initState();
+    _pages = [
+      RestaurantsScreen(api: widget.api),
+      CreateOrderScreen(api: widget.api),
+      MyOrdersScreen(api: widget.api, socket: widget.socket),
+      WalletScreen(api: widget.api, socket: widget.socket),
+      ProfileScreen(api: widget.api, socket: widget.socket, onLogout: widget.onLogout),
+    ];
     widget.socket.connect();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) maybeShowOnboarding(context, 'user');
@@ -54,14 +62,6 @@ class _UserHomeState extends State<UserHome> {
     widget.socket.dispose();
     super.dispose();
   }
-
-  List<Widget> _pages() => [
-        RestaurantsScreen(api: widget.api),
-        CreateOrderScreen(api: widget.api),
-        MyOrdersScreen(api: widget.api, socket: widget.socket),
-        WalletScreen(api: widget.api, socket: widget.socket),
-        ProfileScreen(api: widget.api, socket: widget.socket, onLogout: widget.onLogout),
-      ];
 
   Widget _desktop(List<Widget> pages) {
     return Scaffold(
@@ -155,7 +155,7 @@ class _UserHomeState extends State<UserHome> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = _pages();
+    final pages = _pages;
     return LayoutBuilder(
       builder: (context, constraints) {
         return constraints.maxWidth >= 1000 ? _desktop(pages) : _mobile(pages);
