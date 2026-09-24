@@ -23,26 +23,79 @@ class MyOrdersScreen extends StatefulWidget {
 }
 
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
+  static const int _pageSize = 20;
+  final ScrollController _scrollController = ScrollController();
   List<dynamic> _orders = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_maybeLoadMore);
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({bool reset = true}) async {
+    if (!reset && (_loadingMore || !_hasMore)) return;
+    final skip = reset ? 0 : _orders.length;
+
+    setState(() {
+      if (reset) {
+        _loading = _orders.isEmpty;
+        _hasMore = true;
+      } else {
+        _loadingMore = true;
+      }
+    });
+
     try {
-      final data = await widget.api.get('/orders/mine');
-      setState(() => _orders = data as List);
+      final data = await widget.api.get('/orders/mine?limit=$_pageSize&skip=$skip');
+      final page = List<dynamic>.from(data as List);
+      if (!mounted) return;
+      setState(() {
+        if (reset) {
+          _orders = page;
+        } else {
+          final seen = _orders
+              .whereType<Map>()
+              .map((order) => order['_id']?.toString())
+              .whereType<String>()
+              .toSet();
+          _orders.addAll(
+            page.where((order) =>
+                order is! Map || !seen.contains(order['_id']?.toString())),
+          );
+        }
+        _hasMore = page.length >= _pageSize;
+      });
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadingMore = false;
+        });
+      }
+    }
+  }
+
+  void _maybeLoadMore() {
+    if (!_scrollController.hasClients || _loadingMore || !_hasMore) return;
+    final position = _scrollController.position;
+    if (position.maxScrollExtent <= 0) return;
+    if (position.pixels >= position.maxScrollExtent * .75) {
+      _load(reset: false);
     }
   }
 
@@ -121,11 +174,18 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                     message: 'أنشئ طلب توصيل أو اطلب من أحد المطاعم لتظهر طلباتك هنا.',
                   )
                 : ListView.separated(
+                    controller: _scrollController,
                     cacheExtent: 650,
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    itemCount: _orders.length,
+                    itemCount: _orders.length + (_loadingMore ? 1 : 0),
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (_, i) {
+                      if (i >= _orders.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
                       final o = _orders[i] as Map<String, dynamic>;
                       final (label, color, tone) = _statusMeta(o['status'] ?? '');
                       final delivered = o['status'] == 'delivered';

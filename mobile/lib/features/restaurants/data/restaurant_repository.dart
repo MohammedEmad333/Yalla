@@ -351,14 +351,22 @@ class RestaurantRepository {
     return (data as List).map((e) => e.toString()).toList();
   }
 
-  Future<List<Restaurant>> list({String? category, String? city, String? q}) async {
+  Future<List<Restaurant>> list({
+    String? category,
+    String? city,
+    String? q,
+    int limit = 24,
+    int skip = 0,
+  }) async {
     final params = <String, String>{
       if (category != null && category.isNotEmpty && category != 'الكل') 'category': category,
       if (city != null && city.isNotEmpty) 'city': city,
       if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+      'limit': '$limit',
+      'skip': '$skip',
     };
     final query = params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&');
-    final data = await _api.getCached('/restaurants${query.isEmpty ? '' : '?$query'}', ttl: const Duration(seconds: 20));
+    final data = await _api.getCached('/restaurants?$query', ttl: const Duration(seconds: 20));
     return (data as List).map((e) => Restaurant.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
 

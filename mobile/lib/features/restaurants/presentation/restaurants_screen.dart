@@ -25,6 +25,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   final _bannerController = PageController(viewportFraction: .94);
+  final _storeScrollController = ScrollController();
+  static const int _pageSize = 24;
   Timer? _debounce;
   Timer? _bannerTimer;
   final ValueNotifier<int> _bannerIndex = ValueNotifier<int>(0);
@@ -36,11 +38,14 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   bool _loading = true;
   bool _searching = false;
   bool _showSearch = false;
+  bool _loadingMore = false;
+  bool _hasMore = true;
   String _error = '';
 
   @override
   void initState() {
     super.initState();
+    _storeScrollController.addListener(_maybeLoadMore);
     _load(initial: true);
   }
 
@@ -49,6 +54,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     _debounce?.cancel();
     _bannerTimer?.cancel();
     _bannerController.dispose();
+    _storeScrollController.dispose();
     _bannerIndex.dispose();
     _searchFocus.dispose();
     _search.dispose();
@@ -69,12 +75,20 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     });
   }
 
-  Future<void> _load({bool initial = false}) async {
+  Future<void> _load({bool initial = false, bool append = false}) async {
+    if (append && (_loadingMore || !_hasMore)) return;
+
     final requestId = ++_serial;
     final q = _search.text.trim();
+    final skip = append ? _restaurants.length : 0;
     setState(() {
-      _loading = _restaurants.isEmpty;
-      _searching = _restaurants.isNotEmpty;
+      if (append) {
+        _loadingMore = true;
+      } else {
+        _loading = _restaurants.isEmpty;
+        _searching = _restaurants.isNotEmpty;
+        _hasMore = true;
+      }
       _error = '';
     });
     try {
@@ -91,24 +105,42 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
 
       List<Restaurant> list;
       if (q.isNotEmpty) {
-        final params = <String, String>{'q': q, if (_category != 'الكل') 'category': _category};
+        final params = <String, String>{
+          'q': q,
+          if (_category != 'الكل') 'category': _category,
+          'limit': '$_pageSize',
+          'skip': '$skip',
+        };
         final query = params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&');
         final data = await widget.api.get('/expansion/search?$query');
         list = (data as List).map((e) => Restaurant.fromJson(Map<String, dynamic>.from(e as Map))).toList();
       } else {
-        list = await _repo.list(category: _category);
+        list = await _repo.list(
+          category: _category,
+          limit: _pageSize,
+          skip: skip,
+        );
       }
       if (!mounted || requestId != _serial) return;
-      list.sort((a, b) {
-        if (a.openNow != b.openNow) return a.openNow ? -1 : 1;
-        final byOrders = b.orderCount.compareTo(a.orderCount);
-        if (byOrders != 0) return byOrders;
-        return a.name.compareTo(b.name);
-      });
       setState(() {
         if (nextCategories != null) _categories = nextCategories;
         if (nextBanners != null) _banners = nextBanners;
-        _restaurants = list;
+        if (append) {
+          final byId = <String, Restaurant>{
+            for (final restaurant in _restaurants) restaurant.id: restaurant,
+            for (final restaurant in list) restaurant.id: restaurant,
+          };
+          _restaurants = byId.values.toList();
+        } else {
+          _restaurants = list;
+        }
+        _restaurants.sort((a, b) {
+          if (a.openNow != b.openNow) return a.openNow ? -1 : 1;
+          final byOrders = b.orderCount.compareTo(a.orderCount);
+          if (byOrders != 0) return byOrders;
+          return a.name.compareTo(b.name);
+        });
+        _hasMore = list.length >= _pageSize;
       });
       _precacheStoreImages(list);
       if (nextBanners != null) {
@@ -126,7 +158,22 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     } catch (_) {
       if (mounted && requestId == _serial) setState(() => _error = 'تعذّر تحميل المتاجر');
     } finally {
-      if (mounted && requestId == _serial) setState(() { _loading = false; _searching = false; });
+      if (mounted && requestId == _serial) {
+        setState(() {
+          _loading = false;
+          _searching = false;
+          _loadingMore = false;
+        });
+      }
+    }
+  }
+
+  void _maybeLoadMore() {
+    if (!_storeScrollController.hasClients || _loadingMore || !_hasMore) return;
+    final position = _storeScrollController.position;
+    if (position.maxScrollExtent <= 0) return;
+    if (position.pixels >= position.maxScrollExtent * .75) {
+      _load(append: true);
     }
   }
 
@@ -638,19 +685,29 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           return RefreshIndicator(
             onRefresh: () => _load(initial: true),
             child: ListView.builder(
+              controller: _storeScrollController,
               cacheExtent: 700,
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
-              itemCount: _restaurants.length,
-              itemBuilder: (_, i) => KeyedSubtree(
-                key: ValueKey('store-${_restaurants[i].id}'),
-                child: _card(_restaurants[i]),
-              ),
+              itemCount: _restaurants.length + (_loadingMore ? 1 : 0),
+              itemBuilder: (_, i) {
+                if (i >= _restaurants.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 18),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                return KeyedSubtree(
+                  key: ValueKey('store-${_restaurants[i].id}'),
+                  child: _card(_restaurants[i]),
+                );
+              },
             ),
           );
         }
         return RefreshIndicator(
           onRefresh: () => _load(initial: true),
           child: GridView.builder(
+            controller: _storeScrollController,
             cacheExtent: 700,
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
