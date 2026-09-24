@@ -20,6 +20,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   List<dynamic> _items = [];
   int _unread = 0;
   bool _loading = true;
+  void Function()? _notificationUnsubscribe;
 
   @override
   void initState() {
@@ -28,13 +29,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     // إشعار داخلي جديد يصل لحظيًا (مثل إسناد طلب للكابتن) — نضيفه أعلى القائمة فورًا
     // دون تحديث الصفحة (Card 3: أرسل الإشعار فورًا للكابتن).
-    widget.socket?.onNotificationNew((notif) {
+    _notificationUnsubscribe = widget.socket?.onNotificationNew((notif) {
       if (!mounted) return;
       setState(() {
         _items = [notif, ..._items];
         if (notif['read'] != true) _unread += 1;
       });
     });
+  }
+
+  @override
+  void dispose() {
+    _notificationUnsubscribe?.call();
+    super.dispose();
   }
 
   Future<void> _load() async {
