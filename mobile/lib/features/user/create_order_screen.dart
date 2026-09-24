@@ -128,7 +128,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       if (mounted) {
         setState(() => _rewards = Map<String, dynamic>.from(raw as Map));
       }
-    } catch (_) {}
+    } catch (_) {
+      // الطلب يبقى متاحًا بدون نقاط إن تعذّر تحميل المكافآت.
+    }
   }
 
   Future<void> _loadAddresses() async {
@@ -476,7 +478,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
               color: YallaColors.primary.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(13),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.payments_outlined,
               color: YallaColors.primary,
             ),
@@ -544,7 +546,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
               color: YallaColors.primary.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(13),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.stars_rounded,
               color: YallaColors.primary,
             ),
