@@ -41,17 +41,17 @@ class PerformanceMonitor {
       if (total > 33334) {
         _jankyFrameCount += 1;
         developer.log(
-          'Janky frame: \${(total / 1000).toStringAsFixed(1)}ms '
-          '(build \${(timing.buildDuration.inMicroseconds / 1000).toStringAsFixed(1)}ms, '
-          'raster \${(timing.rasterDuration.inMicroseconds / 1000).toStringAsFixed(1)}ms)',
+          'Janky frame: ${(total / 1000).toStringAsFixed(1)}ms '
+          '(build ${(timing.buildDuration.inMicroseconds / 1000).toStringAsFixed(1)}ms, '
+          'raster ${(timing.rasterDuration.inMicroseconds / 1000).toStringAsFixed(1)}ms)',
           name: 'Yalla.Perf',
         );
       }
 
       if (_frameCount % 120 == 0) {
         developer.log(
-          'Frames=\$_frameCount slow=\$_slowFrameCount '
-          'janky=\$_jankyFrameCount worst=\${(_worstFrameMicros / 1000).toStringAsFixed(1)}ms',
+          'Frames=$_frameCount slow=$_slowFrameCount '
+          'janky=$_jankyFrameCount worst=${(_worstFrameMicros / 1000).toStringAsFixed(1)}ms',
           name: 'Yalla.Perf',
         );
       }
