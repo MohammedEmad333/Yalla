@@ -56,6 +56,8 @@ export default function MarketingCenter() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [optimizeBusy, setOptimizeBusy] = useState(false);
+  const [optimizeProgress, setOptimizeProgress] = useState('');
 
   async function load() {
     try {
@@ -141,6 +143,52 @@ export default function MarketingCenter() {
     } catch (e) { setError(e.message || String(e)); }
   }
 
+  async function optimizeExistingBanners() {
+    if (optimizeBusy) return;
+    const candidates = banners.filter((banner) => String(banner.imageUrl || '').startsWith('/files/'));
+    if (!candidates.length) {
+      setMessage('لا توجد بانرات قديمة مخزّنة داخليًا تحتاج تحسينًا');
+      return;
+    }
+    if (!window.confirm(`سيتم فحص ${candidates.length} بانر قديم وإعادة رفع نسخة أخف فقط عند وجود توفير فعلي. المتابعة؟`)) {
+      return;
+    }
+
+    setOptimizeBusy(true);
+    setError('');
+    setMessage('');
+    let optimizedCount = 0;
+    let savedBytes = 0;
+
+    try {
+      for (let i = 0; i < candidates.length; i += 1) {
+        const banner = candidates[i];
+        setOptimizeProgress(`فحص البانر ${i + 1} من ${candidates.length}: ${banner.title || ''}`);
+        const response = await fetch(imageSrc(banner.imageUrl), { cache: 'no-store' });
+        if (!response.ok) throw new Error('تعذّر تنزيل صورة بانر قديمة');
+        const blob = await response.blob();
+        const original = new File([blob], `banner-${banner._id}.img`, {
+          type: blob.type || 'image/jpeg',
+          lastModified: Date.now(),
+        });
+        const optimized = await optimizeBannerImage(original);
+        if (optimized.size + 12 * 1024 >= original.size) continue;
+
+        await api.upload(`/admin/banners/${banner._id}/image`, optimized);
+        optimizedCount += 1;
+        savedBytes += original.size - optimized.size;
+      }
+
+      setMessage(`تم تحسين ${optimizedCount} بانر · توفير تقريبي ${(savedBytes / (1024 * 1024)).toFixed(2)} MB`);
+      await load();
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setOptimizeBusy(false);
+      setOptimizeProgress('');
+    }
+  }
+
   const set = (key) => (e) => setForm((f) => ({
     ...f,
     [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value,
@@ -152,9 +200,14 @@ export default function MarketingCenter() {
     <PageHeader
       title="الإعلانات والعروض"
       subtitle="أضف بانرات متحركة تظهر تلقائيًا بين البحث وتصنيفات المتاجر بدون إصدار تطبيق جديد"
-    />
+    >
+      <Button loading={optimizeBusy} onClick={optimizeExistingBanners}>
+        تحسين البانرات القديمة
+      </Button>
+    </PageHeader>
     <Alert tone="error">{error}</Alert>
     <Alert tone="success">{message}</Alert>
+    {optimizeProgress && <Alert>{optimizeProgress}</Alert>}
 
     <Card title={editing ? 'تعديل الإعلان' : 'إعلان جديد'} actions={editing && <Button onClick={reset}>إلغاء التعديل</Button>}>
       <div className="yl-formgrid">
