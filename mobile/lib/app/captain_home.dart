@@ -23,6 +23,7 @@ class CaptainHome extends StatefulWidget {
 
 class _CaptainHomeState extends State<CaptainHome> {
   int _index = 0;
+  late final List<Widget> _pages;
 
   static const _labels = ['الطلب', 'أرباحي', 'محفظتي', 'الإشعارات', 'حسابي'];
   static const _icons = [
@@ -43,6 +44,13 @@ class _CaptainHomeState extends State<CaptainHome> {
   @override
   void initState() {
     super.initState();
+    _pages = [
+      ActiveOrderScreen(api: widget.api, socket: widget.socket),
+      EarningsScreen(api: widget.api, socket: widget.socket),
+      CaptainWalletScreen(api: widget.api, socket: widget.socket),
+      NotificationsScreen(api: widget.api, socket: widget.socket),
+      ProfileScreen(api: widget.api, onLogout: widget.onLogout),
+    ];
     widget.socket.connect();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) maybeShowOnboarding(context, 'captain');
@@ -54,14 +62,6 @@ class _CaptainHomeState extends State<CaptainHome> {
     widget.socket.dispose();
     super.dispose();
   }
-
-  List<Widget> _pages() => [
-        ActiveOrderScreen(api: widget.api, socket: widget.socket),
-        EarningsScreen(api: widget.api, socket: widget.socket),
-        CaptainWalletScreen(api: widget.api, socket: widget.socket),
-        NotificationsScreen(api: widget.api, socket: widget.socket),
-        ProfileScreen(api: widget.api, onLogout: widget.onLogout),
-      ];
 
   Widget _desktop(List<Widget> pages) {
     return Scaffold(
@@ -129,7 +129,7 @@ class _CaptainHomeState extends State<CaptainHome> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = _pages();
+    final pages = _pages;
     return LayoutBuilder(
       builder: (context, constraints) {
         return constraints.maxWidth >= 1000 ? _desktop(pages) : _mobile(pages);
