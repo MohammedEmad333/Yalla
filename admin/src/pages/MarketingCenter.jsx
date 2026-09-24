@@ -15,6 +15,37 @@ function imageSrc(value) {
   return `${API}${raw.startsWith('/') ? '' : '/'}${raw}`;
 }
 
+async function optimizeBannerImage(file) {
+  if (!file?.type?.startsWith('image/')) throw new Error('اختر ملف صورة صالحًا');
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxDimension = 1280;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) {
+      bitmap.close?.();
+      return file;
+    }
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, 'image/webp', 0.76)
+    );
+    if (!blob) return file;
+    const baseName = (file.name || 'banner').replace(/\.[^.]+$/, '');
+    return new File([blob], `${baseName}.webp`, {
+      type: 'image/webp',
+      lastModified: Date.now(),
+    });
+  } catch {
+    return file;
+  }
+}
+
 export default function MarketingCenter() {
   const [banners, setBanners] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
@@ -91,7 +122,8 @@ export default function MarketingCenter() {
         : await api.post('/expansion/admin/banners', body);
 
       if (imageFile) {
-        await api.upload(`/admin/banners/${saved._id}/image`, imageFile);
+        const optimizedBanner = await optimizeBannerImage(imageFile);
+        await api.upload(`/admin/banners/${saved._id}/image`, optimizedBanner);
       }
 
       setMessage(editing ? 'تم تحديث الإعلان' : 'تم إنشاء الإعلان');
@@ -181,7 +213,7 @@ export default function MarketingCenter() {
         <tbody>{banners.map((b) => <tr key={b._id}>
           <td data-label="الصورة">
             {imageSrc(b.imageUrl)
-              ? <img src={imageSrc(b.imageUrl)} alt="" style={{ width: 86, height: 48, objectFit: 'cover', borderRadius: 10 }} />
+              ? <img src={imageSrc(b.imageUrl)} alt="" loading="lazy" decoding="async" style={{ width: 86, height: 48, objectFit: 'cover', borderRadius: 10 }} />
               : <span className="yl-muted">—</span>}
           </td>
           <td data-label="العنوان"><b>{b.title}</b><br /><small>{b.subtitle}</small></td>

@@ -75,8 +75,8 @@ async function optimizeImage(file, maxDimension = 1400, quality = 0.78) {
 }
 
 // رفع صورة (multipart) إلى مسار أدمن ويُعيد رابطها — مشترك بين المطعم والصنف.
-async function uploadImageTo(path, file) {
-  const optimized = await optimizeImage(file);
+async function uploadImageTo(path, file, { maxDimension = 1400, quality = 0.78 } = {}) {
+  const optimized = await optimizeImage(file, maxDimension, quality);
   const fd = new FormData();
   fd.append('image', optimized);
   const res = await fetch(`${API}/api${path}`, {
@@ -268,7 +268,10 @@ export default function Restaurants() {
     setCoverBusy(true);
     try {
       await validateRestaurantCover(file);
-      const imageUrl = await uploadImageTo(`/admin/restaurants/${selected._id}/image`, file);
+      const imageUrl = await uploadImageTo(`/admin/restaurants/${selected._id}/image`, file, {
+        maxDimension: 1200,
+        quality: 0.78,
+      });
       setForm((f) => ({ ...f, imageUrl }));
       setMessage('تم تحديث صورة المطعم');
       await load();
@@ -759,7 +762,10 @@ function MenuItemModal({ item, onClose, onSaved }) {
     setError('');
     setImgBusy(true);
     try {
-      const url = await uploadImageTo(`/admin/menu-items/${item._id}/image`, file);
+      const url = await uploadImageTo(`/admin/menu-items/${item._id}/image`, file, {
+        maxDimension: 900,
+        quality: 0.76,
+      });
       setImageUrl(url);
     } catch (err) {
       setError(err.message);
