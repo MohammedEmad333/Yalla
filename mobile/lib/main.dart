@@ -1,12 +1,14 @@
 // نقطة دخول تطبيق يلا (Flutter).
 // يهيّئ الخدمات، يفرض RTL، ويقود الواجهة بحالة الجلسة (صفحة دخول واحدة للجميع).
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/network/api_client.dart';
+import 'core/performance/performance_monitor.dart';
 import 'core/realtime/socket_service.dart';
 import 'core/storage/token_storage.dart';
 import 'core/push/push_service.dart';
@@ -40,11 +42,16 @@ void main() async {
     systemStatusBarContrastEnforced: false,
     systemNavigationBarContrastEnforced: false,
   ));
-  await PushService.initialize();
-  await themeController.restore().timeout(
-    const Duration(milliseconds: 800),
-    onTimeout: () {},
-  );
+  // Push bootstrap and theme restore are independent; running them in parallel
+  // trims startup latency, especially on slower devices/storage.
+  await Future.wait<void>([
+    PushService.initialize(),
+    themeController.restore().timeout(
+      const Duration(milliseconds: 800),
+      onTimeout: () {},
+    ),
+  ]);
+  if (kDebugMode || kProfileMode) PerformanceMonitor.start();
   authRepository.session.addListener(() {
     if (authRepository.session.value != null) pushService.registerAfterLogin();
   });

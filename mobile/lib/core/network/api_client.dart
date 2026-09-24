@@ -2,6 +2,8 @@
 // (يعتمد على حزمة http؛ يمكن استبداله بـ dio دون تغيير الطبقات الأعلى.)
 
 import 'dart:convert';
+import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' show MediaType;
 
@@ -44,11 +46,14 @@ class ApiClient {
   }
 
   Future<dynamic> post(String path, Map<String, dynamic> body) async {
+    final stopwatch = (kDebugMode || kProfileMode) ? (Stopwatch()..start()) : null;
     final res = await http.post(
       Uri.parse('$baseUrl$path'),
       headers: await _headers(),
       body: jsonEncode(body),
     );
+    stopwatch?.stop();
+    if (stopwatch != null) _logRequest('POST', path, res, stopwatch.elapsedMilliseconds);
     final data = _handle(res);
     clearGetCache();
     return data;
@@ -68,7 +73,12 @@ class ApiClient {
   }
 
   Future<dynamic> _performGet(String path) async {
+    final stopwatch = (kDebugMode || kProfileMode) ? (Stopwatch()..start()) : null;
     final res = await http.get(Uri.parse('$baseUrl$path'), headers: await _headers());
+    stopwatch?.stop();
+    if (stopwatch != null) {
+      _logRequest('GET', path, res, stopwatch.elapsedMilliseconds);
+    }
     return _handle(res);
   }
 
@@ -82,7 +92,12 @@ class ApiClient {
   }) async {
     if (!forceRefresh) {
       final cached = _getCache[path];
-      if (cached != null && cached.isFresh) return cached.value;
+      if (cached != null && cached.isFresh) {
+        if (kDebugMode || kProfileMode) {
+          developer.log('CACHE HIT $path', name: 'Yalla.Network');
+        }
+        return cached.value;
+      }
     }
 
     final data = await get(path);
@@ -99,33 +114,42 @@ class ApiClient {
   }
 
   Future<dynamic> put(String path, dynamic body) async {
+    final stopwatch = (kDebugMode || kProfileMode) ? (Stopwatch()..start()) : null;
     final res = await http.put(
       Uri.parse('$baseUrl$path'),
       headers: await _headers(),
       body: jsonEncode(body),
     );
+    stopwatch?.stop();
+    if (stopwatch != null) _logRequest('PUT', path, res, stopwatch.elapsedMilliseconds);
     final data = _handle(res);
     clearGetCache();
     return data;
   }
 
   Future<dynamic> patch(String path, Map<String, dynamic> body) async {
+    final stopwatch = (kDebugMode || kProfileMode) ? (Stopwatch()..start()) : null;
     final res = await http.patch(
       Uri.parse('$baseUrl$path'),
       headers: await _headers(),
       body: jsonEncode(body),
     );
+    stopwatch?.stop();
+    if (stopwatch != null) _logRequest('PATCH', path, res, stopwatch.elapsedMilliseconds);
     final data = _handle(res);
     clearGetCache();
     return data;
   }
 
   Future<dynamic> delete(String path, [Map<String, dynamic>? body]) async {
+    final stopwatch = (kDebugMode || kProfileMode) ? (Stopwatch()..start()) : null;
     final res = await http.delete(
       Uri.parse('$baseUrl$path'),
       headers: await _headers(),
       body: body != null ? jsonEncode(body) : null,
     );
+    stopwatch?.stop();
+    if (stopwatch != null) _logRequest('DELETE', path, res, stopwatch.elapsedMilliseconds);
     final data = _handle(res);
     clearGetCache();
     return data;
@@ -193,6 +217,16 @@ class ApiClient {
     if (p.endsWith('.heic')) return MediaType('image', 'heic');
     if (p.endsWith('.heif')) return MediaType('image', 'heif');
     return MediaType('image', 'jpeg');
+  }
+
+  void _logRequest(String method, String path, http.Response res, int elapsedMs) {
+    final kb = res.bodyBytes.length / 1024;
+    final slow = elapsedMs >= 500;
+    developer.log(
+      '$method $path -> ${res.statusCode} · ${elapsedMs}ms · ${kb.toStringAsFixed(1)}KB',
+      name: 'Yalla.Network',
+      level: slow ? 900 : 700,
+    );
   }
 
   // توحيد معالجة الاستجابة والأخطاء
