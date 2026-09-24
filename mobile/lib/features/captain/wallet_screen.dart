@@ -40,16 +40,17 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
   List<dynamic> _withdrawals = [];
   List<dynamic> _payoutWallets = []; // المحافظ الإلكترونية المحفوظة (Card 67)
   bool _loading = true;
+  void Function()? _walletUnsubscribe;
 
   @override
   void initState() {
     super.initState();
     _load();
     // تحديث الرصيد لحظيًا بعد تنفيذ الأدمن للسحب
-    widget.socket.onCaptainWalletUpdated((data) {
+    _walletUnsubscribe = widget.socket.onCaptainWalletUpdated((data) {
       if (!mounted) return;
       setState(() => _balance = data);
-      _load();
+      _loadWithdrawalsOnly();
     });
   }
 
@@ -73,6 +74,21 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
       setState(() => _loading = false);
       _snack(e.message);
     }
+  }
+
+  Future<void> _loadWithdrawalsOnly() async {
+    try {
+      final data = await widget.api.get('/captains/me/withdrawals');
+      if (mounted) setState(() => _withdrawals = data as List);
+    } catch (_) {
+      // الرصيد اللحظي يبقى صحيحًا حتى لو تعذر تحديث السجل.
+    }
+  }
+
+  @override
+  void dispose() {
+    _walletUnsubscribe?.call();
+    super.dispose();
   }
 
   num get _available => (_balance['available'] as num?) ?? 0;
