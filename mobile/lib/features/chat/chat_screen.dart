@@ -51,6 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _loading = true;
   bool _sending = false;
   final ValueNotifier<int> _messageRevision = ValueNotifier<int>(0);
+  final List<void Function()> _socketSubscriptions = [];
 
   @override
   void initState() {
@@ -59,28 +60,28 @@ class _ChatScreenState extends State<ChatScreen> {
     _load();
 
     // استقبال رسالة جديدة لحظيًا (لهذا الطلب فقط) مع منع التكرار بالمعرّف
-    widget.socket.onChatMessage((msg) {
+    _socketSubscriptions.add(widget.socket.onChatMessage((msg) {
       if (!mounted) return;
       if ('${msg['order']}' != widget.orderId) return;
       _appendUnique(msg);
-    });
+    }));
 
     // حُذفت رسائل الطلب (انتهى التوصيل) — نُفرّغ الشاشة ونُعلم المستخدم
-    widget.socket.onChatCleared((data) {
+    _socketSubscriptions.add(widget.socket.onChatCleared((data) {
       if (!mounted) return;
       if ('${data['orderId']}' != widget.orderId) return;
       _messages.clear();
       _messageRevision.value++;
       _snack('انتهى التوصيل — حُذفت المحادثة');
-    });
+    }));
 
     // Card 94: حذف الأدمن لرسالة واحدة — نُزيلها فورًا من الشاشة
-    widget.socket.onChatMessageDeleted((data) {
+    _socketSubscriptions.add(widget.socket.onChatMessageDeleted((data) {
       if (!mounted) return;
       if ('${data['orderId']}' != widget.orderId) return;
       _messages.removeWhere((m) => '${m['_id']}' == '${data['id']}');
       _messageRevision.value++;
-    });
+    }));
   }
 
   Future<void> _load() async {
@@ -127,6 +128,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    for (final unsubscribe in _socketSubscriptions) unsubscribe();
+    _socketSubscriptions.clear();
     _messageRevision.dispose();
     _input.dispose();
     _scroll.dispose();
