@@ -40,9 +40,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
   @override
   void initState() {
     super.initState();
-    _loadStatus();      // نعكس حالة الاتصال الحقيقية (يبقى الكابتن متصلًا بعد إغلاق التطبيق)
-    _loadActiveOrder();
-    _loadAvailable();   // الإسناد التلقائي: الطلبات المبثوثة المتاحة للقبول
+    _bootstrap();       // نحسم الحالة والطلب النشط أولًا، ثم نجلب المتاح عند الحاجة فقط
 
     // استقبال طلب جديد مُسنَد لحظيًا (بثّه الخادم عند الإسناد)
     _socketSubscriptions.add(widget.socket.onOrderAssigned((order) {
@@ -95,6 +93,16 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     for (final unsubscribe in _socketSubscriptions) unsubscribe();
     _socketSubscriptions.clear();
     super.dispose();
+  }
+
+  Future<void> _bootstrap() async {
+    await Future.wait([
+      _loadStatus(),
+      _loadActiveOrder(),
+    ]);
+    if (mounted && _order == null && _isOnline) {
+      await _loadAvailable();
+    }
   }
 
   // جلب حالة توفّر الكابتن من الخادم لضبط المفتاح عند فتح التطبيق.
