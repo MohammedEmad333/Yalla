@@ -9,19 +9,19 @@ class WalletRepository {
 
   // رصيد المحفظة الحالي: { balance, currency }
   Future<Map<String, dynamic>> getBalance() async {
-    final data = await _api.get('/wallet');
+    final data = await _api.getCached('/wallet', ttl: const Duration(seconds: 10));
     return Map<String, dynamic>.from(data as Map);
   }
 
   // طرق الشحن المتاحة (بيانات الحساب + التعليمات)
   Future<List<dynamic>> getMethods() async {
-    final data = await _api.get('/wallet/methods');
+    final data = await _api.getCached('/wallet/methods', ttl: const Duration(minutes: 5));
     return data as List;
   }
 
   // سجلّ حركات المحفظة
   Future<List<dynamic>> getTransactions() async {
-    final data = await _api.get('/wallet/transactions');
+    final data = await _api.getCached('/wallet/transactions', ttl: const Duration(seconds: 10));
     return data as List;
   }
 
@@ -53,13 +53,13 @@ class WalletRepository {
   // Card 98: الرصيد المتاح للسحب + هل يوجد طلب جارٍ يمنع السحب (Card 99)
   // { balance, pending, available, currency, hasActiveOrder }
   Future<Map<String, dynamic>> getWithdrawAvailability() async {
-    final data = await _api.get('/wallet/withdrawals/available');
+    final data = await _api.getCached('/wallet/withdrawals/available', ttl: const Duration(seconds: 10));
     return Map<String, dynamic>.from(data as Map);
   }
 
   // Card 98: سجلّ طلبات سحب الرصيد
   Future<List<dynamic>> getWithdrawals() async {
-    final data = await _api.get('/wallet/withdrawals');
+    final data = await _api.getCached('/wallet/withdrawals', ttl: const Duration(seconds: 10));
     return data as List;
   }
 
