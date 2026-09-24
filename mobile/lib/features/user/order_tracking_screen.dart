@@ -48,6 +48,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   DateTime? _etaStart;         // لحظة بدء العدّ (قبول الكابتن أو الإسناد أو الإنشاء)
   Timer? _ticker;             // مؤقّت يحدّث العدّ التنازلي كل ثانية
   final ValueNotifier<DateTime> _etaTick = ValueNotifier<DateTime>(DateTime.now());
+  final List<void Function()> _socketSubscriptions = [];
 
   @override
   void initState() {
@@ -63,6 +64,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   @override
   void dispose() {
     _ticker?.cancel();
+    for (final unsubscribe in _socketSubscriptions) unsubscribe();
+    _socketSubscriptions.clear();
     _etaTick.dispose();
     super.dispose();
   }
@@ -117,17 +120,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     widget.socket.joinOrder(widget.orderId);
 
     // موقع الكابتن اللحظي
-    widget.socket.onCaptainLocation((data) {
+    _socketSubscriptions.add(widget.socket.onCaptainLocation((data) {
       if (data['orderId'] != widget.orderId) return;
       setState(() {
         _captainLat = (data['lat'] as num).toDouble();
         _captainLng = (data['lng'] as num).toDouble();
         _lastUpdate = DateTime.now();
       });
-    });
+    }));
 
     // تحديث حالة الطلب
-    widget.socket.onOrderStatusUpdated((data) {
+    _socketSubscriptions.add(widget.socket.onOrderStatusUpdated((data) {
       if (data['_id'] != widget.orderId) return;
       setState(() {
         _status = data['status'] ?? _status;
@@ -137,7 +140,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         final eta = (data['etaMinutes'] as num?)?.toInt();
         if (eta != null && eta > 0) _etaMinutes = eta;
       });
-    });
+    }));
   }
 
   String get _statusText => switch (_status) {
