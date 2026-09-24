@@ -485,7 +485,7 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                       : RefreshIndicator(
                           onRefresh: _load,
                           child: ListView.builder(
-                            scrollCacheExtent: 650,
+                            cacheExtent: 650,
                             padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
                             itemCount: _favorites.length,
                             itemBuilder: (_, i) => _favoriteCard(_favorites[i]),
