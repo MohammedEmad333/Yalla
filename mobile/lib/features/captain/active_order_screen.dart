@@ -33,6 +33,9 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
   // تظهر فقط حين لا يوجد طلب نشط. تُحدَّث لحظيًا عبر order:broadcast / order:taken.
   List<Map<String, dynamic>> _available = [];
   String? _claimingId;         // معرّف الطلب الجاري قبوله (لتعطيل زرّه)
+  bool _activeLoadInFlight = false;
+  bool _availableLoadInFlight = false;
+  final List<void Function()> _socketSubscriptions = [];
 
   @override
   void initState() {
@@ -42,18 +45,18 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     _loadAvailable();   // الإسناد التلقائي: الطلبات المبثوثة المتاحة للقبول
 
     // استقبال طلب جديد مُسنَد لحظيًا (بثّه الخادم عند الإسناد)
-    widget.socket.onOrderAssigned((order) {
+    _socketSubscriptions.add(widget.socket.onOrderAssigned((order) {
       if (!mounted) return;
       setState(() {
         _order = order;
         _available = []; // لديه طلب نشط الآن — نُخفي قائمة المتاح
       });
       _snack('وصلك طلب جديد 🛵');
-    });
+    }));
 
     // الإسناد التلقائي: طلب جديد مبثوث لكل الكباتن — نُضيفه لقائمة المتاح (إن لم
     // يكن لديه طلب نشط ولم يكن موجودًا مسبقًا في القائمة).
-    widget.socket.onOrderBroadcast((order) {
+    _socketSubscriptions.add(widget.socket.onOrderBroadcast((order) {
       if (!mounted || _order != null) return;
       final id = order['_id'];
       if (id == null) return;
@@ -63,18 +66,18 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
           ..._available.where((o) => o['_id'] != id),
         ];
       });
-    });
+    }));
 
     // الإسناد التلقائي: طلب مبثوث أُخِذ (قَبِله كابتن آخر/أُلغي) — نُزيله من القائمة
-    widget.socket.onOrderTaken((payload) {
+    _socketSubscriptions.add(widget.socket.onOrderTaken((payload) {
       if (!mounted) return;
       final id = payload['orderId'];
       if (id == null) return;
       setState(() => _available = _available.where((o) => o['_id'] != id).toList());
-    });
+    }));
 
     // تحديثات الحالة (مثل إلغاء الأدمن للطلب) — نزيل الطلب إن انتهى
-    widget.socket.onOrderStatusUpdated((order) {
+    _socketSubscriptions.add(widget.socket.onOrderStatusUpdated((order) {
       if (!mounted || _order == null || order['_id'] != _order!['_id']) return;
       final status = order['status'];
       // Card 101: نحتفظ ببيانات صاحب الطلب المُحمّلة عند تحديث الحالة لحظيًا
@@ -84,7 +87,14 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         setState(() => _order = null);
         _loadAvailable(); // تحرّر الكابتن — أعِد جلب الطلبات المبثوثة المتاحة
       }
-    });
+    }));
+  }
+
+  @override
+  void dispose() {
+    for (final unsubscribe in _socketSubscriptions) unsubscribe();
+    _socketSubscriptions.clear();
+    super.dispose();
   }
 
   // جلب حالة توفّر الكابتن من الخادم لضبط المفتاح عند فتح التطبيق.
@@ -103,6 +113,8 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
 
   // جلب الطلب النشط الحالي من الخادم (سجلّ الكابتن → أوّل طلب غير منتهٍ)
   Future<void> _loadActiveOrder() async {
+    if (_activeLoadInFlight) return;
+    _activeLoadInFlight = true;
     setState(() => _loading = true);
     try {
       final data = await widget.api.get('/captains/me/orders');
@@ -114,12 +126,15 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     } catch (_) {
       _snack('تعذّر الاتصال بالخادم');
     } finally {
+      _activeLoadInFlight = false;
       if (mounted) setState(() => _loading = false);
     }
   }
 
   // الإسناد التلقائي: جلب الطلبات المبثوثة المتاحة للقبول (حين لا يوجد طلب نشط)
   Future<void> _loadAvailable() async {
+    if (_availableLoadInFlight) return;
+    _availableLoadInFlight = true;
     try {
       final data = await widget.api.get('/orders/available');
       if (!mounted) return;
@@ -127,6 +142,8 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       setState(() => _available = list);
     } catch (_) {
       // لا نُزعج الكابتن — قد لا يكون الإسناد التلقائي مفعّلًا
+    } finally {
+      _availableLoadInFlight = false;
     }
   }
 
