@@ -89,6 +89,18 @@ async function uploadImageTo(path, file, { maxDimension = 1400, quality = 0.78 }
   return data.imageUrl;
 }
 
+async function storedImageFile(url, fallbackName = 'stored-image') {
+  if (!String(url || '').startsWith('/files/')) return null;
+  const response = await fetch(imageSrc(url), { cache: 'no-store' });
+  if (!response.ok) throw new Error('تعذّر تنزيل صورة قديمة لإعادة تحسينها');
+  const blob = await response.blob();
+  const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
+  return new File([blob], `${fallbackName}.${ext}`, {
+    type: blob.type || 'image/jpeg',
+    lastModified: Date.now(),
+  });
+}
+
 // قالب مطعم جديد فارغ
 const EMPTY_RESTAURANT = {
   name: '',
@@ -146,6 +158,8 @@ export default function Restaurants() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [coverBusy, setCoverBusy] = useState(false); // رفع صورة الغلاف جارٍ
+  const [optimizeBusy, setOptimizeBusy] = useState(false);
+  const [optimizeProgress, setOptimizeProgress] = useState('');
   const [editingItem, setEditingItem] = useState(null); // الصنف المفتوح للتعديل (Modal)
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -353,6 +367,80 @@ export default function Restaurants() {
     }
   }
 
+  async function optimizeExistingImages() {
+    if (optimizeBusy) return;
+    const internalRestaurants = restaurants.filter((row) => String(row.imageUrl || '').startsWith('/files/'));
+    if (!internalRestaurants.length && !restaurants.length) {
+      setMessage('لا توجد صور مخزّنة تحتاج فحصًا');
+      return;
+    }
+    if (!window.confirm('سيتم فحص صور المتاجر والأصناف القديمة وإعادة رفع نسخة WebP أخف عند وجود توفير فعلي بالحجم. المتابعة؟')) {
+      return;
+    }
+
+    setOptimizeBusy(true);
+    setError('');
+    setMessage('');
+    let scanned = 0;
+    let optimizedCount = 0;
+    let savedBytes = 0;
+
+    try {
+      for (let index = 0; index < restaurants.length; index += 1) {
+        const restaurant = restaurants[index];
+        setOptimizeProgress(`فحص المتجر ${index + 1} من ${restaurants.length}: ${restaurant.name}`);
+
+        if (String(restaurant.imageUrl || '').startsWith('/files/')) {
+          const original = await storedImageFile(restaurant.imageUrl, `restaurant-${restaurant._id}`);
+          if (original) {
+            scanned += 1;
+            const optimized = await optimizeImage(original, 1200, 0.78);
+            if (optimized.size + 12 * 1024 < original.size) {
+              await uploadImageTo(
+                `/admin/restaurants/${restaurant._id}/image`,
+                original,
+                { maxDimension: 1200, quality: 0.78 },
+              );
+              optimizedCount += 1;
+              savedBytes += original.size - optimized.size;
+            }
+          }
+        }
+
+        const items = await api.get(`/admin/restaurants/${restaurant._id}/menu`);
+        for (const menuItem of items || []) {
+          if (!String(menuItem.imageUrl || '').startsWith('/files/')) continue;
+          const original = await storedImageFile(menuItem.imageUrl, `menu-${menuItem._id}`);
+          if (!original) continue;
+          scanned += 1;
+          const optimized = await optimizeImage(original, 900, 0.76);
+          if (optimized.size + 12 * 1024 < original.size) {
+            await uploadImageTo(
+              `/admin/menu-items/${menuItem._id}/image`,
+              original,
+              { maxDimension: 900, quality: 0.76 },
+            );
+            optimizedCount += 1;
+            savedBytes += original.size - optimized.size;
+          }
+        }
+      }
+
+      const savedMb = (savedBytes / (1024 * 1024)).toFixed(2);
+      setMessage(`تم فحص ${scanned} صورة وتحسين ${optimizedCount} صورة · توفير تقريبي ${savedMb} MB`);
+      await load();
+      if (selected?._id) {
+        const refreshed = restaurants.find((row) => row._id === selected._id) || selected;
+        await openRestaurant(refreshed);
+      }
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setOptimizeBusy(false);
+      setOptimizeProgress('');
+    }
+  }
+
   const cities = Object.keys(hoods);
   // مُحدِّث حقول النموذج (تغيير المدينة يُصفّر الحي)
   const set = (key) => (e) => {
@@ -374,6 +462,13 @@ export default function Restaurants() {
           title="المطاعم"
           subtitle="أضف المطاعم وقوائم طعامها — تظهر مباشرةً في تبويب «المطاعم» داخل تطبيق الزبون"
         >
+          <Button
+            loading={optimizeBusy}
+            onClick={optimizeExistingImages}
+            title="يفحص الصور القديمة المخزنة داخليًا ويعيد رفع نسخة WebP أخف فقط عند وجود توفير فعلي"
+          >
+            تحسين الصور القديمة
+          </Button>
           <Button variant="primary" icon={<IconPlus size={18} />} onClick={startNew}>
             مطعم جديد
           </Button>
@@ -382,6 +477,7 @@ export default function Restaurants() {
 
       {error && <Alert tone="error">{error}</Alert>}
       {message && <Alert tone="success">{message}</Alert>}
+      {optimizeProgress && <Alert>{optimizeProgress}</Alert>}
 
       <div className="yl-split yl-restaurants" data-open={editorOpen} style={{ marginTop: 'var(--s-4)' }}>
         {/* ── قائمة المطاعم ── */}
@@ -411,7 +507,7 @@ export default function Restaurants() {
                   >
                     <span className="yl-avatar yl-restaurant-thumb">
                       {imageSrc(r.imageUrl) ? (
-                        <img src={imageSrc(r.imageUrl)} alt="" loading="lazy" />
+                        <img src={imageSrc(r.imageUrl)} alt="" loading="lazy" decoding="async" />
                       ) : (
                         <IconStore size={20} />
                       )}
