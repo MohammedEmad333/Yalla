@@ -98,7 +98,10 @@ async function myBalance(req, res, next) {
 // سجلّ طلبات سحب الكابتن
 async function myWithdrawals(req, res, next) {
   try {
-    const items = await captainWalletService.listWithdrawals(req.auth.id);
+    const items = await captainWalletService.listWithdrawals(req.auth.id, {
+      limit: Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20)),
+      skip: Math.max(0, parseInt(req.query.skip, 10) || 0),
+    });
     res.json(items);
   } catch (err) {
     next(err);
