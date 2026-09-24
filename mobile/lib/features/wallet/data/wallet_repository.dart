@@ -20,8 +20,11 @@ class WalletRepository {
   }
 
   // سجلّ حركات المحفظة
-  Future<List<dynamic>> getTransactions() async {
-    final data = await _api.getCached('/wallet/transactions', ttl: const Duration(seconds: 10));
+  Future<List<dynamic>> getTransactions({int limit = 20, int skip = 0}) async {
+    final data = await _api.getCached(
+      '/wallet/transactions?limit=$limit&skip=$skip',
+      ttl: const Duration(seconds: 10),
+    );
     return data as List;
   }
 
