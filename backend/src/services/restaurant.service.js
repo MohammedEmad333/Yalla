@@ -61,9 +61,12 @@ function withNeighborhoodLocation(restaurant) {
   };
 }
 
-// الحقول المُعادة للزبون (نُخفي حقول الإدارة غير الضرورية)
+// الحقول المُعادة للزبون. بطاقات قائمة المتاجر تستخدم payload أصغر من
+// صفحة التفاصيل لتقليل النقل وفك JSON على الأجهزة الضعيفة.
 const PUBLIC_FIELDS =
   'name description category imageUrl phone city neighborhood street address location minOrder prepMinutes isOpen openTime closeTime weeklyHours ratingAverage ratingCount sortOrder';
+const LIST_PUBLIC_FIELDS =
+  'name category imageUrl minOrder prepMinutes isOpen openTime closeTime weeklyHours ratingAverage ratingCount sortOrder';
 
 // يطبّع وقتًا إلى صيغة "HH:MM" (٢٤ ساعة) أو '' إن كان فارغًا/غير صالح.
 function normalizeTime(value) {
@@ -137,7 +140,7 @@ function normalizeRestaurantPayload(payload = {}) {
 
 /**
  * قائمة المطاعم الظاهرة للزبائن مع فلترة اختيارية.
- * @param {{city?:string, category?:string, q?:string, limit?:number}} query
+ * @param {{city?:string, category?:string, q?:string, limit?:number, skip?:number}} query
  */
 async function listRestaurants(query = {}) {
   const filter = { active: true };
@@ -155,12 +158,14 @@ async function listRestaurants(query = {}) {
     filter.$text = { $search: q };
   }
 
-  const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 60));
+  const limit = Math.min(60, Math.max(1, parseInt(query.limit, 10) || 24));
+  const skip = Math.max(0, parseInt(query.skip, 10) || 0);
 
   const findRestaurants = (criteria) =>
     Restaurant.find(criteria)
-      .select(PUBLIC_FIELDS)
+      .select(LIST_PUBLIC_FIELDS)
       .sort({ sortOrder: 1, name: 1 })
+      .skip(skip)
       .limit(limit)
       .lean();
 
