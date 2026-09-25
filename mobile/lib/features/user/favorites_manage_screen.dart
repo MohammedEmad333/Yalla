@@ -346,6 +346,29 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                           start: 8,
                           child: _ratingBadge(r),
                         ),
+                        PositionedDirectional(
+                          bottom: 8,
+                          start: 8,
+                          child: Material(
+                            color: Colors.black.withValues(alpha: .55),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              tooltip: 'إزالة من المفضلة',
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 34,
+                                height: 34,
+                              ),
+                              padding: EdgeInsets.zero,
+                              onPressed: () => _remove(r),
+                              icon: const Icon(
+                                Icons.favorite_rounded,
+                                color: Color(0xFFFF5A5F),
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -357,38 +380,18 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    r.name,
-                                    textDirection: TextDirection.rtl,
-                                    textAlign: TextAlign.left,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 16.5,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: 'إزالة من المفضلة',
-                                  visualDensity: VisualDensity.compact,
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 36,
-                                    height: 36,
-                                  ),
-                                  onPressed: () => _remove(r),
-                                  icon: const Icon(
-                                    Icons.favorite_rounded,
-                                    color: Color(0xFFE53935),
-                                    size: 23,
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              r.name,
+                              textDirection: TextDirection.rtl,
+                              textAlign: TextAlign.left,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
+                            const SizedBox(height: 3),
                             Text(
                               r.category,
                               textDirection: TextDirection.rtl,
