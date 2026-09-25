@@ -162,6 +162,8 @@ class _TopupScreenState extends State<TopupScreen> {
                   TextFormField(
                     controller: _amount,
                     keyboardType: TextInputType.number,
+                    textDirection: TextDirection.ltr,
+                    textAlign: TextAlign.right,
                     decoration: const InputDecoration(
                       labelText: 'المبلغ المطلوب شحنه',
                       prefixIcon: Icon(Icons.payments_outlined),
@@ -176,6 +178,8 @@ class _TopupScreenState extends State<TopupScreen> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _reference,
+                    textDirection: TextDirection.ltr,
+                    textAlign: TextAlign.right,
                     decoration: const InputDecoration(
                       labelText: 'رقم العملية / المرجع (اختياري)',
                       hintText: 'من إشعار التحويل',
