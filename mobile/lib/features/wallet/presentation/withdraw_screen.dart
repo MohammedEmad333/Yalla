@@ -108,12 +108,57 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canSubmit = !_loading &&
+        !_hasActiveOrder &&
+        !_submitting &&
+        _amountValue > 0 &&
+        _amountValue <= _available &&
+        _accountNumber.text.trim().length >= 4 &&
+        (_destination != _WithdrawDestination.other ||
+            _customDestination.text.trim().length >= 2);
+
     return Scaffold(
       appBar: AppBar(title: const Text('سحب الرصيد')),
+      bottomNavigationBar: _loading || _hasActiveOrder
+          ? null
+          : SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  border: Border(
+                    top: BorderSide(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outlineVariant
+                          .withValues(alpha: .55),
+                    ),
+                  ),
+                ),
+                child: SizedBox(
+                  height: 52,
+                  child: FilledButton.icon(
+                    onPressed: canSubmit ? _submit : null,
+                    icon: _submitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send_rounded),
+                    label: const Text(
+                      'تأكيد طلب السحب',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                ),
+              ),
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
               child: _hasActiveOrder ? _activeOrderWarning() : _form(),
             ),
     );
@@ -150,6 +195,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
   Widget _form() {
     return Form(
       key: _formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -226,14 +272,17 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                 ? 'أدخل رقم الحساب أو المحفظة'
                 : null,
           ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _accountOwner,
-            decoration: const InputDecoration(
-              labelText: 'اسم صاحب الحساب',
-              prefixIcon: Icon(Icons.person_outline),
+          if (_destination == _WithdrawDestination.bank ||
+              _destination == _WithdrawDestination.other) ...[
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _accountOwner,
+              decoration: const InputDecoration(
+                labelText: 'اسم صاحب الحساب (اختياري)',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: 12),
           TextFormField(
             controller: _note,
@@ -254,25 +303,14 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               textAlign: TextAlign.center,
             ),
           ],
-          const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: _submitting ? null : _submit,
-            icon: _submitting
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.send_rounded),
-            label: const Text('تأكيد طلب السحب'),
-          ),
+          const SizedBox(height: 4),
         ],
       ),
     );
   }
 
   Widget _availableCard() => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: YallaColors.primary.withValues(alpha: .08),
           borderRadius: BorderRadius.circular(16),
@@ -290,13 +328,13 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                     'الرصيد المتاح للسحب',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     '$_available ₪',
                     textDirection: TextDirection.ltr,
                     style: TextStyle(
                       color: YallaColors.primary,
-                      fontSize: 22,
+                      fontSize: 20,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -308,26 +346,42 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
       );
 
   Widget _quickAmounts() {
-    final values = <int>[10, 20];
-    if (_available >= 50) values.add(50);
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        ...values.where((v) => v <= _available).map((value) {
-          return ChoiceChip(
-            selected: _amountValue == value,
-            label: Text('$value ₪'),
-            onSelected: (_) => _amount.text = value.toString(),
-          );
-        }),
-        if (_available > 0)
-          ChoiceChip(
-            selected: _amountValue == _available.toInt(),
-            label: const Text('الكل'),
-            onSelected: (_) => _amount.text = _available.toInt().toString(),
-          ),
-      ],
+    final values = <(String, int)>[];
+    if (_available >= 10) values.add(('10 ₪', 10));
+    if (_available >= 20) values.add(('20 ₪', 20));
+    if (_available > 0) values.add(('الكل', _available.toInt()));
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 8.0;
+        final width = values.isEmpty
+            ? constraints.maxWidth
+            : (constraints.maxWidth - gap * (values.length - 1)) /
+                values.length;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: values.map((entry) {
+            final selected = _amountValue == entry.$2;
+            return SizedBox(
+              width: width,
+              child: ChoiceChip(
+                showCheckmark: false,
+                selected: selected,
+                label: SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    entry.$1,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                onSelected: (_) => _amount.text = entry.$2.toString(),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
@@ -338,17 +392,40 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
       (_WithdrawDestination.palPay, 'بال باي', Icons.account_balance_wallet_rounded),
       (_WithdrawDestination.other, 'أخرى', Icons.more_horiz_rounded),
     ];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: entries.map((entry) {
-        return ChoiceChip(
-          selected: _destination == entry.$1,
-          avatar: Icon(entry.$3, size: 18),
-          label: Text(entry.$2),
-          onSelected: (_) => setState(() => _destination = entry.$1),
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 8.0;
+        final itemWidth = (constraints.maxWidth - gap) / 2;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: entries.map((entry) {
+            final selected = _destination == entry.$1;
+            return SizedBox(
+              width: itemWidth,
+              child: ChoiceChip(
+                showCheckmark: false,
+                selected: selected,
+                avatar: Icon(
+                  entry.$3,
+                  size: 18,
+                  color: selected ? Colors.white : YallaColors.primary,
+                ),
+                label: SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    entry.$2,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                onSelected: (_) => setState(() => _destination = entry.$1),
+              ),
+            );
+          }).toList(),
         );
-      }).toList(),
+      },
     );
   }
 
