@@ -92,10 +92,10 @@ class _WalletScreenState extends State<WalletScreen> {
         _repo.getWithdrawals(),
       ]);
       if (mounted) {
-        final data = results[0] as List;
+        final data = results[0];
         setState(() {
           _transactions = data;
-          _withdrawals = results[1] as List;
+          _withdrawals = results[1];
           _hasMore = data.length >= _pageSize;
           _lastUpdated = DateTime.now();
         });
