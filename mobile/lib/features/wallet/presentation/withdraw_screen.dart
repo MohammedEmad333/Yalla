@@ -166,6 +166,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           TextFormField(
             controller: _amount,
             keyboardType: TextInputType.number,
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.right,
             decoration: const InputDecoration(
               labelText: 'المبلغ المطلوب سحبه',
               prefixIcon: Icon(Icons.payments_outlined),
@@ -210,6 +212,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           TextFormField(
             controller: _accountNumber,
             keyboardType: TextInputType.text,
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.right,
             decoration: InputDecoration(
               labelText: _destination == _WithdrawDestination.bank
                   ? 'رقم الحساب / IBAN'
