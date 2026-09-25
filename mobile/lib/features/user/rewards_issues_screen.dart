@@ -49,7 +49,7 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('رمز دعوة'),
-        content: TextField(controller: c, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'الرمز')),
+        content: TextField(controller: c, textCapitalization: TextCapitalization.characters, textDirection: YallaInputBehavior.machineDirection, textAlign: YallaInputBehavior.machineAlign, decoration: const InputDecoration(labelText: 'الرمز')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
           FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('تطبيق')),
@@ -112,7 +112,7 @@ class _RewardsIssuesScreenState extends State<RewardsIssuesScreen> {
               const SizedBox(height: 10),
               TextField(controller: desc, maxLines: 3, decoration: const InputDecoration(labelText: 'اشرح المشكلة')),
               const SizedBox(height: 10),
-              TextField(controller: refund, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'قيمة الاسترداد المطلوبة (اختياري)')),
+              TextField(controller: refund, keyboardType: TextInputType.number, textDirection: YallaInputBehavior.machineDirection, textAlign: YallaInputBehavior.machineAlign, decoration: const InputDecoration(labelText: 'قيمة الاسترداد المطلوبة (اختياري)')),
             ]),
           ),
           actions: [
