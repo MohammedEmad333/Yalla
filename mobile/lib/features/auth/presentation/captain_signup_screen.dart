@@ -8,6 +8,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/input_behavior.dart';
+
 import '../../../core/util/vehicles.dart';
 
 class CaptainSignupScreen extends StatefulWidget {
@@ -149,6 +151,8 @@ class _CaptainSignupScreenState extends State<CaptainSignupScreen> {
               TextFormField(
                 controller: _phone,
                 keyboardType: TextInputType.phone,
+                textDirection: YallaInputBehavior.machineDirection,
+                textAlign: YallaInputBehavior.machineAlign,
                 decoration: const InputDecoration(
                   labelText: 'رقم الجوال',
                   prefixIcon: Icon(Icons.phone_outlined),
@@ -159,6 +163,8 @@ class _CaptainSignupScreenState extends State<CaptainSignupScreen> {
               TextFormField(
                 controller: _password,
                 obscureText: true,
+                textDirection: YallaInputBehavior.machineDirection,
+                textAlign: YallaInputBehavior.machineAlign,
                 decoration: const InputDecoration(
                   labelText: 'كلمة المرور',
                   prefixIcon: Icon(Icons.lock_outline),
@@ -169,6 +175,8 @@ class _CaptainSignupScreenState extends State<CaptainSignupScreen> {
               TextFormField(
                 controller: _nationalId,
                 keyboardType: TextInputType.number,
+                textDirection: YallaInputBehavior.machineDirection,
+                textAlign: YallaInputBehavior.machineAlign,
                 decoration: const InputDecoration(
                   labelText: 'رقم الهوية',
                   prefixIcon: Icon(Icons.badge_outlined),
