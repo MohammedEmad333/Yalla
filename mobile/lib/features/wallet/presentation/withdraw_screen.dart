@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/input_behavior.dart';
+
 import '../data/wallet_repository.dart';
 
 enum _WithdrawDestination { bank, jawwalPay, palPay, other }
@@ -166,8 +168,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           TextFormField(
             controller: _amount,
             keyboardType: TextInputType.number,
-            textDirection: TextDirection.ltr,
-            textAlign: TextAlign.right,
+            textDirection: YallaInputBehavior.machineDirection,
+            textAlign: YallaInputBehavior.machineAlign,
             decoration: const InputDecoration(
               labelText: 'المبلغ المطلوب سحبه',
               prefixIcon: Icon(Icons.payments_outlined),
@@ -212,8 +214,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           TextFormField(
             controller: _accountNumber,
             keyboardType: TextInputType.text,
-            textDirection: TextDirection.ltr,
-            textAlign: TextAlign.right,
+            textDirection: YallaInputBehavior.machineDirection,
+            textAlign: YallaInputBehavior.machineAlign,
             decoration: InputDecoration(
               labelText: _destination == _WithdrawDestination.bank
                   ? 'رقم الحساب / IBAN'
