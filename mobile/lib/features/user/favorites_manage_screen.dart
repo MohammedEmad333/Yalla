@@ -474,25 +474,43 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: Column(
-          children: [
-            _header(),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _favorites.isEmpty
-                      ? _emptyState()
-                      : RefreshIndicator(
-                          onRefresh: _load,
-                          child: ListView.builder(
-                            cacheExtent: 650,
-                            padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
-                            itemCount: _favorites.length,
-                            itemBuilder: (_, i) => _favoriteCard(_favorites[i]),
-                          ),
-                        ),
+        appBar: AppBar(
+          title: const Text('المفضلة'),
+          actions: [
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 10),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: YallaColors.primary.withValues(alpha: .10),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${_favorites.length} محفوظ',
+                    style: TextStyle(
+                      color: YallaColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _favorites.isEmpty
+                ? _emptyState()
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView.builder(
+                      cacheExtent: 650,
+                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
+                      itemCount: _favorites.length,
+                      itemBuilder: (_, i) => _favoriteCard(_favorites[i]),
+                    ),
+                  ),
       );
 }
