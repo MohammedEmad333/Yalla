@@ -183,7 +183,6 @@ class _CaptainWalletScreenState extends State<CaptainWalletScreen> {
         onRefresh: _load,
         child: ListView(
           controller: _scrollController,
-          cacheExtent: 650,
           padding: const EdgeInsets.all(16),
           children: [
             _balanceCard(),
@@ -517,7 +516,7 @@ class _WithdrawFormState extends State<_WithdrawForm> {
           const SizedBox(height: 12),
           // Card 71: طريقة السحب تعرض المحافظ الإلكترونية التي أضافها الكابتن فقط
           DropdownButtonFormField<String>(
-            value: _walletCategory,
+            initialValue: _walletCategory,
             isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'طريقة السحب',

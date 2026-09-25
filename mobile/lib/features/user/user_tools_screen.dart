@@ -28,12 +28,14 @@ class _UserToolsScreenState extends State<UserToolsScreen> with SingleTickerProv
           title: const Text('المحفوظات والعروض'),
           bottom: TabBar(
             controller: _tabs,
-            isScrollable: true,
+            isScrollable: false,
+            labelPadding: EdgeInsets.zero,
+            indicatorSize: TabBarIndicatorSize.tab,
             tabs: const [
-              Tab(text: 'العناوين', icon: Icon(Icons.location_on_outlined)),
-              Tab(text: 'المفضلة', icon: Icon(Icons.favorite_outline)),
-              Tab(text: 'إعادة الطلب', icon: Icon(Icons.replay_outlined)),
-              Tab(text: 'الكوبونات', icon: Icon(Icons.local_offer_outlined)),
+              Tab(height: 62, text: 'العناوين', icon: Icon(Icons.location_on_outlined, size: 22)),
+              Tab(height: 62, text: 'المفضلة', icon: Icon(Icons.favorite_outline, size: 22)),
+              Tab(height: 62, text: 'إعادة الطلب', icon: Icon(Icons.replay_outlined, size: 22)),
+              Tab(height: 62, text: 'الكوبونات', icon: Icon(Icons.local_offer_outlined, size: 22)),
             ],
           ),
         ),
@@ -90,14 +92,14 @@ class _AddressesTabState extends State<_AddressesTab> {
               TextField(controller: label, decoration: const InputDecoration(labelText: 'اسم العنوان')),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: city,
+                initialValue: city,
                 decoration: const InputDecoration(labelText: 'المدينة'),
                 items: gazaCities.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                 onChanged: (v) => setLocal(() { city = v; neighborhood = null; }),
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: neighborhood,
+                initialValue: neighborhood,
                 decoration: const InputDecoration(labelText: 'الحي'),
                 items: neighborhoodsOf(city).map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                 onChanged: city == null ? null : (v) => setLocal(() => neighborhood = v),
@@ -195,20 +197,43 @@ class _FavoritesTabState extends State<_FavoritesTab> {
           final raw = row['restaurant'];
           if (raw is! Map) return const SizedBox.shrink();
           final restaurant = Restaurant.fromJson(Map<String, dynamic>.from(raw));
-          return Card(child: ListTile(
-            leading: const Icon(Icons.favorite, color: Colors.redAccent),
-            title: Text(restaurant.name),
-            subtitle: Text(restaurant.address),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RestaurantMenuScreen(api: widget.api, restaurant: restaurant))),
-            trailing: IconButton(
-              icon: const Icon(Icons.favorite_border),
-              tooltip: 'إزالة من المفضلة',
-              onPressed: () async {
-                await widget.api.post('/features/favorites/${restaurant.id}/toggle', {});
-                await _load();
-              },
+          return Card(
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              leading: CircleAvatar(
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                child: Icon(
+                  Icons.storefront_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              title: Text(
+                restaurant.name,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+              subtitle: Text(
+                restaurant.address,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => RestaurantMenuScreen(
+                    api: widget.api,
+                    restaurant: restaurant,
+                  ),
+                ),
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.favorite_rounded, color: Colors.redAccent),
+                tooltip: 'إزالة من المفضلة',
+                onPressed: () async {
+                  await widget.api.post('/features/favorites/${restaurant.id}/toggle', {});
+                  await _load();
+                },
+              ),
             ),
-          ));
+          );
         },
       ),
     );

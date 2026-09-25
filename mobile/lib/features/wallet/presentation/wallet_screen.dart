@@ -236,34 +236,25 @@ class _WalletScreenState extends State<WalletScreen> {
       (_TxTypeFilter.withdrawal, 'سحب'),
       (_TxTypeFilter.order, 'دفع طلبات'),
     ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const gap = 7.0;
-        final width = (constraints.maxWidth - gap * 3) / 4;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: entries.map((entry) {
-            return SizedBox(
-              width: width,
-              child: ChoiceChip(
-                showCheckmark: false,
-                selected: _typeFilter == entry.$1,
-                label: SizedBox(
-                  width: double.infinity,
-                  child: Text(
-                    entry.$2,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                onSelected: (_) => setState(() => _typeFilter = entry.$1),
-              ),
-            );
-          }).toList(),
-        );
-      },
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: entries.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 7),
+        itemBuilder: (_, i) {
+          final entry = entries[i];
+          return ChoiceChip(
+            showCheckmark: false,
+            selected: _typeFilter == entry.$1,
+            label: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Text(entry.$2),
+            ),
+            onSelected: (_) => setState(() => _typeFilter = entry.$1),
+          );
+        },
+      ),
     );
   }
 
@@ -274,35 +265,25 @@ class _WalletScreenState extends State<WalletScreen> {
       (_TxStatusFilter.pending, 'قيد المراجعة'),
       (_TxStatusFilter.rejected, 'مرفوضة'),
     ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const gap = 7.0;
-        final width = (constraints.maxWidth - gap * 3) / 4;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: entries.map((entry) {
-            return SizedBox(
-              width: width,
-              child: FilterChip(
-                showCheckmark: false,
-                selected: _statusFilter == entry.$1,
-                label: SizedBox(
-                  width: double.infinity,
-                  child: Text(
-                    entry.$2,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-                onSelected: (_) => setState(() => _statusFilter = entry.$1),
-              ),
-            );
-          }).toList(),
-        );
-      },
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: entries.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 7),
+        itemBuilder: (_, i) {
+          final entry = entries[i];
+          return FilterChip(
+            showCheckmark: false,
+            selected: _statusFilter == entry.$1,
+            label: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              child: Text(entry.$2, style: const TextStyle(fontSize: 12)),
+            ),
+            onSelected: (_) => setState(() => _statusFilter = entry.$1),
+          );
+        },
+      ),
     );
   }
 
@@ -418,7 +399,9 @@ class _WalletScreenState extends State<WalletScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [YallaColors.primary, YallaColors.primaryDeep],
+          colors: Theme.of(context).brightness == Brightness.dark
+              ? const [Color(0xFFB84A00), Color(0xFF7A3100)]
+              : [YallaColors.primary, YallaColors.primaryDeep],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),

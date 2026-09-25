@@ -115,76 +115,6 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
     }
   }
 
-  Widget _header() {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: AlignmentDirectional.topStart,
-          end: AlignmentDirectional.bottomEnd,
-          colors: dark
-              ? const [Color(0xFF3A2618), Color(0xFF2B211B)]
-              : const [Color(0xFFFFF8F1), Color(0xFFFFEAD6)],
-        ),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
-        border: Border(
-          bottom: BorderSide(
-            color: YallaColors.primary.withValues(alpha: dark ? .22 : .12),
-          ),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-          child: Row(
-            textDirection: TextDirection.rtl,
-            children: [
-              IconButton(
-                tooltip: 'رجوع',
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.arrow_forward_rounded),
-              ),
-              Expanded(
-                child: Column(
-                  children: [
-                    const Text(
-                      'المفضلة',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${_favorites.length} متجر محفوظ',
-                      style: TextStyle(
-                        color: YallaColors.muted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: YallaColors.primary.withValues(alpha: .12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.favorite_rounded,
-                  color: YallaColors.primary,
-                  size: 21,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _ratingBadge(Restaurant r) {
     final hasRating = r.ratingCount > 0;
     return Container(
@@ -346,6 +276,29 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                           start: 8,
                           child: _ratingBadge(r),
                         ),
+                        PositionedDirectional(
+                          bottom: 8,
+                          start: 8,
+                          child: Material(
+                            color: Colors.black.withValues(alpha: .55),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              tooltip: 'إزالة من المفضلة',
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 34,
+                                height: 34,
+                              ),
+                              padding: EdgeInsets.zero,
+                              onPressed: () => _remove(r),
+                              icon: const Icon(
+                                Icons.favorite_rounded,
+                                color: Color(0xFFFF5A5F),
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -357,38 +310,18 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    r.name,
-                                    textDirection: TextDirection.rtl,
-                                    textAlign: TextAlign.left,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 16.5,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: 'إزالة من المفضلة',
-                                  visualDensity: VisualDensity.compact,
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 36,
-                                    height: 36,
-                                  ),
-                                  onPressed: () => _remove(r),
-                                  icon: const Icon(
-                                    Icons.favorite_rounded,
-                                    color: Color(0xFFE53935),
-                                    size: 23,
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              r.name,
+                              textDirection: TextDirection.rtl,
+                              textAlign: TextAlign.left,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
+                            const SizedBox(height: 3),
                             Text(
                               r.category,
                               textDirection: TextDirection.rtl,
@@ -474,25 +407,42 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: Column(
-          children: [
-            _header(),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _favorites.isEmpty
-                      ? _emptyState()
-                      : RefreshIndicator(
-                          onRefresh: _load,
-                          child: ListView.builder(
-                            cacheExtent: 650,
-                            padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
-                            itemCount: _favorites.length,
-                            itemBuilder: (_, i) => _favoriteCard(_favorites[i]),
-                          ),
-                        ),
+        appBar: AppBar(
+          title: const Text('المفضلة'),
+          actions: [
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 10),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: YallaColors.primary.withValues(alpha: .10),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${_favorites.length} محفوظ',
+                    style: TextStyle(
+                      color: YallaColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _favorites.isEmpty
+                ? _emptyState()
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
+                      itemCount: _favorites.length,
+                      itemBuilder: (_, i) => _favoriteCard(_favorites[i]),
+                    ),
+                  ),
       );
 }
