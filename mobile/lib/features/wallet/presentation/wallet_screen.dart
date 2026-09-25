@@ -418,7 +418,9 @@ class _WalletScreenState extends State<WalletScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [YallaColors.primary, YallaColors.primaryDeep],
+          colors: Theme.of(context).brightness == Brightness.dark
+              ? const [Color(0xFFB84A00), Color(0xFF7A3100)]
+              : [YallaColors.primary, YallaColors.primaryDeep],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
