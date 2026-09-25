@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/widgets/input_behavior.dart';
 
 class RewardsIssuesScreen extends StatefulWidget {
   final ApiClient api;
