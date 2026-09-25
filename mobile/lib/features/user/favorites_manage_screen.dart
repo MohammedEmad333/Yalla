@@ -115,76 +115,6 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
     }
   }
 
-  Widget _header() {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: AlignmentDirectional.topStart,
-          end: AlignmentDirectional.bottomEnd,
-          colors: dark
-              ? const [Color(0xFF3A2618), Color(0xFF2B211B)]
-              : const [Color(0xFFFFF8F1), Color(0xFFFFEAD6)],
-        ),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
-        border: Border(
-          bottom: BorderSide(
-            color: YallaColors.primary.withValues(alpha: dark ? .22 : .12),
-          ),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-          child: Row(
-            textDirection: TextDirection.rtl,
-            children: [
-              IconButton(
-                tooltip: 'رجوع',
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.arrow_forward_rounded),
-              ),
-              Expanded(
-                child: Column(
-                  children: [
-                    const Text(
-                      'المفضلة',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${_favorites.length} متجر محفوظ',
-                      style: TextStyle(
-                        color: YallaColors.muted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: YallaColors.primary.withValues(alpha: .12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.favorite_rounded,
-                  color: YallaColors.primary,
-                  size: 21,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _ratingBadge(Restaurant r) {
     final hasRating = r.ratingCount > 0;
     return Container(
@@ -509,7 +439,6 @@ class _FavoritesManageScreenState extends State<FavoritesManageScreen> {
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: ListView.builder(
-                      cacheExtent: 650,
                       padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
                       itemCount: _favorites.length,
                       itemBuilder: (_, i) => _favoriteCard(_favorites[i]),
