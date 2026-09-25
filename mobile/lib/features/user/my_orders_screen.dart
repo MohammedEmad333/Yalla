@@ -313,7 +313,6 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                   )
                 : CustomScrollView(
                     controller: _scrollController,
-                    scrollCacheExtent: 700,
                     slivers: [
                       SliverToBoxAdapter(child: _header()),
                       SliverToBoxAdapter(child: _filters()),
