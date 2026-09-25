@@ -236,21 +236,34 @@ class _WalletScreenState extends State<WalletScreen> {
       (_TxTypeFilter.withdrawal, 'سحب'),
       (_TxTypeFilter.order, 'دفع طلبات'),
     ];
-    return SizedBox(
-      height: 42,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: entries.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 7),
-        itemBuilder: (_, i) {
-          final entry = entries[i];
-          return ChoiceChip(
-            selected: _typeFilter == entry.$1,
-            label: Text(entry.$2),
-            onSelected: (_) => setState(() => _typeFilter = entry.$1),
-          );
-        },
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 7.0;
+        final width = (constraints.maxWidth - gap * 3) / 4;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: entries.map((entry) {
+            return SizedBox(
+              width: width,
+              child: ChoiceChip(
+                showCheckmark: false,
+                selected: _typeFilter == entry.$1,
+                label: SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    entry.$2,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                onSelected: (_) => setState(() => _typeFilter = entry.$1),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
@@ -261,21 +274,35 @@ class _WalletScreenState extends State<WalletScreen> {
       (_TxStatusFilter.pending, 'قيد المراجعة'),
       (_TxStatusFilter.rejected, 'مرفوضة'),
     ];
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: entries.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 7),
-        itemBuilder: (_, i) {
-          final entry = entries[i];
-          return FilterChip(
-            selected: _statusFilter == entry.$1,
-            label: Text(entry.$2),
-            onSelected: (_) => setState(() => _statusFilter = entry.$1),
-          );
-        },
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 7.0;
+        final width = (constraints.maxWidth - gap * 3) / 4;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: entries.map((entry) {
+            return SizedBox(
+              width: width,
+              child: FilterChip(
+                showCheckmark: false,
+                selected: _statusFilter == entry.$1,
+                label: SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    entry.$2,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                onSelected: (_) => setState(() => _statusFilter = entry.$1),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
@@ -356,9 +383,9 @@ class _WalletScreenState extends State<WalletScreen> {
             ),
             const SizedBox(height: 10),
             _typeFilters(),
-            const SizedBox(height: 8),
+            const SizedBox(height: 7),
             _statusFilters(),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             if (_loading)
               const Padding(
                 padding: EdgeInsets.all(24),
@@ -485,7 +512,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
@@ -509,13 +536,17 @@ class _WalletScreenState extends State<WalletScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Text(
                         desc,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
+                    const SizedBox(width: 10),
                     Text(
                       '${isCredit ? '+' : '-'}$amount ₪',
                       textDirection: TextDirection.ltr,
@@ -537,6 +568,8 @@ class _WalletScreenState extends State<WalletScreen> {
                   const SizedBox(height: 5),
                   Text(
                     'سبب الرفض: $reason',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: YallaColors.error,
                       fontSize: 12,
@@ -545,15 +578,24 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ],
                 if (retryable) ...[
-                  const SizedBox(height: 2),
-                  TextButton.icon(
-                    onPressed: () => _openTopup(retry: tx),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openTopup(retry: tx),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                      ),
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: const Text(
+                        'إعادة المحاولة',
+                        style: TextStyle(fontSize: 12),
+                      ),
                     ),
-                    icon: const Icon(Icons.refresh_rounded, size: 17),
-                    label: const Text('إعادة المحاولة'),
                   ),
                 ],
               ],
