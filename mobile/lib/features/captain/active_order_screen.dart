@@ -8,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/input_behavior.dart';
+
 import '../chat/chat_screen.dart';
 import '../../core/widgets/ui.dart';
 
@@ -267,6 +269,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
               TextField(
                 controller: controller,
                 keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                textDirection: YallaInputBehavior.machineDirection,
                 textAlign: TextAlign.center,
                 autofocus: true,
                 decoration: InputDecoration(
@@ -317,6 +320,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
             TextField(
               controller: controller,
               keyboardType: TextInputType.number,
+              textDirection: YallaInputBehavior.machineDirection,
               maxLength: 4,
               textAlign: TextAlign.center,
               autofocus: true,
