@@ -92,14 +92,14 @@ class _AddressesTabState extends State<_AddressesTab> {
               TextField(controller: label, decoration: const InputDecoration(labelText: 'اسم العنوان')),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: city,
+                initialValue: city,
                 decoration: const InputDecoration(labelText: 'المدينة'),
                 items: gazaCities.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                 onChanged: (v) => setLocal(() { city = v; neighborhood = null; }),
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: neighborhood,
+                initialValue: neighborhood,
                 decoration: const InputDecoration(labelText: 'الحي'),
                 items: neighborhoodsOf(city).map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                 onChanged: city == null ? null : (v) => setLocal(() => neighborhood = v),
