@@ -252,7 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ]),
                   ],
 
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
                   _sectionTitle('الإعدادات والأمان'),
                   _sectionCard([
                     ValueListenableBuilder<ThemeMode>(
@@ -266,6 +266,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: SegmentedButton.styleFrom(
                             visualDensity: VisualDensity.compact,
                             padding: const EdgeInsets.symmetric(horizontal: 8),
+                            selectedBackgroundColor:
+                                Theme.of(context).colorScheme.primaryContainer,
+                            selectedForegroundColor:
+                                Theme.of(context).colorScheme.primary,
                           ),
                           segments: const [
                             ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode_outlined, size: 17)),
@@ -285,7 +289,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ]),
 
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
                   _sectionTitle('Yalla والخصوصية'),
                   _sectionCard([
                     _actionTile(
@@ -311,7 +315,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ]),
 
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
                   _sectionTitle('التواصل'),
                   _sectionCard([
                     _actionTile(
@@ -324,7 +328,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ]),
 
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 18),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -630,24 +634,45 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
   bool _obscureNext = true;
   String? _error;
 
+  bool get _hasMin => _next.text.length >= 8;
+  bool get _hasNumber => RegExp(r'\\d').hasMatch(_next.text);
+  bool get _hasLetter => RegExp(r'[A-Za-z\\u0600-\\u06FF]').hasMatch(_next.text);
+  bool get _matches => _next.text.isNotEmpty && _next.text == _confirm.text;
+  bool get _canSubmit =>
+      _current.text.isNotEmpty &&
+      _hasMin &&
+      _hasNumber &&
+      _hasLetter &&
+      _matches &&
+      _next.text != _current.text;
+
+  double get _strength {
+    var score = 0;
+    if (_next.text.length >= 8) score++;
+    if (_next.text.length >= 12) score++;
+    if (_hasNumber) score++;
+    if (_hasLetter) score++;
+    if (RegExp(r'[^A-Za-z0-9\\u0600-\\u06FF]').hasMatch(_next.text)) score++;
+    return score / 5;
+  }
+
+  String get _strengthLabel {
+    if (_next.text.isEmpty) return 'ابدأ بكتابة كلمة السر الجديدة';
+    if (_strength < .4) return 'ضعيفة';
+    if (_strength < .8) return 'متوسطة';
+    return 'قوية';
+  }
+
+  void _changed(String _) {
+    if (_error != null) _error = null;
+    setState(() {});
+  }
+
   void _submit() {
     final current = _current.text;
     final next = _next.text;
-    final confirm = _confirm.text;
-    if (current.isEmpty) {
-      setState(() => _error = 'أدخل كلمة السر الحالية');
-      return;
-    }
-    if (next.length < 6) {
-      setState(() => _error = 'كلمة السر الجديدة يجب أن تكون ٦ أحرف على الأقلّ');
-      return;
-    }
-    if (next != confirm) {
-      setState(() => _error = 'كلمة السر الجديدة وتأكيدها غير متطابقين');
-      return;
-    }
-    if (next == current) {
-      setState(() => _error = 'اختر كلمة سر مختلفة عن الحالية');
+    if (!_canSubmit) {
+      setState(() => _error = 'أكمل شروط كلمة السر وتأكد من تطابقها');
       return;
     }
     Navigator.pop(context, {'currentPassword': current, 'newPassword': next});
@@ -662,72 +687,157 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
         top: 16,
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('تغيير كلمة السر', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _current,
-            obscureText: _obscureCurrent,
-            textDirection: YallaInputBehavior.machineDirection,
-            textAlign: YallaInputBehavior.machineAlign,
-            decoration: InputDecoration(
-              labelText: 'كلمة السر الحالية',
-              prefixIcon: const Icon(Icons.lock_outline),
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(_obscureCurrent ? Icons.visibility : Icons.visibility_off),
-                onPressed: () => setState(() => _obscureCurrent = !_obscureCurrent),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'تغيير كلمة السر',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _current,
+              obscureText: _obscureCurrent,
+              onChanged: _changed,
+              textDirection: YallaInputBehavior.machineDirection,
+              textAlign: YallaInputBehavior.machineAlign,
+              decoration: InputDecoration(
+                labelText: 'كلمة السر الحالية',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureCurrent ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscureCurrent = !_obscureCurrent),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _next,
-            obscureText: _obscureNext,
-            textDirection: YallaInputBehavior.machineDirection,
-            textAlign: YallaInputBehavior.machineAlign,
-            decoration: InputDecoration(
-              labelText: 'كلمة السر الجديدة',
-              prefixIcon: const Icon(Icons.lock),
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(_obscureNext ? Icons.visibility : Icons.visibility_off),
-                onPressed: () => setState(() => _obscureNext = !_obscureNext),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _confirm,
-            obscureText: _obscureNext,
-            textDirection: YallaInputBehavior.machineDirection,
-            textAlign: YallaInputBehavior.machineAlign,
-            decoration: const InputDecoration(
-              labelText: 'تأكيد كلمة السر الجديدة',
-              prefixIcon: Icon(Icons.lock),
-              border: OutlineInputBorder(),
-            ),
-          ),
-          if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
-          ],
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _submit,
-              icon: const Icon(Icons.check),
-              label: const Text('تأكيد التغيير'),
+            TextField(
+              controller: _next,
+              obscureText: _obscureNext,
+              onChanged: _changed,
+              textDirection: YallaInputBehavior.machineDirection,
+              textAlign: YallaInputBehavior.machineAlign,
+              decoration: InputDecoration(
+                labelText: 'كلمة السر الجديدة',
+                prefixIcon: const Icon(Icons.lock),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureNext ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () => setState(() => _obscureNext = !_obscureNext),
+                ),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            LinearProgressIndicator(
+              value: _strength,
+              minHeight: 5,
+              borderRadius: BorderRadius.circular(99),
+              color: _strength >= .8
+                  ? YallaColors.success
+                  : _strength >= .4
+                      ? YallaColors.warning
+                      : YallaColors.error,
+              backgroundColor: YallaColors.surfaceContainer,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'قوة كلمة السر: $_strengthLabel',
+              style: TextStyle(
+                color: YallaColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _rule('8 أحرف على الأقل', _hasMin),
+                _rule('تحتوي رقمًا', _hasNumber),
+                _rule('تحتوي أحرفًا', _hasLetter),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _confirm,
+              obscureText: _obscureNext,
+              onChanged: _changed,
+              textDirection: YallaInputBehavior.machineDirection,
+              textAlign: YallaInputBehavior.machineAlign,
+              decoration: InputDecoration(
+                labelText: 'تأكيد كلمة السر الجديدة',
+                prefixIcon: const Icon(Icons.lock),
+                suffixIcon: _confirm.text.isEmpty
+                    ? null
+                    : Icon(
+                        _matches
+                            ? Icons.check_circle_rounded
+                            : Icons.error_outline_rounded,
+                        color: _matches
+                            ? YallaColors.success
+                            : YallaColors.error,
+                      ),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _error!,
+                style: TextStyle(color: YallaColors.error, fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _canSubmit ? _submit : null,
+                icon: const Icon(Icons.check),
+                label: const Text('تأكيد التغيير'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _rule(String label, bool ok) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: (ok ? YallaColors.success : YallaColors.surfaceContainer)
+              .withValues(alpha: ok ? .12 : 1),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              ok ? Icons.check_rounded : Icons.circle_outlined,
+              size: 14,
+              color: ok ? YallaColors.success : YallaColors.muted,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: ok ? YallaColors.success : YallaColors.muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      );
 
   @override
   void dispose() {
