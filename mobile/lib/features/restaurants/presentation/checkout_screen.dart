@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../core/data/gaza_neighborhoods.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/input_behavior.dart';
+
 import '../data/restaurant_repository.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -308,7 +310,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           if (_forSomeoneElse) ...[
             TextField(controller: _recipientName, decoration: const InputDecoration(labelText: 'اسم المستلم', prefixIcon: Icon(Icons.person_outline))),
             const SizedBox(height: 8),
-            TextField(controller: _recipientPhone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'رقم المستلم', prefixIcon: Icon(Icons.phone_outlined))),
+            TextField(controller: _recipientPhone, keyboardType: TextInputType.phone, textDirection: YallaInputBehavior.machineDirection, textAlign: YallaInputBehavior.machineAlign, decoration: const InputDecoration(labelText: 'رقم المستلم', prefixIcon: Icon(Icons.phone_outlined))),
           ],
           const SizedBox(height: 20),
           _section('موعد الطلب', Icons.schedule_outlined),
@@ -330,7 +332,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(children: [
-                  Expanded(child: TextField(controller: _coupon, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'رمز الكوبون', border: OutlineInputBorder()))),
+                  Expanded(child: TextField(controller: _coupon, textCapitalization: TextCapitalization.characters, textDirection: YallaInputBehavior.machineDirection, textAlign: YallaInputBehavior.machineAlign, decoration: const InputDecoration(labelText: 'رمز الكوبون', border: OutlineInputBorder()))),
                   const SizedBox(width: 8),
                   FilledButton.tonal(onPressed: _checkingCoupon ? null : _validateCoupon, child: _checkingCoupon ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('تطبيق')),
                 ]),
