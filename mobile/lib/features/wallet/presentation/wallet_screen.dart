@@ -469,46 +469,99 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  // بطاقة حركة واحدة
-  Widget _txTile(dynamic tx) {
-    final amount = tx['amount'] ?? 0;
-    final status = tx['status'] as String? ?? 'pending';
-    // Card 28: نصف الحركة حسب نوعها لا حسب طريقة الدفع فقط، حتى لا يظهر
-    // خصمُ قيمة طلبٍ على أنه «شحن رصيد».
-    final desc = _txDescription(tx['type'] as String?, tx['method'] as String?);
+  // صف عملية مضغوط مع التاريخ والحالة وإعادة محاولة للشحن المرفوض.
+  Widget _txTile(dynamic raw) {
+    final tx = Map<String, dynamic>.from(raw as Map);
+    final amount = (tx['amount'] as num?) ?? 0;
+    final status = (tx['status'] ?? 'pending').toString();
+    final type = (tx['type'] ?? '').toString();
+    final method = tx['method']?.toString();
+    final desc = _txDescription(type, method);
     final (label, color, tone) = _statusMeta(status);
     final isCredit = (tx['direction'] as String?) == 'credit';
-    // Card 106: سبب رفض طلب الشحن يظهر في التطبيق أسفل وصف الحركة
-    final reason = (tx['rejectionReason'] as String?)?.trim() ?? '';
+    final reason = (tx['rejectionReason'] ?? '').toString().trim();
     final showReason = status == 'rejected' && reason.isNotEmpty;
+    final retryable = status == 'rejected' && _isTopupType(type);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: YallaColors.outline),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: YallaColors.outline),
       ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.12),
-          child: Icon(isCredit ? Icons.arrow_downward : Icons.arrow_upward, color: color),
-        ),
-        title: Text('${isCredit ? '+' : '-'}$amount ₪',
-            style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: showReason
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(desc, style: TextStyle(color: YallaColors.muted, fontSize: 12)),
-                  const SizedBox(height: 2),
-                  Text('سبب الرفض: $reason',
-                      style: TextStyle(color: YallaColors.error, fontSize: 12)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: color.withValues(alpha: .11),
+            child: Icon(
+              isCredit ? Icons.south_west_rounded : Icons.north_east_rounded,
+              color: color,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        desc,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    Text(
+                      '${isCredit ? '+' : '-'}$amount ₪',
+                      textDirection: TextDirection.ltr,
+                      style: TextStyle(
+                        color: isCredit ? YallaColors.success : null,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                if (_txDate(tx).isNotEmpty)
+                  Text(
+                    _txDate(tx),
+                    style: TextStyle(color: YallaColors.muted, fontSize: 11),
+                  ),
+                if (showReason) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    'سبب الرفض: $reason',
+                    style: TextStyle(
+                      color: YallaColors.error,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
-              )
-            : Text(desc, style: TextStyle(color: YallaColors.muted, fontSize: 12)),
-        isThreeLine: showReason,
-        trailing: StatusPill(label, tone: tone),
+                if (retryable) ...[
+                  const SizedBox(height: 2),
+                  TextButton.icon(
+                    onPressed: () => _openTopup(retry: tx),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: const Icon(Icons.refresh_rounded, size: 17),
+                    label: const Text('إعادة المحاولة'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          StatusPill(label, tone: tone),
+        ],
       ),
     );
   }
