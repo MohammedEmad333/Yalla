@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/input_behavior.dart';
+
 import '../data/auth_repository.dart';
 import 'captain_signup_screen.dart';
 
@@ -170,6 +172,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: _phone,
                   keyboardType: TextInputType.phone,
+                  textDirection: YallaInputBehavior.machineDirection,
+                  textAlign: YallaInputBehavior.machineAlign,
                   decoration: const InputDecoration(
                     labelText: 'رقم الهاتف',
                     prefixIcon: Icon(Icons.phone_outlined),
@@ -181,6 +185,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: _password,
                   obscureText: true,
+                  textDirection: YallaInputBehavior.machineDirection,
+                  textAlign: YallaInputBehavior.machineAlign,
                   decoration: const InputDecoration(
                     labelText: 'كلمة المرور',
                     prefixIcon: Icon(Icons.lock_outline),
