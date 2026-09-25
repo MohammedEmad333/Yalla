@@ -42,6 +42,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
   void initState() {
     super.initState();
     _amount.addListener(_refresh);
+    _accountNumber.addListener(_refresh);
+    _customDestination.addListener(_refresh);
     _load();
   }
 
@@ -489,6 +491,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
   @override
   void dispose() {
     _amount.removeListener(_refresh);
+    _accountNumber.removeListener(_refresh);
+    _customDestination.removeListener(_refresh);
     _amount.dispose();
     _customDestination.dispose();
     _accountNumber.dispose();
