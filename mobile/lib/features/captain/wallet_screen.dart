@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/input_behavior.dart';
 
 // طرق السحب المتاحة (تطابق WITHDRAWAL_METHOD في الخادم)
 const Map<String, String> _methods = {
@@ -501,6 +502,8 @@ class _WithdrawFormState extends State<_WithdrawForm> {
           TextField(
             controller: _amount,
             keyboardType: TextInputType.number,
+            textDirection: YallaInputBehavior.machineDirection,
+            textAlign: YallaInputBehavior.machineAlign,
             decoration: InputDecoration(
               labelText: 'المبلغ (₪)',
               prefixIcon: const Icon(Icons.payments),
@@ -650,6 +653,8 @@ class _PayoutWalletsFormState extends State<_PayoutWalletsForm> {
               TextField(
                 controller: _number[entry.key],
                 keyboardType: TextInputType.text,
+                textDirection: YallaInputBehavior.machineDirection,
+                textAlign: YallaInputBehavior.machineAlign,
                 decoration: const InputDecoration(
                   labelText: 'رقم المحفظة',
                   prefixIcon: Icon(Icons.tag),

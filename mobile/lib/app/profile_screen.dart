@@ -16,6 +16,7 @@ import '../features/user/user_hub_screen.dart';
 import '../core/util/vehicles.dart';
 import '../core/widgets/ui.dart';
 import '../core/theme/app_theme.dart';
+import '../core/widgets/input_behavior.dart';
 import '../core/theme/theme_controller.dart';
 import '../main.dart' show themeController;
 
@@ -568,6 +569,8 @@ class _EditProfileFormState extends State<_EditProfileForm> {
           if (widget.isCaptain)
             TextField(
               controller: _plate,
+              textDirection: YallaInputBehavior.machineDirection,
+              textAlign: YallaInputBehavior.machineAlign,
               decoration: const InputDecoration(labelText: 'رقم اللوحة', border: OutlineInputBorder()),
             )
           else ...[
@@ -579,6 +582,8 @@ class _EditProfileFormState extends State<_EditProfileForm> {
             TextField(
               controller: _email,
               keyboardType: TextInputType.emailAddress,
+              textDirection: YallaInputBehavior.machineDirection,
+              textAlign: YallaInputBehavior.machineAlign,
               decoration: const InputDecoration(labelText: 'البريد الإلكتروني', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
@@ -666,6 +671,8 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
           TextField(
             controller: _current,
             obscureText: _obscureCurrent,
+            textDirection: YallaInputBehavior.machineDirection,
+            textAlign: YallaInputBehavior.machineAlign,
             decoration: InputDecoration(
               labelText: 'كلمة السر الحالية',
               prefixIcon: const Icon(Icons.lock_outline),
@@ -680,6 +687,8 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
           TextField(
             controller: _next,
             obscureText: _obscureNext,
+            textDirection: YallaInputBehavior.machineDirection,
+            textAlign: YallaInputBehavior.machineAlign,
             decoration: InputDecoration(
               labelText: 'كلمة السر الجديدة',
               prefixIcon: const Icon(Icons.lock),
@@ -694,6 +703,8 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
           TextField(
             controller: _confirm,
             obscureText: _obscureNext,
+            textDirection: YallaInputBehavior.machineDirection,
+            textAlign: YallaInputBehavior.machineAlign,
             decoration: const InputDecoration(
               labelText: 'تأكيد كلمة السر الجديدة',
               prefixIcon: Icon(Icons.lock),
