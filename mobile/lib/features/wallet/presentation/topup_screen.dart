@@ -8,6 +8,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/input_behavior.dart';
+
 import '../data/wallet_repository.dart';
 
 class TopupScreen extends StatefulWidget {
@@ -162,8 +164,8 @@ class _TopupScreenState extends State<TopupScreen> {
                   TextFormField(
                     controller: _amount,
                     keyboardType: TextInputType.number,
-                    textDirection: TextDirection.ltr,
-                    textAlign: TextAlign.right,
+                    textDirection: YallaInputBehavior.machineDirection,
+                    textAlign: YallaInputBehavior.machineAlign,
                     decoration: const InputDecoration(
                       labelText: 'المبلغ المطلوب شحنه',
                       prefixIcon: Icon(Icons.payments_outlined),
@@ -178,8 +180,8 @@ class _TopupScreenState extends State<TopupScreen> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _reference,
-                    textDirection: TextDirection.ltr,
-                    textAlign: TextAlign.right,
+                    textDirection: YallaInputBehavior.machineDirection,
+                    textAlign: YallaInputBehavior.machineAlign,
                     decoration: const InputDecoration(
                       labelText: 'رقم العملية / المرجع (اختياري)',
                       hintText: 'من إشعار التحويل',
