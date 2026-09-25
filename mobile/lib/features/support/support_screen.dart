@@ -1,5 +1,4 @@
-// شاشة التواصل المباشر مع الإدارة (Card 44 + Card 46).
-// يراسل الزبون الإدارة ويستقبل الردود لحظيًا، مع زرّ واتس اب للتواصل السريع (Card 43).
+// شاشة التواصل المباشر مع الإدارة — محادثة + مواضيع سريعة + واتس اب.
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -27,11 +26,17 @@ class _SupportScreenState extends State<SupportScreen> {
   bool _sending = false;
   void Function()? _supportUnsubscribe;
 
+  static const _topics = [
+    'مشكلة في طلب',
+    'مشكلة في المحفظة',
+    'استفسار عن الحساب',
+    'اقتراح أو ملاحظة',
+  ];
+
   @override
   void initState() {
     super.initState();
     _load();
-    // استقبال ردّ الإدارة لحظيًا
     _supportUnsubscribe = widget.socket.onSupportMessage((m) {
       if (!mounted) return;
       setState(() => _messages.add(Map<String, dynamic>.from(m)));
@@ -66,7 +71,6 @@ class _SupportScreenState extends State<SupportScreen> {
     try {
       final msg = await widget.api.post('/support/messages', {'text': text});
       if (!mounted) return;
-      // تجنّب التكرار إن سبق أن وصل عبر السوكت
       final id = msg['_id'];
       final exists = _messages.any((m) => m['_id'] == id);
       if (!exists) setState(() => _messages.add(Map<String, dynamic>.from(msg)));
@@ -89,8 +93,11 @@ class _SupportScreenState extends State<SupportScreen> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
@@ -100,16 +107,23 @@ class _SupportScreenState extends State<SupportScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
   }
 
+  String _time(dynamic raw) {
+    final d = DateTime.tryParse((raw ?? '').toString())?.toLocal();
+    if (d == null) return '';
+    final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+    final m = d.minute.toString().padLeft(2, '0');
+    return '$h:$m ${d.hour < 12 ? 'ص' : 'م'}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('التواصل مع الإدارة'),
         actions: [
-          // زرّ واتس اب الشركة (Card 43)
           IconButton(
             tooltip: 'واتس اب',
-            icon: const Icon(Icons.chat, color: Color(0xFF25D366)),
+            icon: const Icon(Icons.chat_rounded, color: Color(0xFF25D366)),
             onPressed: _openWhatsapp,
           ),
         ],
@@ -123,7 +137,7 @@ class _SupportScreenState extends State<SupportScreen> {
                     ? _emptyState()
                     : ListView.builder(
                         controller: _scroll,
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
                         itemCount: _messages.length,
                         itemBuilder: (_, i) => _bubble(_messages[i]),
                       ),
@@ -134,48 +148,108 @@ class _SupportScreenState extends State<SupportScreen> {
     );
   }
 
-  Widget _emptyState() => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.support_agent, size: 64, color: YallaColors.muted),
-              const SizedBox(height: 12),
-              Text('اكتب لنا وسنردّ عليك في أقرب وقت',
-                  style: TextStyle(color: YallaColors.muted), textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: _openWhatsapp,
-                icon: const Icon(Icons.chat, color: Color(0xFF25D366)),
-                label: const Text('تواصل عبر واتس اب'),
+  Widget _emptyState() => ListView(
+        padding: const EdgeInsets.fromLTRB(24, 72, 24, 24),
+        children: [
+          Center(
+            child: Container(
+              width: 84,
+              height: 84,
+              decoration: BoxDecoration(
+                color: YallaColors.primary.withValues(alpha: .10),
+                shape: BoxShape.circle,
               ),
-            ],
+              child: Icon(
+                Icons.support_agent_rounded,
+                size: 42,
+                color: YallaColors.primary,
+              ),
+            ),
           ),
-        ),
+          const SizedBox(height: 18),
+          const Text(
+            'كيف نقدر نساعدك؟',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'اختر موضوعًا سريعًا أو اكتب رسالتك مباشرة، وسنرد عليك من نفس المحادثة.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: YallaColors.muted, height: 1.5),
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: _topics
+                .map(
+                  (topic) => ActionChip(
+                    avatar: const Icon(Icons.add_comment_outlined, size: 17),
+                    label: Text(topic),
+                    onPressed: () {
+                      _controller.text = '$topic: ';
+                      _controller.selection = TextSelection.collapsed(
+                        offset: _controller.text.length,
+                      );
+                    },
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 18),
+          OutlinedButton.icon(
+            onPressed: _openWhatsapp,
+            icon: const Icon(Icons.chat_rounded, color: Color(0xFF25D366)),
+            label: const Text('التواصل عبر واتس اب'),
+          ),
+        ],
       );
 
   Widget _bubble(Map<String, dynamic> m) {
     final mine = m['senderRole'] == 'user';
+    final time = _time(m['createdAt']);
     return Align(
       alignment: mine ? Alignment.centerLeft : Alignment.centerRight,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * .78,
+        ),
         decoration: BoxDecoration(
-          color: mine ? YallaColors.primary : YallaColors.surfaceContainer,
-          borderRadius: BorderRadius.circular(14),
+          color: mine ? YallaColors.primary : YallaColors.card,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft: Radius.circular(mine ? 5 : 16),
+            bottomRight: Radius.circular(mine ? 16 : 5),
+          ),
+          border: mine ? null : Border.all(color: YallaColors.outline),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${m['text'] ?? ''}',
-                style: TextStyle(color: mine ? Colors.white : YallaColors.onSurface)),
-            const SizedBox(height: 2),
-            Text(mine ? 'أنت' : '🛡️ الإدارة',
-                style: TextStyle(
-                    fontSize: 10, color: mine ? Colors.white70 : YallaColors.muted)),
+            Text(
+              '${m['text'] ?? ''}',
+              style: TextStyle(
+                color: mine ? YallaColors.onPrimary : YallaColors.onSurface,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              mine
+                  ? (time.isEmpty ? 'أنت' : 'أنت · $time')
+                  : (time.isEmpty ? 'الإدارة' : 'الإدارة · $time'),
+              style: TextStyle(
+                fontSize: 10,
+                color: mine
+                    ? YallaColors.onPrimary.withValues(alpha: .72)
+                    : YallaColors.muted,
+              ),
+            ),
           ],
         ),
       ),
@@ -183,26 +257,42 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   Widget _composer() => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(8),
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
+          decoration: BoxDecoration(
+            color: YallaColors.surface,
+            border: Border(top: BorderSide(color: YallaColors.outline)),
+          ),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _controller,
+                  minLines: 1,
+                  maxLines: 4,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _send(),
                   decoration: const InputDecoration(
                     hintText: 'اكتب رسالتك…',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    prefixIcon: Icon(Icons.chat_bubble_outline_rounded),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton.filled(
-                onPressed: _sending ? null : _send,
-                icon: const Icon(Icons.send),
+              SizedBox(
+                width: 50,
+                height: 50,
+                child: IconButton.filled(
+                  onPressed: _sending ? null : _send,
+                  icon: _sending
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send_rounded),
+                ),
               ),
             ],
           ),
