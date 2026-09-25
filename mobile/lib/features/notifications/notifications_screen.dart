@@ -1,10 +1,12 @@
-// شاشة الإشعارات داخل التطبيق — مشتركة بين تطبيقَي المستخدم والكابتن.
-// تعرض قائمة الإشعارات مع تمييز غير المقروء، وتعليم الكلّ/الواحد كمقروء.
+// شاشة الإشعارات — بطاقات متوافقة مع الوضع الليلي مع تفاصيل وإجراءات واضحة.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/realtime/socket_service.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/widgets/ui.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -26,9 +28,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     _load();
-
-    // إشعار داخلي جديد يصل لحظيًا (مثل إسناد طلب للكابتن) — نضيفه أعلى القائمة فورًا
-    // دون تحديث الصفحة (Card 3: أرسل الإشعار فورًا للكابتن).
     _notificationUnsubscribe = widget.socket?.onNotificationNew((notif) {
       if (!mounted) return;
       setState(() {
@@ -48,30 +47,33 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() => _loading = true);
     try {
       final data = await widget.api.get('/notifications');
+      if (!mounted) return;
       setState(() {
         _items = data['items'] as List;
         _unread = data['unread'] ?? 0;
       });
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  // تعليم إشعار واحد كمقروء عند الضغط عليه
   Future<void> _markRead(Map<String, dynamic> n) async {
     if (n['read'] == true) return;
     await widget.api.patch('/notifications/${n['_id']}/read', {});
-    _load();
+    if (!mounted) return;
+    setState(() {
+      n['read'] = true;
+      if (_unread > 0) _unread--;
+    });
   }
 
-  // Card 70: عند الضغط على الإشعار نعرض تفاصيله كاملةً (العنوان، النصّ، النوع،
-  // الوقت، وأي بيانات مرتبطة مثل رقم الطلب أو حالته أو رمز التسليم)، ونعلّمه مقروءًا.
   Future<void> _openDetails(Map<String, dynamic> n) async {
-    _markRead(n);
+    await _markRead(n);
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
@@ -81,19 +83,50 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  // تعليم الكلّ كمقروء
   Future<void> _markAll() async {
     await widget.api.patch('/notifications/read-all', {});
-    _load();
+    if (!mounted) return;
+    setState(() {
+      _unread = 0;
+      for (final raw in _items) {
+        if (raw is Map) raw['read'] = true;
+      }
+    });
   }
 
-  // أيقونة حسب نوع الإشعار
   IconData _iconFor(String type) => switch (type) {
-        'ORDER_ASSIGNED' => Icons.assignment,
-        'ORDER_STATUS' => Icons.local_shipping,
-        'ORDER_CANCELLED' => Icons.cancel,
-        _ => Icons.notifications,
+        'ORDER_ASSIGNED' => Icons.assignment_turned_in_outlined,
+        'ORDER_STATUS' => Icons.local_shipping_outlined,
+        'ORDER_CANCELLED' => Icons.cancel_outlined,
+        'DELIVERY_CODE' => Icons.key_outlined,
+        'WITHDRAWAL_DONE' => Icons.account_balance_wallet_outlined,
+        'WITHDRAWAL_REJECTED' => Icons.money_off_csred_outlined,
+        'ADMIN_MESSAGE' => Icons.campaign_outlined,
+        _ => Icons.notifications_outlined,
       };
+
+  Color _tone(String type, bool admin) {
+    if (admin) return const Color(0xFF6D5DFB);
+    return switch (type) {
+      'ORDER_CANCELLED' || 'WITHDRAWAL_REJECTED' => YallaColors.error,
+      'WITHDRAWAL_DONE' => YallaColors.success,
+      'DELIVERY_CODE' => YallaColors.warning,
+      _ => YallaColors.primary,
+    };
+  }
+
+  String _when(dynamic raw) {
+    final d = DateTime.tryParse((raw ?? '').toString())?.toLocal();
+    if (d == null) return '';
+    final now = DateTime.now();
+    final sameDay =
+        now.year == d.year && now.month == d.month && now.day == d.day;
+    final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+    final m = d.minute.toString().padLeft(2, '0');
+    final suffix = d.hour < 12 ? 'ص' : 'م';
+    if (sameDay) return 'اليوم · $h:$m $suffix';
+    return '${d.day}/${d.month}/${d.year} · $h:$m $suffix';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,62 +135,145 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         title: Text(_unread > 0 ? 'الإشعارات ($_unread)' : 'الإشعارات'),
         actions: [
           if (_unread > 0)
-            TextButton(onPressed: _markAll, child: const Text('تعليم الكلّ')),
+            TextButton.icon(
+              onPressed: _markAll,
+              icon: const Icon(Icons.done_all_rounded, size: 18),
+              label: const Text('تعليم الكل'),
+            ),
         ],
       ),
       body: _loading
           ? const LoadingView()
           : _items.isEmpty
               ? const EmptyStateView(
-                  icon: Icons.notifications_none,
+                  icon: Icons.notifications_none_rounded,
                   title: 'لا توجد إشعارات',
-                  message: 'ستصلك هنا تحديثات طلباتك ورسائل الإدارة.',
+                  message: 'ستظهر هنا تحديثات طلباتك ورسائل الإدارة.',
                 )
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     itemCount: _items.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (_, i) {
-                      final n = _items[i] as Map<String, dynamic>;
+                      final n = Map<String, dynamic>.from(_items[i] as Map);
                       final unread = n['read'] != true;
-                      // Card 82: إشعار من الإدارة يُميَّز بأيقونة الأدمن
-                      final fromAdmin = (n['data'] is Map) && (n['data']['fromAdmin'] == true);
-                      return Container(
-                        color: unread ? Colors.blue.shade50 : null,
-                        child: ListTile(
-                          leading: fromAdmin
-                              ? const CircleAvatar(
-                                  backgroundColor: Color(0xFF4F46E5),
-                                  child: Icon(Icons.admin_panel_settings, color: Colors.white, size: 20),
-                                )
-                              : Icon(_iconFor(n['type'] ?? ''),
-                                  color: unread ? Colors.blue : Colors.grey),
-                          title: Row(
-                            children: [
-                              Flexible(
-                                child: Text(n['title'] ?? '',
-                                    style: TextStyle(fontWeight: unread ? FontWeight.bold : FontWeight.normal)),
+                      final fromAdmin =
+                          n['data'] is Map && n['data']['fromAdmin'] == true;
+                      final type = (n['type'] ?? '').toString();
+                      final color = _tone(type, fromAdmin);
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: () => _openDetails(n),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: unread
+                                  ? color.withValues(alpha: .07)
+                                  : YallaColors.card,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: unread
+                                    ? color.withValues(alpha: .35)
+                                    : YallaColors.outline,
                               ),
-                              if (fromAdmin) ...[
-                                const SizedBox(width: 6),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  width: 42,
+                                  height: 42,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF4F46E5),
-                                    borderRadius: BorderRadius.circular(8),
+                                    color: color.withValues(alpha: .12),
+                                    borderRadius: BorderRadius.circular(13),
                                   ),
-                                  child: const Text('الإدارة',
-                                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  child: Icon(
+                                    fromAdmin
+                                        ? Icons.admin_panel_settings_outlined
+                                        : _iconFor(type),
+                                    color: color,
+                                    size: 21,
+                                  ),
+                                ),
+                                const SizedBox(width: 11),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              (n['title'] ?? '').toString(),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontWeight: unread
+                                                    ? FontWeight.w900
+                                                    : FontWeight.w700,
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                          ),
+                                          if (unread)
+                                            Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: BoxDecoration(
+                                                color: color,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        (n['body'] ?? '').toString(),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: YallaColors.onSurfaceVariant,
+                                          height: 1.45,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 7),
+                                      Wrap(
+                                        spacing: 7,
+                                        runSpacing: 4,
+                                        children: [
+                                          if (fromAdmin)
+                                            _miniChip(
+                                              'رسالة من الإدارة',
+                                              color,
+                                            ),
+                                          if (_when(n['createdAt']).isNotEmpty)
+                                            Text(
+                                              _when(n['createdAt']),
+                                              style: TextStyle(
+                                                color: YallaColors.muted,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.chevron_left_rounded,
+                                  color: YallaColors.muted,
+                                  size: 20,
                                 ),
                               ],
-                            ],
+                            ),
                           ),
-                          subtitle: Text(n['body'] ?? ''),
-                          trailing: unread
-                              ? const Icon(Icons.circle, size: 10, color: Colors.blue)
-                              : const Icon(Icons.chevron_left, size: 18, color: Colors.grey),
-                          onTap: () => _openDetails(n),
                         ),
                       );
                     },
@@ -165,15 +281,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
     );
   }
+
+  Widget _miniChip(String text, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .10),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
 }
 
-// Card 70: بطاقة تفاصيل الإشعار — تُفتح عند الضغط على أي إشعار وتعرض معلوماته كاملةً.
 class _NotificationDetails extends StatelessWidget {
   final Map<String, dynamic> n;
   final IconData Function(String) iconFor;
   const _NotificationDetails({required this.n, required this.iconFor});
 
-  // تسمية عربية لنوع الإشعار
   String get _typeLabel => switch (n['type'] as String? ?? '') {
         'ORDER_ASSIGNED' => 'طلب مُسنَد إليك',
         'ORDER_STATUS' => 'تحديث حالة الطلب',
@@ -185,7 +315,6 @@ class _NotificationDetails extends StatelessWidget {
         _ => 'إشعار',
       };
 
-  // تسمية عربية لحالة الطلب المرفقة في بيانات الإشعار
   String _statusLabel(String s) => switch (s) {
         'pending' => 'قيد الانتظار',
         'assigned' => 'مُسنَد لكابتن',
@@ -197,103 +326,159 @@ class _NotificationDetails extends StatelessWidget {
         _ => s,
       };
 
-  // تنسيق التاريخ والوقت بصيغة عربية بسيطة (YYYY/MM/DD - HH:MM) بالتوقيت المحلّي
   String _formatDate(String? iso) {
-    if (iso == null || iso.isEmpty) return '';
-    final d = DateTime.tryParse(iso)?.toLocal();
+    final d = DateTime.tryParse(iso ?? '')?.toLocal();
     if (d == null) return '';
     String two(int v) => v.toString().padLeft(2, '0');
-    return '${d.year}/${two(d.month)}/${two(d.day)} — ${two(d.hour)}:${two(d.minute)}';
+    return '${d.year}/${two(d.month)}/${two(d.day)} · ${two(d.hour)}:${two(d.minute)}';
+  }
+
+  Future<void> _copy(BuildContext context, String value, String label) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('تم نسخ $label')));
+  }
+
+  Future<void> _openStore() async {
+    await launchUrl(
+      Uri.parse('https://play.google.com'),
+      mode: LaunchMode.externalApplication,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final data = (n['data'] is Map) ? Map<String, dynamic>.from(n['data'] as Map) : <String, dynamic>{};
+    final data = n['data'] is Map
+        ? Map<String, dynamic>.from(n['data'] as Map)
+        : <String, dynamic>{};
     final orderId = data['orderId']?.toString();
     final status = data['status']?.toString();
     final code = data['code']?.toString();
     final when = _formatDate(n['createdAt']?.toString());
+    final isAdmin = n['type'] == 'ADMIN_MESSAGE';
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 4,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: Colors.blue.shade50,
-                child: Icon(iconFor(n['type'] ?? ''), color: Colors.blue),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(n['title'] ?? '',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: YallaColors.primary.withValues(alpha: .10),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    iconFor((n['type'] ?? '').toString()),
+                    color: YallaColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    (n['title'] ?? '').toString(),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Chip(label: Text(_typeLabel)),
+                if (when.isNotEmpty)
+                  Chip(
+                    avatar: const Icon(Icons.schedule_outlined, size: 16),
+                    label: Text(when),
+                  ),
+              ],
+            ),
+            const Divider(height: 22),
+            SelectableText(
+              (n['body'] as String?)?.isNotEmpty == true
+                  ? n['body']
+                  : 'لا توجد تفاصيل إضافية',
+              style: const TextStyle(fontSize: 15, height: 1.55),
+            ),
+            if (orderId != null || status != null || code != null) ...[
+              const SizedBox(height: 14),
+              if (code != null)
+                _detailRow(
+                  Icons.key_outlined,
+                  'رمز التسليم',
+                  code,
+                  action: IconButton(
+                    tooltip: 'نسخ الرمز',
+                    onPressed: () => _copy(context, code, 'رمز التسليم'),
+                    icon: const Icon(Icons.copy_rounded, size: 18),
+                  ),
+                ),
+              if (status != null)
+                _detailRow(
+                  Icons.local_shipping_outlined,
+                  'حالة الطلب',
+                  _statusLabel(status),
+                ),
+              if (orderId != null)
+                _detailRow(
+                  Icons.receipt_long_outlined,
+                  'رقم الطلب',
+                  '#${orderId.length > 6 ? orderId.substring(orderId.length - 6) : orderId}',
+                ),
+            ],
+            if (isAdmin) ...[
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _openStore,
+                  icon: const Icon(Icons.system_update_alt_rounded),
+                  label: const Text('فتح Google Play'),
+                ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(_typeLabel,
-                    style: TextStyle(color: Colors.blue.shade700, fontSize: 12, fontWeight: FontWeight.w600)),
-              ),
-              if (when.isNotEmpty)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.schedule, size: 14, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(when, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                  ],
-                ),
-            ],
-          ),
-          const Divider(height: 24),
-          // النصّ الكامل للإشعار (قابل للتحديد والنسخ)
-          SelectableText(
-            (n['body'] as String?)?.isNotEmpty == true ? n['body'] : 'لا يوجد تفاصيل إضافية',
-            style: const TextStyle(fontSize: 15, height: 1.5),
-          ),
-          if (orderId != null || status != null || code != null) ...[
-            const SizedBox(height: 16),
-            if (code != null) _detailRow(Icons.key, 'رمز التسليم', code),
-            if (status != null) _detailRow(Icons.local_shipping, 'حالة الطلب', _statusLabel(status)),
-            if (orderId != null)
-              _detailRow(Icons.receipt_long, 'رقم الطلب',
-                  '#${orderId.length > 6 ? orderId.substring(orderId.length - 6) : orderId}'),
           ],
-        ],
+        ),
       ),
     );
   }
 
-  Widget _detailRow(IconData icon, String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+  Widget _detailRow(
+    IconData icon,
+    String label,
+    String value, {
+    Widget? action,
+  }) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: Colors.grey),
+            Icon(icon, size: 18, color: YallaColors.muted),
             const SizedBox(width: 8),
-            Text('$label: ', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+            Text('$label: ',
+                style: TextStyle(color: YallaColors.muted, fontSize: 13)),
             Expanded(
-              child: Text(value,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
             ),
+            if (action != null) action,
           ],
         ),
       );
