@@ -11,6 +11,9 @@ import '../data/wallet_repository.dart';
 import 'topup_screen.dart';
 import 'withdraw_screen.dart';
 
+enum _TxTypeFilter { all, topup, withdrawal, order }
+enum _TxStatusFilter { all, approved, pending, rejected }
+
 class WalletScreen extends StatefulWidget {
   final ApiClient api;
   final SocketService socket;
@@ -28,6 +31,10 @@ class _WalletScreenState extends State<WalletScreen> {
   num _balance = 0;
   String _currency = 'ILS';
   List<dynamic> _transactions = [];
+  List<dynamic> _withdrawals = [];
+  DateTime? _lastUpdated;
+  _TxTypeFilter _typeFilter = _TxTypeFilter.all;
+  _TxStatusFilter _statusFilter = _TxStatusFilter.all;
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
@@ -42,7 +49,10 @@ class _WalletScreenState extends State<WalletScreen> {
     _walletUnsubscribe = widget.socket.onWalletUpdated((data) {
       if (!mounted) return;
       if (data['balance'] != null) {
-        setState(() => _balance = data['balance'] as num);
+        setState(() {
+          _balance = data['balance'] as num;
+          _lastUpdated = DateTime.now();
+        });
       }
       _loadTransactionsOnly();
     });
@@ -53,6 +63,7 @@ class _WalletScreenState extends State<WalletScreen> {
       final results = await Future.wait([
         _repo.getBalance(),
         _repo.getTransactions(limit: _pageSize),
+        _repo.getWithdrawals(),
       ]);
       if (!mounted) return;
       final balance = results[0] as Map<String, dynamic>;
@@ -60,7 +71,9 @@ class _WalletScreenState extends State<WalletScreen> {
         _balance = balance['balance'] as num? ?? 0;
         _currency = balance['currency'] as String? ?? 'ILS';
         _transactions = results[1] as List;
+        _withdrawals = results[2] as List;
         _hasMore = _transactions.length >= _pageSize;
+        _lastUpdated = DateTime.now();
         _loading = false;
       });
     } on ApiException catch (e) {
@@ -73,11 +86,18 @@ class _WalletScreenState extends State<WalletScreen> {
   Future<void> _loadTransactionsOnly() async {
     try {
       widget.api.clearGetCache(prefix: '/wallet/transactions');
-      final data = await _repo.getTransactions(limit: _pageSize);
+      widget.api.clearGetCache(prefix: '/wallet/withdrawals');
+      final results = await Future.wait([
+        _repo.getTransactions(limit: _pageSize),
+        _repo.getWithdrawals(),
+      ]);
       if (mounted) {
+        final data = results[0] as List;
         setState(() {
           _transactions = data;
+          _withdrawals = results[1] as List;
           _hasMore = data.length >= _pageSize;
+          _lastUpdated = DateTime.now();
         });
       }
     } catch (_) {
@@ -120,9 +140,16 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   // فتح شاشة الشحن ثم إعادة التحميل عند نجاح إرسال الطلب
-  Future<void> _openTopup() async {
+  Future<void> _openTopup({Map<String, dynamic>? retry}) async {
+    final amount = retry?['amount'];
     final done = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => TopupScreen(api: widget.api)),
+      MaterialPageRoute(
+        builder: (_) => TopupScreen(
+          api: widget.api,
+          initialMethod: retry?['method']?.toString(),
+          initialAmount: amount is num ? amount.toInt() : null,
+        ),
+      ),
     );
     if (done == true) _load();
   }
@@ -143,7 +170,6 @@ class _WalletScreenState extends State<WalletScreen> {
         onRefresh: _load,
         child: ListView(
           controller: _scrollController,
-          cacheExtent: 650,
           padding: const EdgeInsets.all(16),
           children: [
             _balanceCard(),
