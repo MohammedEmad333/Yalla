@@ -1,7 +1,9 @@
 'use strict';
 const service = require('../services/merchantStaff.service');
+const applications = require('../services/merchantApplication.service');
 
 module.exports = {
+  register: async (req, res, next) => { try { res.status(201).json(await applications.register(req.body)); } catch (err) { next(err); } },
   login: async (req, res, next) => { try { res.json(await service.login(req.body.phone, req.body.password)); } catch (err) { next(err); } },
   list: async (req, res, next) => { try { res.json(await service.list(req.auth.id, req.auth)); } catch (err) { next(err); } },
   create: async (req, res, next) => { try { res.status(201).json(await service.create(req.auth.id, req.auth, req.body)); } catch (err) { next(err); } },
