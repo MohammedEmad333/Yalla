@@ -74,6 +74,15 @@ const env = {
     credentialsPath: process.env.FCM_CREDENTIALS_PATH || '',
     credentialsJson: process.env.FCM_CREDENTIALS_JSON || '',
   },
+  // SMTP اختياري: لا يمنع الإقلاع إن لم يُضبط، لكن خدمة البريد سترفض الإرسال برسالة واضحة.
+  smtp: {
+    host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+    port: parseInt(process.env.SMTP_PORT, 10) || 587,
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    fromEmail: process.env.SMTP_FROM_EMAIL || 'noreply@yalladelivery.org',
+    fromName: process.env.SMTP_FROM_NAME || 'Yalla Delivery',
+  },
 };
 
 module.exports = env;
