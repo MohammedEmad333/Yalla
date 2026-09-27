@@ -27,6 +27,8 @@ const merchantSchema = new mongoose.Schema(
       default: null,
     },
     organizationName: { type: String, default: '', trim: true },
+    applicationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved', index: true },
+    applicationRejectionReason: { type: String, default: '', trim: true },
     isActive: { type: Boolean, default: true },
     deviceTokens: { type: [String], default: [] },
   },
