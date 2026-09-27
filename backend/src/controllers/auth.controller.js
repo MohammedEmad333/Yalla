@@ -316,8 +316,8 @@ async function me(req, res, next) {
     }
     if (role === ROLES.MERCHANT) {
       const merchant = await Merchant.findById(id)
-        .select('name phone restaurant isActive')
-        .populate('restaurant', 'name imageUrl category active isOpen');
+        .select('name phone restaurant isActive applicationStatus applicationRejectionReason')
+        .populate('restaurant', 'name imageUrl category active isOpen approvalStatus approvalRejectionReason');
       if (!merchant || !merchant.isActive) {
         return res.status(404).json({ message: 'حساب المتجر غير موجود' });
       }
