@@ -52,6 +52,25 @@ async function login(phoneRaw, passwordRaw) {
   if (merchant) {
     if (!(await merchant.verifyPassword(password))) throw httpError('كلمة السر غير صحيحة', 401);
     if (!merchant.isActive) throw httpError('حساب المتجر غير متاح', 403);
+    const applicationStatus = merchant.applicationStatus || 'approved';
+    if (applicationStatus !== 'approved') {
+      const restaurant = await Restaurant.findById(merchant.restaurant)
+        .select('name imageUrl category active city neighborhood approvalStatus approvalRejectionReason');
+      return {
+        token: signToken(merchant._id, { restaurantId: String(merchant.restaurant), staffRole: 'owner' }),
+        user: {
+          id: merchant._id,
+          name: merchant.name,
+          phone: merchant.phone,
+          role: ROLES.MERCHANT,
+          staffRole: 'owner',
+          applicationStatus,
+          applicationRejectionReason: merchant.applicationRejectionReason || '',
+          restaurant,
+          branchCount: branchIds(merchant).length,
+        },
+      };
+    }
     const candidates = branchCandidates(merchant);
     const restaurants = candidates.length
       ? await Restaurant.find({ _id: { $in: candidates } }).select('name imageUrl active city neighborhood')
