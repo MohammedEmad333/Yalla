@@ -415,9 +415,9 @@ async function me(req, res, next) {
       return res.json({ role, merchant });
     }
     // Card 110: نضمّ regions ليعرف الأدمن نطاق مدنه في اللوحة
-    const user = await User.findById(id).select('name lastName phone email city governorate address avatarUrl role regions');
+    const user = await User.findById(id).select('name lastName phone email emailVerifiedAt city governorate address avatarUrl role regions');
     if (!user) return res.status(404).json({ message: 'الحساب غير موجود' });
-    res.json({ role: user.role, user });
+    res.json({ role: user.role, user: publicUser(user) });
   } catch (err) {
     next(err);
   }
@@ -446,13 +446,38 @@ async function updateProfile(req, res, next) {
       return res.json({ role, merchant });
     }
 
-    const allowed = pick(req.body, ['name', 'lastName', 'email', 'city', 'governorate', 'address']);
-    const user = await User.findByIdAndUpdate(id, allowed, {
-      new: true,
-      runValidators: true,
-    }).select('name lastName phone email city governorate address avatarUrl role');
+    const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: 'الحساب غير موجود' });
-    res.json({ role: user.role, user });
+
+    for (const key of ['name', 'lastName', 'city', 'governorate', 'address']) {
+      if (req.body[key] !== undefined && req.body[key] !== null) user[key] = req.body[key];
+    }
+
+    let emailChanged = false;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'email')) {
+      const nextEmail = normalizeOptionalEmail(req.body.email);
+      const currentEmail = normalizeOptionalEmail(user.email);
+      emailChanged = nextEmail !== currentEmail;
+      if (emailChanged && nextEmail && await User.exists({ _id: { $ne: id }, email: nextEmail })) {
+        return res.status(409).json({ message: 'البريد الإلكتروني مستخدَم بالفعل' });
+      }
+      if (emailChanged) {
+        user.email = nextEmail || undefined;
+        user.emailVerifiedAt = null;
+        user.emailVerificationCodeHash = null;
+        user.emailVerificationExpiresAt = null;
+        user.passwordResetCodeHash = null;
+        user.passwordResetExpiresAt = null;
+      }
+    }
+
+    await user.save();
+    if (emailChanged && user.email) issueVerificationCode(user).catch(() => {});
+
+    const fresh = await User.findById(id).select(
+      'name lastName phone email emailVerifiedAt city governorate address avatarUrl role'
+    );
+    res.json({ role: user.role, user: publicUser(fresh) });
   } catch (err) {
     // بريد مكرّر (فهرس فريد) → رسالة واضحة بدل خطأ 500
     if (err.code === 11000) {
@@ -481,6 +506,130 @@ async function uploadAvatar(req, res, next) {
 
     await Model.findByIdAndUpdate(id, { avatarUrl: url });
     res.json({ ok: true, avatarUrl: url });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// إعادة إرسال رمز تحقق البريد للمستخدم الحالي. البريد يبقى اختياريًا ولا يمنع الاستخدام.
+async function resendEmailVerification(req, res, next) {
+  try {
+    if (req.auth.role !== ROLES.USER) {
+      return res.status(400).json({ message: 'التحقق بالبريد متاح لحسابات المستخدمين فقط' });
+    }
+    const user = await User.findById(req.auth.id)
+      .select('+emailVerificationCodeHash +emailVerificationExpiresAt');
+    if (!user) return res.status(404).json({ message: 'الحساب غير موجود' });
+    if (!user.email) return res.status(400).json({ message: 'أضف بريدًا إلكترونيًا إلى حسابك أولًا' });
+    if (user.emailVerifiedAt) {
+      return res.json({ ok: true, verified: true, message: 'البريد الإلكتروني مؤكّد بالفعل' });
+    }
+    await issueVerificationCode(user);
+    res.json({ ok: true, message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function verifyEmail(req, res, next) {
+  try {
+    if (req.auth.role !== ROLES.USER) {
+      return res.status(400).json({ message: 'التحقق بالبريد متاح لحسابات المستخدمين فقط' });
+    }
+    const code = String(req.body.code || '').trim();
+    const user = await User.findById(req.auth.id)
+      .select('+emailVerificationCodeHash +emailVerificationExpiresAt');
+    if (!user) return res.status(404).json({ message: 'الحساب غير موجود' });
+    if (!user.email) return res.status(400).json({ message: 'لا يوجد بريد إلكتروني مرتبط بالحساب' });
+    if (user.emailVerifiedAt) return res.json({ ok: true, verified: true });
+
+    const valid =
+      user.emailVerificationCodeHash &&
+      user.emailVerificationExpiresAt &&
+      user.emailVerificationExpiresAt.getTime() > Date.now() &&
+      crypto.timingSafeEqual(
+        Buffer.from(user.emailVerificationCodeHash),
+        Buffer.from(hashCode(code))
+      );
+    if (!valid) {
+      return res.status(400).json({ message: 'رمز التحقق غير صحيح أو منتهي الصلاحية' });
+    }
+
+    user.emailVerifiedAt = new Date();
+    user.emailVerificationCodeHash = null;
+    user.emailVerificationExpiresAt = null;
+    await user.save();
+    res.json({ ok: true, verified: true, message: 'تم تأكيد البريد الإلكتروني' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// طلب إعادة تعيين كلمة المرور بالبريد. الرد موحّد حتى لا يكشف وجود حساب ببريد معيّن.
+async function forgotPassword(req, res, next) {
+  try {
+    const email = normalizeOptionalEmail(req.body.email);
+    const user = email
+      ? await User.findOne({ email, emailVerifiedAt: { $ne: null }, isActive: true })
+          .select('+passwordResetCodeHash +passwordResetExpiresAt')
+      : null;
+
+    if (user) {
+      await issuePasswordResetCode(user).catch(() => {});
+    }
+
+    res.json({
+      ok: true,
+      message: 'إذا كان البريد مرتبطًا بحساب مؤكّد، تم إرسال رمز إعادة التعيين',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function resetPassword(req, res, next) {
+  try {
+    const email = normalizeOptionalEmail(req.body.email);
+    const code = String(req.body.code || '').trim();
+    const newPassword = String(req.body.newPassword || '');
+
+    const user = email
+      ? await User.findOne({ email, isActive: true })
+          .select('+passwordHash +passwordResetCodeHash +passwordResetExpiresAt')
+      : null;
+
+    const storedHash = user?.passwordResetCodeHash;
+    const suppliedHash = hashCode(code);
+    const valid =
+      user &&
+      storedHash &&
+      user.passwordResetExpiresAt &&
+      user.passwordResetExpiresAt.getTime() > Date.now() &&
+      storedHash.length === suppliedHash.length &&
+      crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(suppliedHash));
+
+    if (!valid) {
+      return res.status(400).json({ message: 'رمز إعادة التعيين غير صحيح أو منتهي الصلاحية' });
+    }
+
+    await user.setPassword(newPassword);
+    user.passwordResetCodeHash = null;
+    user.passwordResetExpiresAt = null;
+    await user.save();
+
+    sendMail({
+      to: user.email,
+      subject: 'تم تغيير كلمة المرور - Yalla Delivery',
+      text: 'تم تغيير كلمة مرور حسابك في Yalla Delivery بنجاح. إذا لم تكن أنت من قام بذلك، تواصل مع الدعم فورًا.',
+      html: emailCard({
+        title: 'تم تغيير كلمة المرور',
+        body: 'تم تغيير كلمة مرور حسابك في Yalla Delivery بنجاح.',
+        code: '✓',
+        note: 'إذا لم تكن أنت من قام بهذا التغيير، تواصل مع support@yalladelivery.org فورًا.',
+      }),
+    }).catch(() => {});
+
+    res.json({ ok: true, message: 'تم تعيين كلمة المرور الجديدة بنجاح' });
   } catch (err) {
     next(err);
   }
@@ -564,6 +713,10 @@ module.exports = {
   applyCaptain,
   me,
   updateProfile,
+  resendEmailVerification,
+  verifyEmail,
+  forgotPassword,
+  resetPassword,
   uploadAvatar,
   changePassword,
   deleteOwnAccount,
