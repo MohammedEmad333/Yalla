@@ -19,6 +19,7 @@ const registerSchema = {
   lastName: [V.string], // اسم العائلة — اختياري
   phone: [V.required, V.phone],
   password: [V.required, V.minLength(6)],
+  email: [V.email], // اختياري؛ يُتحقّق فقط إذا أُرسل
   // Card 96: مكان السكن — المحافظة (من القائمة المعتمَدة) وتفاصيل العنوان.
   // اختياريان في التحقّق لضمان توافق العملاء القدامى، ويُتحقَّق من صحّة المحافظة عند إرسالها.
   governorate: [V.string, V.isIn(GOVERNORATES)],
@@ -41,6 +42,17 @@ router.post('/merchant/login', authLimiter, ctrl.loginMerchant);
 router.post('/login', authLimiter, validateBody(loginSchema), ctrl.loginUser);
 router.post('/captain/login', authLimiter, validateBody(loginSchema), ctrl.loginCaptain);
 
+const forgotPasswordSchema = {
+  email: [V.required, V.email],
+};
+const resetPasswordSchema = {
+  email: [V.required, V.email],
+  code: [V.required, V.minLength(6)],
+  newPassword: [V.required, V.minLength(6)],
+};
+router.post('/password/forgot', authLimiter, validateBody(forgotPasswordSchema), ctrl.forgotPassword);
+router.post('/password/reset', authLimiter, validateBody(resetPasswordSchema), ctrl.resetPassword);
+
 // Card 79: تسجيل كابتن من التطبيق (طلب توثيق) — عامّ، متعدّد الأجزاء (مستندات).
 // التحقّق من الحقول داخل المتحكّم لأنّ multipart لا يمرّ عبر validateBody.
 router.post('/captain/apply', authLimiter, uploadCaptainDocs, ctrl.applyCaptain);
@@ -49,6 +61,7 @@ router.post('/captain/apply', authLimiter, uploadCaptainDocs, ctrl.applyCaptain)
 const updateProfileSchema = {
   name: [V.string],
   lastName: [V.string],
+  email: [V.email], // اختياري، والقيمة الفارغة تعني حذف البريد من الحساب
   city: [V.string],
   // Card 96: يمكن تعديل مكان السكن لاحقًا من صفحة "حسابي"
   governorate: [V.string, V.isIn(GOVERNORATES)],
@@ -56,6 +69,14 @@ const updateProfileSchema = {
 };
 router.get('/me', authenticate, ctrl.me);
 router.patch('/me', authenticate, validateBody(updateProfileSchema), ctrl.updateProfile);
+router.post('/me/email/verification', authLimiter, authenticate, ctrl.resendEmailVerification);
+router.post(
+  '/me/email/verify',
+  authLimiter,
+  authenticate,
+  validateBody({ code: [V.required, V.minLength(6)] }),
+  ctrl.verifyEmail
+);
 // تغيير كلمة سر الحساب (Card 72) — كلمة حالية + جديدة (٦ أحرف على الأقلّ)
 const changePasswordSchema = {
   currentPassword: [V.required],
