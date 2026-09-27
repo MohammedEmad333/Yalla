@@ -24,6 +24,7 @@ async function ownerMerchant(merchantId, auth = {}) {
   }
   const merchant = await Merchant.findById(merchantId);
   if (!merchant || !merchant.isActive) throw httpError('حساب الشريك غير متاح', 403);
+  if ((merchant.applicationStatus || 'approved') !== 'approved') throw httpError('يجب اعتماد المتجر الأساسي أولًا', 403);
   return merchant;
 }
 
@@ -32,7 +33,7 @@ async function list(merchantId) {
   if (!merchant || !merchant.isActive) throw httpError('حساب الشريك غير متاح', 403);
   const ids = branchIds(merchant);
   const rows = await Restaurant.find({ _id: { $in: ids } })
-    .select('name imageUrl category city neighborhood street address active isOpen prepMinutes')
+    .select('name imageUrl category city neighborhood street address active isOpen prepMinutes approvalStatus approvalRejectionReason')
     .sort({ createdAt: 1 })
     .lean();
   const activeId = String(merchant.activeRestaurant || merchant.restaurant || '');
@@ -58,8 +59,15 @@ async function create(merchantId, auth, payload = {}) {
     prepMinutes: payload.prepMinutes || 15,
     openTime: payload.openTime || '',
     closeTime: payload.closeTime || '',
-    active: payload.active !== false,
+    active: false,
   });
+  restaurant.approvalStatus = 'pending';
+  restaurant.approvalSource = 'self_service';
+  restaurant.approvalRejectionReason = '';
+  restaurant.submittedAt = new Date();
+  restaurant.reviewedAt = null;
+  restaurant.isOpen = false;
+  await restaurant.save();
 
   merchant.restaurants = [...new Set([...(merchant.restaurants || []).map(String), String(restaurant._id)])];
   if (!merchant.activeRestaurant) merchant.activeRestaurant = merchant.restaurant;
