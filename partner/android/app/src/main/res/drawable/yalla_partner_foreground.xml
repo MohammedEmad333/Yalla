@@ -5,36 +5,34 @@
     android:viewportWidth="1024"
     android:viewportHeight="1024">
 
-    <group
-        android:pivotX="512"
-        android:pivotY="512"
-        android:scaleX="0.72"
-        android:scaleY="0.72">
-        <path
-            android:fillColor="#FF8A00"
-            android:pathData="M282,250 L742,250 L806,368 L218,368 Z" />
-        <path
-            android:fillColor="#FF8A00"
-            android:pathData="M230,368 L408,368 L408,442 C408,492 368,532 319,532 C270,532 230,492 230,442 Z" />
-        <path
-            android:fillColor="#FFC247"
-            android:pathData="M423,368 L601,368 L601,442 C601,492 561,532 512,532 C463,532 423,492 423,442 Z" />
-        <path
-            android:fillColor="#FF8A00"
-            android:pathData="M616,368 L794,368 L794,442 C794,492 754,532 705,532 C656,532 616,492 616,442 Z" />
+    <!-- Exact storefront artwork from design/app-icons/yalla_partner_icon.svg.
+         Background is intentionally transparent for Android adaptive-icon masking. -->
+    <path
+        android:fillColor="#FF7A00"
+        android:pathData="M282,250 L742,250 L806,368 L218,368 Z" />
+    <path
+        android:fillColor="#FF7A00"
+        android:pathData="M230,368 L408,368 L408,442 C408,492 368,532 319,532 C270,532 230,492 230,442 Z" />
+    <path
+        android:fillColor="#FF7A00"
+        android:pathData="M423,368 L601,368 L601,442 C601,492 561,532 512,532 C463,532 423,492 423,442 Z" />
+    <path
+        android:fillColor="#FF7A00"
+        android:pathData="M616,368 L794,368 L794,442 C794,492 754,532 705,532 C656,532 616,492 616,442 Z" />
 
-        <path
-            android:fillColor="#FF8A00"
-            android:pathData="M315,760 L315,585 C315,554 340,529 371,529 L653,529 C684,529 709,554 709,585 L709,760 Z" />
-        <path
-            android:fillColor="#082B67"
-            android:pathData="M441,760 L441,632 L583,632 L583,760 Z" />
-
-        <path
-            android:fillColor="@android:color/transparent"
-            android:strokeColor="#FFB12B"
-            android:strokeWidth="34"
-            android:strokeLineCap="round"
-            android:pathData="M360,820 C438,875 586,875 664,820" />
-    </group>
+    <path
+        android:fillColor="#FAFFFFFF"
+        android:pathData="M315,585 C315,554 340,529 371,529 L653,529 C684,529 709,554 709,585 L709,760 L315,760 Z" />
+    <path
+        android:fillColor="#0B3D91"
+        android:pathData="M441,760 L441,632 L583,632 L583,760 Z" />
+    <path
+        android:fillColor="#FF7A00"
+        android:pathData="M559,687 A10,10 0,1 1,558.99,707 A10,10 0,1 1,559,687 Z" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF7A00"
+        android:strokeWidth="30"
+        android:strokeLineCap="round"
+        android:pathData="M393,823 C461,867 563,880 631,832" />
 </vector>
