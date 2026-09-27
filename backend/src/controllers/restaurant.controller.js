@@ -5,6 +5,7 @@ const merchantService = require('../services/merchant.service');
 const featureService = require('../services/feature.service');
 const Restaurant = require('../models/Restaurant');
 const RestaurantRating = require('../models/RestaurantRating');
+const merchantApplicationService = require('../services/merchantApplication.service');
 
 async function overlayManualOpen(rows) {
   const list = Array.isArray(rows) ? rows : [];
@@ -95,6 +96,16 @@ async function createRestaurantOrder(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function adminListMerchantApplications(req, res, next) {
+  try { res.json(await merchantApplicationService.listAdmin({ status: req.query.status || 'pending' })); } catch (err) { next(err); }
+}
+async function adminApproveMerchantApplication(req, res, next) {
+  try { res.json(await merchantApplicationService.approve(req.params.restaurantId)); } catch (err) { next(err); }
+}
+async function adminRejectMerchantApplication(req, res, next) {
+  try { res.json(await merchantApplicationService.reject(req.params.restaurantId, req.body?.reason)); } catch (err) { next(err); }
+}
+
 async function adminListRestaurants(req, res, next) {
   try { res.json(await restaurantService.adminListRestaurants()); } catch (err) { next(err); }
 }
@@ -142,6 +153,7 @@ async function adminUpsertMerchant(req, res, next) {
 
 module.exports = {
   listRestaurants, listCategories, getRestaurant, rateRestaurant, createRestaurantOrder,
+  adminListMerchantApplications, adminApproveMerchantApplication, adminRejectMerchantApplication,
   adminListRestaurants, createRestaurant, updateRestaurant, deleteRestaurant, uploadRestaurantImage,
   adminListMenu, createMenuItem, updateMenuItem, deleteMenuItem, uploadMenuItemImage,
   adminGetMerchant, adminUpsertMerchant,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/session.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final PartnerSession session;
@@ -179,6 +180,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                 child: Text(_busy ? 'جارٍ تسجيل الدخول...' : 'دخول إلى لوحة المتجر'),
                               ),
                             ),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: _busy
+                                  ? null
+                                  : () => Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => RegisterScreen(session: widget.session),
+                                        ),
+                                      ),
+                              icon: const Icon(Icons.person_add_alt_1_rounded),
+                              label: const Text('إنشاء حساب تاجر جديد'),
+                            ),
                             const SizedBox(height: 16),
                             Container(
                               padding: const EdgeInsets.all(12),
@@ -192,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'يتم إنشاء حساب المتجر من الإدارة وإرسال بيانات الدخول لك.',
+                                      'يمكنك إنشاء حسابك وإرسال متجرك للمراجعة مباشرة من التطبيق.',
                                       style: TextStyle(color: Color(0xFF657287), fontSize: 12.5, height: 1.45),
                                     ),
                                   ),

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'core/api_client.dart';
 import 'core/session.dart';
 import 'core/token_storage.dart';
+import 'screens/application_status_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 
@@ -138,9 +139,14 @@ class YallaPartnerApp extends StatelessWidget {
       ),
       home: ValueListenableBuilder<Map<String, dynamic>?>(
         valueListenable: partnerSession.merchant,
-        builder: (_, merchant, __) => merchant == null
-            ? LoginScreen(session: partnerSession)
-            : HomeScreen(session: partnerSession),
+        builder: (_, merchant, __) {
+          if (merchant == null) return LoginScreen(session: partnerSession);
+          final status = merchant['applicationStatus']?.toString() ?? 'approved';
+          if (status != 'approved') {
+            return ApplicationStatusScreen(session: partnerSession, merchant: merchant);
+          }
+          return HomeScreen(session: partnerSession);
+        },
       ),
     );
   }

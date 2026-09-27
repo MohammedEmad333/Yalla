@@ -21,6 +21,7 @@ import Chats from './pages/Chats';
 import Support from './pages/Support';
 import Broadcast from './pages/Broadcast';
 import Restaurants from './pages/Restaurants';
+import MerchantApplications from './pages/MerchantApplications';
 import AdminWallet from './pages/AdminWallet';
 import AdminAccount from './pages/AdminAccount';
 import OperationsFinance from './pages/OperationsFinance';
@@ -38,6 +39,7 @@ const NAV = [
     { key: 'quality', label: 'الجودة وصحة النظام', icon: IconSupport, Page: QualitySystem },
     { key: 'orders', label: 'بحث الطلبات', icon: IconOrders, Page: OrdersPage },
     { key: 'restaurants', label: 'المتاجر والمطاعم', icon: IconStore, Page: Restaurants },
+    { key: 'merchantApps', label: 'طلبات انضمام المتاجر', icon: IconStore, Page: MerchantApplications },
   ]},
   { group: 'التواصل والتسويق', items: [
     { key: 'chats', label: 'المحادثات', icon: IconChat, Page: Chats },
@@ -62,7 +64,7 @@ const NAV = [
 
 const ROLE_PAGES = {
   super_admin: '*',
-  operations: ['dashboard','dispatch','orders','restaurants','users','captainDocs','stats','quality'],
+  operations: ['dashboard','dispatch','orders','restaurants','merchantApps','users','captainDocs','stats','quality'],
   support: ['dashboard','orders','users','chats','support','quality'],
   finance: ['dashboard','opsFinance','adminWallet','wallet','withdrawals','stats'],
   marketing: ['dashboard','restaurants','broadcast','marketing','rewards','stats'],

@@ -6,6 +6,7 @@ const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { rateLimit } = require('../middlewares/rateLimit.middleware');
 const { ROLES } = require('../utils/constants');
 
+router.post('/register', rateLimit({ windowMs: 60_000, max: 8 }), ctrl.register);
 router.post('/login', rateLimit({ windowMs: 60_000, max: 20 }), ctrl.login);
 router.use(authenticate, authorize(ROLES.MERCHANT));
 router.get('/', ctrl.list);

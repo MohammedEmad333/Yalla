@@ -28,6 +28,9 @@ router.post('/notifications', ctrl.sendBroadcast);
 // Kept under /api/admin as a stable fallback in addition to /api/expansion/admin/...
 router.post('/banners/:bannerId/image', requireAdminCapability('marketing'), uploadImage.single('image'), expansionCtrl.uploadBannerImage);
 
+router.get('/restaurants/applications', restaurantCtrl.adminListMerchantApplications);
+router.post('/restaurants/applications/:restaurantId/approve', restaurantCtrl.adminApproveMerchantApplication);
+router.post('/restaurants/applications/:restaurantId/reject', restaurantCtrl.adminRejectMerchantApplication);
 router.get('/restaurants', restaurantCtrl.adminListRestaurants);
 router.post('/restaurants', restaurantCtrl.createRestaurant);
 router.patch('/restaurants/:restaurantId', restaurantCtrl.updateRestaurant);
