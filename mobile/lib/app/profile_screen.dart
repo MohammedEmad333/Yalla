@@ -116,6 +116,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _resendEmailVerification() async {
+    setState(() => _saving = true);
+    try {
+      await widget.api.post('/auth/me/email/verification', const {});
+      _snack('تم إرسال رمز التحقق إلى بريدك');
+      if (mounted) await _verifyEmail();
+    } on ApiException catch (e) {
+      _snack(e.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _verifyEmail() async {
+    final code = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تأكيد البريد الإلكتروني'),
+        content: TextField(
+          controller: code,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          textDirection: YallaInputBehavior.machineDirection,
+          textAlign: YallaInputBehavior.machineAlign,
+          decoration: const InputDecoration(
+            labelText: 'رمز التحقق',
+            hintText: '000000',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('لاحقًا')),
+          FilledButton(
+            onPressed: () {
+              final v = code.text.trim();
+              if (v.length == 6) Navigator.pop(ctx, v);
+            },
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    );
+    code.dispose();
+    if (value == null || !mounted) return;
+
+    setState(() => _saving = true);
+    try {
+      await widget.api.post('/auth/me/email/verify', {'code': value});
+      await _load();
+      _snack('تم تأكيد البريد الإلكتروني');
+    } on ApiException catch (e) {
+      _snack(e.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   // تغيير كلمة سر الحساب (Card 72): يفتح نموذجًا (كلمة حالية + جديدة + تأكيد)
   // ثم يرسلها إلى الخادم الذي يتحقّق من الحالية ويعيّن الجديدة.
   Future<void> _changePassword() async {
@@ -213,6 +270,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _infoTile(Icons.phone_outlined, 'رقم الجوال', _me['phone']),
                     if (!_isCaptain) ...[
                       _infoTile(Icons.email_outlined, 'البريد الإلكتروني', _me['email']),
+                      if ((_me['email'] ?? '').toString().trim().isNotEmpty)
+                        _emailVerificationTile(),
                       _infoTile(Icons.location_city_outlined, 'المدينة', _me['city']),
                     ] else ...[
                       _infoTile(Icons.two_wheeler_outlined, 'نوع المركبة', vehicleLabel(_me['vehicleType'])),
@@ -449,6 +508,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
 
+  Widget _emailVerificationTile() {
+    final verified = _me['emailVerified'] == true;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+      leading: _leadingIcon(
+        verified ? Icons.verified_outlined : Icons.mark_email_unread_outlined,
+        color: verified ? Colors.green : YallaColors.primary,
+      ),
+      title: Text(
+        verified ? 'البريد مؤكّد' : 'البريد غير مؤكّد',
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+      subtitle: Text(
+        verified
+            ? 'يمكن استخدامه لاستعادة كلمة المرور'
+            : 'التأكيد اختياري، لكنه يفعّل استعادة كلمة المرور عبر البريد',
+      ),
+      trailing: verified
+          ? const Icon(Icons.check_circle_rounded, color: Colors.green)
+          : TextButton(
+              onPressed: _saving ? null : _resendEmailVerification,
+              child: const Text('تحقق'),
+            ),
+      onTap: verified || _saving ? null : _verifyEmail,
+    );
+  }
+
   Widget _sectionTitle(String title) => Padding(
         padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
         child: Text(
@@ -588,7 +674,7 @@ class _EditProfileFormState extends State<_EditProfileForm> {
               keyboardType: TextInputType.emailAddress,
               textDirection: YallaInputBehavior.machineDirection,
               textAlign: YallaInputBehavior.machineAlign,
-              decoration: const InputDecoration(labelText: 'البريد الإلكتروني', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'البريد الإلكتروني (اختياري)', helperText: 'اتركه فارغًا لعدم ربط بريد بالحساب', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextField(

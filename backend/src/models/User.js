@@ -10,6 +10,11 @@ const userSchema = new mongoose.Schema(
     lastName: { type: String, trim: true, default: '' },
     phone: { type: String, required: true, unique: true, trim: true },
     email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
+    emailVerifiedAt: { type: Date, default: null },
+    emailVerificationCodeHash: { type: String, default: null, select: false },
+    emailVerificationExpiresAt: { type: Date, default: null, select: false },
+    passwordResetCodeHash: { type: String, default: null, select: false },
+    passwordResetExpiresAt: { type: Date, default: null, select: false },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: [ROLES.USER, ROLES.ADMIN], default: ROLES.USER },
     adminRole: {

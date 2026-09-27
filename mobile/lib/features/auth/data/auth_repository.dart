@@ -56,6 +56,22 @@ class AuthRepository {
     session.value = _fromUser(data);
   }
 
+  Future<void> requestPasswordReset(String email) async {
+    await _api.post('/auth/password/forgot', {'email': email.trim()});
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    await _api.post('/auth/password/reset', {
+      'email': email.trim(),
+      'code': code.trim(),
+      'newPassword': newPassword,
+    });
+  }
+
   // استعادة الجلسة عند إقلاع التطبيق (إن وُجد توكن صالح)
   Future<void> restore() async {
     final token = await _tokens.read();

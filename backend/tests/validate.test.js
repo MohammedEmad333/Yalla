@@ -18,6 +18,12 @@ test('V.phone: يتحقّق من صيغة الهاتف', () => {
   assert.ok(V.phone('abc'));
 });
 
+test('V.email: يقبل البريد الصحيح ويرفض الصيغة الخاطئة', () => {
+  assert.equal(V.email('user@example.com'), null);
+  assert.equal(V.email(' user@example.com '), null);
+  assert.ok(V.email('not-an-email'));
+});
+
 test('V.minLength / inRange / isIn', () => {
   assert.ok(V.minLength(6)('123'));
   assert.equal(V.minLength(6)('123456'), null);
