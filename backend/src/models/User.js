@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, required: true, unique: true, trim: true },
     email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
     emailVerifiedAt: { type: Date, default: null },
-    emailVerificationTokenHash: { type: String, default: null, select: false },
+    emailVerificationCodeHash: { type: String, default: null, select: false },
     emailVerificationExpiresAt: { type: Date, default: null, select: false },
     passwordResetCodeHash: { type: String, default: null, select: false },
     passwordResetExpiresAt: { type: Date, default: null, select: false },
