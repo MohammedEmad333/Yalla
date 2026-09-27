@@ -4,35 +4,32 @@
     android:height="108dp"
     android:viewportWidth="1024"
     android:viewportHeight="1024">
+    <group
+        android:pivotX="512"
+        android:pivotY="512"
+        android:scaleX="0.80"
+        android:scaleY="0.80">
 
-    <!-- Exact storefront artwork from design/app-icons/yalla_partner_icon.svg.
-         Background is intentionally transparent for Android adaptive-icon masking. -->
-    <path
-        android:fillColor="#FF7A00"
-        android:pathData="M282,250 L742,250 L806,368 L218,368 Z" />
-    <path
-        android:fillColor="#FF7A00"
-        android:pathData="M230,368 L408,368 L408,442 C408,492 368,532 319,532 C270,532 230,492 230,442 Z" />
-    <path
-        android:fillColor="#FF7A00"
-        android:pathData="M423,368 L601,368 L601,442 C601,492 561,532 512,532 C463,532 423,492 423,442 Z" />
-    <path
-        android:fillColor="#FF7A00"
-        android:pathData="M616,368 L794,368 L794,442 C794,492 754,532 705,532 C656,532 616,492 616,442 Z" />
+        <!-- Store canopy inspired by the generated Yalla Partner artwork. -->
+        <path android:fillColor="#FF8A00"
+            android:pathData="M246,300 Q260,250 315,250 L709,250 Q764,250 778,300 L820,410 Q830,438 812,462 Q794,486 763,486 Q725,486 706,451 L677,396 L642,396 L642,438 Q642,486 594,486 Q546,486 546,438 L546,396 L478,396 L478,438 Q478,486 430,486 Q382,486 382,438 L382,396 L347,396 L318,451 Q299,486 261,486 Q230,486 212,462 Q194,438 204,410 Z" />
+        <path android:fillColor="#FFD35A"
+            android:pathData="M382,396 L418,250 L505,250 L478,396 Z" />
+        <path android:fillColor="#FFD35A"
+            android:pathData="M546,396 L519,250 L606,250 L642,396 Z" />
 
-    <path
-        android:fillColor="#FAFFFFFF"
-        android:pathData="M315,585 C315,554 340,529 371,529 L653,529 C684,529 709,554 709,585 L709,760 L315,760 Z" />
-    <path
-        android:fillColor="#0B3D91"
-        android:pathData="M441,760 L441,632 L583,632 L583,760 Z" />
-    <path
-        android:fillColor="#FF7A00"
-        android:pathData="M559,687 A10,10 0,1 1,558.99,707 A10,10 0,1 1,559,687 Z" />
-    <path
-        android:fillColor="@android:color/transparent"
-        android:strokeColor="#FF7A00"
-        android:strokeWidth="30"
-        android:strokeLineCap="round"
-        android:pathData="M393,823 C461,867 563,880 631,832" />
+        <!-- Orange storefront body with navy doorway cutout. -->
+        <path android:fillColor="#FF8A00"
+            android:pathData="M315,500 Q315,472 343,472 L681,472 Q709,472 709,500 L709,720 Q709,760 669,760 L355,760 Q315,760 315,720 Z" />
+        <path android:fillColor="#082B67"
+            android:pathData="M448,760 L448,624 Q448,594 478,594 L546,594 Q576,594 576,624 L576,760 Z" />
+
+        <!-- Friendly smile swoosh. -->
+        <path
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#FF9F18"
+            android:strokeWidth="48"
+            android:strokeLineCap="round"
+            android:pathData="M258,805 C370,905 654,930 766,790" />
+    </group>
 </vector>
