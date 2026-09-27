@@ -10,12 +10,27 @@ class PartnerSession {
 
   final ValueNotifier<Map<String, dynamic>?> merchant = ValueNotifier(null);
 
+  Map<String, dynamic> _normalizedMerchant(Map raw) {
+    final data = Map<String, dynamic>.from(raw);
+    data['role'] = 'merchant';
+    data['staffRole'] ??= 'owner';
+    data['applicationStatus'] ??= 'approved';
+    return data;
+  }
+
   Future<void> login(String phone, String password) async {
     final data = await api.post('/merchant-staff/login', {'phone': phone, 'password': password});
-    final user = Map<String, dynamic>.from(data['user'] as Map);
+    final user = _normalizedMerchant(data['user'] as Map);
     if (user['role'] != 'merchant') {
       throw ApiException(403, 'هذا التطبيق مخصّص لحسابات المطاعم والمحلات');
     }
+    await tokens.save(data['token'] as String);
+    merchant.value = user;
+  }
+
+  Future<void> register(Map<String, dynamic> payload) async {
+    final data = await api.post('/merchant-staff/register', payload);
+    final user = _normalizedMerchant(data['user'] as Map);
     await tokens.save(data['token'] as String);
     merchant.value = user;
   }
@@ -25,23 +40,42 @@ class PartnerSession {
     try {
       final me = await api.get('/auth/me');
       if (me['role'] != 'merchant') throw ApiException(403, 'نوع الحساب غير صالح');
+
+      final authMerchant = _normalizedMerchant(me['merchant'] as Map);
+      if (authMerchant['applicationStatus'] != 'approved') {
+        merchant.value = authMerchant;
+        return;
+      }
+
       final profile = await api.get('/merchant/profile');
-      merchant.value = Map<String, dynamic>.from(profile as Map);
+      merchant.value = _normalizedMerchant(profile as Map);
     } catch (_) {
       await tokens.clear();
       merchant.value = null;
     }
   }
 
+  Future<void> refreshApplicationStatus() async {
+    final me = await api.get('/auth/me');
+    if (me['role'] != 'merchant') throw ApiException(403, 'نوع الحساب غير صالح');
+    final authMerchant = _normalizedMerchant(me['merchant'] as Map);
+    if (authMerchant['applicationStatus'] == 'approved') {
+      final profile = await api.get('/merchant/profile');
+      merchant.value = _normalizedMerchant(profile as Map);
+    } else {
+      merchant.value = authMerchant;
+    }
+  }
+
   Future<void> switchBranch(String restaurantId) async {
     final data = await api.post('/merchant/branches/$restaurantId/select');
     await tokens.save(data['token'] as String);
-    merchant.value = Map<String, dynamic>.from(data['user'] as Map);
+    merchant.value = _normalizedMerchant(data['user'] as Map);
   }
 
   Future<void> refreshProfile() async {
     final profile = await api.get('/merchant/profile');
-    merchant.value = Map<String, dynamic>.from(profile as Map);
+    merchant.value = _normalizedMerchant(profile as Map);
   }
 
   Future<void> logout() async {
