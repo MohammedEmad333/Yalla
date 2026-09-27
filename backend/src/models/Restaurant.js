@@ -54,6 +54,11 @@ const restaurantSchema = new mongoose.Schema(
       isNew: { type: Boolean, default: false },
     },
 
+    approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved', index: true },
+    approvalSource: { type: String, enum: ['admin', 'self_service'], default: 'admin' },
+    approvalRejectionReason: { type: String, default: '', trim: true },
+    submittedAt: { type: Date, default: null },
+    reviewedAt: { type: Date, default: null },
     active: { type: Boolean, default: true, index: true },
     sortOrder: { type: Number, default: 0 },
   },
