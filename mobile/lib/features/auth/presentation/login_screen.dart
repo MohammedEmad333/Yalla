@@ -22,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _lastName = TextEditingController();
+  final _email = TextEditingController();
   final _phone = TextEditingController();
   final _password = TextEditingController();
   final _address = TextEditingController(); // Card 96: تفاصيل العنوان
@@ -56,6 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await widget.authRepository.register(
           name: _name.text,
           lastName: _lastName.text,
+          email: _email.text.trim(),
           phone: _phone.text,
           password: _password.text,
           governorate: _governorate,
@@ -74,6 +76,117 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = 'تعذّر الاتصال بالخادم — تحقّق من الشبكة');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final emailController = TextEditingController();
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('نسيت كلمة المرور؟'),
+        content: TextField(
+          controller: emailController,
+          keyboardType: TextInputType.emailAddress,
+          textDirection: YallaInputBehavior.machineDirection,
+          textAlign: YallaInputBehavior.machineAlign,
+          decoration: const InputDecoration(
+            labelText: 'البريد الإلكتروني المؤكّد',
+            hintText: 'name@example.com',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          FilledButton(
+            onPressed: () {
+              final value = emailController.text.trim();
+              if (value.isNotEmpty) Navigator.pop(ctx, value);
+            },
+            child: const Text('إرسال الرمز'),
+          ),
+        ],
+      ),
+    );
+    emailController.dispose();
+    if (email == null || !mounted) return;
+
+    try {
+      await widget.authRepository.requestPasswordReset(email);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('إذا كان البريد مرتبطًا بحساب مؤكّد، تم إرسال رمز إعادة التعيين')),
+    );
+
+    final codeController = TextEditingController();
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+    final payload = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('إعادة تعيين كلمة المرور'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: codeController,
+              keyboardType: TextInputType.number,
+              textDirection: YallaInputBehavior.machineDirection,
+              textAlign: YallaInputBehavior.machineAlign,
+              decoration: const InputDecoration(labelText: 'رمز التحقق المكوّن من 6 أرقام'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'كلمة المرور الجديدة'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: confirmController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'تأكيد كلمة المرور'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          FilledButton(
+            onPressed: () {
+              final code = codeController.text.trim();
+              final password = passwordController.text;
+              if (code.length != 6) return;
+              if (password.length < 6 || password != confirmController.text) return;
+              Navigator.pop(ctx, {'code': code, 'password': password});
+            },
+            child: const Text('تعيين كلمة المرور'),
+          ),
+        ],
+      ),
+    );
+    codeController.dispose();
+    passwordController.dispose();
+    confirmController.dispose();
+    if (payload == null || !mounted) return;
+
+    try {
+      await widget.authRepository.resetPassword(
+        email: email,
+        code: payload['code']!,
+        newPassword: payload['password']!,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم تغيير كلمة المرور بنجاح — يمكنك تسجيل الدخول الآن')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
     }
   }
 
@@ -140,6 +253,161 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: Icon(Icons.badge_outlined),
                     ),
                     validator: (v) => (v == null || v.isEmpty) ? 'أدخل اسم العائلة' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    textDirection: YallaInputBehavior.machineDirection,
+                    textAlign: YallaInputBehavior.machineAlign,
+                    decoration: const InputDecoration(
+                      labelText: 'البريد الإلكتروني (اختياري)',
+                      prefixIcon: Icon(Icons.email_outlined),
+                      helperText: 'إذا أضفته سنرسل رمز تحقق ويمكنك استخدامه لاستعادة كلمة المرور',
+                    ),
+                    validator: (v) {
+                      final value = (v ?? '').trim();
+                      if (value.isEmpty) return null;
+                      return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+                  DropdownButtonFormField<String>(
+                    value: _governorate,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'المحافظة (مكان السكن)',
+                      prefixIcon: Icon(Icons.location_city_outlined),
+                    ),
+                    items: _governorates
+                        .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _governorate = v),
+                    validator: (v) => (v == null || v.isEmpty) ? 'اختر المحافظة' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _address,
+                    decoration: const InputDecoration(
+                      labelText: 'تفاصيل العنوان',
+                      prefixIcon: Icon(Icons.home_outlined),
+                    ),
+                    validator: (v) => (v == null || v.isEmpty) ? 'أدخل تفاصيل العنوان' : null,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                TextFormField(
+                  controller: _phone,
+                  keyboardType: TextInputType.phone,
+                  textDirection: YallaInputBehavior.machineDirection,
+                  textAlign: YallaInputBehavior.machineAlign,
+                  decoration: const InputDecoration(
+                    labelText: 'رقم الهاتف',
+                    prefixIcon: Icon(Icons.phone_outlined),
+                  ),
+                  validator: (v) => (v == null || v.length < 6) ? 'أدخل رقم هاتف صحيح' : null,
+                ),
+                const SizedBox(height: 16),
+
+                TextFormField(
+                  controller: _password,
+                  obscureText: true,
+                  textDirection: YallaInputBehavior.machineDirection,
+                  textAlign: YallaInputBehavior.machineAlign,
+                  decoration: const InputDecoration(
+                    labelText: 'كلمة المرور',
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                  validator: (v) => (v == null || v.length < 6) ? '6 أحرف على الأقل' : null,
+                ),
+                if (!_isRegister)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton(
+                      onPressed: _loading ? null : _forgotPassword,
+                      child: const Text('نسيت كلمة المرور؟'),
+                    ),
+                  ),
+
+                if (_error != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: YallaColors.errorContainer,
+                      borderRadius: BorderRadius.circular(YallaRadii.md),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: YallaColors.error, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(_error!, style: TextStyle(color: YallaColors.error)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _loading ? null : _submit,
+                    child: _loading
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Text(_isRegister ? 'إنشاء الحساب' : 'دخول'),
+                  ),
+                ),
+
+                // التبديل بين الدخول والتسجيل
+                TextButton(
+                  onPressed: _loading
+                      ? null
+                      : () => setState(() {
+                            _isRegister = !_isRegister;
+                            _error = null;
+                          }),
+                  child: Text(_isRegister ? 'لديك حساب؟ سجّل الدخول' : 'ليس لديك حساب؟ أنشئ حسابًا'),
+                ),
+
+                // Card 79: عند إنشاء حساب — خيار التسجيل ككابتن توصيل (طلب توثيق)
+                if (_isRegister)
+                  OutlinedButton.icon(
+                    onPressed: _loading
+                        ? null
+                        : () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => CaptainSignupScreen(api: widget.authRepository.api),
+                              ),
+                            ),
+                    icon: const Icon(Icons.two_wheeler),
+                    label: const Text('تسجيل ككابتن توصيل'),
+                  ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _lastName.dispose();
+    _email.dispose();
+    _phone.dispose();
+    _password.dispose();
+    _address.dispose();
+    super.dispose();
+  }
+}
+).hasMatch(value)
+                          ? null
+                          : 'أدخل بريدًا إلكترونيًا صحيحًا';
+                    },
                   ),
                   const SizedBox(height: 16),
 
