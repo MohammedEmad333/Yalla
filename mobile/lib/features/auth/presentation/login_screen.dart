@@ -542,6 +542,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _name.dispose();
     _lastName.dispose();
+    _email.dispose();
     _phone.dispose();
     _password.dispose();
     _address.dispose();
