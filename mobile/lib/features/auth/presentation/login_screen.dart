@@ -267,7 +267,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     validator: (v) {
                       final value = (v ?? '').trim();
                       if (value.isEmpty) return null;
-                      return RegExp(r'^[^\\s@]+@[^\\s@]+\\.[^\\s@]+
+                      final at = value.indexOf('@');
+                      final dot = value.lastIndexOf('.');
+                      return at > 0 && dot > at + 1 && dot < value.length - 1
+                          ? null
+                          : 'أدخل بريدًا إلكترونيًا صحيحًا';
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Card 96: مكان السكن — المحافظة (قائمة) + تفاصيل العنوان
                   DropdownButtonFormField<String>(
                     value: _governorate,
                     isExpanded: true,
