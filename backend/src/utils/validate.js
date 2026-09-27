@@ -12,6 +12,12 @@ const V = {
   phone: (v) =>
     typeof v === 'string' && /^[0-9+\-\s]{6,15}$/.test(v) ? null : 'رقم هاتف غير صالح',
 
+  email: (v) =>
+    typeof v === 'string' &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
+      ? null
+      : 'بريد إلكتروني غير صالح',
+
   number: (v) => (typeof v === 'number' && !Number.isNaN(v) ? null : 'يجب أن يكون رقمًا'),
 
   // مُنتِجات (higher-order) لمُتحقّقات ذات معاملات
