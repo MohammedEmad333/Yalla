@@ -1,6 +1,7 @@
 'use strict';
 
 const jwt = require('jsonwebtoken');
+const crypto = require('node:crypto');
 const env = require('../config/env');
 const User = require('../models/User');
 const Captain = require('../models/Captain');
@@ -9,10 +10,81 @@ const Merchant = require('../models/Merchant');
 const { saveAvatar, deleteAvatarByUrl } = require('../utils/avatarStore');
 const adminService = require('../services/admin.service');
 const notifications = require('../services/notification.service');
+const { sendMail } = require('../services/email.service');
 const io = require('../sockets/io');
 const { idDocUrlFor } = require('../middlewares/upload.middleware');
 const { ROLES, ROOMS } = require('../utils/constants');
 const { normalizePhone } = require('../utils/phone');
+
+// البريد اختياري بالكامل. إذا أُضيف، نطبّعه ونرسل رمز تحقق دون منع استخدام الحساب.
+function normalizeOptionalEmail(value) {
+  const email = String(value || '').trim().toLowerCase();
+  return email || null;
+}
+
+function hashCode(code) {
+  return crypto.createHash('sha256').update(String(code)).digest('hex');
+}
+
+function generateEmailCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function emailCard({ title, body, code, note }) {
+  return `<div dir="rtl" style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:24px;color:#1f2937">
+    <div style="font-size:28px;font-weight:800;color:#f97316;margin-bottom:18px">Yalla Delivery</div>
+    <h2 style="margin:0 0 12px">${title}</h2>
+    <p style="line-height:1.8">${body}</p>
+    <div dir="ltr" style="font-size:32px;font-weight:800;letter-spacing:8px;text-align:center;background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;padding:16px;margin:20px 0">${code}</div>
+    <p style="color:#6b7280;line-height:1.7">${note}</p>
+  </div>`;
+}
+
+async function issueVerificationCode(user) {
+  if (!user.email || user.emailVerifiedAt) return false;
+  const code = generateEmailCode();
+  user.emailVerificationCodeHash = hashCode(code);
+  user.emailVerificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await user.save();
+  await sendMail({
+    to: user.email,
+    subject: 'رمز تأكيد بريدك في Yalla Delivery',
+    text: `رمز تأكيد بريدك هو: ${code}. الرمز صالح لمدة 24 ساعة.`,
+    html: emailCard({
+      title: 'تأكيد البريد الإلكتروني',
+      body: 'أدخل الرمز التالي داخل تطبيق Yalla لتأكيد بريدك الإلكتروني. يمكنك استخدام التطبيق حتى قبل التأكيد.',
+      code,
+      note: 'الرمز صالح لمدة 24 ساعة. إذا لم تطلب هذه الرسالة يمكنك تجاهلها.',
+    }),
+  });
+  return true;
+}
+
+async function issuePasswordResetCode(user) {
+  const code = generateEmailCode();
+  user.passwordResetCodeHash = hashCode(code);
+  user.passwordResetExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  await user.save();
+  await sendMail({
+    to: user.email,
+    subject: 'رمز إعادة تعيين كلمة المرور - Yalla Delivery',
+    text: `رمز إعادة تعيين كلمة المرور هو: ${code}. الرمز صالح لمدة 15 دقيقة.`,
+    html: emailCard({
+      title: 'إعادة تعيين كلمة المرور',
+      body: 'استخدم الرمز التالي داخل تطبيق Yalla لإنشاء كلمة مرور جديدة.',
+      code,
+      note: 'الرمز صالح لمدة 15 دقيقة. إذا لم تطلب إعادة التعيين فلا تشارك الرمز مع أي شخص.',
+    }),
+  });
+}
+
+function publicUser(user) {
+  const obj = user.toObject ? user.toObject() : user;
+  return {
+    ...obj,
+    emailVerified: Boolean(obj.emailVerifiedAt),
+  };
+}
 
 // توليد توكن JWT يحمل المعرّف والدور (وحقولًا إضافيّة اختياريّة مثل regions للأدمن)
 function signToken(id, role, extra = {}) {
@@ -22,14 +94,29 @@ function signToken(id, role, extra = {}) {
 // تسجيل مستخدم جديد (عميل)
 async function registerUser(req, res, next) {
   try {
-    const { name, lastName, phone, email, password, governorate, address } = req.body;
+    const { name, lastName, phone, password, governorate, address } = req.body;
+    const email = normalizeOptionalEmail(req.body.email);
     if (await Merchant.exists({ phone })) {
       return res.status(409).json({ message: 'رقم الجوال مستخدم في حساب متجر' });
     }
-    // Card 96: نخزّن مكان السكن (المحافظة + تفاصيل العنوان) عند إنشاء الحساب
-    const user = new User({ name, lastName, phone, email, governorate, address, role: ROLES.USER });
+    if (email && await User.exists({ email })) {
+      return res.status(409).json({ message: 'البريد الإلكتروني مستخدَم بالفعل' });
+    }
+    // البريد اختياري: لا نضع الحقل أصلًا عند تركه فارغًا حتى يبقى الفهرس sparse صحيحًا.
+    const user = new User({
+      name,
+      lastName,
+      phone,
+      ...(email ? { email } : {}),
+      governorate,
+      address,
+      role: ROLES.USER,
+    });
     await user.setPassword(password); // تشفير كلمة المرور
     await user.save();
+
+    // إرسال رمز التحقق لا يمنع إنشاء الحساب أو استخدامه إذا تعذّر SMTP.
+    if (email) issueVerificationCode(user).catch(() => {});
 
     // Card 105: إشعار المشرفين (داخل التطبيق + Push لنسخة أندرويد) بزبون جديد.
     // آمن: fire-and-forget لا يؤثّر على إنشاء الحساب إن فشل.
@@ -45,6 +132,8 @@ async function registerUser(req, res, next) {
         name,
         lastName: user.lastName,
         phone,
+        email: user.email || null,
+        emailVerified: Boolean(user.emailVerifiedAt),
         governorate: user.governorate,
         address: user.address,
         role: user.role,
@@ -80,6 +169,8 @@ async function loginUser(req, res, next) {
           name: user.name,
           lastName: user.lastName,
           phone,
+          email: user.email || null,
+          emailVerified: Boolean(user.emailVerifiedAt),
           role: user.role,
           ...(user.role === ROLES.ADMIN ? { regions } : {}),
         },
