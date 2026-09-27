@@ -189,7 +189,6 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = e.message);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -268,7 +267,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     validator: (v) {
                       final value = (v ?? '').trim();
                       if (value.isEmpty) return null;
-                      return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+                  DropdownButtonFormField<String>(
+                      return RegExp(r'^[^\\s@]+@[^\\s@]+\\.[^\\s@]+
+                  DropdownButtonFormField<String>(
                     value: _governorate,
                     isExpanded: true,
                     decoration: const InputDecoration(
