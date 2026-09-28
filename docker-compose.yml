@@ -38,11 +38,13 @@ services:
       # إشعارات Firebase (Card 103): ألصق مفتاح خدمة Firebase (JSON بسطر واحد)
       # في ملف .env بجانب docker-compose.yml. فارغ = الإشعارات معطّلة (آمن).
       FCM_CREDENTIALS_JSON: ${FCM_CREDENTIALS_JSON:-}
-    # تخزين دائم للملفّات المرفوعة (إيصالات الشحن + مستندات توثيق الكباتن)
-    # حتى لا تُمحى عند إعادة بناء/إنشاء الحاوية. الصور الشخصية تُخزَّن في
-    # قاعدة البيانات (FileAsset) فلا تتأثّر أصلًا.
+      # الصور العامة الجديدة تُحفظ على volume مستقل بدل MongoDB.
+      MEDIA_ROOT: /app/media
+    # uploads_data للمستندات/الإيصالات الحساسة القديمة، وmedia_data للصور العامة
+    # (avatars/restaurants/menu/banners). كلاهما يبقى عند إعادة إنشاء الحاوية.
     volumes:
       - uploads_data:/app/uploads
+      - media_data:/app/media
     # نبدأ mongo أولًا؛ والـ API يعيد محاولة الاتصال حتى جاهزيتها
     depends_on:
       - mongo
@@ -65,3 +67,4 @@ services:
 volumes:
   mongo_data:
   uploads_data:
+  media_data:
