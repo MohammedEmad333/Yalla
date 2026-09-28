@@ -126,6 +126,12 @@ const orderSchema = new mongoose.Schema(
     cancelReason: { type: String, default: '' },
     delayWarnedAt: { type: Date, default: null },
     idempotencyKey: { type: String, default: undefined },
+
+    // حالة مخزون طلب المتجر. inventoryCommitted تعني أن الكميات خُصمت فعليًا،
+    // وinventoryReleasedAt تمنع إعادة المخزون مرتين عند تكرار الإلغاء/retry.
+    inventoryCommitted: { type: Boolean, default: false, index: true },
+    inventoryReleasedAt: { type: Date, default: null },
+
     rating: {
       stars: { type: Number, min: 1, max: 5 },
       comment: { type: String, default: '' },
@@ -179,11 +185,12 @@ orderSchema.pre('validate', function enforceMerchantDeliveryFlow(next) {
   return next();
 });
 
-// نحجز القيمة التقديرية كاملة لطلب المتجر قبل إدخاله قاعدة البيانات. هكذا لا يستطيع
-// طلب ثانٍ استهلاك المبلغ المحجوز حتى لو كان الرصيد الإجمالي ما يزال مرتفعًا.
-orderSchema.pre('save', async function reserveStoreOrderWalletHold(next) {
+// نحجز القيمة التقديرية لكل طلب قبل إدخاله قاعدة البيانات. هكذا لا يستطيع المستخدم
+// إنشاء عدة طلبات متزامنة اعتمادًا على الرصيد نفسه. طلب المتجر يحجز الأصناف + التوصيل،
+ // والطلب العادي يحجز أجرة التوصيل فقط.
+orderSchema.pre('save', async function reserveOrderWalletHold(next) {
   try {
-    if (!this.isNew || !this.store?.restaurant) return next();
+    if (!this.isNew) return next();
     const estimatedTotal = Math.max(
       0,
       (Number(this.price) || 0) +
@@ -277,7 +284,7 @@ orderSchema.post('save', async function createMerchantEarning(doc, next) {
   }
 });
 
-// كل حجز مالي لطلب متجر ينتهي تلقائيًا عند الإلغاء أو بعد نجاح التسليم.
+// كل حجز مالي لطلب ينتهي تلقائيًا عند الإلغاء أو بعد نجاح التسليم.
 // عند التسليم يكون captureOrderHold/chargeForOrder قد خصم المبلغ الحقيقي قبل الحفظ،
 // لذلك هذا الـhook لا يعيد أي مال؛ فقط يتأكد من عدم بقاء حجز نشط.
 orderSchema.post('save', async function releaseTerminalWalletHold(doc, next) {
@@ -321,11 +328,11 @@ orderSchema.post('save', async function rollbackCouponOnCancellation(doc, next) 
   }
 });
 
-// إذا فشل إنشاء طلب متجر بعد نجاح الحجز (مثل تعارض idempotency نادر)، لا نترك
+// إذا فشل إنشاء أي طلب بعد نجاح الحجز (مثل تعارض idempotency نادر)، لا نترك
 // مبلغًا محجوزًا لطلب لم يُحفظ.
 orderSchema.post('save', async function releaseHoldAfterSaveError(error, doc, next) {
   try {
-    if (error && doc?._id && doc?.store?.restaurant) {
+    if (error && doc?._id) {
       await walletHoldService.releaseOrderHold(doc._id, 'order_save_failed');
     }
   } catch (_) {
