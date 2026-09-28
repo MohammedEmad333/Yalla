@@ -303,6 +303,14 @@ async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus, 
     nextStatus = orderId;
     orderId = restaurantId;
     restaurantId = null;
+  } else if (
+    arguments.length === 4 &&
+    Object.prototype.hasOwnProperty.call(MERCHANT_TRANSITIONS, String(orderId))
+  ) {
+    pickupCode = nextStatus;
+    nextStatus = orderId;
+    orderId = restaurantId;
+    restaurantId = null;
   }
   const ctx = await requireMerchant(merchantId, restaurantId);
   let order = await Order.findOne({ _id: orderId, 'store.restaurant': ctx.restaurantId });
