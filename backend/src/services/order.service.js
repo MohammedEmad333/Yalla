@@ -145,7 +145,8 @@ function ensureCoordsFromNeighborhood(loc) {
  * (1) إنشاء طلب جديد من قِبل المستخدم.
  * الحالة الابتدائية = pending، ويُبثّ للأدمن ليتولّى الإسناد يدويًا.
  */
-async function createOrder(userId, payload, idempotencyKey) {
+async function createOrder(userId, payload, idempotencyKey, options = {}) {
+  const paymentRequired = options.paymentRequired === true;
   // منع التكرار: إن وُصل نفس المفتاح سابقًا نُعيد الطلب الأصلي بدل إنشاء نسخة.
   const key = normalizeIdempotencyKey(idempotencyKey);
   if (key) {
@@ -176,19 +177,24 @@ async function createOrder(userId, payload, idempotencyKey) {
 
   // طلب المطعم مدفوع بالكامل من المحفظة: قيمة الأصناف + أجرة التوصيل.
   // الطلب العادي يحتاج أجرة التوصيل فقط.
-  const { balance, availableBalance } = await walletService.getWalletSummary(userId);
   const itemsTotal = Number(payload.store?.itemsTotal) || 0;
   const estimatedTotal = price + itemsTotal;
   const reward = await rewardsService.reserveForOrder(userId, payload.rewardPoints, estimatedTotal);
   const requiredBalance = Math.max(0, estimatedTotal - reward.discountIls);
-  if (availableBalance < requiredBalance) {
-    await rewardsService.releaseReservation(userId, reward.pointsUsed);
-    throw httpError(
-      `الرصيد المتاح غير كافٍ لإتمام الطلب: المتاح ${availableBalance} ₪ من أصل ${balance} ₪ والمطلوب ${requiredBalance} ₪ بعد خصم النقاط` +
-        (itemsTotal > 0 ? ` (${itemsTotal} ₪ أصناف + ${price} ₪ توصيل - ${reward.discountIls} ₪ نقاط)` : '') +
-        ' — اشحن المحفظة ثم حاول مرة أخرى',
-      400
-    );
+
+  // الدفع الجديد يتم مباشرةً عبر جوال ولا يعتمد على رصيد محفظة الزبون.
+  // نبقي مسار المحفظة القديم متاحًا للطلبات التاريخية/التوافق إلى أن تكتمل الهجرة.
+  if (!paymentRequired) {
+    const { balance, availableBalance } = await walletService.getWalletSummary(userId);
+    if (availableBalance < requiredBalance) {
+      await rewardsService.releaseReservation(userId, reward.pointsUsed);
+      throw httpError(
+        `الرصيد المتاح غير كافٍ لإتمام الطلب: المتاح ${availableBalance} ₪ من أصل ${balance} ₪ والمطلوب ${requiredBalance} ₪ بعد خصم النقاط` +
+          (itemsTotal > 0 ? ` (${itemsTotal} ₪ أصناف + ${price} ₪ توصيل - ${reward.discountIls} ₪ نقاط)` : '') +
+          ' — اشحن المحفظة ثم حاول مرة أخرى',
+        400
+      );
+    }
   }
 
   // التحقّق من وقت الجدولة (اختياري)
@@ -222,18 +228,33 @@ async function createOrder(userId, payload, idempotencyKey) {
       rewardDiscount: reward.discountIls,
       rewardDiscountApplied: 0,
       idempotencyKey: key || undefined,
-      status: ORDER_STATUS.PENDING,
+      status: paymentRequired ? ORDER_STATUS.AWAITING_PAYMENT : ORDER_STATUS.PENDING,
+      payment: paymentRequired
+        ? {
+            method: 'jawwal_pay',
+            status: 'unpaid',
+            amount: requiredBalance,
+            currency: 'ILS',
+          }
+        : undefined,
     });
 
     // Wallet هو مسار الدفع الحالي للتطبيق. نحجز المبلغ قبل حفظ الطلب باستخدام
     // معرّف الطلب المولّد مسبقًا، مع إبقاء إنشاء Order المباشر متاحًا لمسارات COD/الإدارة.
-    if (requiredBalance > 0) {
+    if (!paymentRequired && requiredBalance > 0) {
       await walletHoldService.reserveOrderAmount(userId, order._id, requiredBalance);
       holdReserved = true;
     }
 
     await order.save();
     order.$locals.yallaCreatedNow = true;
+
+    // الطلب المدفوع مباشرة يبقى مسودة صامتة ولا يصل للمطعم/الكابتن/الأدمن
+    // قبل أن يؤكد مزوّد الدفع أن العملية PAID.
+    if (paymentRequired) {
+      await order.populate('user', 'name lastName phone');
+      return order;
+    }
   } catch (err) {
     // سباق: طلبان بنفس المفتاح في آنٍ واحد — نُعيد الأصلي عبر فهرس التفرّد
     if (holdReserved && order?._id) {
