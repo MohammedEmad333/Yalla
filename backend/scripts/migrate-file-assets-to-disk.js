@@ -46,7 +46,9 @@ async function run() {
   }
 
   const assets = await FileAsset.find({ data: { $exists: true, $ne: null } })
-    .select('+data storagePath contentType size')
+    // data ليس select:false في الـ schema؛ استخدام +data هنا يجعل Mongoose يعامله
+    // كـ override لمسار مخفي ولا يضمّنه فعليًا في هذا projection. نطلبه صراحةً.
+    .select('data storagePath contentType size')
     .sort({ _id: 1 })
     .limit(limit)
     .lean();
