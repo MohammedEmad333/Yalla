@@ -10,6 +10,8 @@ const restaurantService = require('./restaurant.service');
 const rewardsService = require('./rewards.service');
 const walletHoldService = require('./walletHold.service');
 const orderService = require('./order.service');
+const inventoryService = require('./inventory.service');
+const notifications = require('./notification.service');
 const settingsService = require('./settings.service');
 const env = require('../config/env');
 const logger = require('../utils/logger');
@@ -17,6 +19,7 @@ const io = require('../sockets/io');
 const { ORDER_STATUS, ROOMS, EVENTS } = require('../utils/constants');
 const { normalizePhone } = require('../utils/phone');
 const { isDue } = require('../utils/schedule');
+const { generateDeliveryCode, verifyDeliveryCode } = require('../utils/deliveryCode');
 
 function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
@@ -258,17 +261,6 @@ const MERCHANT_TRANSITIONS = {
   rejected: [],
 };
 
-async function restoreTrackedInventory(order) {
-  for (const line of order.store?.items || []) {
-    if (!line.menuItem || !(Number(line.qty) > 0)) continue;
-    const item = await MenuItem.findById(line.menuItem).select('trackInventory inventoryQty available');
-    if (!item?.trackInventory) continue;
-    item.inventoryQty = Math.max(0, Number(item.inventoryQty || 0)) + Number(line.qty);
-    item.available = true;
-    await item.save();
-  }
-}
-
 async function rejectNewOrder(order) {
   order.store.merchantStatus = 'rejected';
   order.store.merchantUpdatedAt = new Date();
@@ -280,7 +272,7 @@ async function rejectNewOrder(order) {
   // order.save() يحرر الحجز عبر Order hook؛ نعيد النداء هنا أيضًا كشبكة أمان
   // idempotent حتى لا يبقى رصيد محجوز إذا تعطل hook مؤقتًا.
   await Promise.all([
-    restoreTrackedInventory(order),
+    inventoryService.releaseOrderInventory(order._id),
     rewardsService.releaseReservation(order.user, Number(order.rewardPointsUsed) || 0),
     walletHoldService.releaseOrderHold(order._id, 'merchant_rejected'),
   ]);
@@ -306,8 +298,16 @@ async function dispatchAcceptedStoreOrder(order) {
   return Order.findById(order._id);
 }
 
-async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus) {
+async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus, pickupCode = '') {
   if (arguments.length === 3) {
+    nextStatus = orderId;
+    orderId = restaurantId;
+    restaurantId = null;
+  } else if (
+    arguments.length === 4 &&
+    Object.prototype.hasOwnProperty.call(MERCHANT_TRANSITIONS, String(orderId))
+  ) {
+    pickupCode = nextStatus;
     nextStatus = orderId;
     orderId = restaurantId;
     restaurantId = null;
@@ -322,15 +322,52 @@ async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus) 
   if (nextStatus === 'rejected') {
     await rejectNewOrder(order);
   } else {
-    if (nextStatus === 'handed_over' && !order.captain) {
-      throw httpError('لا يمكن تأكيد التسليم قبل تعيين كابتن للطلب');
+    if (nextStatus === 'ready') {
+      // ننشئ رمز استلام خاصًا بالمتجر؛ لا يظهر للتاجر، بل للكابتن فقط.
+      if (!order.pickupCode) order.pickupCode = generateDeliveryCode();
     }
-    if (nextStatus === 'handed_over' && order.status !== ORDER_STATUS.PICKED_UP) {
-      throw httpError('يجب أن يؤكد الكابتن استلام الطلب الجاهز أولًا');
+
+    if (nextStatus === 'handed_over') {
+      if (!order.captain) throw httpError('لا يمكن تسليم الطلب قبل تعيين كابتن');
+      if (order.status !== ORDER_STATUS.ACCEPTED) {
+        throw httpError('يجب أن يقبل الكابتن الطلب قبل تسليمه');
+      }
+      const withCode = await Order.findById(order._id).select('+pickupCode');
+      if (!withCode?.pickupCode || !verifyDeliveryCode(withCode.pickupCode, pickupCode)) {
+        throw httpError('رمز استلام الكابتن غير صحيح', 400);
+      }
     }
+
     order.store.merchantStatus = nextStatus;
     order.store.merchantUpdatedAt = new Date();
     await order.save();
+
+    // لا نُرسل رمز الاستلام ضمن حمولة الطلب العامة (عميل/تاجر/أدمن).
+    // نحتفظ به مؤقتًا فقط لإشعار الكابتن المستهدف.
+    const captainPickupCode = nextStatus === 'ready' ? String(order.pickupCode || '') : '';
+    if (captainPickupCode) order.pickupCode = undefined;
+
+    if (nextStatus === 'ready' && order.captain && captainPickupCode) {
+      const captainId = String(order.captain);
+      const code = captainPickupCode;
+      notifications.createInApp(captainId, 'captain', {
+        title: '🔑 رمز استلام الطلب من المتجر',
+        body: `أعطِ التاجر الرمز ${code} عند استلام الطلب.`,
+        data: { type: 'MERCHANT_PICKUP_CODE', orderId: String(order._id), pickupCode: code },
+      });
+      Captain.findById(captainId)
+        .select('deviceTokens')
+        .then((captain) => {
+          if (captain?.deviceTokens?.length) {
+            return notifications.sendToTokens(captain.deviceTokens, {
+              title: '🔑 رمز استلام الطلب من المتجر',
+              body: `رمز الاستلام: ${code}`,
+              data: { type: 'MERCHANT_PICKUP_CODE', orderId: String(order._id), pickupCode: code },
+            });
+          }
+        })
+        .catch(() => {});
+    }
 
     // طلب المتجر لا يصل للكباتن إلا بعد قبول المتجر. عند القبول نبدأ الإسناد/البث فورًا.
     if (nextStatus === 'accepted') {

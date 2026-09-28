@@ -11,6 +11,8 @@ const notifications = require('./notification.service');
 const settingsService = require('./settings.service');
 const chat = require('./chat.service');
 const walletService = require('./wallet.service');
+const walletHoldService = require('./walletHold.service');
+const inventoryService = require('./inventory.service');
 const rewardsService = require('./rewards.service');
 const captainWallet = require('./captainWallet.service');
 const adminService = require('./admin.service');
@@ -148,7 +150,10 @@ async function createOrder(userId, payload, idempotencyKey) {
   const key = normalizeIdempotencyKey(idempotencyKey);
   if (key) {
     const existing = await Order.findOne({ user: userId, idempotencyKey: key });
-    if (existing) return existing;
+    if (existing) {
+      existing.$locals.yallaCreatedNow = false;
+      return existing;
+    }
   }
 
   // تطبيع مواقع الاستلام/التسليم: نحفظ الحقول المُفصّلة (الحي/الشارع/التفاصيل/الملاحظة)
@@ -171,15 +176,15 @@ async function createOrder(userId, payload, idempotencyKey) {
 
   // طلب المطعم مدفوع بالكامل من المحفظة: قيمة الأصناف + أجرة التوصيل.
   // الطلب العادي يحتاج أجرة التوصيل فقط.
-  const { balance } = await walletService.getWalletSummary(userId);
+  const { balance, availableBalance } = await walletService.getWalletSummary(userId);
   const itemsTotal = Number(payload.store?.itemsTotal) || 0;
   const estimatedTotal = price + itemsTotal;
   const reward = await rewardsService.reserveForOrder(userId, payload.rewardPoints, estimatedTotal);
   const requiredBalance = Math.max(0, estimatedTotal - reward.discountIls);
-  if (balance < requiredBalance) {
+  if (availableBalance < requiredBalance) {
     await rewardsService.releaseReservation(userId, reward.pointsUsed);
     throw httpError(
-      `رصيد محفظتك غير كافٍ لإتمام الطلب: رصيدك ${balance} ₪ والمطلوب ${requiredBalance} ₪ بعد خصم النقاط` +
+      `الرصيد المتاح غير كافٍ لإتمام الطلب: المتاح ${availableBalance} ₪ من أصل ${balance} ₪ والمطلوب ${requiredBalance} ₪ بعد خصم النقاط` +
         (itemsTotal > 0 ? ` (${itemsTotal} ₪ أصناف + ${price} ₪ توصيل - ${reward.discountIls} ₪ نقاط)` : '') +
         ' — اشحن المحفظة ثم حاول مرة أخرى',
       400
@@ -198,8 +203,9 @@ async function createOrder(userId, payload, idempotencyKey) {
   const deliveryCode = generateDeliveryCode();
 
   let order;
+  let holdReserved = false;
   try {
-    order = await Order.create({
+    order = new Order({
       user: userId,
       pickup,
       dropoff,
@@ -218,11 +224,26 @@ async function createOrder(userId, payload, idempotencyKey) {
       idempotencyKey: key || undefined,
       status: ORDER_STATUS.PENDING,
     });
+
+    // Wallet هو مسار الدفع الحالي للتطبيق. نحجز المبلغ قبل حفظ الطلب باستخدام
+    // معرّف الطلب المولّد مسبقًا، مع إبقاء إنشاء Order المباشر متاحًا لمسارات COD/الإدارة.
+    if (requiredBalance > 0) {
+      await walletHoldService.reserveOrderAmount(userId, order._id, requiredBalance);
+      holdReserved = true;
+    }
+
+    await order.save();
+    order.$locals.yallaCreatedNow = true;
   } catch (err) {
     // سباق: طلبان بنفس المفتاح في آنٍ واحد — نُعيد الأصلي عبر فهرس التفرّد
+    if (holdReserved && order?._id) {
+      await walletHoldService.releaseOrderHold(order._id, 'order_create_failed').catch(() => {});
+    }
     if (err.code === 11000 && key) {
       await rewardsService.releaseReservation(userId, reward.pointsUsed);
-      return Order.findOne({ user: userId, idempotencyKey: key });
+      const original = await Order.findOne({ user: userId, idempotencyKey: key });
+      if (original) original.$locals.yallaCreatedNow = false;
+      return original;
     }
     await rewardsService.releaseReservation(userId, reward.pointsUsed);
     throw err;
@@ -644,6 +665,9 @@ async function claimOrder(captainId, orderId) {
   // اختفاء الطلب من شاشات بقيّة الكباتن
   emitOrderTaken(order._id, captain._id);
 
+  notifyCaptainPickupCodeIfReady(order._id, captain._id)
+    .catch((e) => logger.warn('تعذّر إرسال رمز استلام المتجر للكابتن:', e.message));
+
   return populated;
 }
 
@@ -743,6 +767,27 @@ function broadcastOrderUpdate(order) {
   }
   if (order.store?.restaurant) {
     io_.to(ROOMS.merchant(String(order.store.restaurant))).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  }
+}
+
+async function notifyCaptainPickupCodeIfReady(orderId, captainId) {
+  if (!orderId || !captainId) return;
+  const order = await Order.findById(orderId).select('+pickupCode store.merchantStatus store.restaurant');
+  if (!order?.store?.restaurant || order.store.merchantStatus !== 'ready' || !order.pickupCode) return;
+
+  const payload = {
+    title: '🔑 رمز استلام الطلب من المتجر',
+    body: `أعطِ التاجر الرمز ${order.pickupCode} عند استلام الطلب.`,
+    data: {
+      type: 'MERCHANT_PICKUP_CODE',
+      orderId: String(order._id),
+      pickupCode: String(order.pickupCode),
+    },
+  };
+  notifications.createInApp(captainId, 'captain', payload);
+  const captain = await Captain.findById(captainId).select('deviceTokens');
+  if (captain?.deviceTokens?.length) {
+    await notifications.sendToTokens(captain.deviceTokens, payload);
   }
 }
 
@@ -889,6 +934,11 @@ async function updateOrderStatus(
     await rewardsService.refundOrderPoints(order);
   }
   await order.save();
+
+  if (nextStatus === ORDER_STATUS.ACCEPTED && order.store?.restaurant) {
+    notifyCaptainPickupCodeIfReady(order._id, captainId)
+      .catch((e) => logger.warn('تعذّر إرسال رمز استلام المتجر للكابتن:', e.message));
+  }
 
   // عند التسليم أو الإلغاء: حرّر الكابتن ليصبح متاحًا مجددًا + احذف رسائل الدردشة (Card 18)
   if (nextStatus === ORDER_STATUS.DELIVERED || nextStatus === ORDER_STATUS.CANCELLED) {
@@ -1172,6 +1222,16 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
     throw Object.assign(new Error('غير مصرّح بإلغاء هذا الطلب'), { statusCode: 403 });
   }
 
+  // طلبات المتاجر: بعد قبول المتجر يصبح الطلب التزامًا ولا يمكن للعميل إلغاؤه.
+  // يبقى للأدمن حق الإلغاء للحالات الاستثنائية.
+  if (
+    actorRole === 'user' &&
+    order.store?.restaurant &&
+    (order.store?.merchantStatus || 'new') !== 'new'
+  ) {
+    throw httpError('لا يمكن إلغاء طلب المتجر بعد قبوله — تواصل مع الدعم عند وجود مشكلة', 409);
+  }
+
   // التحقّق من قابلية الإلغاء حسب الحالة
   if (!canUserCancel(order.status)) {
     throw Object.assign(
@@ -1206,6 +1266,11 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
     order.adminCredit = 0;
   }
   await order.save();
+
+  // إعادة مخزون طلب المتجر مرة واحدة فقط عند أي إلغاء من العميل أو الأدمن.
+  if (order.store?.restaurant) {
+    await inventoryService.releaseOrderInventory(order._id);
+  }
 
   // إن كان الطلب مبثوثًا لكل الكباتن (ولم يُقبَل بعد) نُخبرهم أنّه لم يعد متاحًا
   if (wasBroadcast) emitOrderTaken(order._id);
@@ -1428,8 +1493,7 @@ async function listOrders(rawQuery = {}, regions) {
   // نُشغّل جلب الصفحة والعدّ الكلّي بالتوازي
   const [items, total] = await Promise.all([
     Order.find(filter)
-      // Card 73: رمز التسليم يظهر للأدمن في صفحة بحث الطلبات (مسار أدمن فقط)
-      .select('+deliveryCode')
+      // رموز التحقق لا تُحمّل ضمن القوائم؛ الأدمن يكشفها عند الطلب عبر endpoint مخصص.
       .populate('user', 'name phone')
       .populate('captain', 'name phone status')
       // Card 47: نُحضِر أسماء الكباتن الذين رفضوا الطلب لعرض سبب الرفض في لوحة الأدمن
@@ -1441,6 +1505,34 @@ async function listOrders(rawQuery = {}, regions) {
   ]);
 
   return { items, total, page, pages: Math.ceil(total / limit) || 1 };
+}
+
+async function getAdminVerificationCodes(orderId, adminId, regions) {
+  const filter = withRegionScope({ _id: orderId }, regions);
+  const order = await Order.findOne(filter)
+    .select('+deliveryCode +pickupCode')
+    .lean();
+
+  if (!order) throw httpError('الطلب غير موجود أو خارج نطاق مناطقك', 404);
+
+  await writeLog({
+    order: order._id,
+    actorId: adminId,
+    actorRole: 'admin',
+    action: 'ORDER_VERIFICATION_CODES_REVEALED',
+    meta: {
+      hasDeliveryCode: !!order.deliveryCode,
+      hasPickupCode: !!order.pickupCode,
+    },
+  });
+
+  return {
+    orderId: String(order._id),
+    deliveryCode: order.deliveryCode || '',
+    pickupCode: order.pickupCode || '',
+    merchantStatus: order.store?.merchantStatus || '',
+    isStoreOrder: !!order.store?.restaurant,
+  };
 }
 
 // تجهيز صفوف الطلبات للتصدير CSV (بنفس مرشّحات البحث، بحدّ أعلى للأمان)
@@ -1543,6 +1635,7 @@ async function getCaptainOrders(captainId, { limit = 20, skip = 0 } = {}) {
   const orders = await Order.find({
     $or: [{ captain: captainId }, { 'rejections.captain': captainId }],
   })
+    .select('+pickupCode')
     // Card 100: نضمّ صورة صاحب الطلب ليراها الكابتن في أعلى الدردشة
     .populate('user', 'name lastName phone avatarUrl')
     .sort({ createdAt: -1 })
@@ -1555,6 +1648,12 @@ async function getCaptainOrders(captainId, { limit = 20, skip = 0 } = {}) {
     const rejectedByMe = !!mine && String(o.captain) !== String(captainId);
     // لا نُسرّب سجلّ رفض بقية الكباتن لهذا الكابتن
     const { rejections, ...rest } = o;
+    const mayShowPickupCode =
+      String(o.captain || '') === String(captainId) &&
+      o.status === ORDER_STATUS.ACCEPTED &&
+      o.store?.restaurant &&
+      o.store?.merchantStatus === 'ready';
+    if (!mayShowPickupCode) delete rest.pickupCode;
     return {
       ...rest,
       rejectedByMe,
@@ -1765,6 +1864,7 @@ module.exports = {
   sendDeliveryCodeToCaptain,
   getActiveOrders,
   listOrders,
+  getAdminVerificationCodes,
   getOrdersForExport,
   getAvailableCaptains,
   getAssignableCaptains,

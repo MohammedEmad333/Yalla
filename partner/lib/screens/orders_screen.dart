@@ -67,12 +67,68 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Future<void> _advance(Map<String, dynamic> order, String next) async {
+    String? pickupCode;
+    if (next == 'handed_over') {
+      pickupCode = await _askPickupCode();
+      if (pickupCode == null) return;
+    }
     try {
-      await widget.api.patch('/merchant/orders/${order['_id']}/status', {'status': next});
+      await widget.api.patch('/merchant/orders/${order['_id']}/status', {
+        'status': next,
+        if (pickupCode != null) 'pickupCode': pickupCode,
+      });
       await _load(silent: true);
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
     }
+  }
+
+  Future<String?> _askPickupCode() {
+    final controller = TextEditingController();
+    String? error;
+    return showDialog<String>(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setLocal) => AlertDialog(
+          title: const Text('تأكيد تسليم الطلب للكابتن'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('اطلب من الكابتن رمز الاستلام المكوّن من 4 أرقام قبل تسليم الطلب له.'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                textDirection: TextDirection.ltr,
+                textAlign: TextAlign.center,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '••••',
+                  counterText: '',
+                  errorText: error,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('تراجع')),
+            FilledButton(
+              onPressed: () {
+                final code = controller.text.trim();
+                if (!RegExp(r'^\d{4}$').hasMatch(code)) {
+                  setLocal(() => error = 'أدخل رمزًا صحيحًا من 4 أرقام');
+                  return;
+                }
+                Navigator.pop(context, code);
+              },
+              child: const Text('تأكيد التسليم'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   int _countFor(String status) => _orders.where((raw) {
@@ -251,6 +307,7 @@ class _OrderCard extends StatelessWidget {
     final status = store['merchantStatus']?.toString() ?? 'new';
     final action = next[status];
     final hasCaptain = order['captain'] != null;
+    final captainAccepted = order['status']?.toString() == 'accepted';
     final id = order['_id']?.toString() ?? '';
     final shortId = id.length > 6 ? id.substring(id.length - 6) : id;
 
@@ -346,11 +403,24 @@ class _OrderCard extends StatelessWidget {
                 icon: Icon(status == 'new' ? Icons.check_rounded : Icons.arrow_forward_rounded),
                 label: Text(action.$2),
               )
-            else if (status == 'ready' && hasCaptain)
+            else if (status == 'ready' && hasCaptain && captainAccepted)
               FilledButton.icon(
                 onPressed: () => onAdvance(order, 'handed_over'),
                 icon: const Icon(Icons.handshake_rounded),
-                label: const Text('تم التسليم للكابتن'),
+                label: const Text('تحقق من الرمز وسلّم للكابتن'),
+              )
+            else if (status == 'ready' && hasCaptain)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(color: const Color(0xFFFFF5E8), borderRadius: BorderRadius.circular(16)),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.schedule_rounded, color: Color(0xFFFF7A00)),
+                    SizedBox(width: 8),
+                    Text('بانتظار قبول الكابتن للطلب', style: TextStyle(color: Color(0xFF8A4A00), fontWeight: FontWeight.w800)),
+                  ],
+                ),
               )
             else if (status == 'handed_over')
               Container(

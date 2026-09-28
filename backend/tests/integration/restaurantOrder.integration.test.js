@@ -11,6 +11,7 @@ const { connect, disconnect, clearDb, state } = require('./setup');
 
 const User = require('../../src/models/User');
 const Captain = require('../../src/models/Captain');
+const Order = require('../../src/models/Order');
 const Restaurant = require('../../src/models/Restaurant');
 const MenuItem = require('../../src/models/MenuItem');
 const Merchant = require('../../src/models/Merchant');
@@ -217,8 +218,21 @@ test('تسليم طلب المطعم: يخصم كامل الفاتورة ويف�
   await markReady(merchant, order);
   await orderService.assignOrder(admin._id, order._id, captain._id);
   await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.ACCEPTED);
+
+  const readyWithCode = await Order.findById(order._id).select('+pickupCode');
+  assert.match(readyWithCode.pickupCode, /^\d{4}$/);
+
+  await assert.rejects(
+    () => merchantService.updateOrderStatus(merchant._id, order._id, 'handed_over', '0000'),
+    /رمز استلام/
+  );
+  await merchantService.updateOrderStatus(
+    merchant._id,
+    order._id,
+    'handed_over',
+    readyWithCode.pickupCode
+  );
   await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.PICKED_UP);
-  await merchantService.updateOrderStatus(merchant._id, order._id, 'handed_over');
   const delivered = await orderService.updateOrderStatus(
     captain._id, order._id, ORDER_STATUS.DELIVERED, '', order.deliveryCode, order.price
   );
@@ -246,6 +260,30 @@ test('تسليم طلب المطعم: يخصم كامل الفاتورة ويف�
   assert.equal((await walletService.getWalletSummary(user._id)).balance, after);
   assert.equal(await WalletTransaction.countDocuments({ idempotencyKey: `order-payment:${order._id}` }), 1);
   assert.equal(await MerchantEarning.countDocuments({ order: order._id }), 1);
+});
+
+test('العميل لا يستطيع إلغاء طلب متجر بعد قبول المتجر', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const user = await makeUser();
+  const restaurant = await makeRestaurant({ minOrder: 0 });
+  const merchant = await makeMerchant(restaurant, '9');
+  const item = await restaurantService.createMenuItem(restaurant._id, { name: 'طلب', price: 30 });
+  const order = await restaurantService.createRestaurantOrder(user._id, {
+    restaurantId: String(restaurant._id),
+    items: [{ menuItemId: String(item._id), qty: 1 }],
+    dropoff: DROPOFF,
+  });
+
+  await merchantService.updateOrderStatus(merchant._id, order._id, 'accepted');
+
+  await assert.rejects(
+    () => orderService.cancelOrder(
+      order._id,
+      { actorId: user._id, actorRole: 'user' },
+      'غيّرت رأيي'
+    ),
+    /لا يمكن إلغاء طلب المتجر بعد قبوله/
+  );
 });
 
 test('إلغاء طلب متجر يعيد أي دفعة سابقة مرة واحدة ويحرر الحجز', async (t) => {

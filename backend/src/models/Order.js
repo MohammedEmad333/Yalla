@@ -71,6 +71,8 @@ const orderSchema = new mongoose.Schema(
     price: { type: Number, default: 0 },
     finalPrice: { type: Number, default: 0 },
     deliveryCode: { type: String, default: '', select: false },
+    // رمز استلام المتجر: يظهر للكابتن فقط ويعطيه للتاجر عند استلام الطلب.
+    pickupCode: { type: String, default: '', select: false },
     distanceKm: { type: Number, default: 0 },
     etaMinutes: { type: Number, default: 0 },
     scheduledAt: { type: Date, default: null, index: true },
@@ -126,6 +128,12 @@ const orderSchema = new mongoose.Schema(
     cancelReason: { type: String, default: '' },
     delayWarnedAt: { type: Date, default: null },
     idempotencyKey: { type: String, default: undefined },
+
+    // حالة مخزون طلب المتجر. inventoryCommitted تعني أن الكميات خُصمت فعليًا،
+    // وinventoryReleasedAt تمنع إعادة المخزون مرتين عند تكرار الإلغاء/retry.
+    inventoryCommitted: { type: Boolean, default: false, index: true },
+    inventoryReleasedAt: { type: Date, default: null },
+
     rating: {
       stars: { type: Number, min: 1, max: 5 },
       comment: { type: String, default: '' },
@@ -136,7 +144,7 @@ const orderSchema = new mongoose.Schema(
 );
 
 const MERCHANT_DISPATCH_ALLOWED = ['accepted', 'preparing', 'ready', 'handed_over'];
-const MERCHANT_PICKUP_ALLOWED = ['ready', 'handed_over'];
+const MERCHANT_PICKUP_ALLOWED = ['handed_over'];
 
 orderSchema.pre('validate', function enforceMerchantDeliveryFlow(next) {
   const isStoreOrder = !!this.store?.restaurant;
@@ -160,7 +168,7 @@ orderSchema.pre('validate', function enforceMerchantDeliveryFlow(next) {
     this.status === ORDER_STATUS.PICKED_UP &&
     !MERCHANT_PICKUP_ALLOWED.includes(merchantStatus)
   ) {
-    return next(new Error('لا يمكن للكابتن استلام طلب المتجر قبل أن يصبح جاهزًا'));
+    return next(new Error('لا يمكن للكابتن تأكيد الاستلام قبل أن يؤكد المتجر تسليم الطلب برمز الاستلام'));
   }
 
   if (merchantStatus === 'handed_over' && !this.captain) {
@@ -177,26 +185,6 @@ orderSchema.pre('validate', function enforceMerchantDeliveryFlow(next) {
   }
 
   return next();
-});
-
-// نحجز القيمة التقديرية كاملة لطلب المتجر قبل إدخاله قاعدة البيانات. هكذا لا يستطيع
-// طلب ثانٍ استهلاك المبلغ المحجوز حتى لو كان الرصيد الإجمالي ما يزال مرتفعًا.
-orderSchema.pre('save', async function reserveStoreOrderWalletHold(next) {
-  try {
-    if (!this.isNew || !this.store?.restaurant) return next();
-    const estimatedTotal = Math.max(
-      0,
-      (Number(this.price) || 0) +
-        (Number(this.store?.itemsTotal) || 0) -
-        (Number(this.rewardDiscount) || 0)
-    );
-    if (estimatedTotal > 0) {
-      await walletHoldService.reserveOrderAmount(this.user, this._id, estimatedTotal);
-    }
-    return next();
-  } catch (err) {
-    return next(err);
-  }
 });
 
 // findOneAndUpdate لا يمر عبر document validation hooks. نضيف حارسًا ذريًا هنا حتى
@@ -277,7 +265,7 @@ orderSchema.post('save', async function createMerchantEarning(doc, next) {
   }
 });
 
-// كل حجز مالي لطلب متجر ينتهي تلقائيًا عند الإلغاء أو بعد نجاح التسليم.
+// كل حجز مالي لطلب ينتهي تلقائيًا عند الإلغاء أو بعد نجاح التسليم.
 // عند التسليم يكون captureOrderHold/chargeForOrder قد خصم المبلغ الحقيقي قبل الحفظ،
 // لذلك هذا الـhook لا يعيد أي مال؛ فقط يتأكد من عدم بقاء حجز نشط.
 orderSchema.post('save', async function releaseTerminalWalletHold(doc, next) {
@@ -319,19 +307,6 @@ orderSchema.post('save', async function rollbackCouponOnCancellation(doc, next) 
     // لا نفشل إلغاء الطلب بسبب فشل bookkeeping للكوبون.
     return next();
   }
-});
-
-// إذا فشل إنشاء طلب متجر بعد نجاح الحجز (مثل تعارض idempotency نادر)، لا نترك
-// مبلغًا محجوزًا لطلب لم يُحفظ.
-orderSchema.post('save', async function releaseHoldAfterSaveError(error, doc, next) {
-  try {
-    if (error && doc?._id && doc?.store?.restaurant) {
-      await walletHoldService.releaseOrderHold(doc._id, 'order_save_failed');
-    }
-  } catch (_) {
-    // نمرر الخطأ الأصلي دائمًا.
-  }
-  return next(error);
 });
 
 orderSchema.index(

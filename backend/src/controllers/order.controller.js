@@ -183,6 +183,21 @@ async function listOrders(req, res, next) {
   }
 }
 
+
+// الأدمن يكشف رموز التحقق يدويًا. الوصول يُسجّل في Audit Log ولا تُعاد الرموز في القوائم.
+async function getVerificationCodes(req, res, next) {
+  try {
+    const result = await orderService.getAdminVerificationCodes(
+      req.params.orderId,
+      req.auth.id,
+      req.auth.regions
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // الأدمن يصدّر الطلبات (بنفس الفلاتر) كملفّ CSV
 async function exportOrders(req, res, next) {
   try {
@@ -269,9 +284,10 @@ async function getOrder(req, res, next) {
     );
     // نُرفق خطوات الخطّ الزمني المحسوبة مع بيانات الطلب
     const payload = { ...order.toObject(), timelineSteps: buildTimeline(order) };
-    // Card 2: رمز التسليم يظهر لصاحب الطلب (والأدمن) فقط — يُحذف من ردّ الكابتن
-    // الذي يتحقّق منه عند التسليم ولا يجب أن يراه مسبقًا.
-    if (req.auth.role === 'captain') delete payload.deliveryCode;
+    // رمز التسليم يظهر لصاحب الطلب فقط. الأدمن يكشف الرموز عبر endpoint مخصص
+    // حتى يُسجّل الوصول في Audit Log، والكابتن لا يراه مسبقًا.
+    if (req.auth.role !== 'user') delete payload.deliveryCode;
+    delete payload.pickupCode;
     res.json(payload);
   } catch (err) {
     next(err);
@@ -320,6 +336,7 @@ module.exports = {
   sendCode,
   getActiveOrders,
   listOrders,
+  getVerificationCodes,
   exportOrders,
   getAvailableCaptains,
   getAssignableCaptains,
