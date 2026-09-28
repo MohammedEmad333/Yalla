@@ -30,7 +30,17 @@ async function uploadMenuItemImage(req, res, next) {
   } catch (err) { next(err); }
 }
 async function listOrders(req, res, next) { try { res.json(await merchantService.listOrders(req.auth.id, branchId(req), req.query)); } catch (err) { next(err); } }
-async function updateOrderStatus(req, res, next) { try { res.json(await merchantService.updateOrderStatus(req.auth.id, branchId(req), req.params.orderId, req.body.status)); } catch (err) { next(err); } }
+async function updateOrderStatus(req, res, next) {
+  try {
+    res.json(await merchantService.updateOrderStatus(
+      req.auth.id,
+      branchId(req),
+      req.params.orderId,
+      req.body.status,
+      req.body.pickupCode
+    ));
+  } catch (err) { next(err); }
+}
 async function inventorySummary(req, res, next) { try { res.json(await merchantService.inventorySummary(req.auth.id, branchId(req))); } catch (err) { next(err); } }
 async function adjustInventory(req, res, next) { try { res.json(await merchantService.adjustInventory(req.auth.id, branchId(req), req.params.itemId, req.body.delta)); } catch (err) { next(err); } }
 
