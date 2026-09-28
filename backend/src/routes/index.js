@@ -21,7 +21,6 @@ router.use('/auth', require('./auth.routes'));
 router.use('/orders', require('./order.routes'));
 router.use('/restaurants', require('./restaurant.routes'));
 router.use('/captains', require('./captain.routes'));
-router.use('/wallet', require('./wallet.routes'));
 router.use('/payments', require('./payment.routes'));
 router.use('/support', require('./support.routes'));
 router.use('/bot', require('./bot.routes'));
