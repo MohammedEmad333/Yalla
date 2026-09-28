@@ -38,8 +38,8 @@ async function bootstrap() {
   notifications.isEnabled();
 
   // 5) بدء الاستماع
-  server.listen(env.port, () => {
-    logger.info(`🚀 Yalla API يعمل على المنفذ ${env.port} (${env.nodeEnv})`);
+  server.listen(env.port, env.apiBindHost, () => {
+    logger.info(`🚀 Yalla API يعمل على ${env.apiBindHost}:${env.port} (${env.nodeEnv})`);
   });
 }
 
