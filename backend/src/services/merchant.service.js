@@ -314,12 +314,6 @@ async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus, 
   if (nextStatus === 'rejected') {
     await rejectNewOrder(order);
   } else {
-    if (nextStatus === 'handed_over' && !order.captain) {
-      throw httpError('لا يمكن تأكيد التسليم قبل تعيين كابتن للطلب');
-    }
-    if (nextStatus === 'handed_over' && order.status !== ORDER_STATUS.PICKED_UP) {
-      throw httpError('يجب أن يؤكد الكابتن استلام الطلب الجاهز أولًا');
-    }
     if (nextStatus === 'ready') {
       // ننشئ رمز استلام خاصًا بالمتجر؛ لا يظهر للتاجر، بل للكابتن فقط.
       if (!order.pickupCode) order.pickupCode = generateDeliveryCode();
@@ -340,9 +334,14 @@ async function updateOrderStatus(merchantId, restaurantId, orderId, nextStatus, 
     order.store.merchantUpdatedAt = new Date();
     await order.save();
 
-    if (nextStatus === 'ready' && order.captain) {
+    // لا نُرسل رمز الاستلام ضمن حمولة الطلب العامة (عميل/تاجر/أدمن).
+    // نحتفظ به مؤقتًا فقط لإشعار الكابتن المستهدف.
+    const captainPickupCode = nextStatus === 'ready' ? String(order.pickupCode || '') : '';
+    if (captainPickupCode) order.pickupCode = undefined;
+
+    if (nextStatus === 'ready' && order.captain && captainPickupCode) {
       const captainId = String(order.captain);
-      const code = order.pickupCode;
+      const code = captainPickupCode;
       notifications.createInApp(captainId, 'captain', {
         title: '🔑 رمز استلام الطلب من المتجر',
         body: `أعطِ التاجر الرمز ${code} عند استلام الطلب.`,
