@@ -107,6 +107,14 @@ Cloudflare Access can be added later to the **admin web frontend** (`admin.yalla
 
 ## 7. Close direct origin access
 
+On the shared Oracle host, Caddy also serves EduBridge, so **do not stop the Caddy container or close ports 80/443 globally** just to harden Yalla.
+
+For Yalla specifically:
+
+- set `API_BIND_HOST=127.0.0.1` in `~/yalla.env` and redeploy;
+- remove the Yalla hostnames (`api.yalladelivery.org` and `yalla-api.duckdns.org`) from Caddy while keeping the EduBridge blocks;
+- keep Cloudflare Tunnel routing `api.yalladelivery.org` to `http://localhost:4000`.
+
 After `api.yalladelivery.org` has been stable through the tunnel:
 
 1. Confirm SSH access is working.

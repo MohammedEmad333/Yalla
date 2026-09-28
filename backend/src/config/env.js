@@ -56,6 +56,9 @@ validateProductionEnv();
 
 const env = {
   port: parseInt(process.env.PORT, 10) || 4000,
+  // عنوان الاستماع. في Oracle production نضبطه إلى 127.0.0.1 حتى لا يكون
+  // المنفذ 4000 مكشوفًا مباشرة؛ Cloudflare Tunnel وCaddy المحليان يصلان له عبر loopback.
+  apiBindHost: process.env.API_BIND_HOST || '0.0.0.0',
   nodeEnv: process.env.NODE_ENV || 'development',
   mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/yalla',
   jwtSecret: process.env.JWT_SECRET || 'change_me_super_secret',

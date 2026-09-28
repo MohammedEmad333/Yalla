@@ -12,6 +12,7 @@
 #   BRANCH=main            الفرع الذي يُسحب
 #   ENV_FILE=~/yalla.env   ملفّ متغيّرات البيئة
 #   FCM_FILE=~/fcm.json    ملفّ اعتماد FCM (يُربَط للقراءة فقط إن وُجد)
+#   يجب أن يحتوي ENV_FILE على API_BIND_HOST=127.0.0.1 في Oracle production.
 #   SEED_RESTAURANTS=1     تعبئة مطاعم تجريبية بعد النشر (آمن للتكرار)
 set -euo pipefail
 
@@ -43,6 +44,9 @@ JWT_VALUE="$(env_value JWT_SECRET)"
 CORS_VALUE="$(env_value CORS_ORIGIN)"
 [ -n "$CORS_VALUE" ] || fail "CORS_ORIGIN غير مضبوط في $ENV_FILE"
 [ "$CORS_VALUE" != "*" ] || fail "CORS_ORIGIN=* غير مسموح في الإنتاج؛ حدّد نطاقات Yalla الموثوقة"
+
+BIND_VALUE="$(env_value API_BIND_HOST)"
+[ "$BIND_VALUE" = "127.0.0.1" ] || fail "API_BIND_HOST يجب أن يكون 127.0.0.1 في Oracle production حتى لا ينكشف المنفذ 4000 مباشرة"
 
 say "سحب آخر كود من الفرع $BRANCH"
 cd "$ROOT"
