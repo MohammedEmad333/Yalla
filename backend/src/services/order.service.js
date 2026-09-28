@@ -11,6 +11,7 @@ const notifications = require('./notification.service');
 const settingsService = require('./settings.service');
 const chat = require('./chat.service');
 const walletService = require('./wallet.service');
+const inventoryService = require('./inventory.service');
 const rewardsService = require('./rewards.service');
 const captainWallet = require('./captainWallet.service');
 const adminService = require('./admin.service');
@@ -148,7 +149,10 @@ async function createOrder(userId, payload, idempotencyKey) {
   const key = normalizeIdempotencyKey(idempotencyKey);
   if (key) {
     const existing = await Order.findOne({ user: userId, idempotencyKey: key });
-    if (existing) return existing;
+    if (existing) {
+      existing.$locals.yallaCreatedNow = false;
+      return existing;
+    }
   }
 
   // تطبيع مواقع الاستلام/التسليم: نحفظ الحقول المُفصّلة (الحي/الشارع/التفاصيل/الملاحظة)
@@ -171,15 +175,15 @@ async function createOrder(userId, payload, idempotencyKey) {
 
   // طلب المطعم مدفوع بالكامل من المحفظة: قيمة الأصناف + أجرة التوصيل.
   // الطلب العادي يحتاج أجرة التوصيل فقط.
-  const { balance } = await walletService.getWalletSummary(userId);
+  const { balance, availableBalance } = await walletService.getWalletSummary(userId);
   const itemsTotal = Number(payload.store?.itemsTotal) || 0;
   const estimatedTotal = price + itemsTotal;
   const reward = await rewardsService.reserveForOrder(userId, payload.rewardPoints, estimatedTotal);
   const requiredBalance = Math.max(0, estimatedTotal - reward.discountIls);
-  if (balance < requiredBalance) {
+  if (availableBalance < requiredBalance) {
     await rewardsService.releaseReservation(userId, reward.pointsUsed);
     throw httpError(
-      `رصيد محفظتك غير كافٍ لإتمام الطلب: رصيدك ${balance} ₪ والمطلوب ${requiredBalance} ₪ بعد خصم النقاط` +
+      `رصيد محفظتك المتاح غير كافٍ لإتمام الطلب: المتاح ${availableBalance} ₪ من أصل ${balance} ₪ والمطلوب ${requiredBalance} ₪ بعد خصم النقاط` +
         (itemsTotal > 0 ? ` (${itemsTotal} ₪ أصناف + ${price} ₪ توصيل - ${reward.discountIls} ₪ نقاط)` : '') +
         ' — اشحن المحفظة ثم حاول مرة أخرى',
       400
@@ -218,11 +222,14 @@ async function createOrder(userId, payload, idempotencyKey) {
       idempotencyKey: key || undefined,
       status: ORDER_STATUS.PENDING,
     });
+    order.$locals.yallaCreatedNow = true;
   } catch (err) {
     // سباق: طلبان بنفس المفتاح في آنٍ واحد — نُعيد الأصلي عبر فهرس التفرّد
     if (err.code === 11000 && key) {
       await rewardsService.releaseReservation(userId, reward.pointsUsed);
-      return Order.findOne({ user: userId, idempotencyKey: key });
+      const original = await Order.findOne({ user: userId, idempotencyKey: key });
+      if (original) original.$locals.yallaCreatedNow = false;
+      return original;
     }
     await rewardsService.releaseReservation(userId, reward.pointsUsed);
     throw err;
@@ -1206,6 +1213,11 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
     order.adminCredit = 0;
   }
   await order.save();
+
+  // إعادة مخزون طلب المتجر مرة واحدة فقط عند أي إلغاء من العميل أو الأدمن.
+  if (order.store?.restaurant) {
+    await inventoryService.releaseOrderInventory(order._id);
+  }
 
   // إن كان الطلب مبثوثًا لكل الكباتن (ولم يُقبَل بعد) نُخبرهم أنّه لم يعد متاحًا
   if (wasBroadcast) emitOrderTaken(order._id);
