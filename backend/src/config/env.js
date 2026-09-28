@@ -88,8 +88,6 @@ const env = {
     authMode: (process.env.JAWWAL_PAY_AUTH_MODE || 'basic').toLowerCase(),
     username: process.env.JAWWAL_PAY_USERNAME || '',
     password: process.env.JAWWAL_PAY_PASSWORD || '',
-    clientId: process.env.JAWWAL_PAY_CLIENT_ID || '',
-    clientSecret: process.env.JAWWAL_PAY_CLIENT_SECRET || '',
     privateKey: process.env.JAWWAL_PAY_PRIVATE_KEY || '',
   },
 };
