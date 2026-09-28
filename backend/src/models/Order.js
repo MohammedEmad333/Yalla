@@ -71,6 +71,8 @@ const orderSchema = new mongoose.Schema(
     price: { type: Number, default: 0 },
     finalPrice: { type: Number, default: 0 },
     deliveryCode: { type: String, default: '', select: false },
+    // رمز استلام المتجر: يظهر للكابتن فقط ويعطيه للتاجر عند استلام الطلب.
+    pickupCode: { type: String, default: '', select: false },
     distanceKm: { type: Number, default: 0 },
     etaMinutes: { type: Number, default: 0 },
     scheduledAt: { type: Date, default: null, index: true },
@@ -142,7 +144,7 @@ const orderSchema = new mongoose.Schema(
 );
 
 const MERCHANT_DISPATCH_ALLOWED = ['accepted', 'preparing', 'ready', 'handed_over'];
-const MERCHANT_PICKUP_ALLOWED = ['ready', 'handed_over'];
+const MERCHANT_PICKUP_ALLOWED = ['handed_over'];
 
 orderSchema.pre('validate', function enforceMerchantDeliveryFlow(next) {
   const isStoreOrder = !!this.store?.restaurant;
@@ -166,7 +168,7 @@ orderSchema.pre('validate', function enforceMerchantDeliveryFlow(next) {
     this.status === ORDER_STATUS.PICKED_UP &&
     !MERCHANT_PICKUP_ALLOWED.includes(merchantStatus)
   ) {
-    return next(new Error('لا يمكن للكابتن استلام طلب المتجر قبل أن يصبح جاهزًا'));
+    return next(new Error('لا يمكن للكابتن تأكيد الاستلام قبل أن يؤكد المتجر تسليم الطلب برمز الاستلام'));
   }
 
   if (merchantStatus === 'handed_over' && !this.captain) {
