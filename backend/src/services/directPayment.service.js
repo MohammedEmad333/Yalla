@@ -53,10 +53,11 @@ async function startOrderPayment(userId, orderId) {
 
   const idempotencyKey = `jawwal-order:${order._id}`;
   const created = await jawwal.createPayment({
-    phone: user.phone,
+    mobile: user.phone,
     amount,
     externalReference: String(order._id),
     idempotencyKey,
+    description: `Yalla order ${String(order._id)}`,
   });
 
   existing = await OrderPayment.findOneAndUpdate(
