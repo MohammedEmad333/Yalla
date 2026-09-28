@@ -10,6 +10,7 @@ const restaurantService = require('./restaurant.service');
 const rewardsService = require('./rewards.service');
 const walletHoldService = require('./walletHold.service');
 const orderService = require('./order.service');
+const inventoryService = require('./inventory.service');
 const settingsService = require('./settings.service');
 const env = require('../config/env');
 const logger = require('../utils/logger');
@@ -258,17 +259,6 @@ const MERCHANT_TRANSITIONS = {
   rejected: [],
 };
 
-async function restoreTrackedInventory(order) {
-  for (const line of order.store?.items || []) {
-    if (!line.menuItem || !(Number(line.qty) > 0)) continue;
-    const item = await MenuItem.findById(line.menuItem).select('trackInventory inventoryQty available');
-    if (!item?.trackInventory) continue;
-    item.inventoryQty = Math.max(0, Number(item.inventoryQty || 0)) + Number(line.qty);
-    item.available = true;
-    await item.save();
-  }
-}
-
 async function rejectNewOrder(order) {
   order.store.merchantStatus = 'rejected';
   order.store.merchantUpdatedAt = new Date();
@@ -280,7 +270,7 @@ async function rejectNewOrder(order) {
   // order.save() يحرر الحجز عبر Order hook؛ نعيد النداء هنا أيضًا كشبكة أمان
   // idempotent حتى لا يبقى رصيد محجوز إذا تعطل hook مؤقتًا.
   await Promise.all([
-    restoreTrackedInventory(order),
+    inventoryService.releaseOrderInventory(order._id),
     rewardsService.releaseReservation(order.user, Number(order.rewardPointsUsed) || 0),
     walletHoldService.releaseOrderHold(order._id, 'merchant_rejected'),
   ]);
