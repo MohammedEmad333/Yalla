@@ -213,7 +213,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     setState(() => _submitting = true);
     try {
       final usedPoints = _usablePoints;
-      await widget.api.post('/orders', {
+      final raw = await widget.api.post('/orders', {
         'pickup': _pickup.toJson(),
         'dropoff': _dropoff.toJson(),
         'packageNote': _noteController.text,
@@ -222,12 +222,26 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           'scheduledAt': _scheduledAt!.toUtc().toIso8601String(),
       });
       if (!mounted) return;
+
+      final created = Map<String, dynamic>.from(raw as Map);
+      final orderId = (created['_id'] ?? created['id'] ?? '').toString();
+      final payment = Map<String, dynamic>.from((created['paymentSession'] as Map?) ?? const {});
+      if (orderId.isEmpty || payment['status'] != 'otp_sent') {
+        throw ApiException(502, 'تعذّر بدء الدفع عبر جوال');
+      }
+
+      final paid = await _confirmJawwalPayment(
+        orderId: orderId,
+        amount: (payment['amount'] as num?) ?? (_quotePrice ?? 0),
+      );
+      if (!paid || !mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             usedPoints > 0
-                ? 'تم إنشاء الطلب واستخدام $usedPoints نقطة كخصم — ستصلك رسالة برمز التسليم'
-                : 'تم إنشاء الطلب — ستصلك رسالة برمز التسليم',
+                ? 'تم الدفع وإنشاء الطلب واستخدام $usedPoints نقطة كخصم'
+                : 'تم الدفع وإنشاء الطلب بنجاح',
           ),
         ),
       );
@@ -248,6 +262,100 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  Future<bool> _confirmJawwalPayment({
+    required String orderId,
+    required num amount,
+  }) async {
+    final otp = TextEditingController();
+    var confirming = false;
+    String? errorText;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.account_balance_wallet_outlined),
+              SizedBox(width: 8),
+              Text('الدفع عبر جوال'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('المبلغ: $amount ₪'),
+              const SizedBox(height: 8),
+              const Text('أرسلنا رمز تحقق إلى رقم جوال المرتبط بحسابك. أدخله لتأكيد الدفع وإرسال الطلب.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: otp,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                maxLength: 8,
+                decoration: InputDecoration(
+                  labelText: 'رمز التحقق',
+                  errorText: errorText,
+                  counterText: '',
+                  prefixIcon: const Icon(Icons.sms_outlined),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: confirming
+                  ? null
+                  : () async {
+                      await widget.api.post('/payments/jawwal/orders/$orderId/cancel', const {});
+                      if (dialogContext.mounted) Navigator.of(dialogContext).pop(false);
+                    },
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: confirming
+                  ? null
+                  : () async {
+                      final code = otp.text.trim();
+                      if (code.length < 4) {
+                        setDialogState(() => errorText = 'أدخل رمز التحقق');
+                        return;
+                      }
+                      setDialogState(() {
+                        confirming = true;
+                        errorText = null;
+                      });
+                      try {
+                        await widget.api.post('/payments/jawwal/orders/$orderId/confirm', {'otp': code});
+                        if (dialogContext.mounted) Navigator.of(dialogContext).pop(true);
+                      } on ApiException catch (e) {
+                        if (!dialogContext.mounted) return;
+                        setDialogState(() {
+                          confirming = false;
+                          errorText = e.message;
+                        });
+                      }
+                    },
+              child: confirming
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('تأكيد الدفع'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    otp.dispose();
+    return result == true;
   }
 
   @override
@@ -517,7 +625,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                       ],
                       const SizedBox(height: 4),
                       Text(
-                        'السعر النهائي يحدده الكابتن عند التسليم ولا يتجاوز التقريبي.',
+                        'هذه هي قيمة التوصيل التي سيتم دفعها عبر جوال قبل إرسال الطلب.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -587,7 +695,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           _priceRow('خصم نقاط Yalla', '-$_rewardDiscount ₪'),
           const Divider(height: 20),
           _priceRow(
-            'المطلوب من المحفظة تقريبًا',
+            'المطلوب عبر جوال',
             '$afterPoints ₪',
             bold: true,
           ),
@@ -631,7 +739,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'السعر التقريبي',
+                          'قيمة التوصيل',
                           style: TextStyle(
                             fontSize: 11,
                             color: scheme.onSurfaceVariant,

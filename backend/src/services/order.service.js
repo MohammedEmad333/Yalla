@@ -145,7 +145,8 @@ function ensureCoordsFromNeighborhood(loc) {
  * (1) إنشاء طلب جديد من قِبل المستخدم.
  * الحالة الابتدائية = pending، ويُبثّ للأدمن ليتولّى الإسناد يدويًا.
  */
-async function createOrder(userId, payload, idempotencyKey) {
+async function createOrder(userId, payload, idempotencyKey, options = {}) {
+  const paymentRequired = options.paymentRequired === true;
   // منع التكرار: إن وُصل نفس المفتاح سابقًا نُعيد الطلب الأصلي بدل إنشاء نسخة.
   const key = normalizeIdempotencyKey(idempotencyKey);
   if (key) {
@@ -176,19 +177,24 @@ async function createOrder(userId, payload, idempotencyKey) {
 
   // طلب المطعم مدفوع بالكامل من المحفظة: قيمة الأصناف + أجرة التوصيل.
   // الطلب العادي يحتاج أجرة التوصيل فقط.
-  const { balance, availableBalance } = await walletService.getWalletSummary(userId);
   const itemsTotal = Number(payload.store?.itemsTotal) || 0;
   const estimatedTotal = price + itemsTotal;
   const reward = await rewardsService.reserveForOrder(userId, payload.rewardPoints, estimatedTotal);
   const requiredBalance = Math.max(0, estimatedTotal - reward.discountIls);
-  if (availableBalance < requiredBalance) {
-    await rewardsService.releaseReservation(userId, reward.pointsUsed);
-    throw httpError(
-      `الرصيد المتاح غير كافٍ لإتمام الطلب: المتاح ${availableBalance} ₪ من أصل ${balance} ₪ والمطلوب ${requiredBalance} ₪ بعد خصم النقاط` +
-        (itemsTotal > 0 ? ` (${itemsTotal} ₪ أصناف + ${price} ₪ توصيل - ${reward.discountIls} ₪ نقاط)` : '') +
-        ' — اشحن المحفظة ثم حاول مرة أخرى',
-      400
-    );
+
+  // الدفع الجديد يتم مباشرةً عبر جوال ولا يعتمد على رصيد محفظة الزبون.
+  // نبقي مسار المحفظة القديم متاحًا للطلبات التاريخية/التوافق إلى أن تكتمل الهجرة.
+  if (!paymentRequired) {
+    const { balance, availableBalance } = await walletService.getWalletSummary(userId);
+    if (availableBalance < requiredBalance) {
+      await rewardsService.releaseReservation(userId, reward.pointsUsed);
+      throw httpError(
+        `الرصيد المتاح غير كافٍ لإتمام الطلب: المتاح ${availableBalance} ₪ من أصل ${balance} ₪ والمطلوب ${requiredBalance} ₪ بعد خصم النقاط` +
+          (itemsTotal > 0 ? ` (${itemsTotal} ₪ أصناف + ${price} ₪ توصيل - ${reward.discountIls} ₪ نقاط)` : '') +
+          ' — اشحن المحفظة ثم حاول مرة أخرى',
+        400
+      );
+    }
   }
 
   // التحقّق من وقت الجدولة (اختياري)
@@ -222,18 +228,33 @@ async function createOrder(userId, payload, idempotencyKey) {
       rewardDiscount: reward.discountIls,
       rewardDiscountApplied: 0,
       idempotencyKey: key || undefined,
-      status: ORDER_STATUS.PENDING,
+      status: paymentRequired ? ORDER_STATUS.AWAITING_PAYMENT : ORDER_STATUS.PENDING,
+      payment: paymentRequired
+        ? {
+            method: 'jawwal_pay',
+            status: 'unpaid',
+            amount: requiredBalance,
+            currency: 'ILS',
+          }
+        : undefined,
     });
 
     // Wallet هو مسار الدفع الحالي للتطبيق. نحجز المبلغ قبل حفظ الطلب باستخدام
     // معرّف الطلب المولّد مسبقًا، مع إبقاء إنشاء Order المباشر متاحًا لمسارات COD/الإدارة.
-    if (requiredBalance > 0) {
+    if (!paymentRequired && requiredBalance > 0) {
       await walletHoldService.reserveOrderAmount(userId, order._id, requiredBalance);
       holdReserved = true;
     }
 
     await order.save();
     order.$locals.yallaCreatedNow = true;
+
+    // الطلب المدفوع مباشرة يبقى مسودة صامتة ولا يصل للمطعم/الكابتن/الأدمن
+    // قبل أن يؤكد مزوّد الدفع أن العملية PAID.
+    if (paymentRequired) {
+      await order.populate('user', 'name lastName phone');
+      return order;
+    }
   } catch (err) {
     // سباق: طلبان بنفس المفتاح في آنٍ واحد — نُعيد الأصلي عبر فهرس التفرّد
     if (holdReserved && order?._id) {
@@ -303,6 +324,94 @@ async function createOrder(userId, payload, idempotencyKey) {
       if (result.assigned) return result.order;
     } catch (err) {
       logger.warn('فشل الإسناد التلقائي، يبقى الطلب للإسناد اليدوي:', err.message);
+    }
+  }
+
+  return order;
+}
+
+async function activatePaidOrder(orderId, payment = {}) {
+  const paidAt = payment.paidAt || new Date();
+  const order = await Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      status: ORDER_STATUS.AWAITING_PAYMENT,
+      'payment.status': { $ne: 'paid' },
+    },
+    {
+      $set: {
+        status: ORDER_STATUS.PENDING,
+        'payment.method': 'jawwal_pay',
+        'payment.status': 'paid',
+        'payment.reference': String(payment.reference || ''),
+        'payment.transactionId': String(payment.transactionId || ''),
+        'payment.amount': Math.max(0, Number(payment.amount) || 0),
+        'payment.currency': 'ILS',
+        'payment.paidAt': paidAt,
+      },
+    },
+    { new: true }
+  ).select('+deliveryCode');
+
+  if (!order) {
+    const existing = await Order.findById(orderId).select('+deliveryCode');
+    if (existing?.payment?.status === 'paid') return existing;
+    throw httpError('تعذّر تفعيل الطلب بعد الدفع', 409);
+  }
+
+  await writeLog({
+    order: order._id,
+    actorId: order.user,
+    actorRole: 'user',
+    action: 'ORDER_PAYMENT_CONFIRMED',
+    fromStatus: ORDER_STATUS.AWAITING_PAYMENT,
+    toStatus: ORDER_STATUS.PENDING,
+    meta: {
+      method: 'jawwal_pay',
+      amount: order.payment?.amount || 0,
+      reference: order.payment?.reference || '',
+    },
+  });
+
+  const codePayload = notifications.deliveryCodePayload(order, order.deliveryCode);
+  notifications.createInApp(order.user, 'user', codePayload);
+  User.findById(order.user)
+    .select('deviceTokens')
+    .then((u) => {
+      if (u?.deviceTokens?.length) return notifications.sendToTokens(u.deviceTokens, codePayload);
+    })
+    .catch((e) => logger.warn('تعذّر إرسال رمز التسليم للمستخدم:', e.message));
+
+  await order.populate('user', 'name lastName phone');
+
+  io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
+  io.get().to(ROOMS.user(String(order.user?._id || order.user))).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+
+  if (order.store?.restaurant) {
+    io.get().to(ROOMS.merchant(String(order.store.restaurant))).emit(EVENTS.ORDER_CREATED, order);
+    notifications.notifyMerchantByRestaurant(order.store.restaurant, {
+      title: '🧾 طلب جديد للمتجر',
+      body: `طلب مدفوع جديد بقيمة أصناف ${order.store.itemsTotal || 0} ₪ بانتظار القبول`,
+      data: { type: 'MERCHANT_NEW_ORDER', orderId: String(order._id) },
+    }).catch(() => {});
+  }
+
+  notifications.notifyAdmins(notifications.newOrderAdminPayload(order)).catch(() => {});
+
+  if (settingsService.isBroadcastMode() && isDue(order.scheduledAt)) {
+    try {
+      return await broadcastOrderToCaptains(order);
+    } catch (err) {
+      logger.warn('فشل بثّ الطلب المدفوع للكباتن، يبقى للإسناد اليدوي:', err.message);
+    }
+  }
+
+  if (env.autoAssign && isDue(order.scheduledAt)) {
+    try {
+      const result = await autoAssignOrder(order._id, { actorRole: 'system' });
+      if (result.assigned) return result.order;
+    } catch (err) {
+      logger.warn('فشل الإسناد التلقائي للطلب المدفوع:', err.message);
     }
   }
 
@@ -833,11 +942,14 @@ async function updateOrderStatus(
   // رمز التسليم لتأكيد الاستلام. نتحقّق من الاثنين قبل تنفيذ أي خصم.
   let realPrice = 0;
   if (nextStatus === ORDER_STATUS.DELIVERED) {
-    realPrice = Number(finalPrice);
+    const prepaid = order.payment?.status === 'paid';
+    // الطلب المدفوع مسبقًا يُحاسَب على أجرة التوصيل التي ظهرت للزبون وقت الدفع.
+    // الطلبات القديمة التي تعتمد على المحفظة تحتفظ بمنطق السعر الحقيقي الحالي.
+    realPrice = prepaid ? Number(order.price) : Number(finalPrice);
     if (!(realPrice > 0)) {
-      throw httpError('أدخل السعر الحقيقي للتوصيل قبل تأكيد التسليم', 400);
+      throw httpError(prepaid ? 'أجرة التوصيل المدفوعة غير صالحة' : 'أدخل السعر الحقيقي للتوصيل قبل تأكيد التسليم', 400);
     }
-    if (realPrice > order.price) {
+    if (!prepaid && realPrice > order.price) {
       throw httpError(
         `السعر الحقيقي (${realPrice} ₪) يجب ألّا يتجاوز السعر التقريبي (${order.price} ₪)`,
         400
@@ -865,12 +977,16 @@ async function updateOrderStatus(
     if (!claimed) {
       const latest = await Order.findById(order._id).select('+deliveryCode');
       if (latest?.status === ORDER_STATUS.DELIVERED) return latest;
-      const paid = await WalletTransaction.exists({
-        user: order.user,
-        idempotencyKey: `order-payment:${order._id}`,
-        balanceAfter: { $ne: null },
-      });
-      if (!paid) throw httpError('تسوية الطلب قيد التنفيذ — انتظر لحظة ثم حاول مجددًا', 409);
+      if (order.payment?.status !== 'paid') {
+        const paid = await WalletTransaction.exists({
+          user: order.user,
+          idempotencyKey: `order-payment:${order._id}`,
+          balanceAfter: { $ne: null },
+        });
+        if (!paid) throw httpError('تسوية الطلب قيد التنفيذ — انتظر لحظة ثم حاول مجددًا', 409);
+      } else {
+        throw httpError('تسوية الطلب المدفوع قيد التنفيذ — انتظر لحظة ثم حاول مجددًا', 409);
+      }
     }
 
     const itemsTotal = Number(order.store?.itemsTotal) || 0;
@@ -878,7 +994,7 @@ async function updateOrderStatus(
     const rewardSettlement = await rewardsService.settleOrderDiscount(order, grossTotal);
     const chargeAmount = Math.max(0, grossTotal - rewardSettlement.discountIls);
     try {
-      if (chargeAmount > 0) {
+      if (chargeAmount > 0 && order.payment?.status !== 'paid') {
         await walletService.chargeForOrder(order.user, chargeAmount, order._id, {
           deliveryAmount: realPrice,
           itemsAmount: itemsTotal,
@@ -1846,6 +1962,7 @@ async function rateOrder(userId, orderId, stars, comment = '') {
 
 module.exports = {
   createOrder,
+  activatePaidOrder,
   activateDueScheduledOrders,
   assignOrder,
   autoAssignOrder,

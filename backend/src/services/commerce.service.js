@@ -102,7 +102,7 @@ async function buildCart(restaurant, rawItems) {
   return { docs, lines, originalTotal: itemsTotal, wanted };
 }
 
-async function placeRestaurantOrder(userId, payload = {}, idempotencyKey) {
+async function placeRestaurantOrder(userId, payload = {}, idempotencyKey, options = {}) {
   const restaurant = await Restaurant.findById(payload.restaurantId).lean();
   if (!restaurant || !restaurant.active) throw httpError('المتجر غير موجود', 404);
 
@@ -160,7 +160,8 @@ async function placeRestaurantOrder(userId, payload = {}, idempotencyKey) {
         note,
       },
     },
-    idempotencyKey
+    idempotencyKey,
+    options
   );
 
   // Order model يحجز المبلغ قبل حفظ الطلب. إذا أعاد createOrder طلبًا سابقًا
@@ -202,7 +203,7 @@ async function placeRestaurantOrder(userId, payload = {}, idempotencyKey) {
     }
 
     await Order.updateOne(
-      { _id: order._id, status: ORDER_STATUS.PENDING },
+      { _id: order._id, status: { $in: [ORDER_STATUS.PENDING, ORDER_STATUS.AWAITING_PAYMENT] } },
       {
         $set: {
           status: ORDER_STATUS.CANCELLED,
@@ -222,7 +223,7 @@ async function placeRestaurantOrder(userId, payload = {}, idempotencyKey) {
   return order;
 }
 
-async function reorder(userId, orderId, idempotencyKey) {
+async function reorder(userId, orderId, idempotencyKey, options = {}) {
   const previous = await Order.findOne({ _id: orderId, user: userId }).lean();
   if (!previous) throw httpError('الطلب غير موجود', 404);
   if (!previous.store?.restaurant || !previous.store?.items?.length) throw httpError('إعادة الطلب متاحة لطلبات المتاجر فقط');
@@ -240,7 +241,8 @@ async function reorder(userId, orderId, idempotencyKey) {
       dropoff: previous.dropoff,
       note: previous.store.note || '',
     },
-    idempotencyKey
+    idempotencyKey,
+    options
   );
 }
 

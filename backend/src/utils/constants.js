@@ -10,6 +10,7 @@ const ROLES = Object.freeze({
 
 // حالات الطلب — تمثّل دورة حياة الطلب من الإنشاء حتى التسليم
 const ORDER_STATUS = Object.freeze({
+  AWAITING_PAYMENT: 'awaiting_payment', // طلب أُنشئ محليًا ولم يُرسل للتشغيل قبل نجاح الدفع
   PENDING: 'pending',       // تم الإنشاء، بانتظار الإسناد من الأدمن
   ASSIGNED: 'assigned',     // أسنده الأدمن لكابتن معيّن
   ACCEPTED: 'accepted',     // قبِله الكابتن

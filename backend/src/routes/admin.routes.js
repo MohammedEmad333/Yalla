@@ -64,8 +64,6 @@ router.get('/captains/:captainId/wallet', ctrl.captainWallet);
 router.post('/captains/:captainId/settle', ctrl.settleCaptain);
 router.get('/withdrawals', ctrl.listWithdrawals);
 router.patch('/withdrawals/:withdrawalId', ctrl.processWithdrawal);
-router.get('/customer-withdrawals', ctrl.listCustomerWithdrawals);
-router.patch('/customer-withdrawals/:withdrawalId', ctrl.processCustomerWithdrawal);
 
 router.get('/chats', ctrl.listChats);
 router.get('/chats/:orderId/messages', ctrl.getChatMessages);
@@ -78,10 +76,5 @@ router.get('/support/:userId/messages', support.threadMessages);
 router.post('/support/:userId/messages', support.reply);
 router.delete('/support/messages/:messageId', support.deleteMessage);
 
-router.get('/wallet/topups', ctrl.listTopups);
-router.post('/wallet/topups/:txId/approve', ctrl.approveTopup);
-router.post('/wallet/topups/:txId/reject', ctrl.rejectTopup);
-router.get('/users/:userId/wallet', ctrl.userWallet);
-router.post('/users/:userId/wallet/add', ctrl.creditUser);
 
 module.exports = router;

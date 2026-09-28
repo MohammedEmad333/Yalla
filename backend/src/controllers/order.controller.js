@@ -1,6 +1,7 @@
 'use strict';
 
 const orderService = require('../services/order.service');
+const directPayment = require('../services/directPayment.service');
 const chatService = require('../services/chat.service');
 const { excelUnicodeBuffer } = require('../utils/csv');
 const { buildTimeline } = require('../utils/timeline');
@@ -27,8 +28,20 @@ async function getQuote(req, res, next) {
 async function createOrder(req, res, next) {
   try {
     const idempotencyKey = req.get('Idempotency-Key');
-    const order = await orderService.createOrder(req.auth.id, req.body, idempotencyKey);
-    res.status(201).json(order);
+    const order = await orderService.createOrder(
+      req.auth.id,
+      req.body,
+      idempotencyKey,
+      { paymentRequired: true }
+    );
+    try {
+      const paymentSession = await directPayment.startOrderPayment(req.auth.id, order._id);
+      const body = typeof order.toObject === 'function' ? order.toObject() : order;
+      res.status(201).json({ ...body, paymentSession });
+    } catch (err) {
+      await directPayment.cancelOrderPayment(req.auth.id, order._id).catch(() => {});
+      throw err;
+    }
   } catch (err) {
     next(err);
   }

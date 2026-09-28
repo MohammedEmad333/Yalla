@@ -8,7 +8,6 @@ import '../core/realtime/socket_service.dart';
 import '../features/restaurants/presentation/restaurants_screen.dart';
 import '../features/user/create_order_screen.dart';
 import '../features/user/my_orders_screen.dart';
-import '../features/wallet/presentation/wallet_screen.dart';
 import 'profile_screen.dart';
 
 class UserHome extends StatefulWidget {
@@ -25,19 +24,17 @@ class _UserHomeState extends State<UserHome> {
   int _index = 0;
   late final List<Widget> _pages;
 
-  static const _labels = ['المتاجر', 'طلب', 'طلباتي', 'المحفظة', 'حسابي'];
+  static const _labels = ['المتاجر', 'طلب', 'طلباتي', 'حسابي'];
   static const _icons = [
     Icons.storefront_outlined,
     Icons.add_location_alt_outlined,
     Icons.receipt_long_outlined,
-    Icons.account_balance_wallet_outlined,
     Icons.person_outline,
   ];
   static const _selectedIcons = [
     Icons.storefront,
     Icons.add_location_alt,
     Icons.receipt_long,
-    Icons.account_balance_wallet,
     Icons.person,
   ];
 
@@ -48,7 +45,6 @@ class _UserHomeState extends State<UserHome> {
       RestaurantsScreen(api: widget.api),
       CreateOrderScreen(api: widget.api),
       MyOrdersScreen(api: widget.api, socket: widget.socket),
-      WalletScreen(api: widget.api, socket: widget.socket),
       ProfileScreen(api: widget.api, socket: widget.socket, onLogout: widget.onLogout),
     ];
     widget.socket.connect();

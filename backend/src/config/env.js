@@ -83,6 +83,15 @@ const env = {
     fromEmail: process.env.SMTP_FROM_EMAIL || 'noreply@yalladelivery.org',
     fromName: process.env.SMTP_FROM_NAME || 'Yalla Delivery',
   },
+  jawwalPay: {
+    baseUrl: process.env.JAWWAL_PAY_BASE_URL || 'https://api.leadersms.ps',
+    authMode: (process.env.JAWWAL_PAY_AUTH_MODE || 'basic').toLowerCase(),
+    username: process.env.JAWWAL_PAY_USERNAME || '',
+    password: process.env.JAWWAL_PAY_PASSWORD || '',
+    clientId: process.env.JAWWAL_PAY_CLIENT_ID || '',
+    clientSecret: process.env.JAWWAL_PAY_CLIENT_SECRET || '',
+    privateKey: process.env.JAWWAL_PAY_PRIVATE_KEY || '',
+  },
 };
 
 module.exports = env;
