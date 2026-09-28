@@ -187,27 +187,6 @@ orderSchema.pre('validate', function enforceMerchantDeliveryFlow(next) {
   return next();
 });
 
-// نحجز القيمة التقديرية لكل طلب قبل إدخاله قاعدة البيانات. هكذا لا يستطيع المستخدم
-// إنشاء عدة طلبات متزامنة اعتمادًا على الرصيد نفسه. طلب المتجر يحجز الأصناف + التوصيل،
- // والطلب العادي يحجز أجرة التوصيل فقط.
-orderSchema.pre('save', async function reserveOrderWalletHold(next) {
-  try {
-    if (!this.isNew) return next();
-    const estimatedTotal = Math.max(
-      0,
-      (Number(this.price) || 0) +
-        (Number(this.store?.itemsTotal) || 0) -
-        (Number(this.rewardDiscount) || 0)
-    );
-    if (estimatedTotal > 0) {
-      await walletHoldService.reserveOrderAmount(this.user, this._id, estimatedTotal);
-    }
-    return next();
-  } catch (err) {
-    return next(err);
-  }
-});
-
 // findOneAndUpdate لا يمر عبر document validation hooks. نضيف حارسًا ذريًا هنا حتى
 // لا يستطيع claimOrder أو أي مسار إسناد مباشر تجاوز موافقة/جاهزية المتجر.
 orderSchema.pre('findOneAndUpdate', function enforceAtomicMerchantFlow(next) {
@@ -328,19 +307,6 @@ orderSchema.post('save', async function rollbackCouponOnCancellation(doc, next) 
     // لا نفشل إلغاء الطلب بسبب فشل bookkeeping للكوبون.
     return next();
   }
-});
-
-// إذا فشل إنشاء أي طلب بعد نجاح الحجز (مثل تعارض idempotency نادر)، لا نترك
-// مبلغًا محجوزًا لطلب لم يُحفظ.
-orderSchema.post('save', async function releaseHoldAfterSaveError(error, doc, next) {
-  try {
-    if (error && doc?._id) {
-      await walletHoldService.releaseOrderHold(doc._id, 'order_save_failed');
-    }
-  } catch (_) {
-    // نمرر الخطأ الأصلي دائمًا.
-  }
-  return next(error);
 });
 
 orderSchema.index(
