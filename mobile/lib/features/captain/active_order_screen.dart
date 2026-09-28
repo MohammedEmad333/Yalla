@@ -669,10 +669,36 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         ),
         const SizedBox(height: 12),
 
+        if (status == 'accepted' && store?['restaurant'] != null && merchantStatus == 'ready') ...[
+          Card(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('رمز استلام الطلب من المتجر',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  if (pickupCode.isNotEmpty)
+                    Text(
+                      pickupCode,
+                      textDirection: TextDirection.ltr,
+                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 5),
+                    ),
+                  const SizedBox(height: 4),
+                  const Text('أعطِ هذا الرمز للتاجر. بعد تأكيد التاجر سيتفعّل زر تم الاستلام.'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
         // زر تقدّم الحالة (يتغيّر نصّه حسب المرحلة)
         if (action != null)
           FilledButton.icon(
-            onPressed: _busy ? null : () => _advance(action.next),
+            onPressed: (_busy || waitingMerchantHandoff) ? null : () => _advance(action.next),
             icon: _busy
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                 : Icon(action.icon),
