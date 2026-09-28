@@ -100,6 +100,22 @@ const orderSchema = new mongoose.Schema(
     refundedAt: { type: Date, default: null },
     refundAmount: { type: Number, default: 0 },
 
+    // دفع الطلب مباشرة عبر جوال. لا نخزّن OTP أو أي أسرار من مزوّد الدفع.
+    payment: {
+      method: { type: String, enum: ['jawwal_pay'], default: 'jawwal_pay' },
+      status: {
+        type: String,
+        enum: ['unpaid', 'otp_sent', 'paid', 'failed', 'cancelled', 'refund_pending', 'refunded'],
+        default: 'unpaid',
+        index: true,
+      },
+      reference: { type: String, default: '' },
+      transactionId: { type: String, default: '' },
+      amount: { type: Number, default: 0, min: 0 },
+      currency: { type: String, default: 'ILS' },
+      paidAt: { type: Date, default: null },
+    },
+
     rejectedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Captain' }],
     broadcast: { type: Boolean, default: false, index: true },
     broadcastAt: { type: Date, default: null },
