@@ -6,6 +6,9 @@ node_modules/
 # ملفّات المستخدمين المرفوعة (إيصالات الشحن) — لا تُدرَج في المستودع
 uploads/
 
+# الصور العامة المخزّنة محليًا عند تشغيل الباك خارج Docker
+media/
+
 # مفاتيح خدمة Firebase (Service Account / Admin SDK) — سرّية، لا تُرفع أبدًا
 secrets/
 *service-account*.json
