@@ -651,6 +651,9 @@ async function claimOrder(captainId, orderId) {
   // اختفاء الطلب من شاشات بقيّة الكباتن
   emitOrderTaken(order._id, captain._id);
 
+  notifyCaptainPickupCodeIfReady(order._id, captain._id)
+    .catch((e) => logger.warn('تعذّر إرسال رمز استلام المتجر للكابتن:', e.message));
+
   return populated;
 }
 
@@ -750,6 +753,27 @@ function broadcastOrderUpdate(order) {
   }
   if (order.store?.restaurant) {
     io_.to(ROOMS.merchant(String(order.store.restaurant))).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+  }
+}
+
+async function notifyCaptainPickupCodeIfReady(orderId, captainId) {
+  if (!orderId || !captainId) return;
+  const order = await Order.findById(orderId).select('+pickupCode store.merchantStatus store.restaurant');
+  if (!order?.store?.restaurant || order.store.merchantStatus !== 'ready' || !order.pickupCode) return;
+
+  const payload = {
+    title: '🔑 رمز استلام الطلب من المتجر',
+    body: `أعطِ التاجر الرمز ${order.pickupCode} عند استلام الطلب.`,
+    data: {
+      type: 'MERCHANT_PICKUP_CODE',
+      orderId: String(order._id),
+      pickupCode: String(order.pickupCode),
+    },
+  };
+  notifications.createInApp(captainId, 'captain', payload);
+  const captain = await Captain.findById(captainId).select('deviceTokens');
+  if (captain?.deviceTokens?.length) {
+    await notifications.sendToTokens(captain.deviceTokens, payload);
   }
 }
 
@@ -896,6 +920,11 @@ async function updateOrderStatus(
     await rewardsService.refundOrderPoints(order);
   }
   await order.save();
+
+  if (nextStatus === ORDER_STATUS.ACCEPTED && order.store?.restaurant) {
+    notifyCaptainPickupCodeIfReady(order._id, captainId)
+      .catch((e) => logger.warn('تعذّر إرسال رمز استلام المتجر للكابتن:', e.message));
+  }
 
   // عند التسليم أو الإلغاء: حرّر الكابتن ليصبح متاحًا مجددًا + احذف رسائل الدردشة (Card 18)
   if (nextStatus === ORDER_STATUS.DELIVERED || nextStatus === ORDER_STATUS.CANCELLED) {
@@ -1177,6 +1206,16 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
   const isOwner = String(order.user) === String(actorId);
   if (!isOwner && actorRole !== 'admin') {
     throw Object.assign(new Error('غير مصرّح بإلغاء هذا الطلب'), { statusCode: 403 });
+  }
+
+  // طلبات المتاجر: بعد قبول المتجر يصبح الطلب التزامًا ولا يمكن للعميل إلغاؤه.
+  // يبقى للأدمن حق الإلغاء للحالات الاستثنائية.
+  if (
+    actorRole === 'user' &&
+    order.store?.restaurant &&
+    (order.store?.merchantStatus || 'new') !== 'new'
+  ) {
+    throw httpError('لا يمكن إلغاء طلب المتجر بعد قبوله — تواصل مع الدعم عند وجود مشكلة', 409);
   }
 
   // التحقّق من قابلية الإلغاء حسب الحالة
@@ -1555,6 +1594,7 @@ async function getCaptainOrders(captainId, { limit = 20, skip = 0 } = {}) {
   const orders = await Order.find({
     $or: [{ captain: captainId }, { 'rejections.captain': captainId }],
   })
+    .select('+pickupCode')
     // Card 100: نضمّ صورة صاحب الطلب ليراها الكابتن في أعلى الدردشة
     .populate('user', 'name lastName phone avatarUrl')
     .sort({ createdAt: -1 })
@@ -1567,6 +1607,12 @@ async function getCaptainOrders(captainId, { limit = 20, skip = 0 } = {}) {
     const rejectedByMe = !!mine && String(o.captain) !== String(captainId);
     // لا نُسرّب سجلّ رفض بقية الكباتن لهذا الكابتن
     const { rejections, ...rest } = o;
+    const mayShowPickupCode =
+      String(o.captain || '') === String(captainId) &&
+      o.status === ORDER_STATUS.ACCEPTED &&
+      o.store?.restaurant &&
+      o.store?.merchantStatus === 'ready';
+    if (!mayShowPickupCode) delete rest.pickupCode;
     return {
       ...rest,
       rejectedByMe,
