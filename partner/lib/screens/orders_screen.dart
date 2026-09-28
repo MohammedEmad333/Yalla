@@ -295,6 +295,7 @@ class _OrderCard extends StatelessWidget {
     final status = store['merchantStatus']?.toString() ?? 'new';
     final action = next[status];
     final hasCaptain = order['captain'] != null;
+    final captainAccepted = order['status']?.toString() == 'accepted';
     final id = order['_id']?.toString() ?? '';
     final shortId = id.length > 6 ? id.substring(id.length - 6) : id;
 
@@ -390,11 +391,24 @@ class _OrderCard extends StatelessWidget {
                 icon: Icon(status == 'new' ? Icons.check_rounded : Icons.arrow_forward_rounded),
                 label: Text(action.$2),
               )
-            else if (status == 'ready' && hasCaptain)
+            else if (status == 'ready' && hasCaptain && captainAccepted)
               FilledButton.icon(
                 onPressed: () => onAdvance(order, 'handed_over'),
                 icon: const Icon(Icons.handshake_rounded),
-                label: const Text('تم التسليم للكابتن'),
+                label: const Text('تحقق من الرمز وسلّم للكابتن'),
+              )
+            else if (status == 'ready' && hasCaptain)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(color: const Color(0xFFFFF5E8), borderRadius: BorderRadius.circular(16)),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.schedule_rounded, color: Color(0xFFFF7A00)),
+                    SizedBox(width: 8),
+                    Text('بانتظار قبول الكابتن للطلب', style: TextStyle(color: Color(0xFF8A4A00), fontWeight: FontWeight.w800)),
+                  ],
+                ),
               )
             else if (status == 'handed_over')
               Container(
