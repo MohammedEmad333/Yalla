@@ -330,6 +330,94 @@ async function createOrder(userId, payload, idempotencyKey, options = {}) {
   return order;
 }
 
+async function activatePaidOrder(orderId, payment = {}) {
+  const paidAt = payment.paidAt || new Date();
+  const order = await Order.findOneAndUpdate(
+    {
+      _id: orderId,
+      status: ORDER_STATUS.AWAITING_PAYMENT,
+      'payment.status': { $ne: 'paid' },
+    },
+    {
+      $set: {
+        status: ORDER_STATUS.PENDING,
+        'payment.method': 'jawwal_pay',
+        'payment.status': 'paid',
+        'payment.reference': String(payment.reference || ''),
+        'payment.transactionId': String(payment.transactionId || ''),
+        'payment.amount': Math.max(0, Number(payment.amount) || 0),
+        'payment.currency': 'ILS',
+        'payment.paidAt': paidAt,
+      },
+    },
+    { new: true }
+  ).select('+deliveryCode');
+
+  if (!order) {
+    const existing = await Order.findById(orderId).select('+deliveryCode');
+    if (existing?.payment?.status === 'paid') return existing;
+    throw httpError('تعذّر تفعيل الطلب بعد الدفع', 409);
+  }
+
+  await writeLog({
+    order: order._id,
+    actorId: order.user,
+    actorRole: 'user',
+    action: 'ORDER_PAYMENT_CONFIRMED',
+    fromStatus: ORDER_STATUS.AWAITING_PAYMENT,
+    toStatus: ORDER_STATUS.PENDING,
+    meta: {
+      method: 'jawwal_pay',
+      amount: order.payment?.amount || 0,
+      reference: order.payment?.reference || '',
+    },
+  });
+
+  const codePayload = notifications.deliveryCodePayload(order, order.deliveryCode);
+  notifications.createInApp(order.user, 'user', codePayload);
+  User.findById(order.user)
+    .select('deviceTokens')
+    .then((u) => {
+      if (u?.deviceTokens?.length) return notifications.sendToTokens(u.deviceTokens, codePayload);
+    })
+    .catch((e) => logger.warn('تعذّر إرسال رمز التسليم للمستخدم:', e.message));
+
+  await order.populate('user', 'name lastName phone');
+
+  io.get().to(ROOMS.admins()).emit(EVENTS.ORDER_CREATED, order);
+  io.get().to(ROOMS.user(String(order.user?._id || order.user))).emit(EVENTS.ORDER_STATUS_UPDATED, order);
+
+  if (order.store?.restaurant) {
+    io.get().to(ROOMS.merchant(String(order.store.restaurant))).emit(EVENTS.ORDER_CREATED, order);
+    notifications.notifyMerchantByRestaurant(order.store.restaurant, {
+      title: '🧾 طلب جديد للمتجر',
+      body: `طلب مدفوع جديد بقيمة أصناف ${order.store.itemsTotal || 0} ₪ بانتظار القبول`,
+      data: { type: 'MERCHANT_NEW_ORDER', orderId: String(order._id) },
+    }).catch(() => {});
+  }
+
+  notifications.notifyAdmins(notifications.newOrderAdminPayload(order)).catch(() => {});
+
+  if (settingsService.isBroadcastMode() && isDue(order.scheduledAt)) {
+    try {
+      return await broadcastOrderToCaptains(order);
+    } catch (err) {
+      logger.warn('فشل بثّ الطلب المدفوع للكباتن، يبقى للإسناد اليدوي:', err.message);
+    }
+  }
+
+  if (env.autoAssign && isDue(order.scheduledAt)) {
+    try {
+      const result = await autoAssignOrder(order._id, { actorRole: 'system' });
+      if (result.assigned) return result.order;
+    } catch (err) {
+      logger.warn('فشل الإسناد التلقائي للطلب المدفوع:', err.message);
+    }
+  }
+
+  return order;
+}
+
 /**
  * تفعيل الطلبات المجدولة التي حان وقتها (يستدعيه المُشغّل الخلفي دوريًا).
  * لكل طلب مستحقّ: يُعلَّم كمُفعّل، يُسجَّل، يُبثّ للأدمن كطلب جديد،
@@ -1867,6 +1955,7 @@ async function rateOrder(userId, orderId, stars, comment = '') {
 
 module.exports = {
   createOrder,
+  activatePaidOrder,
   activateDueScheduledOrders,
   assignOrder,
   autoAssignOrder,
