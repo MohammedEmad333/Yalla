@@ -5,6 +5,7 @@ const Coupon = require('../models/Coupon');
 const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
 const orderService = require('./order.service');
+const inventoryService = require('./inventory.service');
 const rewardsService = require('./rewards.service');
 const walletHoldService = require('./walletHold.service');
 const { coordsForNeighborhood } = require('../utils/neighborhoods');
@@ -101,22 +102,6 @@ async function buildCart(restaurant, rawItems) {
   return { docs, lines, originalTotal: itemsTotal, wanted };
 }
 
-async function consumeInventory(ctx) {
-  const operations = ctx.docs
-    .filter((doc) => doc.trackInventory)
-    .map((doc) => ({
-      updateOne: {
-        filter: { _id: doc._id, inventoryQty: { $gte: ctx.wanted.get(String(doc._id)) || 0 } },
-        update: { $inc: { inventoryQty: -(ctx.wanted.get(String(doc._id)) || 0) } },
-      },
-    }));
-  if (operations.length) await MenuItem.bulkWrite(operations);
-  await MenuItem.updateMany(
-    { _id: { $in: ctx.docs.map((x) => x._id) }, trackInventory: true, inventoryQty: { $lte: 0 } },
-    { $set: { available: false, inventoryQty: 0 } }
-  );
-}
-
 async function placeRestaurantOrder(userId, payload = {}, idempotencyKey) {
   const restaurant = await Restaurant.findById(payload.restaurantId).lean();
   if (!restaurant || !restaurant.active) throw httpError('المتجر غير موجود', 404);
@@ -178,41 +163,62 @@ async function placeRestaurantOrder(userId, payload = {}, idempotencyKey) {
     idempotencyKey
   );
 
-  // نحجز كامل المطلوب عند إنشاء طلب المتجر بدل الاكتفاء بفحص الرصيد.
-  // الخصم الحقيقي يبقى عند التسليم، وأي فرق في أجرة التوصيل يتحرر تلقائيًا.
-  const holdAmount = Math.max(
-    0,
-    Number(order.price || 0) + Number(order.store?.itemsTotal || 0) - Number(order.rewardDiscount || 0)
-  );
+  // Order model يحجز المبلغ قبل حفظ الطلب. إذا أعاد createOrder طلبًا سابقًا
+  // بسبب Idempotency-Key فلا نخصم المخزون أو الكوبون مرة ثانية.
+  if (order.$locals?.yallaCreatedNow === false) return order;
 
-  let hold;
+  let consumed = [];
+  let inventoryCommitted = false;
   try {
-    hold = await walletHoldService.reserveOrderAmount(userId, order._id, holdAmount);
+    // الخصم ذري لكل صنف، ومع rollback تلقائي لما سبق خصمه إذا نفدت كمية أثناء السباق.
+    consumed = await inventoryService.consumeInventory(cartCtx.docs, cartCtx.wanted);
+
+    const committed = await Order.updateOne(
+      { _id: order._id, inventoryCommitted: false },
+      { $set: { inventoryCommitted: true, inventoryReleasedAt: null } }
+    );
+    if (committed.modifiedCount !== 1) {
+      throw httpError('تعذّر تثبيت حجز مخزون الطلب — حاول مرة أخرى', 409);
+    }
+    inventoryCommitted = true;
+    order.inventoryCommitted = true;
+
+    // عدّاد الكوبون نفسه يحتاج شرطًا ذريًا حتى لا تتجاوز الطلبات المتزامنة usageLimit.
+    if (couponInfo && couponDiscount >= promoDiscount) {
+      const couponFilter = { _id: couponInfo.coupon._id, active: true };
+      if (Number(couponInfo.coupon.usageLimit || 0) > 0) {
+        couponFilter.$expr = { $lt: ['$usedCount', '$usageLimit'] };
+      }
+      const couponUpdate = await Coupon.updateOne(couponFilter, { $inc: { usedCount: 1 } });
+      if (couponUpdate.modifiedCount !== 1) {
+        throw httpError('تم استهلاك الكوبون قبل إتمام الطلب — أعد مراجعة السلة', 409);
+      }
+    }
   } catch (err) {
-    // لم يُستهلك المخزون بعد، لذا نغلق الطلب الذي لم يتمكن من حجز المال ونحرر النقاط.
+    if (inventoryCommitted) {
+      await inventoryService.releaseOrderInventory(order._id).catch(() => {});
+    } else if (consumed.length) {
+      await inventoryService.restoreConsumed(consumed).catch(() => {});
+    }
+
     await Order.updateOne(
       { _id: order._id, status: ORDER_STATUS.PENDING },
       {
         $set: {
           status: ORDER_STATUS.CANCELLED,
-          cancelReason: 'تعذر حجز مبلغ الطلب',
+          cancelReason: 'تعذر تثبيت مخزون الطلب',
           'timeline.cancelledAt': new Date(),
           financialSettlementState: 'refunded',
         },
       }
     ).catch(() => {});
-    await rewardsService.releaseReservation(userId, Number(order.rewardPointsUsed) || 0).catch(() => {});
+    await Promise.all([
+      rewardsService.releaseReservation(userId, Number(order.rewardPointsUsed) || 0).catch(() => {}),
+      walletHoldService.releaseOrderHold(order._id, 'commerce_finalize_failed').catch(() => {}),
+    ]);
     throw err;
   }
 
-  // إعادة نفس idempotencyKey تعيد الطلب نفسه؛ وجود الحجز يعني أن المخزون والكوبون
-  // عولجا في المحاولة الأصلية، فلا نخصمهما مرة ثانية.
-  if (hold.duplicate) return order;
-
-  if (couponInfo && couponDiscount >= promoDiscount) {
-    await Coupon.updateOne({ _id: couponInfo.coupon._id, active: true }, { $inc: { usedCount: 1 } });
-  }
-  await consumeInventory(cartCtx);
   return order;
 }
 
