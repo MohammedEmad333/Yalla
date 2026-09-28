@@ -1493,8 +1493,7 @@ async function listOrders(rawQuery = {}, regions) {
   // نُشغّل جلب الصفحة والعدّ الكلّي بالتوازي
   const [items, total] = await Promise.all([
     Order.find(filter)
-      // Card 73: رمز التسليم يظهر للأدمن في صفحة بحث الطلبات (مسار أدمن فقط)
-      .select('+deliveryCode')
+      // رموز التحقق لا تُحمّل ضمن القوائم؛ الأدمن يكشفها عند الطلب عبر endpoint مخصص.
       .populate('user', 'name phone')
       .populate('captain', 'name phone status')
       // Card 47: نُحضِر أسماء الكباتن الذين رفضوا الطلب لعرض سبب الرفض في لوحة الأدمن
@@ -1506,6 +1505,34 @@ async function listOrders(rawQuery = {}, regions) {
   ]);
 
   return { items, total, page, pages: Math.ceil(total / limit) || 1 };
+}
+
+async function getAdminVerificationCodes(orderId, adminId, regions) {
+  const filter = withRegionScope({ _id: orderId }, regions);
+  const order = await Order.findOne(filter)
+    .select('+deliveryCode +pickupCode')
+    .lean();
+
+  if (!order) throw httpError('الطلب غير موجود أو خارج نطاق مناطقك', 404);
+
+  await writeLog({
+    order: order._id,
+    actorId: adminId,
+    actorRole: 'admin',
+    action: 'ORDER_VERIFICATION_CODES_REVEALED',
+    meta: {
+      hasDeliveryCode: !!order.deliveryCode,
+      hasPickupCode: !!order.pickupCode,
+    },
+  });
+
+  return {
+    orderId: String(order._id),
+    deliveryCode: order.deliveryCode || '',
+    pickupCode: order.pickupCode || '',
+    merchantStatus: order.store?.merchantStatus || '',
+    isStoreOrder: !!order.store?.restaurant,
+  };
 }
 
 // تجهيز صفوف الطلبات للتصدير CSV (بنفس مرشّحات البحث، بحدّ أعلى للأمان)
@@ -1837,6 +1864,7 @@ module.exports = {
   sendDeliveryCodeToCaptain,
   getActiveOrders,
   listOrders,
+  getAdminVerificationCodes,
   getOrdersForExport,
   getAvailableCaptains,
   getAssignableCaptains,
