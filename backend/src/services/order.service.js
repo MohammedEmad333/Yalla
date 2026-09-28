@@ -942,11 +942,14 @@ async function updateOrderStatus(
   // رمز التسليم لتأكيد الاستلام. نتحقّق من الاثنين قبل تنفيذ أي خصم.
   let realPrice = 0;
   if (nextStatus === ORDER_STATUS.DELIVERED) {
-    realPrice = Number(finalPrice);
+    const prepaid = order.payment?.status === 'paid';
+    // الطلب المدفوع مسبقًا يُحاسَب على أجرة التوصيل التي ظهرت للزبون وقت الدفع.
+    // الطلبات القديمة التي تعتمد على المحفظة تحتفظ بمنطق السعر الحقيقي الحالي.
+    realPrice = prepaid ? Number(order.price) : Number(finalPrice);
     if (!(realPrice > 0)) {
-      throw httpError('أدخل السعر الحقيقي للتوصيل قبل تأكيد التسليم', 400);
+      throw httpError(prepaid ? 'أجرة التوصيل المدفوعة غير صالحة' : 'أدخل السعر الحقيقي للتوصيل قبل تأكيد التسليم', 400);
     }
-    if (realPrice > order.price) {
+    if (!prepaid && realPrice > order.price) {
       throw httpError(
         `السعر الحقيقي (${realPrice} ₪) يجب ألّا يتجاوز السعر التقريبي (${order.price} ₪)`,
         400
@@ -974,12 +977,16 @@ async function updateOrderStatus(
     if (!claimed) {
       const latest = await Order.findById(order._id).select('+deliveryCode');
       if (latest?.status === ORDER_STATUS.DELIVERED) return latest;
-      const paid = await WalletTransaction.exists({
-        user: order.user,
-        idempotencyKey: `order-payment:${order._id}`,
-        balanceAfter: { $ne: null },
-      });
-      if (!paid) throw httpError('تسوية الطلب قيد التنفيذ — انتظر لحظة ثم حاول مجددًا', 409);
+      if (order.payment?.status !== 'paid') {
+        const paid = await WalletTransaction.exists({
+          user: order.user,
+          idempotencyKey: `order-payment:${order._id}`,
+          balanceAfter: { $ne: null },
+        });
+        if (!paid) throw httpError('تسوية الطلب قيد التنفيذ — انتظر لحظة ثم حاول مجددًا', 409);
+      } else {
+        throw httpError('تسوية الطلب المدفوع قيد التنفيذ — انتظر لحظة ثم حاول مجددًا', 409);
+      }
     }
 
     const itemsTotal = Number(order.store?.itemsTotal) || 0;
@@ -987,7 +994,7 @@ async function updateOrderStatus(
     const rewardSettlement = await rewardsService.settleOrderDiscount(order, grossTotal);
     const chargeAmount = Math.max(0, grossTotal - rewardSettlement.discountIls);
     try {
-      if (chargeAmount > 0) {
+      if (chargeAmount > 0 && order.payment?.status !== 'paid') {
         await walletService.chargeForOrder(order.user, chargeAmount, order._id, {
           deliveryAmount: realPrice,
           itemsAmount: itemsTotal,
