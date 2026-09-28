@@ -34,6 +34,8 @@ export default function OrdersPage() {
   const [data, setData] = useState({ items: [], total: 0, page: 1, pages: 1 });
   // Card 47: الطلب المفتوح لعرض تفاصيل رفض الكباتن له (أو null)
   const [rejectModal, setRejectModal] = useState(null);
+  const [codesModal, setCodesModal] = useState(null);
+  const [codesLoading, setCodesLoading] = useState(false);
 
   // بناء سلسلة الاستعلام وجلب الصفحة
   function load(targetPage = page) {
@@ -50,6 +52,18 @@ export default function OrdersPage() {
 
   // تحميل عند تغيّر الحالة، وأوّل مرّة
   useEffect(() => { load(1); }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function revealCodes(order) {
+    setCodesLoading(true);
+    try {
+      const codes = await api.get(`/orders/${order._id}/verification-codes`);
+      setCodesModal({ order, ...codes });
+    } catch (err) {
+      alert(err.message || 'تعذّر جلب رموز التحقق');
+    } finally {
+      setCodesLoading(false);
+    }
+  }
 
   // تصدير النتائج (بنفس الفلاتر) كملفّ CSV — نجلبه كـ blob مع التوكن ثم ننزّله
   async function exportCsv() {
@@ -111,7 +125,7 @@ export default function OrdersPage() {
               <th>الاستلام</th>
               <th>التسليم</th>
               <th>الكابتن</th>
-              <th>رمز التسليم</th>
+              <th>رموز التحقق</th>
               <th>السعر</th>
             </tr>
           </thead>
@@ -136,9 +150,14 @@ export default function OrdersPage() {
                 <td data-label="الاستلام">{o.pickup?.address}</td>
                 <td data-label="التسليم">{o.dropoff?.address}</td>
                 <td data-label="الكابتن">{o.captain?.name || '—'}</td>
-                {/* Card 73: رمز التسليم — للأدمن فقط ليعطيه لصاحب الطلب عند الحاجة */}
-                <td data-label="رمز التسليم">
-                  <b className="yl-num" style={{ letterSpacing: 1 }}>{o.deliveryCode || '—'}</b>
+                <td data-label="رموز التحقق">
+                  <Button
+                    variant="soft"
+                    disabled={codesLoading}
+                    onClick={() => revealCodes(o)}
+                  >
+                    إظهار الرموز
+                  </Button>
                 </td>
                 {/* Card 28: بعد التسليم نعرض السعر الحقيقي (finalPrice) لا التقريبي */}
                 <td data-label="السعر">
@@ -159,6 +178,38 @@ export default function OrdersPage() {
           <span className="yl-muted">صفحة {data.page} من {data.pages}</span>
           <Button disabled={data.page >= data.pages} onClick={() => load(data.page + 1)}>التالي</Button>
         </div>
+      )}
+
+      {codesModal && (
+        <Modal
+          title={`رموز التحقق للطلب #${codesModal.order._id.slice(-5)}`}
+          onClose={() => setCodesModal(null)}
+        >
+          <div className="yl-stack">
+            <div className="yl-card yl-card--flat yl-card--pad">
+              <p className="yl-hint">رمز تسليم الطلب للعميل</p>
+              <b className="yl-num" style={{ fontSize: 28, letterSpacing: 4 }}>
+                {codesModal.deliveryCode || 'غير متوفر'}
+              </b>
+            </div>
+
+            <div className="yl-card yl-card--flat yl-card--pad">
+              <p className="yl-hint">رمز استلام الكابتن من المتجر</p>
+              <b className="yl-num" style={{ fontSize: 28, letterSpacing: 4 }}>
+                {codesModal.pickupCode || (codesModal.isStoreOrder ? 'لم يُنشأ بعد' : 'غير مطبق')}
+              </b>
+              {codesModal.isStoreOrder && codesModal.merchantStatus !== 'ready' && !codesModal.pickupCode && (
+                <p className="yl-soft" style={{ marginTop: 6 }}>
+                  يُنشأ هذا الرمز عندما يصبح الطلب جاهزًا في المتجر.
+                </p>
+              )}
+            </div>
+
+            <p className="yl-hint">
+              تم تسجيل عملية إظهار هذه الرموز في سجل التدقيق.
+            </p>
+          </div>
+        </Modal>
       )}
 
       {/* Card 47: نافذة عرض أسباب رفض الكباتن للطلب */}
