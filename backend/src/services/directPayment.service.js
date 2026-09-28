@@ -103,7 +103,12 @@ async function confirmOrderPayment(userId, orderId, otp) {
   const payment = await OrderPayment.findOne({ order: orderId, user: userId });
   if (!payment) throw httpError('عملية الدفع غير موجودة', 404);
   if (payment.status === 'paid') {
-    const order = await Order.findById(orderId);
+    const order = await orderService.activatePaidOrder(orderId, {
+      reference: payment.providerReference,
+      transactionId: payment.providerTransactionId,
+      amount: payment.amount,
+      paidAt: payment.paidAt || new Date(),
+    });
     return { payment: publicPayment(payment), order };
   }
   if (!payment.providerReference) throw httpError('مرجع الدفع غير موجود', 409);
@@ -166,7 +171,18 @@ async function cancelOrderPayment(userId, orderId) {
 async function getOrderPayment(userId, orderId) {
   const payment = await OrderPayment.findOne({ order: orderId, user: userId });
   if (!payment) throw httpError('عملية الدفع غير موجودة', 404);
-  if (payment.providerReference && !['paid', 'cancelled', 'refunded'].includes(payment.status)) {
+
+  if (payment.status === 'paid') {
+    await orderService.activatePaidOrder(orderId, {
+      reference: payment.providerReference,
+      transactionId: payment.providerTransactionId,
+      amount: payment.amount,
+      paidAt: payment.paidAt || new Date(),
+    });
+    return publicPayment(payment);
+  }
+
+  if (payment.providerReference && !['cancelled', 'refunded'].includes(payment.status)) {
     const remote = await jawwal.getPayment(payment.providerReference).catch(() => null);
     if (remote && jawwal.isPaid(remote)) {
       payment.status = 'paid';
