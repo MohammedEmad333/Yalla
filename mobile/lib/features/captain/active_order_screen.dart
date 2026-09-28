@@ -563,6 +563,12 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     final String note = (order['packageNote'] ?? '').toString();
     final Map<String, dynamic>? store =
         order['store'] is Map ? Map<String, dynamic>.from(order['store']) : null;
+    final merchantStatus = (store?['merchantStatus'] ?? '').toString();
+    final pickupCode = (order['pickupCode'] ?? '').toString();
+    final waitingMerchantHandoff =
+        status == 'accepted' &&
+        store?['restaurant'] != null &&
+        merchantStatus != 'handed_over';
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
