@@ -11,7 +11,9 @@ const { notFound, errorHandler } = require('./middlewares/error.middleware');
 // إنشاء تطبيق Express (طبقة الـ HTTP فقط — منفصلة عن الخادم والسوكت)
 const app = express();
 
-app.set('trust proxy', 1);               // نثق ببروكسي واحد أمامنا لقراءة req.ip الحقيقي
+// نثق فقط ببروكسي محلي (Caddy أو cloudflared على نفس الخادم).
+// استخدام رقم ثابت مثل 1 يسمح لاتصال مباشر بالـ origin بتزوير X-Forwarded-For.
+app.set('trust proxy', 'loopback');
 // ترويسات أمان أساسية للـ API. TLS/HSTS يبقيان مسؤولية البروكسي الأمامي (Caddy/Cloudflare).
 app.use((req, res, next) => {
   res.set('X-Content-Type-Options', 'nosniff');
