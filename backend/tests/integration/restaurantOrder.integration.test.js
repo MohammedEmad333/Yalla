@@ -11,6 +11,7 @@ const { connect, disconnect, clearDb, state } = require('./setup');
 
 const User = require('../../src/models/User');
 const Captain = require('../../src/models/Captain');
+const Order = require('../../src/models/Order');
 const Restaurant = require('../../src/models/Restaurant');
 const MenuItem = require('../../src/models/MenuItem');
 const Merchant = require('../../src/models/Merchant');
