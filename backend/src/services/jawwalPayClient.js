@@ -17,8 +17,8 @@ function configured() {
   return Boolean(
     cfg?.baseUrl &&
     cfg?.privateKey &&
-    ((cfg.authMode === 'oauth2' && cfg.clientId && cfg.clientSecret) ||
-      (cfg.authMode !== 'oauth2' && cfg.username && cfg.password))
+    cfg.username &&
+    cfg.password
   );
 }
 
@@ -29,15 +29,15 @@ async function oauthToken() {
   const cfg = env.jawwalPay;
   if (cachedToken && Date.now() < tokenExpiresAt - 30_000) return cachedToken;
 
-  const body = new URLSearchParams({
+  const body = JSON.stringify({
     grant_type: 'client_credentials',
-    client_id: cfg.clientId,
-    client_secret: cfg.clientSecret,
-  }).toString();
+    client_id: cfg.username,
+    client_secret: cfg.password,
+  });
 
   const response = await fetch(new URL('/oauth/token', cfg.baseUrl), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { 'Content-Type': 'application/json' },
     body,
   });
   const data = await response.json().catch(() => ({}));
@@ -61,7 +61,7 @@ async function request(method, path, payload, { idempotencyKey } = {}) {
   if (env.nodeEnv === 'test') {
     const reference = `test-${idempotencyKey || Date.now()}`;
     return method === 'POST' && path.endsWith('/confirm')
-      ? { status: 'paid', outcome: 'PAID', reference, transaction_id: reference }
+      ? { status: 'paid', outcome: 'PAID', reference, provider_transaction_id: reference }
       : { status: 'otp_sent', reference, payment_reference: reference };
   }
 
@@ -98,7 +98,12 @@ function referenceOf(data = {}) {
 }
 
 function transactionIdOf(data = {}) {
-  return String(data.transaction_id || data.transactionId || data.provider_transaction_id || '').trim();
+  return String(
+    data.provider_transaction_id ||
+    data.transaction_id ||
+    data.transactionId ||
+    ''
+  ).trim();
 }
 
 function isPaid(data = {}) {
@@ -107,12 +112,13 @@ function isPaid(data = {}) {
   return status === 'paid' || outcome === 'PAID' || data.paid === true;
 }
 
-async function createPayment({ phone, amount, externalReference, idempotencyKey }) {
+async function createPayment({ mobile, amount, externalReference, idempotencyKey, description = 'Yalla order' }) {
   const data = await request('POST', '/v1/payments', {
-    phone,
     amount,
-    currency: 'ILS',
+    mobile,
     external_reference: externalReference,
+    description,
+    currency: 'ILS',
   }, { idempotencyKey });
   const reference = referenceOf(data);
   if (!reference) throw httpError('بوابة جوال لم تُرجع مرجع عملية الدفع');
@@ -124,7 +130,7 @@ async function confirmPayment(reference, otp) {
 }
 
 async function cancelPayment(reference) {
-  return request('POST', `/v1/payments/${encodeURIComponent(reference)}/cancel`, {});
+  return request('POST', `/v1/payments/${encodeURIComponent(reference)}/cancel`, null);
 }
 
 async function getPayment(reference) {
