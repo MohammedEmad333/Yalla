@@ -11,6 +11,7 @@ const notifications = require('./notification.service');
 const settingsService = require('./settings.service');
 const chat = require('./chat.service');
 const walletService = require('./wallet.service');
+const walletHoldService = require('./walletHold.service');
 const inventoryService = require('./inventory.service');
 const rewardsService = require('./rewards.service');
 const captainWallet = require('./captainWallet.service');
@@ -183,7 +184,7 @@ async function createOrder(userId, payload, idempotencyKey) {
   if (availableBalance < requiredBalance) {
     await rewardsService.releaseReservation(userId, reward.pointsUsed);
     throw httpError(
-      `رصيد محفظتك المتاح غير كافٍ لإتمام الطلب: المتاح ${availableBalance} ₪ من أصل ${balance} ₪ والمطلوب ${requiredBalance} ₪ بعد خصم النقاط` +
+      `الرصيد المتاح غير كافٍ لإتمام الطلب: المتاح ${availableBalance} ₪ من أصل ${balance} ₪ والمطلوب ${requiredBalance} ₪ بعد خصم النقاط` +
         (itemsTotal > 0 ? ` (${itemsTotal} ₪ أصناف + ${price} ₪ توصيل - ${reward.discountIls} ₪ نقاط)` : '') +
         ' — اشحن المحفظة ثم حاول مرة أخرى',
       400
@@ -202,8 +203,9 @@ async function createOrder(userId, payload, idempotencyKey) {
   const deliveryCode = generateDeliveryCode();
 
   let order;
+  let holdReserved = false;
   try {
-    order = await Order.create({
+    order = new Order({
       user: userId,
       pickup,
       dropoff,
@@ -222,9 +224,21 @@ async function createOrder(userId, payload, idempotencyKey) {
       idempotencyKey: key || undefined,
       status: ORDER_STATUS.PENDING,
     });
+
+    // Wallet هو مسار الدفع الحالي للتطبيق. نحجز المبلغ قبل حفظ الطلب باستخدام
+    // معرّف الطلب المولّد مسبقًا، مع إبقاء إنشاء Order المباشر متاحًا لمسارات COD/الإدارة.
+    if (requiredBalance > 0) {
+      await walletHoldService.reserveOrderAmount(userId, order._id, requiredBalance);
+      holdReserved = true;
+    }
+
+    await order.save();
     order.$locals.yallaCreatedNow = true;
   } catch (err) {
     // سباق: طلبان بنفس المفتاح في آنٍ واحد — نُعيد الأصلي عبر فهرس التفرّد
+    if (holdReserved && order?._id) {
+      await walletHoldService.releaseOrderHold(order._id, 'order_create_failed').catch(() => {});
+    }
     if (err.code === 11000 && key) {
       await rewardsService.releaseReservation(userId, reward.pointsUsed);
       const original = await Order.findOne({ user: userId, idempotencyKey: key });
