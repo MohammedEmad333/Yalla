@@ -220,7 +220,7 @@ test('تسليم طلب المطعم: يخصم كامل الفاتورة ويف�
   await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.ACCEPTED);
 
   const readyWithCode = await Order.findById(order._id).select('+pickupCode');
-  assert.match(readyWithCode.pickupCode, /^\\d{4}$/);
+  assert.match(readyWithCode.pickupCode, /^\d{4}$/);
 
   await assert.rejects(
     () => merchantService.updateOrderStatus(merchant._id, order._id, 'handed_over', '0000'),
