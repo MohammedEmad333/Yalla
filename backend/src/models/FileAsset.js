@@ -2,24 +2,23 @@
 
 const mongoose = require('mongoose');
 
-// موديل يخزّن الملفّات المرفوعة (الصور) داخل قاعدة البيانات نفسها بدلًا من
-// القرص المحلّي. سبب وجوده: تخزين الملفّات على قرص الخادم لا يُضمَن بقاؤه —
-// فإن عمل الباك اند داخل حاوية Docker بلا volume دائم لمجلّد uploads/ (وهو
-// حال النشر على خادم Oracle الحالي)، يُمحى المجلّد ومعه الصور عند كلّ إعادة
-// نشر/بناء أو إعادة إنشاء للحاوية — فتختفي الصور الشخصية "بعد فترة" (Card 102).
-// أمّا قاعدة البيانات (MongoDB على Oracle) فدائمة، فتبقى الصورة. حجم الصور
-// الشخصية صغير (بحدّ 5MB لكلّ صورة، وغالبًا أقلّ) فلا يقترب من حدود التخزين.
+// FileAsset أصبح طبقة توافق للصور القديمة فقط.
+// الصور الجديدة تُحفظ على قرص Oracle تحت MEDIA_ROOT وتُخدَم عبر /media/... مباشرة.
+// أثناء الهجرة التدريجية ننقل binary القديم إلى القرص ونحتفظ بهذا السجلّ كـ metadata
+// حتى تبقى روابط /files/<id> القديمة صالحة من دون تحديث كل السجلات دفعة واحدة.
 const fileAssetSchema = new mongoose.Schema(
   {
-    // نوع الأصل: avatar (صورة شخصية) — قابل للتوسّع لاحقًا (receipt / id ...)
     kind: { type: String, default: 'avatar', index: true },
-    // بيانات الصورة الثنائية
-    data: { type: Buffer, required: true },
-    // نوع المحتوى (image/jpeg ...) لإرجاعه في ترويسة الاستجابة
+
+    // موجود للصور القديمة التي لم تُهاجَر بعد. بعد نجاح النسخ إلى القرص يُزال الحقل.
+    data: { type: Buffer, required: false },
+
+    // مسار نسبي داخل MEDIA_ROOT للصورة القديمة بعد هجرتها، مثل:
+    // legacy/507f1f77bcf86cd799439011.jpg
+    storagePath: { type: String, default: '', trim: true },
+
     contentType: { type: String, required: true },
-    // حجم الملفّ بالبايت (لمعلومة/تشخيص)
     size: { type: Number, default: 0 },
-    // صاحب الملفّ (مستخدم أو كابتن) — للربط والتنظيف المستقبلي
     owner: { type: mongoose.Schema.Types.ObjectId },
     ownerRole: { type: String, default: '' },
   },

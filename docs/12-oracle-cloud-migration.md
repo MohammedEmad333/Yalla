@@ -207,13 +207,16 @@ docker run -d --name yalla-api --restart unless-stopped \
   --network host --env-file ~/yalla.env \
   -v ~/fcm.json:/app/fcm.json:ro \
   -v yalla_uploads:/app/uploads \
+  -v ~/yalla-media:/app/media \
+  -e MEDIA_ROOT=/app/media \
   yalla-api
 # فحص:  docker logs --tail 30 yalla-api ; curl -s http://localhost:4000/api/health
 # تراجع عند فشل:  docker rm -f yalla-api ; docker run ... yalla-api:backup (بنفس الأعلام)
 ```
-> **مهم (Card 102):** الحاوية تربط الآن **`-v yalla_uploads:/app/uploads`** — تخزين دائم
-> للإيصالات ومستندات توثيق الكباتن حتى لا تُمحى عند إعادة إنشاء الحاوية. أمّا الصورة
-> الشخصية فتُخزَّن في قاعدة البيانات مباشرة (`FileAsset`)، فتبقى دائمًا.
+> **مهم:** الحاوية تربط `yalla_uploads` للمستندات/الإيصالات، وتربط أيضًا
+> **`~/yalla-media:/app/media`** للصور العامة (avatars/restaurants/menu/banners).
+> الصور الجديدة لا تُخزَّن كـ binary داخل MongoDB؛ راجع `docs/15-oracle-media-storage.md`.
+> روابط `/files/<id>` القديمة تبقى متوافقة أثناء الهجرة التدريجية.
 >
 > **تطبيق أندرويد للأدمن (Card 103):** أضِف `https://localhost` إلى `CORS_ORIGIN` في
 > `~/yalla.env` حتى يصل تطبيق أندرويد (أصل Capacitor) إلى الـ API.
@@ -225,8 +228,8 @@ docker run -d --name yalla-api --restart unless-stopped \
 بعد النقل، نُشِرت هذه التغييرات على نفس السيرفر (إعادة بناء `yalla-api` بالأمر أعلاه):
 
 - **تخزين دائم للمرفوعات:** أُضيف `-v yalla_uploads:/app/uploads` لحاوية الـ API.
-- **الصورة الشخصية في قاعدة البيانات (#102):** موديل `FileAsset` + مسار `/files/<id>`
-  بدل تخزينها على قرص الحاوية المؤقّت — فلا تختفي بعد إعادة التشغيل.
+- **ترحيل الصور العامة إلى قرص Oracle:** الصور الجديدة تحت `/app/media` عبر bind mount دائم،
+  وروابط `/files/<id>` القديمة تبقى مدعومة ويمكن نقل بياناتها من MongoDB تدريجيًا.
 - **إشعارات الأدمن (#103):** الخادم يرسل Push لأجهزة المشرفين عند طلب جديد/سحب رصيد
   (`notifyAdmins`). و`CORS_ORIGIN` يشمل `https://localhost` لتطبيق أندرويد.
 - **إزالة Render/Atlas من المستودع:** حُذف `render.yaml` وحُدِّثت الوثائق.

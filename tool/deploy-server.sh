@@ -12,6 +12,7 @@
 #   BRANCH=main            الفرع الذي يُسحب
 #   ENV_FILE=~/yalla.env   ملفّ متغيّرات البيئة
 #   FCM_FILE=~/fcm.json    ملفّ اعتماد FCM (يُربَط للقراءة فقط إن وُجد)
+#   MEDIA_HOST_DIR=~/yalla-media  مجلّد الصور الدائم على قرص Oracle
 #   يجب أن يحتوي ENV_FILE على API_BIND_HOST=127.0.0.1 في Oracle production.
 #   SEED_RESTAURANTS=1     تعبئة مطاعم تجريبية بعد النشر (آمن للتكرار)
 set -euo pipefail
@@ -19,6 +20,7 @@ set -euo pipefail
 BRANCH="${BRANCH:-main}"
 ENV_FILE="${ENV_FILE:-$HOME/yalla.env}"
 FCM_FILE="${FCM_FILE:-$HOME/fcm.json}"
+MEDIA_HOST_DIR="${MEDIA_HOST_DIR:-$HOME/yalla-media}"
 IMAGE="yalla-api"
 CONTAINER="yalla-api"
 HEALTH_URL="http://localhost:4000/api/health"
@@ -28,6 +30,11 @@ say() { printf '\n▶ %s\n' "$1"; }
 fail() { printf '\n✖ %s\n' "$1" >&2; exit 1; }
 
 [ -f "$ENV_FILE" ] || fail "ملفّ البيئة غير موجود: $ENV_FILE"
+
+# الصور الجديدة لا تعيش داخل الحاوية. ننشئ مجلدًا ثابتًا على قرص Oracle
+# ونربطه دائمًا إلى /app/media حتى يبقى المحتوى عند استبدال/تراجع الحاوية.
+mkdir -p "$MEDIA_HOST_DIR"
+[ -d "$MEDIA_HOST_DIR" ] || fail "تعذّر إنشاء مجلّد الصور: $MEDIA_HOST_DIR"
 
 # تحقّق مبكر من إعدادات الأمان من دون طباعة قيم الأسرار في السجل.
 # التطبيق نفسه يكرر التحقق عند الإقلاع، لكن الفشل هنا أوضح ويمنع استبدال الحاوية بإعداد غير آمن.
@@ -79,8 +86,10 @@ run_container() {
   docker run -d --name "$CONTAINER" --restart unless-stopped \
     --network host --env-file "$ENV_FILE" \
     -e APP_GIT_SHA="$GIT_SHA" \
+    -e MEDIA_ROOT=/app/media \
     ${FCM_MOUNT:-} \
     -v yalla_uploads:/app/uploads \
+    -v "$MEDIA_HOST_DIR:/app/media" \
     "$tag" >/dev/null
 }
 
@@ -135,3 +144,4 @@ docker ps --format '  {{.Names}}\t{{.Status}}' | grep -E 'yalla|caddy' || true
 echo
 echo "  فحص خارجي:  curl -s https://api.yalladelivery.org/api/health"
 echo "  المطاعم:     curl -s https://api.yalladelivery.org/api/restaurants"
+echo "  الصور:        $MEDIA_HOST_DIR -> /app/media"

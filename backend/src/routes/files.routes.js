@@ -1,12 +1,58 @@
 'use strict';
 
-// Card 102: خدمة الصور المخزّنة في قاعدة البيانات (FileAsset).
-// تُخدَم من المسار /files/<id> (خارج بادئة /api، تمامًا مثل /uploads القديم)
-// حتى يبقى بناء رابط الصورة في التطبيق ولوحة الأدمن كما هو (host + avatarUrl).
+// توافق روابط الصور القديمة /files/<id>.
+// بعد الهجرة التدريجية تبقى نفس الروابط، لكن جسم الصورة يُقرأ من قرص Oracle.
+// إن لم تُهاجَر الصورة بعد نرجع تلقائيًا إلى binary القديم في MongoDB.
+const fs = require('fs');
 const router = require('express').Router();
 const mongoose = require('mongoose');
 const FileAsset = require('../models/FileAsset');
 const { toBuffer } = require('../utils/toBuffer');
+const { absoluteMediaPath } = require('../utils/mediaStorage');
+
+function setAssetHeaders(res, id, asset, size) {
+  const etag = `"file-${id}-${size}"`;
+  res.set('Content-Type', asset.contentType || 'application/octet-stream');
+  res.set('Content-Length', String(size));
+  res.set('ETag', etag);
+  if (asset.updatedAt) res.set('Last-Modified', new Date(asset.updatedAt).toUTCString());
+  res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  res.set('CDN-Cache-Control', 'public, max-age=31536000, immutable');
+  return etag;
+}
+
+async function sendDiskAsset(req, res, next, id, asset) {
+  if (!asset.storagePath) return false;
+
+  const absolutePath = absoluteMediaPath(asset.storagePath);
+  if (!absolutePath) return false;
+
+  let stat;
+  try {
+    stat = await fs.promises.stat(absolutePath);
+  } catch (err) {
+    if (err.code === 'ENOENT') return false;
+    throw err;
+  }
+  if (!stat.isFile()) return false;
+
+  const etag = setAssetHeaders(res, id, asset, stat.size);
+  if (req.get('If-None-Match') === etag) {
+    res.removeHeader('Content-Length');
+    res.status(304).end();
+    return true;
+  }
+
+  if (req.method === 'HEAD') {
+    res.end();
+    return true;
+  }
+
+  const stream = fs.createReadStream(absolutePath);
+  stream.on('error', next);
+  stream.pipe(res);
+  return true;
+}
 
 router.get('/:id', async (req, res, next) => {
   try {
@@ -14,33 +60,38 @@ router.get('/:id', async (req, res, next) => {
     if (!mongoose.isValidObjectId(id)) {
       return res.status(404).json({ message: 'الملفّ غير موجود' });
     }
-    const asset = await FileAsset.findById(id).lean();
-    if (!asset || !asset.data) {
+
+    // لا نجلب data الثقيل في الاستعلام الأول. الصور المهاجرة تحتاج metadata صغيرة فقط.
+    const asset = await FileAsset.findById(id)
+      .select('storagePath contentType size updatedAt')
+      .lean();
+    if (!asset) {
       return res.status(404).json({ message: 'الملفّ غير موجود' });
     }
-    // Card 104: مع .lean() تعود البيانات كـ BSON Binary لا Buffer، فكان
-    // res.send يُرسلها كـ JSON بدل الصورة. نحوّلها إلى Buffer صحيح أوّلًا.
-    const body = toBuffer(asset.data);
+
+    if (await sendDiskAsset(req, res, next, id, asset)) return;
+
+    // fallback مؤقت للصور التي لم تُهاجَر بعد من MongoDB.
+    const legacy = await FileAsset.findById(id)
+      .select('data contentType size updatedAt')
+      .lean();
+    if (!legacy || !legacy.data) {
+      return res.status(404).json({ message: 'الملفّ غير موجود' });
+    }
+
+    const body = toBuffer(legacy.data);
     if (!body || !body.length) {
       return res.status(404).json({ message: 'الملفّ غير موجود' });
     }
-    const etag = `"file-${id}-${asset.size || body.length}"`;
-    res.set('Content-Type', asset.contentType || 'application/octet-stream');
-    res.set('Content-Length', String(body.length));
-    res.set('ETag', etag);
-    if (asset.updatedAt) res.set('Last-Modified', new Date(asset.updatedAt).toUTCString());
 
-    // الرابط مبني على ObjectId فريد ولا يتغيّر محتواه؛ نسمح للمتصفح ولـ CDN
-    // بالاحتفاظ به سنة كاملة. CDN-Cache-Control يوضح ذلك صراحةً للوكلاء مثل Cloudflare.
-    res.set('Cache-Control', 'public, max-age=31536000, immutable');
-    res.set('CDN-Cache-Control', 'public, max-age=31536000, immutable');
-
+    const etag = setAssetHeaders(res, id, legacy, legacy.size || body.length);
     if (req.get('If-None-Match') === etag) {
+      res.removeHeader('Content-Length');
       return res.status(304).end();
     }
 
-    // res.end (لا res.send) لإرسال البايتات الخام دون أيّ تحويل
-    res.end(body);
+    if (req.method === 'HEAD') return res.end();
+    return res.end(body);
   } catch (err) {
     next(err);
   }
