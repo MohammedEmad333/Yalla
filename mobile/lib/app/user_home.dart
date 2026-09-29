@@ -1,7 +1,9 @@
 // الشاشة الرئيسية لتطبيق المستخدم — تنقّل سفلي على الجوال وجانبي على الديسكتوب.
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../core/config/company.dart';
 import '../core/network/api_client.dart';
 import '../core/onboarding/onboarding.dart';
 import '../core/realtime/socket_service.dart';
@@ -48,9 +50,115 @@ class _UserHomeState extends State<UserHome> {
       ProfileScreen(api: widget.api, socket: widget.socket, onLogout: widget.onLogout),
     ];
     widget.socket.connect();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) maybeShowOnboarding(context, 'user');
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (Company.temporaryOrderMaintenanceEnabled) {
+        await _showMaintenanceDialog();
+      }
+      if (mounted) await maybeShowOnboarding(context, 'user');
     });
+  }
+
+  Future<void> _launchDirectOrder(Uri uri) async {
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذّر فتح تطبيق الاتصال. يمكنك الاتصال على 0593456405')),
+      );
+    }
+  }
+
+  Future<void> _showMaintenanceDialog() async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final colors = Theme.of(dialogContext).colorScheme;
+        return AlertDialog(
+          icon: Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF7A00).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              Icons.build_circle_outlined,
+              color: Color(0xFFFF7A00),
+              size: 34,
+            ),
+          ),
+          title: const Text(
+            'صيانة مؤقتة',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'نجري حاليًا أعمال صيانة مؤقتة على نظام الطلب والدفع. '
+                'الطلب من داخل التطبيق متوقف مؤقتًا، لكن يمكنك الطلب مباشرة عبر رقم يلا.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  height: 1.55,
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Directionality(
+                textDirection: TextDirection.ltr,
+                child: SelectableText(
+                  Company.phoneNumber,
+                  style: const TextStyle(
+                    fontSize: 23,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                    color: Color(0xFFFF7A00),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => _launchDirectOrder(Company.phoneUri()),
+                  icon: const Icon(Icons.call_rounded),
+                  label: const Text('اتصل الآن للطلب'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _launchDirectOrder(Company.directOrderWhatsappUri()),
+                  icon: const Icon(Icons.chat_rounded),
+                  label: const Text('الطلب عبر واتساب'),
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('متابعة تصفح التطبيق'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _onDestinationSelected(int i) {
+    if (i == 1 && Company.temporaryOrderMaintenanceEnabled) {
+      _showMaintenanceDialog();
+      return;
+    }
+    setState(() => _index = i);
   }
 
   @override
@@ -81,7 +189,7 @@ class _UserHomeState extends State<UserHome> {
                   minExtendedWidth: 236,
                   extended: true,
                   selectedIndex: _index,
-                  onDestinationSelected: (i) => setState(() => _index = i),
+                  onDestinationSelected: _onDestinationSelected,
                   leading: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 18, 16, 26),
                     child: Row(
@@ -136,7 +244,7 @@ class _UserHomeState extends State<UserHome> {
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: _onDestinationSelected,
         destinations: List.generate(
           _labels.length,
           (i) => NavigationDestination(
