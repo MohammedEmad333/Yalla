@@ -234,6 +234,10 @@ async function updateCaptain(captainId, fields = {}) {
   }
   if (phone !== undefined) {
     if (!/^\d{6,15}$/.test(phone)) throw httpError('رقم الجوال غير صالح', 400);
+    if (phone !== captain.phone) {
+      const existingCaptain = await Captain.exists({ phone, _id: { $ne: captain._id } });
+      if (existingCaptain) throw httpError('رقم الجوال مستخدَم بالفعل', 409);
+    }
     captain.phone = phone;
   }
   if (vehicleType !== undefined) {
