@@ -6,7 +6,7 @@
 # النتيجة: ملف app-debug.apk يُرفع كـ Artifact لتنزيله وتثبيته على الهاتف.
 #
 # أسرار مطلوبة/اختيارية (Settings → Secrets and variables → Actions):
-#   ADMIN_API_URL                (مطلوب) رابط الخادم المنشور، مثل https://<عنوان-خادمك-على-Oracle>
+#   ADMIN_API_URL                (اختياري) لتجاوز الرابط الافتراضي https://api.yalladelivery.org
 #   GOOGLE_SERVICES_JSON         (الأسهل، لتفعيل الإشعارات) الصق محتوى ملف google-services.json كما هو.
 #   GOOGLE_SERVICES_JSON_BASE64  (بديل) نفس الملف مُرمَّزًا base64 — توليده على Linux/Mac: base64 -w0 google-services.json
 #   ANDROID_KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD (اختياري) للإصدار الموقَّع.
@@ -98,9 +98,8 @@ jobs:
           SECRET_URL: ${{ secrets.ADMIN_API_URL }}
         run: |
           API_URL="${INPUT_URL:-$SECRET_URL}"
-          if [ -z "$API_URL" ]; then
-            echo "::warning::لم يُضبط ADMIN_API_URL — التطبيق لن يصل للخادم. اضبط السرّ ADMIN_API_URL."
-          fi
+          API_URL="${API_URL:-https://api.yalladelivery.org}"
+          echo "✅ Admin API: $API_URL"
           VITE_API_URL="$API_URL" npm run build
 
       - name: مزامنة Capacitor
