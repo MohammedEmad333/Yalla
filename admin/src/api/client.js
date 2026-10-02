@@ -1,6 +1,13 @@
 // عميل API موحّد للوحة الأدمن — يرفق التوكن ويوحّد معالجة الأخطاء.
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+// في التطوير المحلي نستخدم localhost، أمّا أي build إنتاجي (بما فيه تطبيق
+// Android/Capacitor) فيستخدم API الرسمي افتراضيًا حتى لو نُسي VITE_API_URL.
+// يمكن دائمًا تجاوز القيمة عبر VITE_API_URL أثناء البناء.
+const DEFAULT_API = import.meta.env.DEV
+  ? 'http://localhost:4000'
+  : 'https://api.yalladelivery.org';
+
+const API = (import.meta.env.VITE_API_URL || DEFAULT_API).replace(/\/$/, '');
 
 // قراءة التوكن المحفوظ
 const getToken = () => localStorage.getItem('token');
