@@ -6,7 +6,6 @@
 # النتيجة: ملف app-debug.apk يُرفع كـ Artifact لتنزيله وتثبيته على الهاتف.
 #
 # أسرار مطلوبة/اختيارية (Settings → Secrets and variables → Actions):
-#   ADMIN_API_URL                (اختياري) لتجاوز الرابط الافتراضي https://api.yalladelivery.org
 #   GOOGLE_SERVICES_JSON         (الأسهل، لتفعيل الإشعارات) الصق محتوى ملف google-services.json كما هو.
 #   GOOGLE_SERVICES_JSON_BASE64  (بديل) نفس الملف مُرمَّزًا base64 — توليده على Linux/Mac: base64 -w0 google-services.json
 #   ANDROID_KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD (اختياري) للإصدار الموقَّع.
@@ -17,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       api_url:
-        description: 'رابط الخادم (يتجاوز ADMIN_API_URL إن مُلئ)'
+        description: 'رابط اختباري اختياري للتشغيل اليدوي فقط'
         required: false
         default: ''
   push:
@@ -95,10 +94,14 @@ jobs:
       - name: بناء الويب (Vite) بعنوان الـ API
         env:
           INPUT_URL: ${{ github.event.inputs.api_url }}
-          SECRET_URL: ${{ secrets.ADMIN_API_URL }}
         run: |
-          API_URL="${INPUT_URL:-$SECRET_URL}"
-          API_URL="${API_URL:-https://api.yalladelivery.org}"
+          # Builds التلقائية على main يجب أن تكون دائمًا مرتبطة بالـ API الرسمي.
+          # الإدخال اليدوي يبقى متاحًا للاختبار، لكن كود production نفسه يثبّت
+          # api.yalladelivery.org كطبقة أمان إضافية ضد أي إعداد قديم.
+          API_URL="https://api.yalladelivery.org"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$INPUT_URL" ]; then
+            API_URL="$INPUT_URL"
+          fi
           echo "✅ Admin API: $API_URL"
           VITE_API_URL="$API_URL" npm run build
 
