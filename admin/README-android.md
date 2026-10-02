@@ -17,7 +17,7 @@
 لا حاجة لتثبيت أي أدوات على جهازك — GitHub يبني الـ APK نيابةً عنك:
 
 1. اضبط الأسرار في: **Settings → Secrets and variables → Actions**
-   - `ADMIN_API_URL` (مطلوب): رابط الخادم المنشور، مثل `https://<عنوان-خادمك-على-Oracle>`
+   - `ADMIN_API_URL` (اختياري): لتجاوز الرابط الافتراضي `https://api.yalladelivery.org` عند الحاجة.
    - `GOOGLE_SERVICES_JSON` (الأسهل، لتفعيل الإشعارات): افتح ملف
      `google-services.json` وألصق محتواه **كما هو** في السرّ.
    - أو `GOOGLE_SERVICES_JSON_BASE64` (بديل): على Linux/Mac نفّذ
@@ -25,9 +25,9 @@
 2. من تبويب **Actions** → اختر **Build Admin APK** → **Run workflow**.
 3. بعد انتهاء البناء، نزّل الـ APK من قسم **Artifacts** (`yalla-admin-apk`) وثبّته على الهاتف.
 
-> بلا `GOOGLE_SERVICES_JSON_BASE64` يُبنى التطبيق ويعمل بالكامل لكن **بلا إشعارات
-> Push** (تُفعَّل لاحقًا بمجرّد إضافة السرّ وإعادة التشغيل). ولا تنسَ إضافة
-> `https://localhost` إلى `CORS_ORIGIN` على الخادم (انظر القسم 4 أدناه).
+> بلا إعداد Firebase يُبنى التطبيق ويعمل بالكامل لكن **بلا إشعارات Push**.
+> عنوان الـ API الافتراضي لنسخة الإنتاج هو `https://api.yalladelivery.org`، وأصل
+> Capacitor `https://localhost` مسموح به تلقائيًا في إعدادات CORS الحالية للخادم.
 
 ---
 
