@@ -14,7 +14,7 @@ services:
     volumes:
       - mongo_data:/data/db
     # ملاحظة: صورة community-server لا تتضمّن mongosh، لذا لا نضع healthcheck
-    # يعتمد عليه؛ بدلًا من ذلك يعيد الـ API محاولة الاتصال حتى جاهزية القاعدة.
+    # يعتمد عليه؛ بدلًا من ذلك يعيد الـ API محاولة الاتصال حتى جاهزيتها
 
   # خادم الـ API (Express + Socket.io)
   api:
@@ -38,6 +38,13 @@ services:
       # إشعارات Firebase (Card 103): ألصق مفتاح خدمة Firebase (JSON بسطر واحد)
       # في ملف .env بجانب docker-compose.yml. فارغ = الإشعارات معطّلة (آمن).
       FCM_CREDENTIALS_JSON: ${FCM_CREDENTIALS_JSON:-}
+      # الدفع المباشر عبر Jawwal Pay. تُقرأ القيم من ملف .env بجانب docker-compose.yml
+      # ولا تُخزّن داخل الصورة أو المستودع.
+      JAWWAL_PAY_BASE_URL: ${JAWWAL_PAY_BASE_URL:-https://api.leadersms.ps}
+      JAWWAL_PAY_AUTH_MODE: ${JAWWAL_PAY_AUTH_MODE:-BASIC}
+      JAWWAL_PAY_USERNAME: ${JAWWAL_PAY_USERNAME:-}
+      JAWWAL_PAY_PASSWORD: ${JAWWAL_PAY_PASSWORD:-}
+      JAWWAL_PAY_PRIVATE_KEY: ${JAWWAL_PAY_PRIVATE_KEY:-}
       # الصور العامة الجديدة تُحفظ على volume مستقل بدل MongoDB.
       MEDIA_ROOT: /app/media
     # uploads_data للمستندات/الإيصالات الحساسة القديمة، وmedia_data للصور العامة
