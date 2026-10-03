@@ -61,7 +61,6 @@ router.post('/captain/apply', authLimiter, uploadCaptainDocs, ctrl.applyCaptain)
 const updateProfileSchema = {
   name: [V.string],
   lastName: [V.string],
-  phone: [V.palestinianMobile],
   email: [V.email], // اختياري، والقيمة الفارغة تعني حذف البريد من الحساب
   city: [V.string],
   // Card 96: يمكن تعديل مكان السكن لاحقًا من صفحة "حسابي"
