@@ -1,4 +1,4 @@
-' strict';
+'use strict';
 
 const refundService = require('../services/jawwalRefund.service');
 
