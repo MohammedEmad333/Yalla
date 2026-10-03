@@ -74,12 +74,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('إنشاء حساب تاجر')),
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text('إنشاء حساب تاجر'),
+      ),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 720),
               child: Form(
@@ -159,3 +162,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+
