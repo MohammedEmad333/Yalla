@@ -126,108 +126,116 @@ class _CaptainSignupScreenState extends State<CaptainSignupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('تسجيل ككابتن')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'سجّل بياناتك ومستنداتك ليتمّ توثيق حسابك من الإدارة.',
-                style: TextStyle(color: YallaColors.muted),
-              ),
-              const SizedBox(height: 20),
+      body: SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'سجّل بياناتك ومستنداتك ليتمّ توثيق حسابك من الإدارة.',
+                        style: TextStyle(color: YallaColors.muted),
+                      ),
+                      const SizedBox(height: 20),
 
-              TextFormField(
-                controller: _fullName,
-                decoration: const InputDecoration(
-                  labelText: 'الاسم الرباعي',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-                validator: (v) => (v == null || v.trim().split(' ').length < 2) ? 'أدخل الاسم الرباعي' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _phone,
-                keyboardType: TextInputType.phone,
-                textDirection: YallaInputBehavior.machineDirection,
-                textAlign: YallaInputBehavior.machineAlign,
-                decoration: const InputDecoration(
-                  labelText: 'رقم الجوال',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                ),
-                validator: (v) => (v == null || v.length < 6) ? 'أدخل رقم جوال صحيح' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _password,
-                obscureText: true,
-                textDirection: YallaInputBehavior.machineDirection,
-                textAlign: YallaInputBehavior.machineAlign,
-                decoration: const InputDecoration(
-                  labelText: 'كلمة المرور',
-                  prefixIcon: Icon(Icons.lock_outline),
-                ),
-                validator: (v) => (v == null || v.length < 6) ? '6 أحرف على الأقل' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nationalId,
-                keyboardType: TextInputType.number,
-                textDirection: YallaInputBehavior.machineDirection,
-                textAlign: YallaInputBehavior.machineAlign,
-                decoration: const InputDecoration(
-                  labelText: 'رقم الهوية',
-                  prefixIcon: Icon(Icons.badge_outlined),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'أدخل رقم الهوية' : null,
-              ),
-              const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _fullName,
+                        decoration: const InputDecoration(
+                          labelText: 'الاسم الرباعي',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        validator: (v) => (v == null || v.trim().split(' ').length < 2) ? 'أدخل الاسم الرباعي' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _phone,
+                        keyboardType: TextInputType.phone,
+                        textDirection: YallaInputBehavior.machineDirection,
+                        textAlign: YallaInputBehavior.machineAlign,
+                        decoration: const InputDecoration(
+                          labelText: 'رقم الجوال',
+                          prefixIcon: Icon(Icons.phone_outlined),
+                        ),
+                        validator: (v) => (v == null || v.length < 6) ? 'أدخل رقم جوال صحيح' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _password,
+                        obscureText: true,
+                        textDirection: YallaInputBehavior.machineDirection,
+                        textAlign: YallaInputBehavior.machineAlign,
+                        decoration: const InputDecoration(
+                          labelText: 'كلمة المرور',
+                          prefixIcon: Icon(Icons.lock_outline),
+                        ),
+                        validator: (v) => (v == null || v.length < 6) ? '6 أحرف على الأقل' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _nationalId,
+                        keyboardType: TextInputType.number,
+                        textDirection: YallaInputBehavior.machineDirection,
+                        textAlign: YallaInputBehavior.machineAlign,
+                        decoration: const InputDecoration(
+                          labelText: 'رقم الهوية',
+                          prefixIcon: Icon(Icons.badge_outlined),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'أدخل رقم الهوية' : null,
+                      ),
+                      const SizedBox(height: 16),
 
-              // تاريخ الميلاد
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.cake_outlined),
-                title: Text(_birthDate == null
-                    ? 'تاريخ الميلاد'
-                    : 'تاريخ الميلاد: ${_birthDate!.year}/${_birthDate!.month}/${_birthDate!.day}'),
-                trailing: TextButton(onPressed: _pickBirthDate, child: const Text('اختيار')),
+                      // تاريخ الميلاد
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.cake_outlined),
+                        title: Text(_birthDate == null
+                            ? 'تاريخ الميلاد'
+                            : 'تاريخ الميلاد: ${_birthDate!.year}/${_birthDate!.month}/${_birthDate!.day}'),
+                        trailing: TextButton(onPressed: _pickBirthDate, child: const Text('اختيار')),
+                      ),
+                      const Divider(),
+
+                      // نوع المركبة (Card 92): هوائية/كهربائية/نارية
+                      DropdownButtonFormField<String>(
+                        value: _vehicleType,
+                        decoration: const InputDecoration(
+                          labelText: 'نوع المركبة',
+                          prefixIcon: Icon(Icons.two_wheeler_outlined),
+                        ),
+                        items: kVehicleTypes
+                            .map((v) => DropdownMenuItem(value: v.value, child: Text(v.label)))
+                            .toList(),
+                        onChanged: (v) => setState(() => _vehicleType = v ?? 'motorcycle'),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // المستندات
+                      _docPicker('صورة الهوية الرسمية', _idPhotoPath, () => _pick(true)),
+                      const SizedBox(height: 12),
+                      _docPicker('سيلفي مع الهوية', _selfiePath, () => _pick(false)),
+
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        Text(_error!, style: TextStyle(color: YallaColors.error), textAlign: TextAlign.center),
+                      ],
+
+                      const SizedBox(height: 24),
+                      FilledButton(
+                        onPressed: _loading ? null : _submit,
+                        child: _loading
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Text('إرسال طلب التوثيق'),
+                      ),
+                    ],
+                  ),
               ),
-              const Divider(),
-
-              // نوع المركبة (Card 92): هوائية/كهربائية/نارية
-              DropdownButtonFormField<String>(
-                value: _vehicleType,
-                decoration: const InputDecoration(
-                  labelText: 'نوع المركبة',
-                  prefixIcon: Icon(Icons.two_wheeler_outlined),
-                ),
-                items: kVehicleTypes
-                    .map((v) => DropdownMenuItem(value: v.value, child: Text(v.label)))
-                    .toList(),
-                onChanged: (v) => setState(() => _vehicleType = v ?? 'motorcycle'),
-              ),
-              const SizedBox(height: 16),
-
-              // المستندات
-              _docPicker('صورة الهوية الرسمية', _idPhotoPath, () => _pick(true)),
-              const SizedBox(height: 12),
-              _docPicker('سيلفي مع الهوية', _selfiePath, () => _pick(false)),
-
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!, style: TextStyle(color: YallaColors.error), textAlign: TextAlign.center),
-              ],
-
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _loading ? null : _submit,
-                child: _loading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('إرسال طلب التوثيق'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
