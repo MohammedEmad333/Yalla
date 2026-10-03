@@ -4,11 +4,12 @@ const router = require('express').Router();
 const commerce = require('../services/commerce.service');
 const directPayment = require('../services/directPayment.service');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { blockOrderCreationDuringMaintenance } = require('../middlewares/orderMaintenance.middleware');
 const { ROLES } = require('../utils/constants');
 
 router.use(authenticate, authorize(ROLES.USER));
 
-router.post('/restaurant-order', async (req, res, next) => {
+router.post('/restaurant-order', blockOrderCreationDuringMaintenance, async (req, res, next) => {
   try {
     const order = await commerce.placeRestaurantOrder(
       req.auth.id,
@@ -27,7 +28,7 @@ router.post('/restaurant-order', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/reorder/:orderId', async (req, res, next) => {
+router.post('/reorder/:orderId', blockOrderCreationDuringMaintenance, async (req, res, next) => {
   try {
     const order = await commerce.reorder(
       req.auth.id,
