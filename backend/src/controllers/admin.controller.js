@@ -5,9 +5,7 @@ const Captain = require('../models/Captain');
 const Merchant = require('../models/Merchant');
 const statsService = require('../services/stats.service');
 const orderService = require('../services/order.service');
-const walletService = require('../services/wallet.service');
 const captainWalletService = require('../services/captainWallet.service');
-const customerWithdrawalService = require('../services/customerWithdrawal.service');
 const adminService = require('../services/admin.service');
 const settingsService = require('../services/settings.service');
 const chatService = require('../services/chat.service');
@@ -19,7 +17,6 @@ const { saveAvatar, deleteAvatarByUrl } = require('../utils/avatarStore');
 const { ROLES } = require('../utils/constants');
 const { normalizePhone } = require('../utils/phone');
 
-// مؤشّرات الأداء للوحة التحكّم
 async function getStats(req, res, next) {
   try {
     const stats = await statsService.getDashboardStats();
@@ -64,17 +61,25 @@ async function exportAdminWallet(req, res, next) {
       date: tx.deliveredAt ? new Date(tx.deliveredAt).toISOString() : '',
     }));
     const columns = [
-      { key: 'orderId', header: 'رقم الطلب' }, { key: 'restaurant', header: 'المتجر' },
-      { key: 'customer', header: 'الزبون' }, { key: 'phone', header: 'الهاتف' },
-      { key: 'captain', header: 'الكابتن' }, { key: 'type', header: 'نوع الحركة' },
-      { key: 'items', header: 'قيمة الأصناف' }, { key: 'commission', header: 'العمولة' },
-      { key: 'amount', header: 'دخل الإدارة' }, { key: 'balanceBefore', header: 'رصيد الإدارة قبل' },
-      { key: 'balanceAfter', header: 'رصيد الإدارة بعد' }, { key: 'date', header: 'التاريخ' },
+      { key: 'orderId', header: 'رقم الطلب' },
+      { key: 'restaurant', header: 'المتجر' },
+      { key: 'customer', header: 'الزبون' },
+      { key: 'phone', header: 'الهاتف' },
+      { key: 'captain', header: 'الكابتن' },
+      { key: 'type', header: 'نوع الحركة' },
+      { key: 'items', header: 'قيمة الأصناف' },
+      { key: 'commission', header: 'العمولة' },
+      { key: 'amount', header: 'دخل الإدارة' },
+      { key: 'balanceBefore', header: 'رصيد الإدارة قبل' },
+      { key: 'balanceAfter', header: 'رصيد الإدارة بعد' },
+      { key: 'date', header: 'التاريخ' },
     ];
     res.setHeader('Content-Type', 'text/csv; charset=utf-16le');
     res.setHeader('Content-Disposition', `attachment; filename="admin-wallet-${Date.now()}.csv"`);
     res.send(excelUnicodeBuffer(rows, columns));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 async function getUserCounts(req, res, next) {
@@ -84,7 +89,9 @@ async function getUserCounts(req, res, next) {
       Captain.countDocuments({}),
     ]);
     res.json({ customers, captains, total: customers + captains });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 async function getAdminAccount(req, res, next) {
@@ -92,7 +99,9 @@ async function getAdminAccount(req, res, next) {
     const admin = await User.findOne({ _id: req.auth.id, role: ROLES.ADMIN }).select('name phone');
     if (!admin) return res.status(404).json({ message: 'حساب الأدمن غير موجود' });
     res.json({ id: admin._id, name: admin.name, phone: admin.phone });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 async function updateAdminAccount(req, res, next) {
@@ -105,23 +114,32 @@ async function updateAdminAccount(req, res, next) {
     }
     if (req.body.phone !== undefined) {
       const phone = normalizePhone(req.body.phone);
-      if (!/^\+?\d{6,15}$/.test(phone)) return res.status(400).json({ message: 'أدخل رقم جوال صحيح' });
+      if (!/^\+?\d{6,15}$/.test(phone)) {
+        return res.status(400).json({ message: 'أدخل رقم جوال صحيح' });
+      }
       const collision = await Promise.all([
-        User.exists({ _id: { $ne: admin._id }, phone }), Captain.exists({ phone }), Merchant.exists({ phone }),
+        User.exists({ _id: { $ne: admin._id }, phone }),
+        Captain.exists({ phone }),
+        Merchant.exists({ phone }),
       ]);
-      if (collision.some(Boolean)) return res.status(409).json({ message: 'رقم الجوال مستخدم في حساب آخر' });
+      if (collision.some(Boolean)) {
+        return res.status(409).json({ message: 'رقم الجوال مستخدم في حساب آخر' });
+      }
       admin.phone = phone;
     }
     if (req.body.newPassword) {
-      if (String(req.body.newPassword).length < 6) return res.status(400).json({ message: 'كلمة السر الجديدة ٦ أحرف على الأقل' });
+      if (String(req.body.newPassword).length < 6) {
+        return res.status(400).json({ message: 'كلمة السر الجديدة ٦ أحرف على الأقل' });
+      }
       await admin.setPassword(String(req.body.newPassword));
     }
     await admin.save();
     res.json({ id: admin._id, name: admin.name, phone: admin.phone });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
-// قائمة المستخدمين (العملاء) — بحث اختياري بالاسم/الهاتف
 async function listUsers(req, res, next) {
   try {
     const { q } = req.query;
@@ -132,14 +150,15 @@ async function listUsers(req, res, next) {
         { phone: new RegExp(q, 'i') },
       ];
     }
-    const users = await User.find(filter).select('name phone email isActive createdAt').sort({ createdAt: -1 });
+    const users = await User.find(filter)
+      .select('name phone email isActive createdAt')
+      .sort({ createdAt: -1 });
     res.json(users);
   } catch (err) {
     next(err);
   }
 }
 
-// تفعيل/تعطيل مستخدم (المستخدم المعطّل لا يستطيع الدخول)
 async function setUserActive(req, res, next) {
   try {
     const { isActive } = req.body;
@@ -155,7 +174,6 @@ async function setUserActive(req, res, next) {
   }
 }
 
-// قائمة الكباتن مع حالة الاعتماد والتوفّر
 async function listCaptains(req, res, next) {
   try {
     const captains = await Captain.find()
@@ -167,7 +185,6 @@ async function listCaptains(req, res, next) {
   }
 }
 
-// Card 41: قائمة الزبائن بكامل التفاصيل (رقم/اسم/عنوان/رصيد/تاريخ الانضمام)
 async function listCustomersDetailed(req, res, next) {
   try {
     const items = await adminService.listCustomers({ q: req.query.q });
@@ -177,7 +194,6 @@ async function listCustomersDetailed(req, res, next) {
   }
 }
 
-// Card 37 + Card 41: قائمة الكباتن بكامل التفاصيل (بما فيها الرصيد القابل للسحب)
 async function listCaptainsDetailed(req, res, next) {
   try {
     const items = await adminService.listCaptainsDetailed();
@@ -187,7 +203,6 @@ async function listCaptainsDetailed(req, res, next) {
   }
 }
 
-// Card 38: حذف زبون نهائيًا
 async function deleteUser(req, res, next) {
   try {
     const result = await adminService.deleteUser(req.params.userId);
@@ -197,7 +212,6 @@ async function deleteUser(req, res, next) {
   }
 }
 
-// Card 38: حذف كابتن نهائيًا
 async function deleteCaptain(req, res, next) {
   try {
     const result = await adminService.deleteCaptain(req.params.captainId);
@@ -207,7 +221,6 @@ async function deleteCaptain(req, res, next) {
   }
 }
 
-// Card 78: تعديل الأدمن لبيانات حساب كابتن (اسم/جوال/مركبة/كلمة سر)
 async function updateCaptain(req, res, next) {
   try {
     const result = await adminService.updateCaptain(req.params.captainId, req.body || {});
@@ -217,14 +230,15 @@ async function updateCaptain(req, res, next) {
   }
 }
 
-// Card 78: الأدمن يغيّر الصورة الشخصية لكابتن (الملفّ في req.file عبر multer)
 async function uploadCaptainAvatar(req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ message: 'أرفق صورة' });
-    // Card 102: نخزّن الصورة في قاعدة البيانات (دائم) ونحذف القديمة إن وُجدت
     const prev = await Captain.findById(req.params.captainId).select('avatarUrl');
     if (!prev) return res.status(404).json({ message: 'الكابتن غير موجود' });
-    const url = await saveAvatar(req.file, { owner: req.params.captainId, ownerRole: ROLES.CAPTAIN });
+    const url = await saveAvatar(req.file, {
+      owner: req.params.captainId,
+      ownerRole: ROLES.CAPTAIN,
+    });
     await deleteAvatarByUrl(prev.avatarUrl);
     await Captain.findByIdAndUpdate(req.params.captainId, { avatarUrl: url });
     res.json({ ok: true, avatarUrl: url });
@@ -232,8 +246,6 @@ async function uploadCaptainAvatar(req, res, next) {
     next(err);
   }
 }
-
-// ── Card 79: طلبات توثيق الكباتن + بيانات الكباتن الحسّاسة ──────────
 
 async function listCaptainApplications(req, res, next) {
   try {
@@ -262,7 +274,6 @@ async function rejectCaptainApplication(req, res, next) {
   }
 }
 
-// Card 79: صفحة "بيانات الكباتن" — البيانات الحسّاسة للأدمن فقط
 async function listCaptainsData(req, res, next) {
   try {
     const items = await adminService.listCaptainsData();
@@ -272,7 +283,6 @@ async function listCaptainsData(req, res, next) {
   }
 }
 
-// اعتماد/إلغاء اعتماد كابتن (غير المعتمَد لا يستقبل طلبات)
 async function setCaptainApproval(req, res, next) {
   try {
     const { isApproved } = req.body;
@@ -288,7 +298,6 @@ async function setCaptainApproval(req, res, next) {
   }
 }
 
-// الأدمن يعرض محفظة كابتن معيّن
 async function captainWallet(req, res, next) {
   try {
     const data = await orderService.getCaptainWallet(req.params.captainId);
@@ -298,7 +307,6 @@ async function captainWallet(req, res, next) {
   }
 }
 
-// الأدمن يسوّي عمولة كابتن
 async function settleCaptain(req, res, next) {
   try {
     const { amount } = req.body;
@@ -309,79 +317,6 @@ async function settleCaptain(req, res, next) {
   }
 }
 
-// ── محفظة المستخدم وشحن الرصيد (المرحلة 1: مراجعة يدوية) ──────────
-
-// قائمة طلبات الشحن (?status=pending|approved|rejected|all)
-async function listTopups(req, res, next) {
-  try {
-    const limit = parseInt(req.query.limit, 10) || 50;
-    const skip = parseInt(req.query.skip, 10) || 0;
-    const items = await walletService.listTopups({ status: req.query.status, limit, skip });
-    res.json(items);
-  } catch (err) {
-    next(err);
-  }
-}
-
-// الموافقة على طلب شحن → إضافة الرصيد تلقائيًّا لمحفظة المستخدم
-async function approveTopup(req, res, next) {
-  try {
-    const { note } = req.body || {};
-    const result = await walletService.approveTopup(req.auth.id, req.params.txId, note);
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
-}
-
-// رفض طلب شحن (بلا إضافة رصيد)
-async function rejectTopup(req, res, next) {
-  try {
-    const { reason } = req.body || {};
-    const result = await walletService.rejectTopup(req.auth.id, req.params.txId, reason);
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
-}
-
-// إضافة رصيد لأي زبون (دائم أو خارجي) من لوحة الأدمن — يشحن محفظة الزبون يدويًا
-// بالمبلغ المطلوب ويسجّل حركة "تعديل" في دفتر الأستاذ.
-async function creditUser(req, res, next) {
-  try {
-    const { amount } = req.body || {};
-    const value = Number(amount);
-    if (!(value > 0)) return res.status(400).json({ message: 'أدخل مبلغًا صحيحًا' });
-
-    const user = await User.findById(req.params.userId).select('role');
-    if (!user) return res.status(404).json({ message: 'المستخدم غير موجود' });
-    if (user.role !== ROLES.USER) {
-      return res.status(400).json({ message: 'إضافة الرصيد متاحة لحسابات الزبائن فقط' });
-    }
-
-    const balance = await walletService.adminCredit(user._id, value, {
-      reason: 'admin_credit',
-      by: String(req.auth.id),
-    });
-    res.json({ balance });
-  } catch (err) {
-    next(err);
-  }
-}
-
-// عرض محفظة مستخدم معيّن + آخر حركاته
-async function userWallet(req, res, next) {
-  try {
-    const data = await walletService.getUserWalletForAdmin(req.params.userId);
-    res.json(data);
-  } catch (err) {
-    next(err);
-  }
-}
-
-// ── طلبات سحب أرباح الكباتن (Card 19) ────────────────────────────
-
-// قائمة طلبات السحب (?status=pending|done|rejected)
 async function listWithdrawals(req, res, next) {
   try {
     const limit = parseInt(req.query.limit, 10) || 50;
@@ -395,7 +330,6 @@ async function listWithdrawals(req, res, next) {
   }
 }
 
-// تنفيذ طلب سحب: "تم التحويل" (done) أو "رفض" (rejected)
 async function processWithdrawal(req, res, next) {
   try {
     const { action, note } = req.body || {};
@@ -410,13 +344,9 @@ async function processWithdrawal(req, res, next) {
   }
 }
 
-// ── طلبات سحب رصيد الزبائن (Card 98) ─────────────────────────────
-
-// قائمة طلبات سحب الزبائن (?status=pending|done|rejected|all)
-async function listCustomerWithdrawals(req, res, next) {
+async function listChats(req, res, next) {
   try {
-    const items = await customerWithdrawalService.listAll({
-      status: req.query.status,
+    const items = await chatService.listActiveChats({
       limit: parseInt(req.query.limit, 10) || 50,
     });
     res.json(items);
@@ -425,35 +355,6 @@ async function listCustomerWithdrawals(req, res, next) {
   }
 }
 
-// تنفيذ طلب سحب زبون: "تم التحويل" (done) أو "رفض" (rejected)
-async function processCustomerWithdrawal(req, res, next) {
-  try {
-    const { action, note } = req.body || {};
-    const result = await customerWithdrawalService.process(
-      req.auth.id,
-      req.params.withdrawalId,
-      action,
-      note
-    );
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
-}
-
-// ── مراقبة الأدمن للمحادثات (Card 32 + Card 45) ──────────────────
-
-// Card 45: قائمة المحادثات الجارية بين الزبائن والكباتن
-async function listChats(req, res, next) {
-  try {
-    const items = await chatService.listActiveChats({ limit: parseInt(req.query.limit, 10) || 50 });
-    res.json(items);
-  } catch (err) {
-    next(err);
-  }
-}
-
-// Card 32: عرض رسائل محادثة طلب معيّن (تشمل المؤرشفة)
 async function getChatMessages(req, res, next) {
   try {
     const items = await chatService.listMessagesForAdmin(req.params.orderId);
@@ -463,7 +364,6 @@ async function getChatMessages(req, res, next) {
   }
 }
 
-// Card 32: مشاركة الأدمن في المحادثة (تظهر بأيقونة أدمن خاصّة لدى الطرفين)
 async function sendChatMessage(req, res, next) {
   try {
     const { text } = req.body || {};
@@ -478,7 +378,6 @@ async function sendChatMessage(req, res, next) {
   }
 }
 
-// Card 94: حذف الأدمن لرسالة دردشة واحدة من أي محادثة نهائيًا
 async function deleteChatMessage(req, res, next) {
   try {
     const result = await chatService.deleteMessage(req.params.orderId, req.params.messageId);
@@ -488,7 +387,6 @@ async function deleteChatMessage(req, res, next) {
   }
 }
 
-// Card 32: تصدير محادثة طلب بصيغة CSV (متاح حتى بعد انتهاء المحادثة/أرشفتها)
 async function exportChat(req, res, next) {
   try {
     const messages = await chatService.listMessagesForAdmin(req.params.orderId);
@@ -503,7 +401,6 @@ async function exportChat(req, res, next) {
       { key: 'sender', header: 'المُرسِل' },
       { key: 'text', header: 'الرسالة' },
     ];
-    // ملفّ بترميز UTF-16LE + فاصل جدولة: عربية سليمة وأعمدة منفصلة في Excel (Card 58)
     const buffer = excelUnicodeBuffer(rows, columns);
     res.setHeader('Content-Type', 'text/csv; charset=utf-16le');
     res.setHeader('Content-Disposition', `attachment; filename="chat-${req.params.orderId}.csv"`);
@@ -513,9 +410,6 @@ async function exportChat(req, res, next) {
   }
 }
 
-// ── رسائل/إشعارات الأدمن الجماعية (Card 66) ──────────────────────
-
-// الأدمن يرسل رسالة/إشعارًا للجميع أو لكباتن/زبائن محدّدين
 async function sendBroadcast(req, res, next) {
   try {
     const { audience, title, body, userIds, captainIds } = req.body || {};
@@ -538,8 +432,6 @@ async function sendBroadcast(req, res, next) {
   }
 }
 
-// ── إعدادات المنظومة (الإسناد التلقائي) ──────────────────────────────
-// الأدمن يجلب الإعدادات الحاليّة لعرض حالة مفتاح الإسناد التلقائي في اللوحة
 async function getSettings(req, res, next) {
   try {
     const settings = await settingsService.getSettings();
@@ -549,17 +441,15 @@ async function getSettings(req, res, next) {
   }
 }
 
-// الأدمن يبدّل الإسناد التلقائي (بثّ الطلبات لكل الكباتن). عند التفعيل نبثّ فورًا
-// كل الطلبات المعلّقة الحاليّة للكباتن كي تظهر لهم دون انتظار طلبات جديدة.
 async function updateSettings(req, res, next) {
   try {
     const { autoAssignBroadcast } = req.body || {};
     const patch = {};
-    if (typeof autoAssignBroadcast === 'boolean') patch.autoAssignBroadcast = autoAssignBroadcast;
+    if (typeof autoAssignBroadcast === 'boolean') {
+      patch.autoAssignBroadcast = autoAssignBroadcast;
+    }
 
     const settings = await settingsService.updateSettings(patch);
-
-    // عند تفعيل الإسناد التلقائي نبثّ الطلبات المعلّقة القائمة فورًا للكباتن
     let broadcasted = 0;
     if (patch.autoAssignBroadcast === true) {
       broadcasted = await orderService.broadcastPendingOrders();
@@ -603,13 +493,6 @@ module.exports = {
   listCaptainsData,
   captainWallet,
   settleCaptain,
-  listTopups,
-  approveTopup,
-  rejectTopup,
-  creditUser,
-  userWallet,
   listWithdrawals,
   processWithdrawal,
-  listCustomerWithdrawals,
-  processCustomerWithdrawal,
 };
