@@ -17,7 +17,7 @@ const authLimiter = rateLimit({ windowMs: 60_000, max: 20 });
 const registerSchema = {
   name: [V.required, V.string],
   lastName: [V.string], // اسم العائلة — اختياري
-  phone: [V.required, V.phone],
+  phone: [V.required, V.palestinianMobile],
   password: [V.required, V.minLength(6)],
   email: [V.email], // اختياري؛ يُتحقّق فقط إذا أُرسل
   // Card 96: مكان السكن — المحافظة (من القائمة المعتمَدة) وتفاصيل العنوان.

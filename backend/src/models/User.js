@@ -3,12 +3,20 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { ROLES } = require('../utils/constants');
+const { normalizePalestinianMobile } = require('../utils/phone');
 
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     lastName: { type: String, trim: true, default: '' },
-    phone: { type: String, required: true, unique: true, trim: true },
+    // نخزّن رقم مستخدم Yalla دائمًا بصيغة 05xxxxxxxx حتى تستخدمه المدفوعات بأمان.
+    phone: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      set: (value) => normalizePalestinianMobile(value) || String(value || '').trim(),
+    },
     email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
     emailVerifiedAt: { type: Date, default: null },
     emailVerificationCodeHash: { type: String, default: null, select: false },

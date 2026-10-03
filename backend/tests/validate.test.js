@@ -18,6 +18,14 @@ test('V.phone: يتحقّق من صيغة الهاتف', () => {
   assert.ok(V.phone('abc'));
 });
 
+test('V.palestinianMobile: يفرض صيغة 05xxxxxxxx لحساب Yalla', () => {
+  assert.equal(V.palestinianMobile('0599111222'), null);
+  assert.equal(V.palestinianMobile('0569111222'), null);
+  assert.ok(V.palestinianMobile('+970599111222'));
+  assert.ok(V.palestinianMobile('059 911 1222'));
+  assert.ok(V.palestinianMobile('12345'));
+});
+
 test('V.email: يقبل البريد الصحيح ويرفض الصيغة الخاطئة', () => {
   assert.equal(V.email('user@example.com'), null);
   assert.equal(V.email(' user@example.com '), null);

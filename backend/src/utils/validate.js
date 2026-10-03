@@ -12,6 +12,12 @@ const V = {
   phone: (v) =>
     typeof v === 'string' && /^[0-9+\-\s]{6,15}$/.test(v) ? null : 'رقم هاتف غير صالح',
 
+  // رقم حساب مستخدم Yalla يُدخل ويُخزّن بصيغة واحدة واضحة: 05xxxxxxxx.
+  palestinianMobile: (v) =>
+    typeof v === 'string' && /^05\d{8}$/.test(v.trim())
+      ? null
+      : 'أدخل رقم الجوال بصيغة 05xxxxxxxx',
+
   email: (v) =>
     typeof v === 'string' &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
