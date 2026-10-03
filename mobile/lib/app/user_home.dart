@@ -25,6 +25,9 @@ class UserHome extends StatefulWidget {
 class _UserHomeState extends State<UserHome> {
   int _index = 0;
   late final List<Widget> _pages;
+  bool _orderMaintenanceEnabled = false;
+  String _maintenanceMessage =
+      'نجري حاليًا أعمال صيانة مؤقتة على نظام الطلب والدفع. الطلب من داخل التطبيق متوقف مؤقتًا، لكن يمكنك الطلب مباشرة عبر رقم يلا.';
 
   static const _labels = ['المتاجر', 'طلب', 'طلباتي', 'حسابي'];
   static const _icons = [
@@ -52,11 +55,37 @@ class _UserHomeState extends State<UserHome> {
     widget.socket.connect();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      if (Company.temporaryOrderMaintenanceEnabled) {
+      final maintenance = await _refreshOrderMaintenance();
+      if (maintenance && mounted) {
         await _showMaintenanceDialog();
       }
       if (mounted) await maybeShowOnboarding(context, 'user');
     });
+  }
+
+  Future<bool> _refreshOrderMaintenance() async {
+    try {
+      final raw = await widget.api.get('/settings/public');
+      final root = Map<String, dynamic>.from(raw as Map);
+      final maintenance = Map<String, dynamic>.from(
+        (root['orderMaintenance'] as Map?) ?? const {},
+      );
+      final enabled = maintenance['enabled'] == true;
+      final message = (maintenance['message'] ?? '').toString().trim();
+      if (mounted) {
+        setState(() {
+          _orderMaintenanceEnabled = enabled;
+          if (message.isNotEmpty) _maintenanceMessage = message;
+        });
+      } else {
+        _orderMaintenanceEnabled = enabled;
+        if (message.isNotEmpty) _maintenanceMessage = message;
+      }
+      return enabled;
+    } catch (_) {
+      // إذا تعذر تحميل الإعداد لا نقفل الطلب على المستخدم بسبب خطأ اتصال عابر.
+      return _orderMaintenanceEnabled;
+    }
   }
 
   Future<void> _launchDirectOrder(Uri uri) async {
@@ -99,8 +128,7 @@ class _UserHomeState extends State<UserHome> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'نجري حاليًا أعمال صيانة مؤقتة على نظام الطلب والدفع. '
-                'الطلب من داخل التطبيق متوقف مؤقتًا، لكن يمكنك الطلب مباشرة عبر رقم يلا.',
+                _maintenanceMessage,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   height: 1.55,
@@ -154,11 +182,21 @@ class _UserHomeState extends State<UserHome> {
   }
 
   void _onDestinationSelected(int i) {
-    if (i == 1 && Company.temporaryOrderMaintenanceEnabled) {
-      _showMaintenanceDialog();
+    if (i != 1) {
+      setState(() => _index = i);
       return;
     }
-    setState(() => _index = i);
+    _openOrderTab();
+  }
+
+  Future<void> _openOrderTab() async {
+    final maintenance = await _refreshOrderMaintenance();
+    if (!mounted) return;
+    if (maintenance) {
+      await _showMaintenanceDialog();
+      return;
+    }
+    setState(() => _index = 1);
   }
 
   @override
