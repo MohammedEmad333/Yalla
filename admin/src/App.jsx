@@ -30,11 +30,13 @@ import MarketingCenter from './pages/MarketingCenter';
 import RewardsSettings from './pages/RewardsSettings';
 import AdminRoles from './pages/AdminRoles';
 import SmartDispatch from './pages/SmartDispatch';
+import SystemSettings from './pages/SystemSettings';
 
 const NAV = [
   { group: 'العمليات', items: [
     { key: 'dashboard', label: 'اللوحة اللحظية', icon: IconDashboard, Page: LiveDashboard },
     { key: 'dispatch', label: 'Smart Dispatch', icon: IconOrders, Page: SmartDispatch },
+    { key: 'system', label: 'إعدادات النظام', icon: IconSupport, Page: SystemSettings },
     { key: 'opsFinance', label: 'مركز العمليات والمال', icon: IconChart, Page: OperationsFinance },
     { key: 'quality', label: 'الجودة وصحة النظام', icon: IconSupport, Page: QualitySystem },
     { key: 'orders', label: 'بحث الطلبات', icon: IconOrders, Page: OrdersPage },
@@ -64,7 +66,7 @@ const NAV = [
 
 const ROLE_PAGES = {
   super_admin: '*',
-  operations: ['dashboard','dispatch','orders','restaurants','merchantApps','users','captainDocs','stats','quality'],
+  operations: ['dashboard','dispatch','system','orders','restaurants','merchantApps','users','captainDocs','stats','quality'],
   support: ['dashboard','orders','users','chats','support','quality'],
   finance: ['dashboard','opsFinance','adminWallet','wallet','withdrawals','stats'],
   marketing: ['dashboard','restaurants','broadcast','marketing','rewards','stats'],
