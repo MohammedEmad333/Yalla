@@ -27,6 +27,7 @@ router.use('/support', require('./support.routes'));
 router.use('/bot', require('./bot.routes'));
 router.use('/admin/access', require('./adminAccess.routes'));
 router.use('/admin/dispatch', require('./smartDispatch.routes'));
+router.use('/admin/jawwal-refunds', require('./jawwalRefund.routes'));
 router.use('/admin', require('./admin.routes'));
 router.use('/merchant', require('./merchant.routes'));
 router.use('/merchant-staff', require('./merchantStaff.routes'));
