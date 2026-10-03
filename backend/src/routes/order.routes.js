@@ -2,6 +2,7 @@
 
 const router = require('express').Router();
 const ctrl = require('../controllers/order.controller');
+const paymentAwareCtrl = require('../controllers/paymentAwareOrder.controller');
 const restaurantCtrl = require('../controllers/restaurant.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { blockOrderCreationDuringMaintenance } = require('../middlewares/orderMaintenance.middleware');
@@ -52,8 +53,8 @@ router.get('/mine', authorize(ROLES.USER), ctrl.getMyOrders);
 // المستخدم: تقييم الكابتن بعد التسليم
 router.post('/:orderId/rate', authorize(ROLES.USER), validateBody(rateSchema), ctrl.rateOrder);
 
-// المستخدم أو الأدمن: إلغاء الطلب (قبل الاستلام)
-router.post('/:orderId/cancel', authorize(ROLES.USER, ROLES.ADMIN), ctrl.cancelOrder);
+// المستخدم أو الأدمن: إلغاء الطلب (قبل الاستلام). الطلب المدفوع عبر جوال يدخل refund_pending.
+router.post('/:orderId/cancel', authorize(ROLES.USER, ROLES.ADMIN), paymentAwareCtrl.cancelOrder);
 
 // الأدمن: عرض الطلبات النشطة + بحث/فلترة مع ترقيم + الكباتن المتاحين + الإسناد
 router.get('/active', authorize(ROLES.ADMIN), ctrl.getActiveOrders);
@@ -80,7 +81,7 @@ router.post('/:orderId/send-code', authorize(ROLES.ADMIN), ctrl.sendCode);
 router.get('/available', authorize(ROLES.CAPTAIN), ctrl.availableOrders);
 
 // الكابتن: تحديث حالة الطلب + رفض الطلب (إعادة إسناد)
-router.patch('/:orderId/status', authorize(ROLES.CAPTAIN), ctrl.updateStatus);
+router.patch('/:orderId/status', authorize(ROLES.CAPTAIN), paymentAwareCtrl.updateStatus);
 router.patch('/:orderId/reject', authorize(ROLES.CAPTAIN), ctrl.rejectOrder);
 // الكابتن: قبول طلب مبثوث (الإسناد التلقائي) — أوّل من يقبل يظفر به
 router.post('/:orderId/claim', authorize(ROLES.CAPTAIN), ctrl.claimOrder);
