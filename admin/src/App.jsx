@@ -15,7 +15,6 @@ import UsersManagement from './pages/UsersManagement';
 import CaptainApplications from './pages/CaptainApplications';
 import StatsPage from './pages/StatsPage';
 import OrdersPage from './pages/OrdersPage';
-import WalletTopups from './pages/WalletTopups';
 import Withdrawals from './pages/Withdrawals';
 import Chats from './pages/Chats';
 import Support from './pages/Support';
@@ -52,8 +51,7 @@ const NAV = [
   ]},
   { group: 'المال', items: [
     { key: 'adminWallet', label: 'محفظة الإدارة', icon: IconWallet, Page: AdminWallet },
-    { key: 'wallet', label: 'شحن الرصيد', icon: IconWallet, Page: WalletTopups },
-    { key: 'withdrawals', label: 'طلبات السحب', icon: IconCashOut, Page: Withdrawals },
+    { key: 'withdrawals', label: 'سحوبات الكباتن', icon: IconCashOut, Page: Withdrawals },
   ]},
   { group: 'الأشخاص والتقارير', items: [
     { key: 'users', label: 'إدارة المستخدمين', icon: IconUsers, Page: UsersManagement },
@@ -68,7 +66,7 @@ const ROLE_PAGES = {
   super_admin: '*',
   operations: ['dashboard','dispatch','system','orders','restaurants','merchantApps','users','captainDocs','stats','quality'],
   support: ['dashboard','orders','users','chats','support','quality'],
-  finance: ['dashboard','opsFinance','adminWallet','wallet','withdrawals','stats'],
+  finance: ['dashboard','opsFinance','adminWallet','withdrawals','stats'],
   marketing: ['dashboard','restaurants','broadcast','marketing','rewards','stats'],
 };
 
