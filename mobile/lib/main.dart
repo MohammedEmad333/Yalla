@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/web/install_banner.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/network/api_client.dart';
 import 'core/performance/performance_monitor.dart';
@@ -53,7 +54,9 @@ void main() async {
   ]);
   if (kDebugMode || kProfileMode) PerformanceMonitor.start();
   authRepository.session.addListener(() {
-    if (authRepository.session.value != null) pushService.registerAfterLogin();
+    final signedIn = authRepository.session.value != null;
+    setInstallBannerEligible(signedIn);
+    if (signedIn) pushService.registerAfterLogin();
   });
   runApp(const YallaApp());
 }

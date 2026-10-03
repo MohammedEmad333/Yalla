@@ -76,28 +76,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('إنشاء حساب تاجر')),
       body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            children: [
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3E8),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(Icons.storefront_rounded, color: Color(0xFFFF7A00)),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'أنشئ حسابك وأرسل بيانات متجرك للمراجعة. لن يظهر المتجر للزبائن قبل اعتماد الإدارة.',
-                        style: TextStyle(height: 1.55, fontWeight: FontWeight.w600),
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3E8),
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    ),
+                      child: const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.storefront_rounded, color: Color(0xFFFF7A00)),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'أنشئ حسابك وأرسل بيانات متجرك للمراجعة. لن يظهر المتجر للزبائن قبل اعتماد الإدارة.',
+                              style: TextStyle(height: 1.55, fontWeight: FontWeight.w600),
+                            ),
+                          ),
                   ],
                 ),
               ),
@@ -143,7 +149,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     : const Icon(Icons.send_rounded),
                 label: Text(_busy ? 'جارٍ إرسال الطلب...' : 'إنشاء الحساب وإرسال المتجر للمراجعة'),
               ),
-            ],
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

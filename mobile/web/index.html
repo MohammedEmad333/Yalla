@@ -46,9 +46,10 @@
       left: max(14px, env(safe-area-inset-left));
       right: max(14px, env(safe-area-inset-right));
       bottom: max(14px, env(safe-area-inset-bottom));
-      max-width: 680px;
+      max-width: 520px;
+      display: flex; align-items: center; gap: 12px;
       margin-inline: auto;
-      padding: 16px;
+      padding: 12px 14px 12px 48px;
       border-radius: 22px;
       background: #202b3d;
       color: #fff;
@@ -67,13 +68,13 @@
       color: #cbd5e1; background: transparent; font-size: 30px; line-height: 32px;
       cursor: pointer;
     }
-    .install-copy { padding: 2px 38px 14px 4px; }
-    .install-title { margin: 0 0 6px; font-size: 20px; font-weight: 800; }
-    .install-subtitle { margin: 0; color: #aeb8c8; font-size: 15px; line-height: 1.6; }
+    .install-copy { flex: 1; min-width: 0; }
+    .install-title { margin: 0; font-size: 15px; font-weight: 800; }
+    .install-subtitle { display: none; }
     #install-button {
-      width: 100%; min-height: 54px; border: 0; border-radius: 16px;
+      width: auto; flex-shrink: 0; min-height: 44px; padding: 0 12px; border: 0; border-radius: 16px;
       display: flex; align-items: center; justify-content: center; gap: 10px;
-      background: #ffb800; color: #fff; font: inherit; font-size: 19px; font-weight: 800;
+      background: #ffb800; color: #202b3d; font: inherit; font-size: 14px; font-weight: 800;
       cursor: pointer; -webkit-tap-highlight-color: transparent;
     }
     #install-button:active { transform: scale(.99); }
@@ -102,7 +103,7 @@
     <div class="ring"></div>
   </div>
 
-  <aside id="install-banner" role="dialog" aria-label="تثبيت تطبيق يلا" aria-hidden="true">
+  <aside id="install-banner" role="region" aria-label="تثبيت تطبيق يلا" aria-hidden="true">
     <button class="install-close" id="install-close" type="button" aria-label="إغلاق">×</button>
     <div class="install-copy">
       <p class="install-title">ثبّت تطبيق يلا على شاشتك الرئيسية</p>
@@ -129,6 +130,9 @@
   <script>
     (function () {
       var deferredInstallPrompt = null;
+      var signedIn = false;
+      var installed = false;
+      var dismissedThisSession = false;
       var banner = document.getElementById('install-banner');
       var installButton = document.getElementById('install-button');
       var closeButton = document.getElementById('install-close');
@@ -138,11 +142,13 @@
       var isAndroid = /android/i.test(navigator.userAgent);
       var playStoreUrl = 'https://play.google.com/store/apps/details?id=com.mohammedemad333.yalla';
       var isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-      var dismissedAt = Number(localStorage.getItem('yalla-install-dismissed-at') || 0);
+      var dismissedAt = 0;
+      try { dismissedAt = Number(localStorage.getItem('yalla-install-dismissed-at') || 0); } catch (_) {}
       var dismissalExpired = Date.now() - dismissedAt > 7 * 24 * 60 * 60 * 1000;
 
       function showBanner() {
-        if (isStandalone || !dismissalExpired) return;
+        if (!signedIn || installed || isStandalone || dismissedThisSession || !dismissalExpired) return;
+        if (!isIos && !isAndroid && !deferredInstallPrompt) return;
         banner.classList.add('visible');
         banner.setAttribute('aria-hidden', 'false');
       }
@@ -150,8 +156,21 @@
       function hideBanner(remember) {
         banner.classList.remove('visible');
         banner.setAttribute('aria-hidden', 'true');
-        if (remember) localStorage.setItem('yalla-install-dismissed-at', String(Date.now()));
+        if (remember) {
+          dismissedThisSession = true;
+          try { localStorage.setItem('yalla-install-dismissed-at', String(Date.now())); } catch (_) {}
+        }
       }
+
+      // Flutter sends only session eligibility; no account data crosses this bridge.
+      window.yallaSetInstallEligible = function (eligible) {
+        signedIn = eligible === true;
+        if (signedIn) window.setTimeout(showBanner, 900);
+        else {
+          hideBanner(false);
+          help.classList.remove('visible');
+        }
+      };
 
       window.addEventListener('beforeinstallprompt', function (event) {
         event.preventDefault();
@@ -161,6 +180,7 @@
 
       window.addEventListener('appinstalled', function () {
         deferredInstallPrompt = null;
+        installed = true;
         hideBanner(false);
       });
 
@@ -179,13 +199,13 @@
           deferredInstallPrompt.prompt();
           await deferredInstallPrompt.userChoice;
           deferredInstallPrompt = null;
-          hideBanner(false);
+          hideBanner(true);
           return;
         }
         help.classList.add('visible');
       });
 
-      if ((isIos || isAndroid) && !isStandalone) window.setTimeout(showBanner, 1300);
+
     }());
 
     // إخفاء شاشة التحميل بمجرّد أن يرسم Flutter أول إطار.
