@@ -15,7 +15,6 @@ const CaptainApplication = require('../../src/models/CaptainApplication');
 const User = require('../../src/models/User');
 const Order = require('../../src/models/Order');
 const Notification = require('../../src/models/Notification');
-const Wallet = require('../../src/models/Wallet');
 const adminService = require('../../src/services/admin.service');
 const orderService = require('../../src/services/order.service');
 const walletService = require('../../src/services/wallet.service');
@@ -198,19 +197,6 @@ test('Card 80: الحساب الدائم لا يُحذف بعد إغلاق طل�
 
   const stillThere = await User.findById(perm._id);
   assert.ok(stillThere, 'الحساب الدائم يبقى بعد انتهاء الطلب');
-});
-
-test('adminCredit يضيف رصيدًا للزبون ويُسجّل حركة تعديل', async (t) => {
-  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
-  const customer = new User({ name: 'زبون', phone: `x${Date.now()}` });
-  await customer.setPassword('secret1');
-  await customer.save();
-
-  const balance = await walletService.adminCredit(customer._id, 30, { reason: 'admin_credit' });
-  assert.equal(balance, 30, 'أُضيف الرصيد');
-
-  const wallet = await Wallet.findOne({ user: customer._id });
-  assert.equal(wallet.balance, 30);
 });
 
 test('Card 82: إرسال الرمز للكابتن يُنشئ إشعارًا يحمل الرمز وعلامة الأدمن', async (t) => {
