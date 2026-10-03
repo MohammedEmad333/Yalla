@@ -17,7 +17,7 @@ const authLimiter = rateLimit({ windowMs: 60_000, max: 20 });
 const registerSchema = {
   name: [V.required, V.string],
   lastName: [V.string], // اسم العائلة — اختياري
-  phone: [V.required, V.phone],
+  phone: [V.required, V.palestinianMobile],
   password: [V.required, V.minLength(6)],
   email: [V.email], // اختياري؛ يُتحقّق فقط إذا أُرسل
   // Card 96: مكان السكن — المحافظة (من القائمة المعتمَدة) وتفاصيل العنوان.
@@ -61,6 +61,7 @@ router.post('/captain/apply', authLimiter, uploadCaptainDocs, ctrl.applyCaptain)
 const updateProfileSchema = {
   name: [V.string],
   lastName: [V.string],
+  phone: [V.palestinianMobile],
   email: [V.email], // اختياري، والقيمة الفارغة تعني حذف البريد من الحساب
   city: [V.string],
   // Card 96: يمكن تعديل مكان السكن لاحقًا من صفحة "حسابي"
