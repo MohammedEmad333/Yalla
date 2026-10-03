@@ -227,12 +227,100 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _scheduledAt = selected);
   }
 
+  String _normalizeWalletPhone(String value) {
+    const arabic = '٠١٢٣٤٥٦٧٨٩';
+    const persian = '۰۱۲۳۴۵۶۷۸۹';
+    var phone = value.trim()
+        .replaceAllMapped(RegExp('[٠-٩]'), (m) => '${arabic.indexOf(m.group(0)!)}')
+        .replaceAllMapped(RegExp('[۰-۹]'), (m) => '${persian.indexOf(m.group(0)!)}')
+        .replaceAll(RegExp(r'[^0-9+]'), '');
+    if (phone.startsWith('+970')) phone = phone.substring(4);
+    else if (phone.startsWith('00970')) phone = phone.substring(5);
+    else if (phone.startsWith('970')) phone = phone.substring(3);
+    if (RegExp(r'^5\d{8}$').hasMatch(phone)) phone = '0$phone';
+    return RegExp(r'^05\d{8}$').hasMatch(phone) ? phone : '';
+  }
+
+  Future<String?> _askWalletPhone() async {
+    final controller = TextEditingController();
+    String? errorText;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.account_balance_wallet_outlined),
+              SizedBox(width: 8),
+              Expanded(child: Text('رقم جوال المحفظة')),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('أدخل رقم الجوال المرتبط بمحفظة Jawwal التي تريد الدفع منها. يمكن أن يكون مختلفًا عن رقم حساب Yalla.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.phone,
+                textDirection: YallaInputBehavior.machineDirection,
+                textAlign: YallaInputBehavior.machineAlign,
+                maxLength: 15,
+                decoration: InputDecoration(
+                  labelText: 'رقم جوال المحفظة',
+                  hintText: '05xxxxxxxx',
+                  errorText: errorText,
+                  counterText: '',
+                  prefixIcon: const Icon(Icons.phone_android_outlined),
+                  border: const OutlineInputBorder(),
+                ),
+                onSubmitted: (_) {
+                  final phone = _normalizeWalletPhone(controller.text);
+                  if (phone.isEmpty) {
+                    setDialogState(() => errorText = 'أدخل رقمًا صحيحًا بصيغة 05xxxxxxxx');
+                    return;
+                  }
+                  Navigator.of(dialogContext).pop(phone);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final phone = _normalizeWalletPhone(controller.text);
+                if (phone.isEmpty) {
+                  setDialogState(() => errorText = 'أدخل رقمًا صحيحًا بصيغة 05xxxxxxxx');
+                  return;
+                }
+                Navigator.of(dialogContext).pop(phone);
+              },
+              child: const Text('إرسال رمز التحقق'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
   Future<void> _submit() async {
     final dropoff = _dropoffPayload;
     if (dropoff == null) return _snack('اختر عنوانًا محفوظًا أو مدينة وحي التسليم');
     if (_cart.isEmpty) return _snack('السلّة فارغة');
     if (_forSomeoneElse && _recipientPhone.text.trim().length < 6) return _snack('أدخل رقم مستلم صحيح');
     if (_scheduled && _scheduledAt == null) return _snack('اختر موعد الطلب');
+
+    final paymentPhone = await _askWalletPhone();
+    if (paymentPhone == null || !mounted) return;
+
     setState(() => _submitting = true);
     try {
       final usedPoints = _usablePoints;
@@ -240,6 +328,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'restaurantId': _cart.restaurant.id,
         'items': _cart.toItemsPayload(),
         'dropoff': dropoff,
+        'paymentPhone': paymentPhone,
         if (_orderNote.text.trim().isNotEmpty) 'note': _orderNote.text.trim(),
         if (_coupon.text.trim().isNotEmpty) 'couponCode': _coupon.text.trim(),
         if (usedPoints > 0) 'rewardPoints': usedPoints,
@@ -257,6 +346,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final paid = await _confirmJawwalPayment(
         orderId: orderId,
         amount: (payment['amount'] as num?) ?? _totalAfterRewards,
+        walletPhone: (payment['phone'] ?? paymentPhone).toString(),
       );
       if (!paid || !mounted) return;
 
@@ -275,6 +365,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<bool> _confirmJawwalPayment({
     required String orderId,
     required num amount,
+    required String walletPhone,
   }) async {
     final otp = TextEditingController();
     var confirming = false;
@@ -298,7 +389,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             children: [
               Text('قيمة الطلب: $amount ₪'),
               const SizedBox(height: 8),
-              const Text('تم إرسال رمز تحقق إلى رقم جوال المرتبط بحسابك. أدخل الرمز لإتمام الدفع والطلب.'),
+              Text('تم إرسال رمز التحقق إلى رقم المحفظة $walletPhone. أدخل الرمز لإتمام الدفع والطلب.'),
               const SizedBox(height: 16),
               TextField(
                 controller: otp,

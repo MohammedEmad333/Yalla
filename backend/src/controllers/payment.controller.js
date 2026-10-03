@@ -4,7 +4,13 @@ const directPayment = require('../services/directPayment.service');
 
 async function start(req, res, next) {
   try {
-    res.status(201).json(await directPayment.startOrderPayment(req.auth.id, req.params.orderId));
+    res.status(201).json(
+      await directPayment.startOrderPayment(
+        req.auth.id,
+        req.params.orderId,
+        req.body?.paymentPhone ?? req.body?.phone
+      )
+    );
   } catch (err) { next(err); }
 }
 

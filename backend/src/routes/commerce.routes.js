@@ -18,7 +18,11 @@ router.post('/restaurant-order', blockOrderCreationDuringMaintenance, async (req
       { paymentRequired: true }
     );
     try {
-      const paymentSession = await directPayment.startOrderPayment(req.auth.id, order._id);
+      const paymentSession = await directPayment.startOrderPayment(
+        req.auth.id,
+        order._id,
+        req.body?.paymentPhone
+      );
       const body = typeof order.toObject === 'function' ? order.toObject() : order;
       res.status(201).json({ ...body, paymentSession });
     } catch (err) {
@@ -37,7 +41,11 @@ router.post('/reorder/:orderId', blockOrderCreationDuringMaintenance, async (req
       { paymentRequired: true }
     );
     try {
-      const paymentSession = await directPayment.startOrderPayment(req.auth.id, order._id);
+      const paymentSession = await directPayment.startOrderPayment(
+        req.auth.id,
+        order._id,
+        req.body?.paymentPhone
+      );
       const body = typeof order.toObject === 'function' ? order.toObject() : order;
       res.status(201).json({ ...body, paymentSession });
     } catch (err) {
