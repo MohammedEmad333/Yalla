@@ -168,7 +168,39 @@ button,input{font:inherit}
 .footer-grid>div:not(.footer-brand){display:flex;flex-direction:column;gap:10px}.footer-grid>div>b{margin-bottom:6px}.footer-grid a{color:#b9c3cf;font-size:13px}.footer-grid a:hover{color:#fff}
 .copyright{border-top:1px solid rgba(255,255,255,.10);margin-top:34px;padding-top:20px;color:#8f9cad;font-size:12px}
 
-/* Existing legal/download pages */
+/* Legal pages share the landing identity without changing download pages. */
+.legal-hero{padding:38px 0 48px;background:radial-gradient(circle at 10% 0,rgba(255,107,0,.10),transparent 50%),#fff;border-bottom:1px solid var(--line)}
+.legal-back{display:block;width:fit-content;color:var(--muted);font-size:14px;margin-bottom:24px}
+.legal-hero .eyebrow{margin-bottom:12px}
+.legal-hero h1{font-size:clamp(30px,4vw,48px);line-height:1.3;color:var(--navy);margin:0 0 14px}
+.legal-hero p{color:var(--muted);margin:0;max-width:720px;font-size:17px}
+.legal-layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:28px;align-items:start;padding-block:36px 24px}
+.legal-toc{position:sticky;top:102px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px;max-height:calc(100dvh - 126px);overflow-y:auto}
+.legal-toc summary{cursor:pointer;color:var(--navy);font-weight:800}
+.legal-toc ol{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-direction:column;gap:6px}
+.legal-toc a{display:block;padding:7px 8px;border-radius:10px;color:#516070;font-size:13px;overflow-wrap:anywhere}
+.legal-toc a:hover{background:#fff2e9;color:#a84d0b}
+.legal-page .legal-card{min-width:0;margin:0;padding:32px;box-shadow:0 8px 28px rgba(7,29,58,.04)}
+.legal-card h2{scroll-margin-top:104px;line-height:1.6}
+.legal-card p,.legal-card li{line-height:1.95;overflow-wrap:anywhere}
+.legal-page a:focus-visible,.legal-toc summary:focus-visible{outline:3px solid var(--orange);outline-offset:4px;border-radius:6px}
+@media(max-width:980px){
+  .legal-layout{grid-template-columns:1fr;gap:20px}
+  .legal-toc{position:static;max-height:none}
+  .legal-toc ol{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
+}
+@media(max-width:640px){
+  .legal-hero{padding:24px 0 32px}
+  .legal-hero p{font-size:15px}
+  .legal-layout{padding-block:24px 12px}
+  .legal-toc{padding:16px}
+  .legal-toc ol{grid-template-columns:1fr}
+  body.legal-page .legal-card{padding:22px 16px}
+  .legal-card h2{scroll-margin-top:88px}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* Existing download pages */
 body:not(.landing){font-size:16px}
 body:not(.landing) .hero{background:linear-gradient(135deg,var(--orange),#ff9146);color:#fff;text-align:center;padding:42px 18px 46px}
 body:not(.landing) .hero .logo{width:92px;height:92px;border-radius:22px;background:#fff;padding:8px;margin:0 auto;box-shadow:0 12px 30px rgba(0,0,0,.16)}

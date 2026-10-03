@@ -125,7 +125,10 @@ class _CaptainSignupScreenState extends State<CaptainSignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('تسجيل ككابتن')),
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text('تسجيل ككابتن'),
+      ),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -138,11 +141,20 @@ class _CaptainSignupScreenState extends State<CaptainSignupScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'سجّل بياناتك ومستنداتك ليتمّ توثيق حسابك من الإدارة.',
-                      style: TextStyle(color: YallaColors.muted),
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3E8),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'سجّل بياناتك ومستنداتك ليتمّ توثيق حسابك من الإدارة.',
+                        style: TextStyle(height: 1.55, fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 22),
+                    const Text('البيانات الشخصية', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 12),
 
                     TextFormField(
                       controller: _fullName,
@@ -216,6 +228,8 @@ class _CaptainSignupScreenState extends State<CaptainSignupScreen> {
                     const SizedBox(height: 16),
 
                     // المستندات
+                    const Text('مستندات التوثيق', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 12),
                     _docPicker('صورة الهوية الرسمية', _idPhotoPath, () => _pick(true)),
                     const SizedBox(height: 12),
                     _docPicker('سيلفي مع الهوية', _selfiePath, () => _pick(false)),
@@ -250,7 +264,7 @@ class _CaptainSignupScreenState extends State<CaptainSignupScreen> {
             color: picked ? Colors.green : YallaColors.muted),
         title: Text(label),
         subtitle: Text(picked ? 'تم اختيار الصورة' : 'لم تُرفق بعد'),
-        trailing: TextButton(onPressed: onPick, child: Text(picked ? 'تغيير' : 'اختيار')),
+        trailing: TextButton(onPressed: onPick, child: Text(picked ? 'تغيير الصورة' : 'رفع الصورة')),
       ),
     );
   }
