@@ -1,7 +1,5 @@
 'use strict';
 
-const { isPalestinianMobile } = require('./phone');
-
 // أدوات تحقّق من المدخلات — دوال نقيّة قابلة للاختبار بلا إطار خارجي.
 // كل مُتحقّق يُعيد رسالة خطأ (نص) عند الفشل، أو null عند النجاح.
 
@@ -14,11 +12,11 @@ const V = {
   phone: (v) =>
     typeof v === 'string' && /^[0-9+\-\s]{6,15}$/.test(v) ? null : 'رقم هاتف غير صالح',
 
-  // حسابات مستخدمي Yalla يجب أن تحمل رقمًا فلسطينيًا صالحًا يمكن توحيده إلى 05xxxxxxxx.
+  // رقم حساب مستخدم Yalla يُدخل ويُخزّن بصيغة واحدة واضحة: 05xxxxxxxx.
   palestinianMobile: (v) =>
-    typeof v === 'string' && isPalestinianMobile(v)
+    typeof v === 'string' && /^05\d{8}$/.test(v.trim())
       ? null
-      : 'أدخل رقم جوال فلسطيني صحيح بصيغة 05xxxxxxxx',
+      : 'أدخل رقم الجوال بصيغة 05xxxxxxxx',
 
   email: (v) =>
     typeof v === 'string' &&
