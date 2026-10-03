@@ -8,6 +8,7 @@ const orderService = require('./order.service');
 const inventoryService = require('./inventory.service');
 const rewardsService = require('./rewards.service');
 const { ORDER_STATUS } = require('../utils/constants');
+const { normalizePalestinianMobile } = require('../utils/phone');
 
 function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
@@ -48,12 +49,19 @@ async function startOrderPayment(userId, orderId) {
   const user = await User.findById(userId).select('phone').lean();
   if (!user?.phone) throw httpError('لا يوجد رقم جوال مرتبط بالحساب');
 
+  // لا نرسل القيمة الخام المخزّنة إلى Jawwal Pay. هذا يحمي أيضًا الحسابات القديمة
+  // التي قد تكون محفوظة بصيغة +970/970/00970 ويضمن أن المزود يستقبل 05xxxxxxxx فقط.
+  const paymentPhone = normalizePalestinianMobile(user.phone);
+  if (!paymentPhone) {
+    throw httpError('رقم الجوال المرتبط بحساب Yalla غير صالح للدفع. حدّثه إلى صيغة 05xxxxxxxx');
+  }
+
   const amount = amountFor(order);
   if (!(amount > 0)) throw httpError('قيمة الطلب غير صالحة للدفع');
 
   const idempotencyKey = `jawwal-order:${order._id}`;
   const created = await jawwal.createPayment({
-    mobile: user.phone,
+    mobile: paymentPhone,
     amount,
     externalReference: String(order._id),
     idempotencyKey,
@@ -69,7 +77,7 @@ async function startOrderPayment(userId, orderId) {
         provider: 'jawwal_pay',
         amount,
         currency: 'ILS',
-        phone: user.phone,
+        phone: paymentPhone,
         idempotencyKey,
       },
       $set: {
