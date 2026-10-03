@@ -1,6 +1,7 @@
 'use strict';
 
 const Order = require('../models/Order');
+const User = require('../models/User');
 const OrderPayment = require('../models/OrderPayment');
 const jawwal = require('./jawwalPayClient');
 const orderService = require('./order.service');
@@ -32,6 +33,19 @@ function publicPayment(payment) {
   };
 }
 
+async function resolvePaymentPhone(userId, walletPhone) {
+  let value = walletPhone;
+  // توافق مؤقت مع نسخ التطبيق القديمة: النسخة الجديدة ترسل رقم المحفظة صراحةً،
+  // أما العميل القديم فيستمر باستخدام رقم الحساب بدل أن يتوقف إنشاء الطلب بالكامل.
+  if (value === undefined || value === null || String(value).trim() === '') {
+    const user = await User.findById(userId).select('phone').lean();
+    value = user?.phone;
+  }
+  const phone = normalizePalestinianMobile(value);
+  if (!phone) throw httpError('أدخل رقم جوال المحفظة بصيغة 05xxxxxxxx');
+  return phone;
+}
+
 async function startOrderPayment(userId, orderId, walletPhone) {
   const order = await Order.findOne({ _id: orderId, user: userId });
   if (!order) throw httpError('الطلب غير موجود', 404);
@@ -41,10 +55,7 @@ async function startOrderPayment(userId, orderId, walletPhone) {
     throw httpError('هذا الطلب ليس بانتظار الدفع', 409);
   }
 
-  const paymentPhone = normalizePalestinianMobile(walletPhone);
-  if (!paymentPhone) {
-    throw httpError('أدخل رقم جوال المحفظة بصيغة 05xxxxxxxx');
-  }
+  const paymentPhone = await resolvePaymentPhone(userId, walletPhone);
 
   let existing = await OrderPayment.findOne({ order: order._id });
   if (existing && ['otp_sent', 'created', 'paid'].includes(existing.status)) {
