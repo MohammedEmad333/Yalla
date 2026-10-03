@@ -1,7 +1,6 @@
 'use strict';
 
 const Order = require('../models/Order');
-const User = require('../models/User');
 const OrderPayment = require('../models/OrderPayment');
 const jawwal = require('./jawwalPayClient');
 const orderService = require('./order.service');
@@ -29,10 +28,11 @@ function publicPayment(payment) {
     amount: payment.amount,
     currency: payment.currency,
     reference: payment.providerReference,
+    phone: payment.phone,
   };
 }
 
-async function startOrderPayment(userId, orderId) {
+async function startOrderPayment(userId, orderId, walletPhone) {
   const order = await Order.findOne({ _id: orderId, user: userId });
   if (!order) throw httpError('الطلب غير موجود', 404);
   if (order.status !== ORDER_STATUS.AWAITING_PAYMENT) {
@@ -41,19 +41,17 @@ async function startOrderPayment(userId, orderId) {
     throw httpError('هذا الطلب ليس بانتظار الدفع', 409);
   }
 
-  let existing = await OrderPayment.findOne({ order: order._id });
-  if (existing && ['otp_sent', 'created', 'paid'].includes(existing.status)) {
-    return publicPayment(existing);
+  const paymentPhone = normalizePalestinianMobile(walletPhone);
+  if (!paymentPhone) {
+    throw httpError('أدخل رقم جوال المحفظة بصيغة 05xxxxxxxx');
   }
 
-  const user = await User.findById(userId).select('phone').lean();
-  if (!user?.phone) throw httpError('لا يوجد رقم جوال مرتبط بالحساب');
-
-  // لا نرسل القيمة الخام المخزّنة إلى Jawwal Pay. هذا يحمي أيضًا الحسابات القديمة
-  // التي قد تكون محفوظة بصيغة +970/970/00970 ويضمن أن المزود يستقبل 05xxxxxxxx فقط.
-  const paymentPhone = normalizePalestinianMobile(user.phone);
-  if (!paymentPhone) {
-    throw httpError('رقم الجوال المرتبط بحساب Yalla غير صالح للدفع. حدّثه إلى صيغة 05xxxxxxxx');
+  let existing = await OrderPayment.findOne({ order: order._id });
+  if (existing && ['otp_sent', 'created', 'paid'].includes(existing.status)) {
+    if (existing.status === 'paid' || existing.phone === paymentPhone) {
+      return publicPayment(existing);
+    }
+    throw httpError('تم إرسال رمز تحقق مسبقًا لرقم محفظة آخر. ألغِ العملية وابدأ من جديد.', 409);
   }
 
   const amount = amountFor(order);
@@ -77,15 +75,16 @@ async function startOrderPayment(userId, orderId) {
         provider: 'jawwal_pay',
         amount,
         currency: 'ILS',
-        phone: paymentPhone,
         idempotencyKey,
       },
       $set: {
+        phone: paymentPhone,
         status: 'otp_sent',
         providerReference: created.reference,
         providerTransactionId: created.transactionId,
         providerResponse: created.data,
         failureReason: '',
+        cancelledAt: null,
       },
     },
     { new: true, upsert: true, setDefaultsOnInsert: true }
