@@ -3,12 +3,8 @@
 const Wallet = require('../models/Wallet');
 const WalletTransaction = require('../models/WalletTransaction');
 const io = require('../sockets/io');
-const logger = require('../utils/logger');
-const notifications = require('./notification.service');
 const walletHoldService = require('./walletHold.service');
-const { canTransition } = require('../utils/topup');
 const {
-  ROLES,
   ROOMS,
   EVENTS,
   TOPUP_STATUS,
@@ -17,12 +13,10 @@ const {
 } = require('../utils/constants');
 
 /**
- * طبقة خدمة المحفظة — منطق الرصيد ودفتر الحركات، مستقلّة تمامًا عن
- * طريقة الدفع (تلك يتكفّل بها نمط الاستراتيجية في services/payment).
- * كل تعديل على الرصيد يتمّ ذرّيًّا ($inc) لتفادي حالات السباق.
+ * Legacy customer-wallet ledger compatibility.
+ * New orders use direct Jawwal Pay; these helpers remain only for historical
+ * wallet-backed orders until their migration/retention window is complete.
  */
-
-// خطأ برمز حالة HTTP (يتوافق مع معالج الأخطاء المركزي)
 function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
 }
@@ -31,17 +25,14 @@ function availableBalanceOf(wallet) {
   return Math.max(0, Number(wallet?.balance || 0) - Number(wallet?.reservedBalance || 0));
 }
 
-/** جلب محفظة المستخدم أو إنشاؤها إن لم تكن موجودة. */
 async function getOrCreateWallet(userId) {
-  const wallet = await Wallet.findOneAndUpdate(
+  return Wallet.findOneAndUpdate(
     { user: userId },
     { $setOnInsert: { user: userId, balance: 0, reservedBalance: 0, currency: 'ILS' } },
     { new: true, upsert: true }
   );
-  return wallet;
 }
 
-/** ملخّص المحفظة للمستخدم (الإجمالي + المحجوز + المتاح + العملة). */
 async function getWalletSummary(userId) {
   const wallet = await getOrCreateWallet(userId);
   return {
@@ -52,21 +43,14 @@ async function getWalletSummary(userId) {
   };
 }
 
-/** إضافة رصيد ذرّيًّا وإرجاع الرصيد الجديد. */
 async function creditWallet(userId, amount) {
-  const wallet = await Wallet.findOneAndUpdate(
+  return Wallet.findOneAndUpdate(
     { user: userId },
     { $inc: { balance: amount } },
     { new: true, upsert: true }
   );
-  return wallet;
 }
 
-/**
- * خصم رصيد ذرّيًّا بشرط كفاية الرصيد المتاح لا الإجمالي، حتى لا تُستهلك مبالغ
- * محجوزة لطلبات أخرى.
- * @returns {Promise<import('mongoose').Document>} المحفظة بعد الخصم
- */
 async function debitWallet(userId, amount) {
   const value = Number(amount);
   const wallet = await Wallet.findOneAndUpdate(
@@ -86,11 +70,6 @@ async function debitWallet(userId, amount) {
   return wallet;
 }
 
-/**
- * خصم قيمة طلب من محفظة المستخدم عند تأكيد التسليم.
- * إن وُجد حجز للطلب نلتقطه atomically: نخصم القيمة الحقيقية ونحرر كامل القيمة
- * التقديرية في نفس تحديث المحفظة. الفرق يعود متاحًا تلقائيًا.
- */
 async function chargeForOrder(userId, amount, orderId, breakdown = {}) {
   const value = Number(amount);
   if (!(value > 0)) throw httpError('قيمة الخصم غير صالحة', 400);
@@ -120,13 +99,8 @@ async function chargeForOrder(userId, amount, orderId, breakdown = {}) {
         return existing.balanceAfter;
       }
 
-      // تعافٍ من انقطاع نادر بعد التقاط الحجز وقبل حفظ balanceAfter في الحركة.
       const hold = await walletHoldService.getOrderHold(orderId);
-      if (
-        existing &&
-        hold?.status === 'released' &&
-        Number(hold.capturedAmount) === value
-      ) {
+      if (existing && hold?.status === 'released' && Number(hold.capturedAmount) === value) {
         const wallet = await getOrCreateWallet(userId);
         existing.balanceAfter = wallet.balance;
         await existing.save();
@@ -152,7 +126,6 @@ async function chargeForOrder(userId, amount, orderId, breakdown = {}) {
         throw httpError('تعذّر تسوية حجز هذا الطلب', 409);
       }
     } else {
-      // توافق مع الطلبات القديمة التي أُنشئت قبل ميزة الحجز.
       wallet = await debitWallet(userId, value);
     }
   } catch (err) {
@@ -163,12 +136,10 @@ async function chargeForOrder(userId, amount, orderId, breakdown = {}) {
   transaction.balanceAfter = wallet.balance;
   await transaction.save();
 
-  // captureOrderHold يبث الحالة الكاملة بنفسه؛ الطلبات القديمة تحتاج البث التقليدي.
   if (!capturedHold) broadcastBalance(userId, wallet.balance);
   return wallet.balance;
 }
 
-/** استرداد دفعة طلب مرة واحدة فقط، مع رصيد قبل/بعد صالح للتدقيق. */
 async function refundOrderPayment(userId, orderId, reason = '') {
   const payment = await WalletTransaction.findOne({
     user: userId,
@@ -218,97 +189,14 @@ async function refundOrderPayment(userId, orderId, reason = '') {
   }
 }
 
-/**
- * إضافة رصيد يدويًا من الأدمن لزبون، مع تسجيل حركة تعديل وبث الرصيد الجديد.
- * @param {string} userId
- * @param {number} amount
- * @param {object} meta  بيانات تدقيق (سبب/المنفّذ)
- * @returns {Promise<number>} الرصيد بعد الإضافة
- */
-async function adminCredit(userId, amount, meta = {}) {
-  const value = Number(amount);
-  if (!(value > 0)) throw httpError('قيمة الإضافة غير صالحة', 400);
-
-  const wallet = await creditWallet(userId, value);
-  try {
-    await WalletTransaction.create({
-      user: userId,
-      wallet: wallet._id,
-      type: WALLET_TX_TYPE.ADJUSTMENT,
-      direction: WALLET_DIRECTION.CREDIT,
-      amount: value,
-      status: TOPUP_STATUS.APPROVED,
-      balanceAfter: wallet.balance,
-      gatewayResponse: meta,
-    });
-  } catch (err) {
-    logger.warn('تعذّر تسجيل حركة إضافة الرصيد:', err.message);
-  }
-
-  broadcastBalance(userId, wallet.balance);
-  return wallet.balance;
-}
-
-/** بثّ الرصيد المحدّث لحظيًا لصاحب المحفظة. */
 function broadcastBalance(userId, balance) {
   try {
     io.get().to(ROOMS.user(String(userId))).emit(EVENTS.WALLET_UPDATED, { balance });
   } catch (_) {
-    // السوكت غير مهيّأ (اختبارات) — تجاهل بأمان
+    // Socket.io is not initialized in some tests.
   }
 }
 
-// ── حركات الشحن (Top-up) ─────────────────────────────────────────
-
-/** إنشاء حركة شحن في دفتر الأستاذ (تستدعيها استراتيجيات الدفع). */
-async function createTopupTransaction({
-  userId,
-  amount,
-  method,
-  status = TOPUP_STATUS.PENDING,
-  proof = {},
-  gatewayResponse = null,
-  idempotencyKey,
-}) {
-  const wallet = await getOrCreateWallet(userId);
-
-  // منع التكرار: نفس المفتاح يُعيد الحركة الأصلية
-  if (idempotencyKey) {
-    const existing = await WalletTransaction.findOne({ user: userId, idempotencyKey });
-    if (existing) return existing;
-  }
-
-  const tx = await WalletTransaction.create({
-    user: userId,
-    wallet: wallet._id,
-    type: WALLET_TX_TYPE.TOPUP,
-    direction: WALLET_DIRECTION.CREDIT,
-    amount,
-    method,
-    status,
-    proof,
-    gatewayResponse,
-    idempotencyKey,
-  });
-
-  // الأدمن يراجع الطلبات المعلّقة من قائمة "قيد المراجعة" في اللوحة، ونبثّها
-  // لحظيًا لغرفة الأدمن ليظهر الطلب فور وصوله (اختياري — لا يوقف التدفّق).
-  if (status === TOPUP_STATUS.PENDING) {
-    try {
-      io.get().to(ROOMS.admins()).emit(EVENTS.WALLET_UPDATED, {
-        type: 'WALLET_TOPUP_PENDING',
-        transactionId: String(tx._id),
-        amount,
-      });
-    } catch (_) {
-      // السوكت غير مهيّأ (اختبارات) — تجاهل بأمان
-    }
-  }
-
-  return tx;
-}
-
-/** قائمة حركات مستخدم (اختياريًّا بحسب الحالة). */
 async function listUserTransactions(userId, { limit = 20, skip = 0, status } = {}) {
   const filter = { user: userId };
   if (status) filter.status = status;
@@ -319,97 +207,6 @@ async function listUserTransactions(userId, { limit = 20, skip = 0, status } = {
     .lean();
 }
 
-// ── مراجعة الأدمن ────────────────────────────────────────────────
-
-/** قائمة طلبات الشحن للوحة الأدمن (افتراضيًّا المعلّقة). */
-async function listTopups({ status = TOPUP_STATUS.PENDING, limit = 50, skip = 0 } = {}) {
-  const filter = { type: WALLET_TX_TYPE.TOPUP };
-  if (status && status !== 'all') filter.status = status;
-  return WalletTransaction.find(filter)
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .populate('user', 'name lastName phone')
-    .lean();
-}
-
-/**
- * موافقة الأدمن على طلب شحن → إضافة الرصيد للمحفظة.
- * ذرّي وآمن ضدّ التكرار: نُطالب أوّلًا بتحويل الحالة pending→approved
- * (findOneAndUpdate مشروط)، فإن نجح فقط نضيف الرصيد.
- */
-async function approveTopup(adminId, txId, note = '') {
-  const tx = await WalletTransaction.findById(txId);
-  if (!tx) throw httpError('عملية الشحن غير موجودة', 404);
-  if (!canTransition(tx.status, TOPUP_STATUS.APPROVED)) {
-    throw httpError('لا يمكن الموافقة على هذه العملية (حالتها ليست معلّقة)', 409);
-  }
-
-  // مطالبة ذرّية بالعملية (تمنع الموافقة المزدوجة تحت التزامن)
-  const claimed = await WalletTransaction.findOneAndUpdate(
-    { _id: txId, status: TOPUP_STATUS.PENDING },
-    {
-      status: TOPUP_STATUS.APPROVED,
-      review: { by: adminId, at: new Date(), note },
-    },
-    { new: true }
-  );
-  if (!claimed) throw httpError('العملية عولجت بالفعل', 409);
-
-  // أُضيف الرصيد فقط بعد ضمان المطالبة الذرّية بالعملية
-  const wallet = await creditWallet(claimed.user, claimed.amount);
-  claimed.balanceAfter = wallet.balance;
-  await claimed.save();
-
-  // إشعار المستخدم (داخل التطبيق + Push ليصل حتى والتطبيق مغلق — Card 108)
-  // + بثّ الرصيد الجديد لحظيًا ليتحدّث في المحفظة دون تحديث الصفحة.
-  await notifications.notifyUser(claimed.user, ROLES.USER, {
-    title: '✅ تمّ شحن رصيدك',
-    body: `أُضيف ${claimed.amount} ₪ إلى محفظتك. رصيدك الآن ${wallet.balance} ₪`,
-    data: { type: 'WALLET_TOPUP_APPROVED', transactionId: String(claimed._id) },
-  }).catch(() => {});
-  broadcastBalance(claimed.user, wallet.balance);
-
-  return { transaction: claimed, balance: wallet.balance };
-}
-
-/** رفض الأدمن لطلب شحن (لا يُضاف رصيد). */
-async function rejectTopup(adminId, txId, reason = '') {
-  const tx = await WalletTransaction.findById(txId);
-  if (!tx) throw httpError('عملية الشحن غير موجودة', 404);
-  if (!canTransition(tx.status, TOPUP_STATUS.REJECTED)) {
-    throw httpError('لا يمكن رفض هذه العملية (حالتها ليست معلّقة)', 409);
-  }
-
-  const rejected = await WalletTransaction.findOneAndUpdate(
-    { _id: txId, status: TOPUP_STATUS.PENDING },
-    {
-      status: TOPUP_STATUS.REJECTED,
-      rejectionReason: reason,
-      review: { by: adminId, at: new Date(), note: reason },
-    },
-    { new: true }
-  );
-  if (!rejected) throw httpError('العملية عولجت بالفعل', 409);
-
-  // Card 106: إشعار المستخدم بسبب الرفض (داخل التطبيق + Push). السبب يُخزَّن أيضًا
-  // في rejectionReason فيظهر في سجلّ حركات المحفظة بالتطبيق.
-  await notifications.notifyUser(rejected.user, ROLES.USER, {
-    title: '⚠️ رُفض طلب الشحن',
-    body: reason
-      ? `سبب الرفض: ${reason}`
-      : 'تعذّر تأكيد التحويل. تواصل مع الدعم إن كان لديك استفسار.',
-    data: {
-      type: 'WALLET_TOPUP_REJECTED',
-      transactionId: String(rejected._id),
-      reason: reason || '',
-    },
-  }).catch(() => {});
-
-  return { transaction: rejected };
-}
-
-/** لوحة الأدمن: محفظة مستخدم معيّن + آخر حركاته. */
 async function getUserWalletForAdmin(userId) {
   const [summary, transactions] = await Promise.all([
     getWalletSummary(userId),
@@ -422,15 +219,10 @@ module.exports = {
   getOrCreateWallet,
   getWalletSummary,
   creditWallet,
-  adminCredit,
   debitWallet,
   chargeForOrder,
   refundOrderPayment,
   broadcastBalance,
-  createTopupTransaction,
   listUserTransactions,
-  listTopups,
-  approveTopup,
-  rejectTopup,
   getUserWalletForAdmin,
 };
