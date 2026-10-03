@@ -1,4 +1,4 @@
-' strict';
+'use strict';
 
 const systemConfig = require('../services/systemConfig.service');
 
