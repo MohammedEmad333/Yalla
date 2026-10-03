@@ -7,10 +7,6 @@ class Company {
   // رقم واتس اب الشركة (بصيغة دوليّة بلا + أو مسافات لرابط wa.me)
   static const String whatsappNumber = '970593456405';
 
-  // وضع صيانة مؤقت لنظام إنشاء الطلبات داخل تطبيق العميل.
-  // غيّره إلى false عند عودة الطلب داخل التطبيق.
-  static const bool temporaryOrderMaintenanceEnabled = true;
-
   // رسالة افتتاحية جاهزة للدعم.
   static const String whatsappGreeting = 'مرحبًا، أحتاج مساعدة بخصوص تطبيق يلا';
 
