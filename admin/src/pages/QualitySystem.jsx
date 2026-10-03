@@ -4,23 +4,27 @@ import { Alert, Badge, Button, Card, Input, Loading, PageHeader, Select, TableWr
 
 export default function QualitySystem() {
   const [issues, setIssues] = useState([]);
+  const [refunds, setRefunds] = useState([]);
   const [audit, setAudit] = useState([]);
   const [health, setHealth] = useState(null);
   const [restaurants, setRestaurants] = useState([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const [status, setStatus] = useState('all');
+  const [refundStatus, setRefundStatus] = useState('refund_pending');
 
   async function load() {
     try {
       setError('');
-      const [i, a, h, r] = await Promise.all([
+      const [i, rf, a, h, r] = await Promise.all([
         api.get(`/expansion/admin/issues${status === 'all' ? '' : `?status=${status}`}`),
+        api.get(`/admin/jawwal-refunds?status=${refundStatus}`),
         api.get('/expansion/admin/audit'),
         api.get('/expansion/admin/system-health'),
         api.get('/admin/restaurants'),
       ]);
       setIssues(i || []);
+      setRefunds(rf || []);
       setAudit(a || []);
       setHealth(h || null);
       setRestaurants(r || []);
@@ -29,7 +33,7 @@ export default function QualitySystem() {
     }
   }
 
-  useEffect(() => { load(); }, [status]);
+  useEffect(() => { load(); }, [status, refundStatus]);
 
   async function updateIssue(issue, nextStatus, approvedRefund = 0) {
     setBusy(issue._id);
@@ -38,6 +42,20 @@ export default function QualitySystem() {
         status: nextStatus,
         approvedRefund: Number(approvedRefund) || 0,
       });
+      await load();
+    } catch (e) { setError(e.message || String(e)); }
+    finally { setBusy(''); }
+  }
+
+  async function confirmJawwalRefund(row) {
+    const refundReference = window.prompt('رقم/مرجع عملية الاسترداد (اختياري):', '') ?? null;
+    if (refundReference === null) return;
+    const note = window.prompt('ملاحظة الاسترداد (اختياري):', '') ?? null;
+    if (note === null) return;
+    if (!window.confirm(`تأكيد أنك أعدت ${row.amount} ₪ للزبون عبر جوال؟`)) return;
+    setBusy(row.id);
+    try {
+      await api.patch(`/admin/jawwal-refunds/${row.id}/refunded`, { refundReference, note });
       await load();
     } catch (e) { setError(e.message || String(e)); }
     finally { setBusy(''); }
@@ -58,19 +76,42 @@ export default function QualitySystem() {
   }
 
   const openCount = useMemo(() => issues.filter((x) => ['open', 'reviewing'].includes(x.status)).length, [issues]);
+  const pendingRefunds = useMemo(() => refunds.filter((x) => x.status === 'refund_pending').length, [refunds]);
 
   return (
     <div>
       <PageHeader title="الجودة والنظام" subtitle="الشكاوى والاستردادات، صحة الخدمات، سجل التدقيق، وإبراز المتاجر" />
-      <Alert tone="error">{error}</Alert>
+      {error && <Alert tone="error">{error}</Alert>}
 
       <div className="yl-grid yl-grid--4" style={{ marginBottom: 16 }}>
         <Card><b>الشكاوى المفتوحة</b><div style={{ fontSize: 28, fontWeight: 900 }}>{openCount}</div></Card>
+        <Card><b>استردادات جوال المعلقة</b><div style={{ fontSize: 28, fontWeight: 900 }}>{pendingRefunds}</div></Card>
         <Card><b>API</b><div><Badge tone={health?.api === 'ok' ? 'success' : 'danger'}>{health?.api || '...'}</Badge></div></Card>
         <Card><b>MongoDB</b><div><Badge tone={health?.mongo === 'ok' ? 'success' : 'warning'}>{health?.mongo || '...'}</Badge></div></Card>
-        <Card><b>ذاكرة الخادم</b><div style={{ fontSize: 20, fontWeight: 800 }}>{health?.memoryMb?.rss ?? '-'} MB</div></Card>
       </div>
 
+      <Card title="استردادات Jawwal Pay" actions={
+        <Select value={refundStatus} onChange={(e) => setRefundStatus(e.target.value)}>
+          <option value="refund_pending">بانتظار الاسترداد</option>
+          <option value="refunded">تم الاسترداد</option>
+          <option value="all">الكل</option>
+        </Select>
+      }>
+        {!refunds.length ? <div className="yl-empty">لا توجد استردادات في هذه الحالة</div> : <TableWrap>
+          <thead><tr><th>الزبون</th><th>الطلب</th><th>المبلغ</th><th>مرجع الدفع</th><th>سبب الإلغاء</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+          <tbody>{refunds.map((x) => <tr key={x.id}>
+            <td data-label="الزبون">{[x.user?.name, x.user?.lastName].filter(Boolean).join(' ') || '-'}<br /><small>{x.user?.phone || x.phone}</small></td>
+            <td data-label="الطلب"><code>{String(x.orderId).slice(-8)}</code>{x.order?.storeName ? <><br /><small>{x.order.storeName}</small></> : null}</td>
+            <td data-label="المبلغ"><b>{x.amount} ₪</b></td>
+            <td data-label="مرجع الدفع"><code>{x.reference || '-'}</code></td>
+            <td data-label="سبب الإلغاء">{x.order?.cancelReason || x.failureReason || '-'}</td>
+            <td data-label="الحالة"><Badge tone={x.status === 'refunded' ? 'success' : 'warning'}>{x.status === 'refunded' ? 'تم الاسترداد' : 'قيد المعالجة'}</Badge></td>
+            <td data-label="الإجراء">{x.status === 'refund_pending' ? <Button size="sm" variant="success" disabled={busy === x.id} onClick={() => confirmJawwalRefund(x)}>تأكيد الاسترداد</Button> : <span className="yl-muted">مكتمل</span>}</td>
+          </tr>)}</tbody>
+        </TableWrap>}
+      </Card>
+
+      <div style={{ height: 16 }} />
       <Card title="الشكاوى والاستردادات" actions={
         <Select value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="all">الكل</option><option value="open">مفتوحة</option><option value="reviewing">قيد المراجعة</option><option value="resolved">محلولة</option><option value="rejected">مرفوضة</option>

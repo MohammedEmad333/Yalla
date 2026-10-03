@@ -2,6 +2,7 @@
 
 const router = require('express').Router();
 const ctrl = require('../controllers/merchant.controller');
+const paymentAwareCtrl = require('../controllers/paymentAwareMerchant.controller');
 const branchCtrl = require('../controllers/merchantBranch.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { uploadImage } = require('../middlewares/upload.middleware');
@@ -25,6 +26,6 @@ router.post('/menu/:itemId/image', uploadImage.single('image'), ctrl.uploadMenuI
 router.get('/inventory', ctrl.inventorySummary);
 router.patch('/inventory/:itemId', ctrl.adjustInventory);
 router.get('/orders', ctrl.listOrders);
-router.patch('/orders/:orderId/status', ctrl.updateOrderStatus);
+router.patch('/orders/:orderId/status', paymentAwareCtrl.updateOrderStatus);
 
 module.exports = router;

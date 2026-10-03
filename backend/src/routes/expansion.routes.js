@@ -2,6 +2,7 @@
 
 const router = require('express').Router();
 const ctrl = require('../controllers/expansion.controller');
+const paymentAwareIssueCtrl = require('../controllers/paymentAwareIssue.controller');
 const rewardsCtrl = require('../controllers/rewards.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { requireAdminCapability } = require('../middlewares/adminAccess.middleware');
@@ -22,7 +23,7 @@ router.post('/issues', authorize(ROLES.USER), ctrl.createIssue);
 router.get('/admin/rewards/settings', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), rewardsCtrl.adminSettings);
 router.patch('/admin/rewards/settings', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), rewardsCtrl.updateAdminSettings);
 router.get('/admin/issues', authorize(ROLES.ADMIN), requireAdminCapability('issues'), ctrl.adminIssues);
-router.patch('/admin/issues/:issueId', authorize(ROLES.ADMIN), requireAdminCapability('issues'), ctrl.resolveIssue);
+router.patch('/admin/issues/:issueId', authorize(ROLES.ADMIN), requireAdminCapability('issues'), paymentAwareIssueCtrl.resolveIssue);
 router.get('/admin/audit', authorize(ROLES.ADMIN), requireAdminCapability('operations'), ctrl.auditLogs);
 router.get('/admin/system-health', authorize(ROLES.ADMIN), requireAdminCapability('operations'), ctrl.systemHealth);
 router.patch('/admin/restaurants/:restaurantId/merchandising', authorize(ROLES.ADMIN), requireAdminCapability('marketing'), ctrl.setMerchandising);
