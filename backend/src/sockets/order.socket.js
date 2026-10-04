@@ -1,5 +1,6 @@
 'use strict';
 
+const User = require('../models/User');
 const Captain = require('../models/Captain');
 const Order = require('../models/Order');
 const { verifyAccessToken } = require('../middlewares/auth.middleware');
@@ -9,15 +10,21 @@ const ioRef = require('./io');
 const logger = require('../utils/logger');
 const { ROLES, ROOMS, EVENTS, CAPTAIN_STATUS } = require('../utils/constants');
 
-/**
- * Middleware للمصادقة على مستوى السوكت: نستخدم نفس سياسة JWT والحسابات
- * المطبّقة على REST حتى لا تكون قناة Socket.io أضعف من HTTP.
- */
+const LIVE_ADMIN_ROLES = new Set(['super_admin', 'operations', 'support']);
+
 async function socketAuth(socket, next) {
   try {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('التوكن مفقود'));
-    socket.user = await verifyAccessToken(token);
+    const payload = await verifyAccessToken(token);
+
+    // دور الإدارة الفرعي لا نثق به من JWT قديم؛ نقرأه من القاعدة عند الاتصال.
+    if (payload.role === ROLES.ADMIN) {
+      const admin = await User.findById(payload.id).select('adminRole').lean();
+      payload.adminRole = admin?.adminRole || null;
+    }
+
+    socket.user = payload;
     next();
   } catch (err) {
     next(new Error('توكن غير صالح أو الحساب غير متاح'));
@@ -26,7 +33,7 @@ async function socketAuth(socket, next) {
 
 async function canJoinOrderRoom(user, orderId) {
   if (!orderId || !user?.id || !user?.role) return false;
-  if (user.role === ROLES.ADMIN) return true;
+  if (user.role === ROLES.ADMIN) return LIVE_ADMIN_ROLES.has(user.adminRole);
 
   const order = await Order.findById(orderId)
     .select('user captain store.restaurant')
@@ -42,10 +49,12 @@ async function canJoinOrderRoom(user, orderId) {
   return false;
 }
 
-/**
- * تسجيل كل معالجات أحداث السوكت.
- * @param {import('socket.io').Server} io
- */
+function validCoordinates(lng, lat) {
+  const x = Number(lng);
+  const y = Number(lat);
+  return Number.isFinite(x) && Number.isFinite(y) && x >= -180 && x <= 180 && y >= -90 && y <= 90;
+}
+
 function registerSocketHandlers(io) {
   ioRef.set(io);
   io.use(socketAuth);
@@ -54,7 +63,9 @@ function registerSocketHandlers(io) {
     const { id, role } = socket.user;
     logger.info(`🔌 اتصال جديد: ${role}:${id} (${socket.id})`);
 
-    if (role === ROLES.ADMIN) socket.join(ROOMS.admins());
+    if (role === ROLES.ADMIN && LIVE_ADMIN_ROLES.has(socket.user.adminRole)) {
+      socket.join(ROOMS.admins());
+    }
     if (role === ROLES.CAPTAIN) {
       socket.join(ROOMS.captain(id));
       socket.join(ROOMS.captains());
@@ -65,8 +76,6 @@ function registerSocketHandlers(io) {
       socket.join(ROOMS.merchantAccount(id));
     }
 
-    // لا نسمح بالاشتراك في غرفة طلب بالـID فقط؛ يجب أن يكون المستخدم طرفًا
-    // في الطلب أو أدمنًا. هذا يمنع الاستماع لموقع/أحداث طلبات الآخرين.
     socket.on('order:join', async ({ orderId } = {}, ack) => {
       try {
         if (!(await canJoinOrderRoom(socket.user, orderId))) {
@@ -79,16 +88,18 @@ function registerSocketHandlers(io) {
       }
     });
 
-    socket.on(EVENTS.CAPTAIN_TOGGLE_STATUS, async ({ status }, ack) => {
+    socket.on(EVENTS.CAPTAIN_TOGGLE_STATUS, async ({ status } = {}, ack) => {
       try {
         if (role !== ROLES.CAPTAIN) throw new Error('غير مصرّح');
+        if (!Object.values(CAPTAIN_STATUS).includes(status)) throw new Error('حالة الكابتن غير صالحة');
 
         if (status === CAPTAIN_STATUS.OFFLINE) {
           const captain = await orderService.setCaptainOffline(id);
           return ack?.({ ok: true, status: captain.status });
         }
 
-        const captain = await Captain.findByIdAndUpdate(id, { status }, { new: true });
+        const captain = await Captain.findByIdAndUpdate(id, { status }, { new: true, runValidators: true });
+        if (!captain) throw new Error('حساب الكابتن غير موجود');
         io.to(ROOMS.admins()).emit(EVENTS.CAPTAIN_STATUS_CHANGED, {
           captainId: id,
           status: captain.status,
@@ -99,22 +110,32 @@ function registerSocketHandlers(io) {
       }
     });
 
-    socket.on(EVENTS.CAPTAIN_UPDATE_LOCATION, async ({ orderId, lng, lat }) => {
-      if (role !== ROLES.CAPTAIN) return;
-      Captain.updateOne(
-        { _id: id },
-        { currentLocation: { type: 'Point', coordinates: [lng, lat], updatedAt: new Date() } }
-      ).catch((e) => logger.error(e.message));
+    socket.on(EVENTS.CAPTAIN_UPDATE_LOCATION, async ({ orderId, lng, lat } = {}, ack) => {
+      try {
+        if (role !== ROLES.CAPTAIN) throw new Error('غير مصرّح');
+        if (!validCoordinates(lng, lat)) throw new Error('إحداثيات غير صالحة');
+        if (!(await canJoinOrderRoom(socket.user, orderId))) throw new Error('غير مصرّح لهذا الطلب');
 
-      io.to(ROOMS.order(orderId)).to(ROOMS.admins()).emit(EVENTS.CAPTAIN_LOCATION, {
-        orderId,
-        captainId: id,
-        lng,
-        lat,
-      });
+        const coordinates = [Number(lng), Number(lat)];
+        await Captain.updateOne(
+          { _id: id, isApproved: true },
+          { currentLocation: { type: 'Point', coordinates, updatedAt: new Date() } },
+          { runValidators: true }
+        );
+
+        io.to(ROOMS.order(orderId)).to(ROOMS.admins()).emit(EVENTS.CAPTAIN_LOCATION, {
+          orderId,
+          captainId: id,
+          lng: coordinates[0],
+          lat: coordinates[1],
+        });
+        ack?.({ ok: true });
+      } catch (err) {
+        ack?.({ ok: false, error: err.message });
+      }
     });
 
-    socket.on(EVENTS.ORDER_UPDATE_STATUS, async ({ orderId, status, reason, deliveryCode, finalPrice }, ack) => {
+    socket.on(EVENTS.ORDER_UPDATE_STATUS, async ({ orderId, status, reason, deliveryCode, finalPrice } = {}, ack) => {
       try {
         if (role !== ROLES.CAPTAIN) throw new Error('غير مصرّح');
         const order = await orderService.updateOrderStatus(id, orderId, status, reason, deliveryCode, finalPrice);
@@ -124,7 +145,7 @@ function registerSocketHandlers(io) {
       }
     });
 
-    socket.on(EVENTS.CHAT_MESSAGE, async ({ orderId, text }, ack) => {
+    socket.on(EVENTS.CHAT_MESSAGE, async ({ orderId, text } = {}, ack) => {
       try {
         if (role !== ROLES.USER && role !== ROLES.CAPTAIN) throw new Error('غير مصرّح');
         const message = await chatService.sendMessage(orderId, { id, role }, text);
@@ -156,3 +177,4 @@ function registerSocketHandlers(io) {
 module.exports = registerSocketHandlers;
 module.exports.socketAuth = socketAuth;
 module.exports.canJoinOrderRoom = canJoinOrderRoom;
+module.exports.validCoordinates = validCoordinates;
