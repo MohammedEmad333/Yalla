@@ -28,6 +28,90 @@ final themeController = ThemeController();
 final appUpdateService = AppUpdateService(apiClient);
 final appNavigatorKey = GlobalKey<NavigatorState>();
 
+Future<String?> requestOrderPaymentPhone() async {
+  final context = appNavigatorKey.currentContext;
+  if (context == null) return null;
+
+  final controller = TextEditingController();
+  String? errorText;
+  final result = await showDialog<String>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.account_balance_wallet_outlined),
+            SizedBox(width: 8),
+            Expanded(child: Text('رقم محفظة جوال')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'أدخل رقم المحفظة التي ستدفع منها قيمة الطلب. سنرسل رمز التحقق إلى هذا الرقم.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.phone,
+              textDirection: TextDirection.ltr,
+              textAlign: TextAlign.center,
+              maxLength: 10,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: 'رقم المحفظة',
+                hintText: '05xxxxxxxx',
+                helperText: 'مثال: 0591234567',
+                errorText: errorText,
+                counterText: '',
+                prefixIcon: const Icon(Icons.phone_android_rounded),
+                border: const OutlineInputBorder(),
+              ),
+              onSubmitted: (_) {
+                final phone = controller.text.trim();
+                if (RegExp(r'^05\d{8}$').hasMatch(phone)) {
+                  Navigator.of(dialogContext).pop(phone);
+                } else {
+                  setDialogState(
+                    () => errorText = 'أدخل رقمًا صحيحًا بصيغة 05xxxxxxxx',
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              final phone = controller.text.trim();
+              if (!RegExp(r'^05\d{8}$').hasMatch(phone)) {
+                setDialogState(
+                  () => errorText = 'أدخل رقمًا صحيحًا بصيغة 05xxxxxxxx',
+                );
+                return;
+              }
+              Navigator.of(dialogContext).pop(phone);
+            },
+            icon: const Icon(Icons.sms_outlined),
+            label: const Text('إرسال رمز التحقق'),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  controller.dispose();
+  return result;
+}
+
 Future<void> handleLogout() async {
   await pushService.unregister();
   await authRepository.logout();
@@ -35,6 +119,7 @@ Future<void> handleLogout() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  apiClient.orderPaymentPhoneProvider = requestOrderPaymentPhone;
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
