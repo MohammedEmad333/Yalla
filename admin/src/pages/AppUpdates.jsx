@@ -10,7 +10,7 @@ const EMPTY = {
   forceUpdate: false,
   title: 'تحديث جديد لـ Yalla 🚀',
   message: 'نسخة جديدة من Yalla جاهزة! حدّث الآن للحصول على أداء أفضل، إصلاحات جديدة وتجربة أكثر سرعة واستقرارًا.',
-  androidStoreUrl: 'https://play.google.com/store/apps/details?id=com.mohammedemad333.yalla',
+  androidStoreUrl: 'https://play.google.com/store/apps/details?id=com.yalla.yalla',
 };
 
 function compareVersions(a, b) {
