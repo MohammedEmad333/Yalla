@@ -10,11 +10,17 @@ const registerSocketHandlers = require('./sockets/order.socket');
 const { startScheduler } = require('./services/scheduler.service');
 const notifications = require('./services/notification.service');
 const settingsService = require('./services/settings.service');
+const { migrateLegacyAdminRoles } = require('./services/securityMigration.service');
 const logger = require('./utils/logger');
 
 // نقطة الإقلاع: نربط Express + Socket.io على خادم HTTP واحد
 async function bootstrap() {
   await connectDB(); // 1) الاتصال بقاعدة البيانات
+
+  // تثبيت صلاحيات حسابات الإدارة القديمة صراحةً قبل تشغيل أي endpoint إداري.
+  // الحسابات التي كانت adminRole=null كانت تُعامل سابقًا كـ super_admin؛ نحفظ
+  // نفس السلوك في البيانات مرة واحدة ثم يصبح نظام الصلاحيات fail-closed.
+  await migrateLegacyAdminRoles();
 
   // تحميل إعدادات المنظومة (الإسناد التلقائي) مرّة إلى المخبّأ لاستخدامها في
   // المسار الحرِج (إنشاء الطلب) بلا استعلام في كل مرّة.
