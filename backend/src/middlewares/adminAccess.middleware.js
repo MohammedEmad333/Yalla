@@ -5,6 +5,10 @@ const User = require('../models/User');
 function classify(req) {
   const path = req.path || '';
   const method = req.method || 'GET';
+  if (path === '/me' || path.startsWith('/admins')) return 'dashboard';
+  if (path.startsWith('/private-files/ids')) return 'captains';
+  if (path.startsWith('/private-files/receipts')) return 'finance';
+  if (path.startsWith('/banners')) return 'marketing';
   if (path.startsWith('/support')) return 'support';
   if (path.startsWith('/chats')) return 'chats';
   if (path.startsWith('/notifications')) return 'broadcast';
