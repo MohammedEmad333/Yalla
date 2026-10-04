@@ -21,22 +21,24 @@ app.use((req, res, next) => {
   res.set('X-Frame-Options', 'DENY');
   res.set('Referrer-Policy', 'no-referrer');
   res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.set('Cross-Origin-Opener-Policy', 'same-origin');
+  res.set('Cross-Origin-Resource-Policy', 'same-site');
+  res.set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
   next();
 });
 app.use(cors({ origin: env.corsOrigin }));
 app.use(express.json({ limit: '100kb' })); // تحليل JSON بحدّ حجم يمنع الحمولات الضخمة
 
-// الصور أصول عامة تُعرض أيضًا من تطبيق الويب على app.yalladelivery.org.
-// CanvasKit/متصفحات الويب قد تجلب الصورة عبر fetch من أصل الـ API المختلف؛
-// لذلك نسمح صراحةً بالقراءة عبر origins ونعلن أن المورد قابل للمشاركة cross-origin.
+// الصور العامة فقط. المستندات الحساسة (ids/receipts) لا تُخدَم static إطلاقًا؛
+// تُعاد عبر endpoint محمي داخل /api/admin/private-files.
 function publicAssetHeaders(req, res, next) {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Cross-Origin-Resource-Policy', 'cross-origin');
   next();
 }
 
-// خدمة الملفّات المرفوعة إستاتيكيًّا (إيصالات شحن الرصيد — المرحلة 1)
-app.use('/uploads', publicAssetHeaders, express.static(path.join(__dirname, '..', 'uploads')));
+// الصور الشخصية القديمة فقط تبقى عامة للتوافق. لا نكشف مجلد uploads كاملًا.
+app.use('/uploads/avatars', publicAssetHeaders, express.static(path.join(__dirname, '..', 'uploads', 'avatars')));
 
 // الصور الجديدة تُخدَم مباشرةً من قرص Oracle. الاسم فريد ولا يُعاد استخدامه، لذلك
 // التخزين سنة كاملة آمن، وCloudflare يستطيع تقديمها من الـ edge بعد أول طلب.
