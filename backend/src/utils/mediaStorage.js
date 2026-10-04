@@ -14,6 +14,8 @@ const EXT_BY_CONTENT_TYPE = Object.freeze({
   'image/jpg': '.jpg',
   'image/png': '.png',
   'image/webp': '.webp',
+  'image/gif': '.gif',
+  'image/avif': '.avif',
   'image/heic': '.heic',
   'image/heif': '.heif',
 });
@@ -88,6 +90,8 @@ function detectImageContentType(buffer) {
 
   if (buffer.subarray(4, 8).toString('ascii') === 'ftyp') {
     const brandBytes = buffer.subarray(8, Math.min(buffer.length, 64)).toString('ascii');
+    // AVIF قد يعلن mif1 كـ compatible brand؛ لا نعامله HEIF بالخطأ.
+    if (/(avif|avis)/.test(brandBytes)) return null;
     if (/(heic|heix|hevc|hevx)/.test(brandBytes)) return 'image/heic';
     if (/(mif1|msf1)/.test(brandBytes)) return 'image/heif';
   }
