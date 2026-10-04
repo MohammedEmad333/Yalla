@@ -13,10 +13,9 @@ const withdrawalRequestLockSchema = new mongoose.Schema(
       ref: 'Captain',
       required: true,
       unique: true,
-      index: true,
     },
     token: { type: String, required: true, trim: true },
-    expiresAt: { type: Date, required: true, index: true },
+    expiresAt: { type: Date, required: true },
   },
   { timestamps: true }
 );
