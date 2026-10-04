@@ -6,9 +6,12 @@ const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { validateBody } = require('../middlewares/validate.middleware');
 const { rateLimit } = require('../middlewares/rateLimit.middleware');
 const { uploadAvatar, uploadCaptainDocs } = require('../middlewares/upload.middleware');
+const Captain = require('../models/Captain');
+const User = require('../models/User');
 const { V } = require('../utils/validate');
 const { GOVERNORATES } = require('../utils/governorates');
 const { ROLES } = require('../utils/constants');
+const { normalizePhone } = require('../utils/phone');
 
 // حدّ أشدّ على مسارات المصادقة لمنع هجمات التخمين (brute force)
 const authLimiter = rateLimit({ windowMs: 60_000, max: 20 });
@@ -23,6 +26,25 @@ function maskUnauthorizedLogin(req, res, next) {
     return originalJson(body);
   };
   next();
+}
+
+// منع إصدار JWT لكابتن غير معتمد مع إبقاء verifyPassword مسؤولًا فقط عن
+// التحقق من كلمة المرور. في /login نحافظ على أولوية حساب User كما في controller.
+async function rejectUnapprovedCaptainLogin(req, res, next) {
+  try {
+    const phone = normalizePhone(req.body?.phone);
+    if (!phone) return next();
+
+    if (req.path === '/login' && await User.exists({ phone })) return next();
+
+    const captain = await Captain.findOne({ phone }).select('isApproved').lean();
+    if (captain && !captain.isApproved) {
+      return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
 
 function requireStrongCaptainApplicationPassword(req, res, next) {
@@ -54,8 +76,8 @@ const captainRegisterSchema = {
 
 router.post('/register', authLimiter, validateBody(registerSchema), ctrl.registerUser);
 router.post('/merchant/login', authLimiter, maskUnauthorizedLogin, ctrl.loginMerchant);
-router.post('/login', authLimiter, maskUnauthorizedLogin, validateBody(loginSchema), ctrl.loginUser);
-router.post('/captain/login', authLimiter, maskUnauthorizedLogin, validateBody(loginSchema), ctrl.loginCaptain);
+router.post('/login', authLimiter, maskUnauthorizedLogin, validateBody(loginSchema), rejectUnapprovedCaptainLogin, ctrl.loginUser);
+router.post('/captain/login', authLimiter, maskUnauthorizedLogin, validateBody(loginSchema), rejectUnapprovedCaptainLogin, ctrl.loginCaptain);
 
 const forgotPasswordSchema = {
   email: [V.required, V.email],
