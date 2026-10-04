@@ -134,12 +134,14 @@ HEALTH_JSON="$(curl -fsS --max-time 5 "$HEALTH_URL")"
 echo "  ✓ $HEALTH_JSON"
 
 # لا نكتفي بصحة HTTP: نتحقق أن الحاوية نفسها تحتوي ملف الراوتر الجديد،
-# وأن /health يعلن نفس SHA الذي سحبناه قبل البناء.
+# وأن متغيّر APP_GIT_SHA الداخلي يطابق نفس SHA الذي سحبناه قبل البناء.
+# لا نكشف SHA في /api/health لأن endpoint عام.
 docker exec "$CONTAINER" sh -lc "grep -q \"banners/:bannerId/image\" /app/src/routes/admin.routes.js" \
   || fail "الحاوية تعمل بكود قديم: مسار رفع صور البانرات غير موجود داخلها"
 
-printf '%s' "$HEALTH_JSON" | grep -q "$GIT_SHA" \
-  || fail "الحاوية لا تعلن SHA المتوقع $GIT_SHA — يبدو أن نسخة قديمة ما زالت تعمل"
+CONTAINER_GIT_SHA="$(docker exec "$CONTAINER" sh -lc 'printf %s "${APP_GIT_SHA:-}"')"
+[ "$CONTAINER_GIT_SHA" = "$GIT_SHA" ] \
+  || fail "SHA الداخلي للحاوية لا يطابق المتوقع: expected=$GIT_SHA actual=${CONTAINER_GIT_SHA:-missing}"
 
 echo "  ✓ تم التحقق من نسخة الكود ومسار رفع صور البانرات"
 
