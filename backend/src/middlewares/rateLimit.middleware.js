@@ -21,7 +21,7 @@ class RateLimiter {
     }
   }
 
-  // فحص طلب لمفتاح معيّن (عادةً IP)؛ الوقت يُحقن لسهولة الاختبار.
+  // فحص طلب لمفتاح معيّن؛ الوقت يُحقن لسهولة الاختبار.
   check(key, now = Date.now()) {
     this.sweep(now);
     const entry = this.hits.get(key);
@@ -39,11 +39,25 @@ class RateLimiter {
   }
 }
 
-function rateLimit({ windowMs = 60_000, max = 60 } = {}) {
+function defaultKeyGenerator(req) {
+  return req.ip || req.socket?.remoteAddress || 'unknown';
+}
+
+function normalizeKey(value) {
+  const key = String(value ?? 'unknown').trim();
+  return (key || 'unknown').slice(0, 256);
+}
+
+function rateLimit({ windowMs = 60_000, max = 60, keyGenerator = defaultKeyGenerator } = {}) {
   const limiter = new RateLimiter({ windowMs, max });
 
   return (req, res, next) => {
-    const key = req.ip || req.socket?.remoteAddress || 'unknown';
+    let key;
+    try {
+      key = normalizeKey(keyGenerator(req));
+    } catch {
+      key = normalizeKey(defaultKeyGenerator(req));
+    }
     const result = limiter.check(key);
 
     res.set('X-RateLimit-Limit', String(max));
