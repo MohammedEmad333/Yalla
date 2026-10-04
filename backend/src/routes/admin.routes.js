@@ -14,12 +14,19 @@ const { ROLES } = require('../utils/constants');
 // كل مسارات الإدارة للأدمن فقط، ثم نطبّق صلاحيات القسم حسب adminRole.
 router.use(authenticate, authorize(ROLES.ADMIN), enforceAdminAccess);
 
-// ملفات حساسة لا تُخدَم من static. الوصول لها يتطلب جلسة Admin صالحة.
-// نستخدم basename لمنع path traversal ونقصر الأنواع على مجلدات معروفة فقط.
+// ملفات حساسة لا تُخدَم من static. الوصول يتطلب جلسة Admin وصلاحية مناسبة.
 router.get('/private-files/:kind/:filename', (req, res) => {
   const roots = { ids: IDS_DIR, receipts: RECEIPTS_DIR };
-  const root = roots[req.params.kind];
+  const allowedRoles = {
+    ids: new Set(['super_admin', 'operations']),
+    receipts: new Set(['super_admin', 'finance']),
+  };
+  const kind = String(req.params.kind || '');
+  const root = roots[kind];
   if (!root) return res.status(404).json({ message: 'الملف غير موجود' });
+  if (!allowedRoles[kind].has(req.auth.adminRole)) {
+    return res.status(403).json({ message: 'ليس لديك صلاحية لعرض هذا الملف' });
+  }
 
   const filename = path.basename(String(req.params.filename || ''));
   if (!filename || filename !== req.params.filename) {
@@ -45,8 +52,6 @@ router.get('/settings', ctrl.getSettings);
 router.patch('/settings', ctrl.updateSettings);
 router.post('/notifications', ctrl.sendBroadcast);
 
-// Compatibility upload endpoint for promotion banners.
-// Kept under /api/admin as a stable fallback in addition to /api/expansion/admin/...
 router.post('/banners/:bannerId/image', requireAdminCapability('marketing'), uploadImage.single('image'), expansionCtrl.uploadBannerImage);
 
 router.get('/restaurants/applications', restaurantCtrl.adminListMerchantApplications);
