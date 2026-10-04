@@ -67,9 +67,26 @@ function requireAdminCapability(capability) {
   };
 }
 
+// بعض المسارات مشتركة بين المستخدم/الكابتن والأدمن وتقع خارج /api/admin.
+// نمرّر الأدوار غير الإدارية كما هي، لكن أي admin يجب أن يجتاز adminRole الحقيقي
+// من قاعدة البيانات حتى لا يكفي امتلاك role=admin لتجاوز تقسيم الصلاحيات.
+function requireAdminCapabilityIfAdmin(capability) {
+  const enforce = requireAdminCapability(capability);
+  return (req, res, next) => {
+    if (req.auth?.role !== 'admin') return next();
+    return enforce(req, res, next);
+  };
+}
+
 function requireSuperAdmin(req, res, next) {
   if (req.auth?.adminRole !== 'super_admin') return res.status(403).json({ message: 'هذا الإجراء متاح لـ Super Admin فقط' });
   next();
 }
 
-module.exports = { enforceAdminAccess, requireAdminCapability, requireSuperAdmin, ROLE_RULES };
+module.exports = {
+  enforceAdminAccess,
+  requireAdminCapability,
+  requireAdminCapabilityIfAdmin,
+  requireSuperAdmin,
+  ROLE_RULES,
+};
