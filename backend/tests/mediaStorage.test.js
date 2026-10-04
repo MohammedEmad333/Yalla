@@ -35,17 +35,20 @@ test('saveMediaFile writes and deleteMediaFileByUrl removes a persistent file', 
   process.env.MEDIA_ROOT = root;
 
   try {
+    // الحد الأدنى المطلوب هنا هو توقيع PNG حقيقي لأن saveMediaFile يتحقق من
+    // bytes الفعلية قبل نشر الملف، وليس من Content-Type المرسل من العميل فقط.
+    const imageBytes = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
     const stored = await saveMediaFile(
       {
-        buffer: Buffer.from('image-bytes'),
+        buffer: imageBytes,
         mimetype: 'image/png',
-        size: 11,
+        size: imageBytes.length,
       },
       { kind: 'restaurant' }
     );
 
     assert.match(stored.url, /^\/media\/restaurant\/.+\.png$/);
-    assert.equal(await fs.promises.readFile(stored.absolutePath, 'utf8'), 'image-bytes');
+    assert.deepEqual(await fs.promises.readFile(stored.absolutePath), imageBytes);
 
     assert.equal(await deleteMediaFileByUrl(stored.url), true);
     await assert.rejects(fs.promises.stat(stored.absolutePath), { code: 'ENOENT' });
