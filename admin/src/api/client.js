@@ -1,26 +1,22 @@
 // عميل API موحّد للوحة الأدمن — يرفق التوكن ويوحّد معالجة الأخطاء.
 
-// في التطوير المحلي فقط نسمح بتخصيص عنوان الـ API.
-// أي build إنتاجي (الويب أو Android/Capacitor) يُثبّت على API الرسمي حتى لا
-// يستطيع Secret قديم أو خاطئ كسر تسجيل الدخول برسالة "Failed to fetch".
 const API = (
   import.meta.env.DEV
     ? (import.meta.env.VITE_API_URL || 'http://localhost:4000')
     : 'https://api.yalladelivery.org'
 ).replace(/\/$/, '');
 
-// قراءة التوكن المحفوظ
 const getToken = () => localStorage.getItem('token');
 
 async function request(path, { method = 'GET', body } = {}) {
   let res;
   try {
     res = await fetch(`${API}/api${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-    },
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
   } catch {
@@ -28,10 +24,27 @@ async function request(path, { method = 'GET', body } = {}) {
   }
 
   const data = res.status !== 204 ? await res.json().catch(() => null) : null;
+  if (!res.ok) throw new Error(data?.message || `خطأ ${res.status}`);
+  return data;
+}
+
+async function requestBlob(path) {
+  let res;
+  try {
+    res = await fetch(`${API}/api${path}`, {
+      headers: {
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      },
+      cache: 'no-store',
+    });
+  } catch {
+    throw new Error('تعذر تحميل الملف من الخادم.');
+  }
   if (!res.ok) {
+    const data = await res.json().catch(() => null);
     throw new Error(data?.message || `خطأ ${res.status}`);
   }
-  return data;
+  return res.blob();
 }
 
 async function upload(path, file, field = 'image') {
@@ -55,6 +68,7 @@ export const api = {
   put: (p, body) => request(p, { method: 'PUT', body }),
   patch: (p, body) => request(p, { method: 'PATCH', body }),
   del: (p, body) => request(p, { method: 'DELETE', body }),
+  blob: requestBlob,
   upload,
 };
 
