@@ -34,6 +34,10 @@ class ApiClient {
   final Map<String, _GetCacheEntry> _getCache = {};
   final Map<String, Future<dynamic>> _inFlightGets = {};
 
+  /// يطلب من طبقة الواجهة رقم محفظة جوال قبل إنشاء طلب توصيل عادي.
+  /// نتركه اختياريًا حتى لا تتأثر الاختبارات أو العملاء غير المرئيين.
+  Future<String?> Function()? orderPaymentPhoneProvider;
+
   ApiClient(this._tokenStorage);
 
   // بناء الترويسات مع إرفاق التوكن إن وُجد
@@ -46,11 +50,22 @@ class ApiClient {
   }
 
   Future<dynamic> post(String path, Map<String, dynamic> body) async {
+    final requestBody = Map<String, dynamic>.from(body);
+    if (path == '/orders' &&
+        !requestBody.containsKey('paymentPhone') &&
+        orderPaymentPhoneProvider != null) {
+      final paymentPhone = (await orderPaymentPhoneProvider!())?.trim();
+      if (paymentPhone == null || paymentPhone.isEmpty) {
+        throw ApiException(400, 'أدخل رقم محفظة جوال للمتابعة');
+      }
+      requestBody['paymentPhone'] = paymentPhone;
+    }
+
     final stopwatch = (kDebugMode || kProfileMode) ? (Stopwatch()..start()) : null;
     final res = await http.post(
       Uri.parse('$baseUrl$path'),
       headers: await _headers(),
-      body: jsonEncode(body),
+      body: jsonEncode(requestBody),
     );
     stopwatch?.stop();
     if (stopwatch != null) _logRequest('POST', path, res, stopwatch.elapsedMilliseconds);

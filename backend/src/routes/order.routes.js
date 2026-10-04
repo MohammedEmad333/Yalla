@@ -2,6 +2,7 @@
 
 const router = require('express').Router();
 const ctrl = require('../controllers/order.controller');
+const orderCreateCtrl = require('../controllers/orderCreate.controller');
 const paymentAwareCtrl = require('../controllers/paymentAwareOrder.controller');
 const restaurantCtrl = require('../controllers/restaurant.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
@@ -40,7 +41,7 @@ router.use(authenticate);
 
 // المستخدم: تسعيرة تقديرية قبل الطلب، ثم إنشاء الطلب
 router.post('/quote', authorize(ROLES.USER), validateBody(quoteSchema), ctrl.getQuote);
-router.post('/', authorize(ROLES.USER), blockOrderCreationDuringMaintenance, validateBody(createOrderSchema), ctrl.createOrder);
+router.post('/', authorize(ROLES.USER), blockOrderCreationDuringMaintenance, validateBody(createOrderSchema), orderCreateCtrl.createOrder);
 
 // المستخدم: سجلّ طلباتي (قبل مسار /:orderId لتفادي التعارض)
 // المستخدم: إنشاء طلب من مطعم (سلّة أصناف) — قبل مسار /:orderId
