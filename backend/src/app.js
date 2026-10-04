@@ -16,6 +16,7 @@ const { getMediaRoot } = require('./utils/mediaStorage');
 
 // إنشاء تطبيق Express (طبقة الـ HTTP فقط — منفصلة عن الخادم والسوكت)
 const app = express();
+app.disable('x-powered-by');
 
 // نثق فقط ببروكسي محلي (Caddy أو cloudflared على نفس الخادم).
 // استخدام رقم ثابت مثل 1 يسمح لاتصال مباشر بالـ origin بتزوير X-Forwarded-For.
