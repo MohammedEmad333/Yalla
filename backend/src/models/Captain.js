@@ -41,7 +41,12 @@ const captainSchema = new mongoose.Schema(
 captainSchema.index({ currentLocation: '2dsphere' });
 
 captainSchema.methods.setPassword = async function (plain) { this.passwordHash = await bcrypt.hash(plain, 10); };
-captainSchema.methods.verifyPassword = function (plain) { return bcrypt.compare(plain, this.passwordHash); };
+// لا نعتبر بيانات اعتماد الكابتن صالحة قبل اعتماد حسابه. هذا يغلق مساري
+// /login و/captain/login بدون الاعتماد على تذكّر الفحص في كل Controller.
+captainSchema.methods.verifyPassword = function (plain) {
+  if (!this.isApproved) return Promise.resolve(false);
+  return bcrypt.compare(plain, this.passwordHash);
+};
 
 const Captain = mongoose.model('Captain', captainSchema);
 
