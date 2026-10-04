@@ -81,17 +81,30 @@ async function listRefunds(query = {}) {
 }
 
 async function markRefunded(adminId, paymentId, payload = {}) {
-  const payment = await OrderPayment.findById(paymentId);
-  if (!payment || payment.provider !== 'jawwal_pay') throw httpError('عملية الدفع غير موجودة', 404);
-  if (payment.status === 'refunded') return publicRefund(payment);
-  if (payment.status !== 'refund_pending') throw httpError('هذه العملية ليست بانتظار الاسترداد', 409);
-
   const note = String(payload.note || '').trim();
   const reference = String(payload.refundReference || '').trim();
-  payment.status = 'refunded';
-  payment.failureReason = note;
-  if (reference) payment.providerResponse = { ...(payment.providerResponse || {}), manual_refund_reference: reference };
-  await payment.save();
+  const update = {
+    $set: {
+      status: 'refunded',
+      failureReason: note,
+      ...(reference ? { 'providerResponse.manual_refund_reference': reference } : {}),
+    },
+  };
+
+  // Atomic state transition: only one concurrent request may turn refund_pending into refunded.
+  // This prevents duplicate audit entries and duplicate user notifications from double taps/retries.
+  let payment = await OrderPayment.findOneAndUpdate(
+    { _id: paymentId, provider: 'jawwal_pay', status: 'refund_pending' },
+    update,
+    { new: true }
+  );
+
+  if (!payment) {
+    const current = await OrderPayment.findById(paymentId);
+    if (!current || current.provider !== 'jawwal_pay') throw httpError('عملية الدفع غير موجودة', 404);
+    if (current.status === 'refunded') return publicRefund(current);
+    throw httpError('هذه العملية ليست بانتظار الاسترداد', 409);
+  }
 
   const order = await Order.findById(payment.order);
   if (order) {
