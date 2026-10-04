@@ -6,14 +6,53 @@ const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const { validateBody } = require('../middlewares/validate.middleware');
 const { rateLimit } = require('../middlewares/rateLimit.middleware');
 const { uploadAvatar, uploadCaptainDocs } = require('../middlewares/upload.middleware');
+const Captain = require('../models/Captain');
+const User = require('../models/User');
 const { V } = require('../utils/validate');
 const { GOVERNORATES } = require('../utils/governorates');
 const { ROLES } = require('../utils/constants');
+const { normalizePhone } = require('../utils/phone');
 
 // حدّ أشدّ على مسارات المصادقة لمنع هجمات التخمين (brute force)
 const authLimiter = rateLimit({ windowMs: 60_000, max: 20 });
 // رفع مستندات الهوية مكلف بالمساحة؛ حد مستقل أكثر تشددًا.
 const captainApplyLimiter = rateLimit({ windowMs: 60 * 60_000, max: 5 });
+
+// لا نكشف في استجابة 401 هل رقم الحساب موجود أم أن كلمة المرور فقط خاطئة.
+function maskUnauthorizedLogin(req, res, next) {
+  const originalJson = res.json.bind(res);
+  res.json = (body) => {
+    if (res.statusCode === 401) return originalJson({ message: 'بيانات الدخول غير صحيحة' });
+    return originalJson(body);
+  };
+  next();
+}
+
+// منع إصدار JWT لكابتن غير معتمد مع إبقاء verifyPassword مسؤولًا فقط عن
+// التحقق من كلمة المرور. في /login نحافظ على أولوية حساب User كما في controller.
+async function rejectUnapprovedCaptainLogin(req, res, next) {
+  try {
+    const phone = normalizePhone(req.body?.phone);
+    if (!phone) return next();
+
+    if (req.path === '/login' && await User.exists({ phone })) return next();
+
+    const captain = await Captain.findOne({ phone }).select('isApproved').lean();
+    if (captain && !captain.isApproved) {
+      return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+function requireStrongCaptainApplicationPassword(req, res, next) {
+  if (String(req.body?.password || '').length < 10) {
+    return res.status(400).json({ message: 'كلمة السر ١٠ أحرف على الأقل' });
+  }
+  next();
+}
 
 const registerSchema = {
   name: [V.required, V.string],
@@ -36,9 +75,9 @@ const captainRegisterSchema = {
 };
 
 router.post('/register', authLimiter, validateBody(registerSchema), ctrl.registerUser);
-router.post('/merchant/login', authLimiter, ctrl.loginMerchant);
-router.post('/login', authLimiter, validateBody(loginSchema), ctrl.loginUser);
-router.post('/captain/login', authLimiter, validateBody(loginSchema), ctrl.loginCaptain);
+router.post('/merchant/login', authLimiter, maskUnauthorizedLogin, ctrl.loginMerchant);
+router.post('/login', authLimiter, maskUnauthorizedLogin, validateBody(loginSchema), rejectUnapprovedCaptainLogin, ctrl.loginUser);
+router.post('/captain/login', authLimiter, maskUnauthorizedLogin, validateBody(loginSchema), rejectUnapprovedCaptainLogin, ctrl.loginCaptain);
 
 const forgotPasswordSchema = {
   email: [V.required, V.email],
@@ -52,7 +91,7 @@ router.post('/password/forgot', authLimiter, validateBody(forgotPasswordSchema),
 router.post('/password/reset', authLimiter, validateBody(resetPasswordSchema), ctrl.resetPassword);
 
 // تسجيل كابتن من التطبيق (طلب توثيق) — عام لكن بحد رفع مستقل شديد.
-router.post('/captain/apply', captainApplyLimiter, uploadCaptainDocs, ctrl.applyCaptain);
+router.post('/captain/apply', captainApplyLimiter, uploadCaptainDocs, requireStrongCaptainApplicationPassword, ctrl.applyCaptain);
 
 const updateProfileSchema = {
   name: [V.string],

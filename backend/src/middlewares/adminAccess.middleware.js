@@ -5,6 +5,10 @@ const User = require('../models/User');
 function classify(req) {
   const path = req.path || '';
   const method = req.method || 'GET';
+  if (path === '/me' || path.startsWith('/admins')) return 'dashboard';
+  if (path.startsWith('/private-files/ids')) return 'captains';
+  if (path.startsWith('/private-files/receipts')) return 'finance';
+  if (path.startsWith('/banners')) return 'marketing';
   if (path.startsWith('/support')) return 'support';
   if (path.startsWith('/chats')) return 'chats';
   if (path.startsWith('/notifications')) return 'broadcast';
@@ -19,7 +23,7 @@ function classify(req) {
   if (path.startsWith('/stats') || path.startsWith('/user-counts')) return method === 'GET' ? 'stats:read' : 'stats';
   if (path.startsWith('/settings')) return 'operations';
   if (path.startsWith('/account')) return 'dashboard';
-  return 'dashboard';
+  return 'unknown';
 }
 
 const ROLE_RULES = {
@@ -33,8 +37,8 @@ const ROLE_RULES = {
 async function resolveAdmin(req) {
   if (!req.auth || req.auth.role !== 'admin') return null;
   const admin = await User.findById(req.auth.id).select('adminRole isActive');
-  if (!admin || !admin.isActive) return null;
-  const role = admin.adminRole || 'super_admin';
+  if (!admin || !admin.isActive || !admin.adminRole || !ROLE_RULES[admin.adminRole]) return null;
+  const role = admin.adminRole;
   req.auth.adminRole = role;
   return { admin, role };
 }
@@ -42,7 +46,7 @@ async function resolveAdmin(req) {
 async function enforceAdminAccess(req, res, next) {
   try {
     const ctx = await resolveAdmin(req);
-    if (!ctx) return res.status(403).json({ message: 'حساب الإدارة غير متاح' });
+    if (!ctx) return res.status(403).json({ message: 'حساب الإدارة أو صلاحياته غير متاحة' });
     const permission = classify(req);
     const allowed = ROLE_RULES[ctx.role]?.(permission) === true;
     if (!allowed) return res.status(403).json({ message: 'ليس لديك صلاحية لهذا القسم', adminRole: ctx.role, permission });
@@ -54,7 +58,7 @@ function requireAdminCapability(capability) {
   return async (req, res, next) => {
     try {
       const ctx = await resolveAdmin(req);
-      if (!ctx) return res.status(403).json({ message: 'حساب الإدارة غير متاح' });
+      if (!ctx) return res.status(403).json({ message: 'حساب الإدارة أو صلاحياته غير متاحة' });
       if (ROLE_RULES[ctx.role]?.(capability) !== true) {
         return res.status(403).json({ message: 'ليس لديك صلاحية لهذا الإجراء', adminRole: ctx.role, permission: capability });
       }

@@ -40,7 +40,7 @@ async function createAdmin(payload = {}) {
   const adminRole = normalizeRole(payload.adminRole || 'operations');
   if (!name) throw httpError('اسم الموظف مطلوب');
   if (!/^\+?\d{6,15}$/.test(phone)) throw httpError('رقم الجوال غير صالح');
-  if (password.length < 6) throw httpError('كلمة السر ٦ أحرف على الأقل');
+  if (password.length < 10) throw httpError('كلمة السر ١٠ أحرف على الأقل');
   const collisions = await Promise.all([
     User.exists({ phone }), Captain.exists({ phone }), Merchant.exists({ phone }), MerchantStaff.exists({ phone }),
   ]);
@@ -59,18 +59,17 @@ async function createAdmin(payload = {}) {
 }
 
 async function activeSuperAdminCount() {
-  return User.countDocuments({
-    role: ROLES.ADMIN,
-    isActive: true,
-    $or: [{ adminRole: 'super_admin' }, { adminRole: null }, { adminRole: { $exists: false } }],
-  });
+  return User.countDocuments({ role: ROLES.ADMIN, isActive: true, adminRole: 'super_admin' });
 }
 
 async function updateAdmin(requesterId, adminId, payload = {}) {
   const user = await User.findOne({ _id: adminId, role: ROLES.ADMIN }).select('+passwordHash');
   if (!user) throw httpError('حساب الإدارة غير موجود', 404);
+  if (!user.adminRole || !ADMIN_ROLES.includes(user.adminRole)) {
+    throw httpError('حساب الإدارة يحتاج دورًا صريحًا قبل تعديله', 409);
+  }
 
-  const currentRole = user.adminRole || 'super_admin';
+  const currentRole = user.adminRole;
   const requestedRole = payload.adminRole !== undefined ? normalizeRole(payload.adminRole) : currentRole;
   const disabling = payload.isActive === false && user.isActive !== false;
   const demotingSuper = currentRole === 'super_admin' && requestedRole !== 'super_admin';
@@ -91,20 +90,21 @@ async function updateAdmin(requesterId, adminId, payload = {}) {
   if (payload.isActive !== undefined) user.isActive = !!payload.isActive;
   if (payload.password) {
     const password = String(payload.password);
-    if (password.length < 6) throw httpError('كلمة السر ٦ أحرف على الأقل');
+    if (password.length < 10) throw httpError('كلمة السر ١٠ أحرف على الأقل');
     await user.setPassword(password);
   }
   await user.save();
-  return { id: user._id, name: user.name, phone: user.phone, adminRole: user.adminRole || 'super_admin', regions: user.regions, isActive: user.isActive };
+  return { id: user._id, name: user.name, phone: user.phone, adminRole: user.adminRole, regions: user.regions, isActive: user.isActive };
 }
 
 async function accessInfo(adminId) {
   const user = await User.findOne({ _id: adminId, role: ROLES.ADMIN })
     .select('name phone adminRole regions isActive')
     .lean();
-  if (!user || !user.isActive) throw httpError('حساب الإدارة غير متاح', 403);
-  const role = user.adminRole || 'super_admin';
-  return { adminRole: role, permissions: ROLE_PERMISSIONS[role] || [], regions: user.regions || [] };
+  if (!user || !user.isActive || !user.adminRole || !ADMIN_ROLES.includes(user.adminRole)) {
+    throw httpError('حساب الإدارة أو صلاحياته غير متاحة', 403);
+  }
+  return { adminRole: user.adminRole, permissions: ROLE_PERMISSIONS[user.adminRole] || [], regions: user.regions || [] };
 }
 
 module.exports = { ADMIN_ROLES, ROLE_PERMISSIONS, listAdmins, createAdmin, updateAdmin, accessInfo };

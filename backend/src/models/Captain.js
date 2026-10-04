@@ -41,6 +41,9 @@ const captainSchema = new mongoose.Schema(
 captainSchema.index({ currentLocation: '2dsphere' });
 
 captainSchema.methods.setPassword = async function (plain) { this.passwordHash = await bcrypt.hash(plain, 10); };
+// فحص كلمة المرور مسؤولية مستقلة عن حالة اعتماد الحساب. منع تسجيل دخول
+// الكابتن غير المعتمد يتم في طبقة مسارات المصادقة حتى تبقى هذه الدالة صالحة
+// للتحقق الإداري واختبارات تغيير كلمة المرور دون تغيير معناها.
 captainSchema.methods.verifyPassword = function (plain) { return bcrypt.compare(plain, this.passwordHash); };
 
 const Captain = mongoose.model('Captain', captainSchema);

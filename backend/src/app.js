@@ -4,6 +4,11 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const env = require('./config/env');
+const { installJwtPolicy } = require('./config/jwtPolicy');
+
+// ثبّت سياسة إصدار JWT قبل تحميل أي route/controller قد يصدر توكنات.
+installJwtPolicy();
+
 const routes = require('./routes');
 const { rateLimit } = require('./middlewares/rateLimit.middleware');
 const { notFound, errorHandler } = require('./middlewares/error.middleware');
