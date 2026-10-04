@@ -7,6 +7,8 @@ const Captain = require('../models/Captain');
 const Merchant = require('../models/Merchant');
 const { ROLES } = require('../utils/constants');
 
+const ADMIN_ROLES = ['super_admin', 'operations', 'support', 'finance', 'marketing'];
+
 function validAudience(aud) {
   if (Array.isArray(aud)) return aud.includes(env.jwtAudience);
   return aud === env.jwtAudience;
@@ -14,8 +16,9 @@ function validAudience(aud) {
 
 async function accountStillAllowed(payload) {
   if (!payload?.id || !payload?.role) return false;
+
   if (payload.role === ROLES.USER) {
-    return Boolean(await User.exists({ _id: payload.id, isActive: true }));
+    return Boolean(await User.exists({ _id: payload.id, role: ROLES.USER, isActive: true }));
   }
   if (payload.role === ROLES.CAPTAIN) {
     return Boolean(await Captain.exists({ _id: payload.id, isApproved: true }));
@@ -23,14 +26,36 @@ async function accountStillAllowed(payload) {
   if (payload.role === ROLES.MERCHANT) {
     return Boolean(await Merchant.exists({ _id: payload.id, isActive: true }));
   }
-  // حسابات الأدمن يُعاد التحقق منها مع adminRole في adminAccess middleware.
-  // الأدوار الأخرى (مثل موظفي المتجر) لها middleware صلاحيات مستقل.
-  return true;
+  if (payload.role === ROLES.ADMIN) {
+    return Boolean(await User.exists({
+      _id: payload.id,
+      role: ROLES.ADMIN,
+      isActive: true,
+      adminRole: { $in: ADMIN_ROLES },
+    }));
+  }
+
+  // أي دور غير معروف يُرفض بدل المرور بشكل fail-open.
+  return false;
 }
 
-// التحقق من توكن الـ JWT وإرفاق بيانات المستخدم بالطلب.
-// نقبل مؤقتًا التوكنات القديمة التي لا تحمل iss/aud حتى تنتهي طبيعيًا خلال مدة JWT_EXPIRES_IN،
-// لكن أي توكن جديد يحمل هذه claims ويجب أن تطابق القيم الرسمية.
+// نقطة التحقق الواحدة المستخدمة من HTTP وSocket.io.
+// نقبل مؤقتًا التوكنات القديمة التي لا تحمل iss/aud حتى تنتهي طبيعيًا، لكن إذا
+// كانت claims موجودة فيجب أن تطابق القيم الرسمية.
+async function verifyAccessToken(token) {
+  const payload = jwt.verify(token, env.jwtSecret, { algorithms: ['HS256'] });
+  if (payload.iss !== undefined && payload.iss !== env.jwtIssuer) {
+    throw new Error('invalid issuer');
+  }
+  if (payload.aud !== undefined && !validAudience(payload.aud)) {
+    throw new Error('invalid audience');
+  }
+  if (!(await accountStillAllowed(payload))) {
+    throw new Error('account unavailable');
+  }
+  return payload;
+}
+
 async function authenticate(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -40,24 +65,13 @@ async function authenticate(req, res, next) {
   }
 
   try {
-    const payload = jwt.verify(token, env.jwtSecret, { algorithms: ['HS256'] });
-    if (payload.iss !== undefined && payload.iss !== env.jwtIssuer) {
-      return res.status(401).json({ message: 'توكن غير صالح' });
-    }
-    if (payload.aud !== undefined && !validAudience(payload.aud)) {
-      return res.status(401).json({ message: 'توكن غير صالح' });
-    }
-    if (!(await accountStillAllowed(payload))) {
-      return res.status(401).json({ message: 'الجلسة غير صالحة أو الحساب غير متاح' });
-    }
-    req.auth = payload;
+    req.auth = await verifyAccessToken(token);
     next();
   } catch (err) {
-    return res.status(401).json({ message: 'توكن غير صالح' });
+    return res.status(401).json({ message: 'توكن غير صالح أو الحساب غير متاح' });
   }
 }
 
-// السماح فقط للأدوار المحدّدة (مثال: authorize('admin'))
 function authorize(...allowedRoles) {
   return (req, res, next) => {
     if (!req.auth || !allowedRoles.includes(req.auth.role)) {
@@ -67,4 +81,4 @@ function authorize(...allowedRoles) {
   };
 }
 
-module.exports = { authenticate, authorize };
+module.exports = { authenticate, authorize, verifyAccessToken, accountStillAllowed };
