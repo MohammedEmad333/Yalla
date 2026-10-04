@@ -1,8 +1,10 @@
 'use strict';
 
+const { randomUUID } = require('crypto');
 const Order = require('../models/Order');
 const Captain = require('../models/Captain');
 const CaptainWithdrawal = require('../models/CaptainWithdrawal');
+const WithdrawalRequestLock = require('../models/WithdrawalRequestLock');
 const Log = require('../models/Log');
 const io = require('../sockets/io');
 const logger = require('../utils/logger');
@@ -23,8 +25,47 @@ const {
  * الرصيد القابل للسحب = صافي أرباح الطلبات المسلّمة − (المسحوب فعلًا + المعلّق).
  */
 
+const WITHDRAWAL_LOCK_TTL_MS = 30_000;
+
 function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
+}
+
+async function acquireWithdrawalLock(captainId) {
+  const token = randomUUID();
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const now = new Date();
+    try {
+      await WithdrawalRequestLock.create({
+        captain: captainId,
+        token,
+        expiresAt: new Date(now.getTime() + WITHDRAWAL_LOCK_TTL_MS),
+      });
+      return token;
+    } catch (err) {
+      if (err?.code !== 11000) throw err;
+
+      // A crashed process may have left a lock behind. Reclaim only an expired lock;
+      // an active lock means another withdrawal request is currently in its critical section.
+      const stale = await WithdrawalRequestLock.findOneAndDelete({
+        captain: captainId,
+        expiresAt: { $lte: now },
+      });
+      if (stale) continue;
+
+      throw httpError('يوجد طلب سحب قيد المعالجة الآن، حاول مرة أخرى بعد لحظات', 409);
+    }
+  }
+
+  throw httpError('تعذّر حجز طلب السحب مؤقتًا، حاول مرة أخرى', 409);
+}
+
+async function releaseWithdrawalLock(captainId, token) {
+  if (!token) return;
+  await WithdrawalRequestLock.deleteOne({ captain: captainId, token }).catch((err) => {
+    logger.warn('تعذّر تحرير قفل طلب السحب:', err.message);
+  });
 }
 
 // إجمالي صافي أرباح الكابتن من الطلبات المسلّمة
@@ -87,26 +128,35 @@ async function requestWithdrawal(captainId, payload = {}) {
     walletOwner = String(wallet.ownerName || '').trim();
   }
 
-  const { available } = await getBalance(captainId);
   const amount = Number(payload.amount);
-  const error = validateWithdrawal({ amount, method, phone }, available);
-  if (error) throw httpError(error, 400);
+  const lockToken = await acquireWithdrawalLock(captainId);
+  let withdrawal;
+  try {
+    // Balance validation and creation must be serialized. Without the distributed lock,
+    // two simultaneous requests can both observe the same available balance and reserve
+    // more money than the captain actually owns.
+    const { available } = await getBalance(captainId);
+    const error = validateWithdrawal({ amount, method, phone }, available);
+    if (error) throw httpError(error, 400);
 
-  const withdrawal = await CaptainWithdrawal.create({
-    captain: captainId,
-    amount,
-    method,
-    phone: String(phone).trim(),
-    walletCategory,
-    walletOwner,
-    status: WITHDRAWAL_STATUS.PENDING,
-  });
+    withdrawal = await CaptainWithdrawal.create({
+      captain: captainId,
+      amount,
+      method,
+      phone: String(phone).trim(),
+      walletCategory,
+      walletOwner,
+      status: WITHDRAWAL_STATUS.PENDING,
+    });
+  } finally {
+    await releaseWithdrawalLock(captainId, lockToken);
+  }
 
   await Log.create({
     actorId: captainId,
     actorRole: 'captain',
     action: 'WITHDRAWAL_REQUESTED',
-    meta: { withdrawalId: withdrawal._id, amount, method: payload.method },
+    meta: { withdrawalId: withdrawal._id, amount, method: withdrawal.method },
   });
 
   // إعلام الأدمن بطلب سحب جديد ليظهر في لوحته فورًا
