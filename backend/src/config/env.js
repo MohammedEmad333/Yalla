@@ -63,6 +63,8 @@ const env = {
   mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/yalla',
   jwtSecret: process.env.JWT_SECRET || 'change_me_super_secret',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  jwtIssuer: process.env.JWT_ISSUER || 'yalla-api',
+  jwtAudience: process.env.JWT_AUDIENCE || 'yalla-clients',
   corsOrigin: parseCorsOrigin(process.env.CORS_ORIGIN),
   // تفعيل الإسناد التلقائي لأقرب كابتن عند إنشاء الطلب
   autoAssign: process.env.AUTO_ASSIGN === 'true',
