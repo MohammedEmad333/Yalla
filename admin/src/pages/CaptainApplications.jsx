@@ -4,7 +4,7 @@
 //  (2) بيانات الكباتن: البيانات الحسّاسة (رقم الهوية/تاريخ الميلاد/المستندات).
 
 import { useEffect, useState } from 'react';
-import { api, API } from '../api/client';
+import { api } from '../api/client';
 import { vehicleLabel } from '../vehicles';
 import {
   Badge,
@@ -26,14 +26,52 @@ function fmtDate(d) {
   }
 }
 
-// عنوان صورة كامل من مسار نسبيّ
-const imgUrl = (u) => (!u ? '' : u.startsWith('http') ? u : `${API}${u}`);
+function privateIdPath(url) {
+  if (!url) return '';
+  const clean = String(url).split('?')[0].split('#')[0];
+  const filename = clean.slice(clean.lastIndexOf('/') + 1);
+  if (!filename) return '';
+  return `/admin/private-files/ids/${encodeURIComponent(filename)}`;
+}
 
-// معاينة مستند قابلة للفتح في تبويب جديد
+// المستندات الحساسة تُحمّل كـ Blob عبر API مصادق عليه؛ لا يوجد رابط عام مباشر.
 function DocThumb({ url, label, big }) {
-  if (!url) {
+  const [src, setSrc] = useState('');
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let objectUrl = '';
+    let cancelled = false;
+    setError(false);
+    setSrc('');
+    if (!url) return undefined;
+
+    api.blob(privateIdPath(url))
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+
+  if (!url || error) {
     return (
-      <span className="yl-doc yl-doc--empty" title={label}>
+      <span className="yl-doc yl-doc--empty" title={error ? `تعذر تحميل ${label}` : label}>
+        <IconImage size={20} />
+      </span>
+    );
+  }
+  if (!src) {
+    return (
+      <span className={`yl-doc ${big ? 'yl-doc--big' : ''} yl-doc--empty`} title={`جاري تحميل ${label}`}>
         <IconImage size={20} />
       </span>
     );
@@ -41,18 +79,18 @@ function DocThumb({ url, label, big }) {
   return (
     <a
       className={`yl-doc ${big ? 'yl-doc--big' : ''}`}
-      href={imgUrl(url)}
+      href={src}
       target="_blank"
       rel="noopener noreferrer"
       title={`فتح ${label}`}
     >
-      <img src={imgUrl(url)} alt={label} loading="lazy" />
+      <img src={src} alt={label} loading="lazy" />
     </a>
   );
 }
 
 export default function CaptainApplications() {
-  const [tab, setTab] = useState('applications'); // applications | data
+  const [tab, setTab] = useState('applications');
 
   return (
     <>
@@ -75,7 +113,6 @@ export default function CaptainApplications() {
   );
 }
 
-// ── تبويب طلبات التوثيق ─────────────────────────────────────────
 function ApplicationsTab() {
   const [apps, setApps] = useState([]);
   const [busy, setBusy] = useState('');
@@ -169,7 +206,6 @@ function ApplicationsTab() {
   );
 }
 
-// ── تبويب بيانات الكباتن الحسّاسة ───────────────────────────────
 function CaptainsDataTab() {
   const [rows, setRows] = useState([]);
   useEffect(() => { api.get('/admin/captains/data').then(setRows); }, []);
