@@ -12,16 +12,15 @@ const { ROLES } = require('../utils/constants');
 
 // حدّ أشدّ على مسارات المصادقة لمنع هجمات التخمين (brute force)
 const authLimiter = rateLimit({ windowMs: 60_000, max: 20 });
+// رفع مستندات الهوية مكلف بالمساحة؛ حد مستقل أكثر تشددًا.
+const captainApplyLimiter = rateLimit({ windowMs: 60 * 60_000, max: 5 });
 
-// مخطّطات التحقّق
 const registerSchema = {
   name: [V.required, V.string],
-  lastName: [V.string], // اسم العائلة — اختياري
+  lastName: [V.string],
   phone: [V.required, V.palestinianMobile],
-  password: [V.required, V.minLength(6)],
-  email: [V.email], // اختياري؛ يُتحقّق فقط إذا أُرسل
-  // Card 96: مكان السكن — المحافظة (من القائمة المعتمَدة) وتفاصيل العنوان.
-  // اختياريان في التحقّق لضمان توافق العملاء القدامى، ويُتحقَّق من صحّة المحافظة عند إرسالها.
+  password: [V.required, V.minLength(10)],
+  email: [V.email],
   governorate: [V.string, V.isIn(GOVERNORATES)],
   address: [V.string],
 };
@@ -32,11 +31,10 @@ const loginSchema = {
 const captainRegisterSchema = {
   name: [V.required, V.string],
   phone: [V.required, V.phone],
-  password: [V.required, V.minLength(6)],
-  vehicleType: [V.isIn(['bicycle', 'electric', 'motorcycle'])], // اختياري (Card 92)
+  password: [V.required, V.minLength(10)],
+  vehicleType: [V.isIn(['bicycle', 'electric', 'motorcycle'])],
 };
 
-// مسارات عامّة (بحدّ معدّل + تحقّق)
 router.post('/register', authLimiter, validateBody(registerSchema), ctrl.registerUser);
 router.post('/merchant/login', authLimiter, ctrl.loginMerchant);
 router.post('/login', authLimiter, validateBody(loginSchema), ctrl.loginUser);
@@ -48,22 +46,19 @@ const forgotPasswordSchema = {
 const resetPasswordSchema = {
   email: [V.required, V.email],
   code: [V.required, V.minLength(6)],
-  newPassword: [V.required, V.minLength(6)],
+  newPassword: [V.required, V.minLength(10)],
 };
 router.post('/password/forgot', authLimiter, validateBody(forgotPasswordSchema), ctrl.forgotPassword);
 router.post('/password/reset', authLimiter, validateBody(resetPasswordSchema), ctrl.resetPassword);
 
-// Card 79: تسجيل كابتن من التطبيق (طلب توثيق) — عامّ، متعدّد الأجزاء (مستندات).
-// التحقّق من الحقول داخل المتحكّم لأنّ multipart لا يمرّ عبر validateBody.
-router.post('/captain/apply', authLimiter, uploadCaptainDocs, ctrl.applyCaptain);
+// تسجيل كابتن من التطبيق (طلب توثيق) — عام لكن بحد رفع مستقل شديد.
+router.post('/captain/apply', captainApplyLimiter, uploadCaptainDocs, ctrl.applyCaptain);
 
-// مسارات محميّة — بيانات الحساب وتحديثه ورفع الصورة الشخصية (Card 17)
 const updateProfileSchema = {
   name: [V.string],
   lastName: [V.string],
-  email: [V.email], // اختياري، والقيمة الفارغة تعني حذف البريد من الحساب
+  email: [V.email],
   city: [V.string],
-  // Card 96: يمكن تعديل مكان السكن لاحقًا من صفحة "حسابي"
   governorate: [V.string, V.isIn(GOVERNORATES)],
   address: [V.string],
 };
@@ -77,20 +72,12 @@ router.post(
   validateBody({ code: [V.required, V.minLength(6)] }),
   ctrl.verifyEmail
 );
-// تغيير كلمة سر الحساب (Card 72) — كلمة حالية + جديدة (٦ أحرف على الأقلّ)
 const changePasswordSchema = {
   currentPassword: [V.required],
-  newPassword: [V.required, V.minLength(6)],
+  newPassword: [V.required, V.minLength(10)],
 };
-router.patch(
-  '/me/password',
-  authLimiter,
-  authenticate,
-  validateBody(changePasswordSchema),
-  ctrl.changePassword
-);
+router.patch('/me/password', authLimiter, authenticate, validateBody(changePasswordSchema), ctrl.changePassword);
 router.post('/me/avatar', authenticate, uploadAvatar.single('avatar'), ctrl.uploadAvatar);
-// حذف الحساب ذاتيًا (متطلّب Google Play) — المستخدم يحذف حسابه وبياناته المرتبطة
 router.delete('/me', authenticate, ctrl.deleteOwnAccount);
 router.post(
   '/captain/register',
