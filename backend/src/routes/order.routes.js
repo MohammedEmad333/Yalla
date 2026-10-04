@@ -5,6 +5,10 @@ const ctrl = require('../controllers/order.controller');
 const paymentAwareCtrl = require('../controllers/paymentAwareOrder.controller');
 const restaurantCtrl = require('../controllers/restaurant.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const {
+  requireAdminCapability,
+  requireAdminCapabilityIfAdmin,
+} = require('../middlewares/adminAccess.middleware');
 const { blockOrderCreationDuringMaintenance } = require('../middlewares/orderMaintenance.middleware');
 const { validateBody } = require('../middlewares/validate.middleware');
 const { V } = require('../utils/validate');
@@ -53,29 +57,36 @@ router.get('/mine', authorize(ROLES.USER), ctrl.getMyOrders);
 // المستخدم: تقييم الكابتن بعد التسليم
 router.post('/:orderId/rate', authorize(ROLES.USER), validateBody(rateSchema), ctrl.rateOrder);
 
-// المستخدم أو الأدمن: إلغاء الطلب (قبل الاستلام). الطلب المدفوع عبر جوال يدخل refund_pending.
-router.post('/:orderId/cancel', authorize(ROLES.USER, ROLES.ADMIN), paymentAwareCtrl.cancelOrder);
+// المستخدم أو الأدمن: إلغاء الطلب (قبل الاستلام). الأدمن يحتاج صلاحية orders الفعلية.
+router.post(
+  '/:orderId/cancel',
+  authorize(ROLES.USER, ROLES.ADMIN),
+  requireAdminCapabilityIfAdmin('orders'),
+  paymentAwareCtrl.cancelOrder
+);
 
-// الأدمن: عرض الطلبات النشطة + بحث/فلترة مع ترقيم + الكباتن المتاحين + الإسناد
-router.get('/active', authorize(ROLES.ADMIN), ctrl.getActiveOrders);
-router.get('/search', authorize(ROLES.ADMIN), ctrl.listOrders);
-router.get('/:orderId/verification-codes', authorize(ROLES.ADMIN), ctrl.getVerificationCodes);
-router.get('/export', authorize(ROLES.ADMIN), ctrl.exportOrders);
-router.get('/available-captains', authorize(ROLES.ADMIN), ctrl.getAvailableCaptains);
-router.get('/assignable-captains', authorize(ROLES.ADMIN), ctrl.getAssignableCaptains);
-router.patch('/:orderId/assign', authorize(ROLES.ADMIN), validateBody(assignSchema), ctrl.assignOrder);
-router.patch('/:orderId/auto-assign', authorize(ROLES.ADMIN), ctrl.autoAssign);
+// الأدمن: القراءة تحتاج orders:read؛ الإجراءات المتغيرة تحتاج orders.
+router.get('/active', authorize(ROLES.ADMIN), requireAdminCapability('orders:read'), ctrl.getActiveOrders);
+router.get('/search', authorize(ROLES.ADMIN), requireAdminCapability('orders:read'), ctrl.listOrders);
+// رموز التحقق حساسة وتُعامل كإجراء تشغيلي، لا كقراءة عامة للدعم.
+router.get('/:orderId/verification-codes', authorize(ROLES.ADMIN), requireAdminCapability('orders'), ctrl.getVerificationCodes);
+router.get('/export', authorize(ROLES.ADMIN), requireAdminCapability('orders:read'), ctrl.exportOrders);
+router.get('/available-captains', authorize(ROLES.ADMIN), requireAdminCapability('orders:read'), ctrl.getAvailableCaptains);
+router.get('/assignable-captains', authorize(ROLES.ADMIN), requireAdminCapability('orders:read'), ctrl.getAssignableCaptains);
+router.patch('/:orderId/assign', authorize(ROLES.ADMIN), requireAdminCapability('orders'), validateBody(assignSchema), ctrl.assignOrder);
+router.patch('/:orderId/auto-assign', authorize(ROLES.ADMIN), requireAdminCapability('orders'), ctrl.autoAssign);
 // الأدمن: إغلاق طلب عالق إداريًّا (تم التسليم) — لتصفية الطلبات القديمة
-router.patch('/:orderId/force-complete', authorize(ROLES.ADMIN), ctrl.forceComplete);
+router.patch('/:orderId/force-complete', authorize(ROLES.ADMIN), requireAdminCapability('orders'), ctrl.forceComplete);
 // الأدمن: تعديل السعر التقريبي (سقف الطلب) — Card 74
 router.patch(
   '/:orderId/price',
   authorize(ROLES.ADMIN),
+  requireAdminCapability('orders'),
   validateBody({ price: [V.required, V.number] }),
   ctrl.updatePrice
 );
 // الأدمن: إرسال رمز التسليم إلى إشعارات الكابتن المُسنَد — Card 82
-router.post('/:orderId/send-code', authorize(ROLES.ADMIN), ctrl.sendCode);
+router.post('/:orderId/send-code', authorize(ROLES.ADMIN), requireAdminCapability('orders'), ctrl.sendCode);
 
 // الكابتن: الطلبات المبثوثة المتاحة (الإسناد التلقائي) — قبل مسار /:orderId
 router.get('/available', authorize(ROLES.CAPTAIN), ctrl.availableOrders);
@@ -86,12 +97,18 @@ router.patch('/:orderId/reject', authorize(ROLES.CAPTAIN), ctrl.rejectOrder);
 // الكابتن: قبول طلب مبثوث (الإسناد التلقائي) — أوّل من يقبل يظفر به
 router.post('/:orderId/claim', authorize(ROLES.CAPTAIN), ctrl.claimOrder);
 
-// دردشة الطلب بين صاحب الطلب والكابتن خلال التوصيل (Card 18)
-router.get('/:orderId/messages', authorize(ROLES.USER, ROLES.CAPTAIN, ROLES.ADMIN), ctrl.listMessages);
+// دردشة الطلب بين صاحب الطلب والكابتن خلال التوصيل (Card 18).
+// الإداري يحتاج صلاحية chats؛ المستخدم والكابتن يمران إلى فحص ملكية الطلب المعتاد.
+router.get(
+  '/:orderId/messages',
+  authorize(ROLES.USER, ROLES.CAPTAIN, ROLES.ADMIN),
+  requireAdminCapabilityIfAdmin('chats'),
+  ctrl.listMessages
+);
 router.post('/:orderId/messages', authorize(ROLES.USER, ROLES.CAPTAIN), ctrl.sendMessage);
 
-// أي طرف مصرّح له (المالك/الكابتن المُسنَد/الأدمن) يجلب طلبًا للتتبّع
-// التحقّق الدقيق من الملكيّة يتمّ داخل طبقة الخدمة
-router.get('/:orderId', ctrl.getOrder);
+// أي طرف مصرّح له (المالك/الكابتن المُسنَد/الأدمن) يجلب طلبًا للتتبّع.
+// أي admin خارج /api/admin يجب أن يجتاز orders:read أولًا ثم فحص المنطقة داخل الخدمة.
+router.get('/:orderId', requireAdminCapabilityIfAdmin('orders:read'), ctrl.getOrder);
 
 module.exports = router;
