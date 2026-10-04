@@ -118,6 +118,7 @@ async function requireOwner(merchantId, auth = {}) {
 }
 
 async function list(merchantId, auth = {}) {
+  await requireOwner(merchantId, auth);
   const filter = { merchant: merchantId };
   if (auth.restaurantId) filter.restaurant = auth.restaurantId;
   return MerchantStaff.find(filter).select('-passwordHash').sort({ createdAt: 1 }).lean();
