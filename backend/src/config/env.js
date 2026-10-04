@@ -8,11 +8,10 @@ try {
   // dotenv غير مثبّت — نعتمد على متغيّرات البيئة الموجودة مباشرةً
 }
 
-// أصول تطبيقات Capacitor الأصليّة (نسخة أندرويد من لوحة الأدمن — Card 103/105).
-// WebView في Capacitor يرسل الطلبات من أصل ثابت لا يتغيّر: مع androidScheme:"https"
-// يكون الأصل https://localhost، وعلى iOS capacitor://localhost. نسمح بها دائمًا حتى
-// يعمل تطبيق الأندرويد دون الحاجة لإضافة أصله يدويًا في CORS_ORIGIN بكلّ نشر/بناء.
-const CAPACITOR_ORIGINS = ['https://localhost', 'capacitor://localhost', 'http://localhost'];
+// أصول تطبيقات Capacitor الأصلية. مع androidScheme:"https" يكون أصل Android
+// هو https://localhost، وعلى iOS يكون capacitor://localhost. لا نضيف
+// http://localhost تلقائيًا في الإنتاج؛ يمكن إضافته يدويًا في CORS_ORIGIN للتطوير.
+const CAPACITOR_ORIGINS = ['https://localhost', 'capacitor://localhost'];
 
 const OFFICIAL_WEB_ORIGINS = [
   'https://yalladelivery.org',
@@ -22,19 +21,14 @@ const OFFICIAL_WEB_ORIGINS = [
   'https://partner.yalladelivery.org',
 ];
 
-// يقبل CORS_ORIGIN رابطًا واحدًا أو عدّة روابط مفصولة بفاصلة، مثل:
-//   CORS_ORIGIN=https://gazalook-admin.netlify.app,https://yalla.workers.dev
-// القيمة "*" تسمح لأي نطاق. نُرجع "*" أو مصفوفة أصول — وكلاهما مدعوم من حزمة
-// cors ومن Socket.io. نُلحق دائمًا أصول Capacitor حتى تعمل نسخة الأندرويد.
+// يقبل CORS_ORIGIN رابطًا واحدًا أو عدّة روابط مفصولة بفاصلة.
+// القيمة "*" مسموحة في التطوير فقط؛ validateProductionEnv يرفضها في الإنتاج.
 function parseCorsOrigin(value) {
-  // غياب القيمة أو "*" يعني السماح للجميع (يشمل Capacitor أصلًا) — نُبقيه كما كان.
   if (!value || value.trim() === '*') return '*';
   const list = value
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
-  // ندمج الأصول المضبوطة مع نطاقات Yalla الرسمية وأصول Capacitor بلا تكرار.
-  // بهذا لا يتعطل تطبيق الويب إن كان CORS_ORIGIN في السيرفر يحتوي نطاقًا قديمًا فقط.
   return [...new Set([...list, ...OFFICIAL_WEB_ORIGINS, ...CAPACITOR_ORIGINS])];
 }
 
@@ -66,6 +60,8 @@ const env = {
   jwtIssuer: process.env.JWT_ISSUER || 'yalla-api',
   jwtAudience: process.env.JWT_AUDIENCE || 'yalla-clients',
   corsOrigin: parseCorsOrigin(process.env.CORS_ORIGIN),
+  // مستندات OpenAPI تكون مغلقة افتراضيًا في production ولا تُفتح إلا صراحةً.
+  enableApiDocs: process.env.ENABLE_API_DOCS === 'true',
   // تفعيل الإسناد التلقائي لأقرب كابتن عند إنشاء الطلب
   autoAssign: process.env.AUTO_ASSIGN === 'true',
   // نسبة عمولة الشركة من قيمة كل توصيلة (0.2 = 20%)
@@ -73,8 +69,6 @@ const env = {
   // مهلة قبول الكابتن للطلب المُسنَد قبل إلغاء الإسناد وإعادته (ثوانٍ) — ٣ دقائق (Card 54)
   acceptTimeoutSeconds: parseInt(process.env.ACCEPT_TIMEOUT_SECONDS, 10) || 180,
   // إعدادات إشعارات Firebase (اختيارية — إن غابت تُعطَّل الإشعارات).
-  // على الاستضافة (Render وغيرها) الأسهل وضع محتوى مفتاح الخدمة كاملًا في
-  // متغيّر FCM_CREDENTIALS_JSON؛ محليًّا يمكن استخدام مسار ملف FCM_CREDENTIALS_PATH.
   fcm: {
     credentialsPath: process.env.FCM_CREDENTIALS_PATH || '',
     credentialsJson: process.env.FCM_CREDENTIALS_JSON || '',
@@ -98,7 +92,6 @@ const env = {
 };
 
 module.exports = env;
-// مكشوفة للاختبار فقط (منطق نقيّ لدمج أصول CORS)
 module.exports.parseCorsOrigin = parseCorsOrigin;
 module.exports.CAPACITOR_ORIGINS = CAPACITOR_ORIGINS;
 module.exports.OFFICIAL_WEB_ORIGINS = OFFICIAL_WEB_ORIGINS;
