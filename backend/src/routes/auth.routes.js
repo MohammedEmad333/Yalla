@@ -15,6 +15,18 @@ const { normalizePhone } = require('../utils/phone');
 
 // حدّ أشدّ على مسارات المصادقة لمنع هجمات التخمين (brute force)
 const authLimiter = rateLimit({ windowMs: 60_000, max: 20 });
+// حدود إضافية مرتبطة بالهوية نفسها، حتى لا يمكن تجاوز الحماية بتوزيع المحاولات
+// على عناوين IP كثيرة أو إغراق بريد واحد بطلبات إعادة التعيين.
+const forgotPasswordIdentityLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  max: 3,
+  keyGenerator: (req) => `forgot:${String(req.body?.email || '').trim().toLowerCase()}`,
+});
+const resetPasswordIdentityLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  max: 10,
+  keyGenerator: (req) => `reset:${String(req.body?.email || '').trim().toLowerCase()}`,
+});
 // رفع مستندات الهوية مكلف بالمساحة؛ حد مستقل أكثر تشددًا.
 const captainApplyLimiter = rateLimit({ windowMs: 60 * 60_000, max: 5 });
 
@@ -87,8 +99,8 @@ const resetPasswordSchema = {
   code: [V.required, V.minLength(6)],
   newPassword: [V.required, V.minLength(10)],
 };
-router.post('/password/forgot', authLimiter, validateBody(forgotPasswordSchema), ctrl.forgotPassword);
-router.post('/password/reset', authLimiter, validateBody(resetPasswordSchema), ctrl.resetPassword);
+router.post('/password/forgot', authLimiter, validateBody(forgotPasswordSchema), forgotPasswordIdentityLimiter, ctrl.forgotPassword);
+router.post('/password/reset', authLimiter, validateBody(resetPasswordSchema), resetPasswordIdentityLimiter, ctrl.resetPassword);
 
 // تسجيل كابتن من التطبيق (طلب توثيق) — عام لكن بحد رفع مستقل شديد.
 router.post('/captain/apply', captainApplyLimiter, uploadCaptainDocs, requireStrongCaptainApplicationPassword, ctrl.applyCaptain);
