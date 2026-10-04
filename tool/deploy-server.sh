@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # نشر الباك اند على سيرفر Oracle Cloud بأمر واحد (يُشغَّل **على السيرفر**).
 #
-#   ssh ubuntu@<SERVER_IP>
-#   cd ~/Yalla && git pull origin main && bash tool/deploy-server.sh
+# الأمر الموصى به من جذر المستودع:
+#   cd ~/Yalla && bash deploy.sh
+#
+# ويمكن تشغيل هذا الملف مباشرةً عند الحاجة:
+#   cd ~/Yalla && bash tool/deploy-server.sh
 #
 # ماذا يفعل: يسحب آخر كود، يبني صورة yalla-api جديدة، يستبدل الحاوية، ثمّ
 # يفحص /api/health — وإن فشل الفحص يتراجع تلقائيًّا إلى الصورة السابقة.
@@ -30,6 +33,14 @@ say() { printf '\n▶ %s\n' "$1"; }
 fail() { printf '\n✖ %s\n' "$1" >&2; exit 1; }
 
 [ -f "$ENV_FILE" ] || fail "ملفّ البيئة غير موجود: $ENV_FILE"
+
+# الإنتاج الحالي يعمل داخل Docker. إذا بقيت نسخة قديمة من yalla-api في PM2
+# من إعداد سابق، نحذفها حتى لا تنافس الحاوية على المنفذ 4000.
+if command -v pm2 >/dev/null 2>&1 && pm2 describe "$CONTAINER" >/dev/null 2>&1; then
+  say "إزالة تشغيل PM2 القديم لـ $CONTAINER"
+  pm2 delete "$CONTAINER" >/dev/null 2>&1 || true
+  pm2 save >/dev/null 2>&1 || true
+fi
 
 # الصور الجديدة لا تعيش داخل الحاوية. ننشئ مجلدًا ثابتًا على قرص Oracle
 # ونربطه دائمًا إلى /app/media حتى يبقى المحتوى عند استبدال/تراجع الحاوية.
