@@ -96,9 +96,23 @@ jobs:
       - name: بناء APK
         run: flutter build apk --release --dart-define=API_ORIGIN=$API_ORIGIN
 
+      # APK هو الحزمة المطلوبة للاختبار المباشر، لذلك نعطي رفعه الأولوية.
+      # إذا كان تخزين Artifacts ممتلئاً، سيحاول الـ workflow رفعه قبل الـ AAB.
+      - name: رفع الـ APK
+        id: upload_apk
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: yalla-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
       - name: رفع الـ AAB
         if: steps.signing.outputs.signed == 'true'
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: yalla-aab
           path: mobile/build/app/outputs/bundle/release/app-release.aab
@@ -106,11 +120,12 @@ jobs:
           retention-days: 1
           compression-level: 0
 
-      - name: رفع الـ APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: yalla-apk
-          path: mobile/build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 0
+      - name: التحقق من رفع APK
+        if: always()
+        run: |
+          if [ "${{ steps.upload_apk.outcome }}" != "success" ]; then
+            echo "::warning::تم بناء APK بنجاح لكن GitHub رفض رفع Artifact (غالباً بسبب حصة التخزين)."
+            echo "APK موجود داخل runner في: build/app/outputs/flutter-apk/app-release.apk"
+          else
+            echo "تم رفع APK بنجاح كـ yalla-apk."
+          fi
