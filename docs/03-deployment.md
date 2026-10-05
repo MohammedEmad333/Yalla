@@ -1,61 +1,104 @@
-# القسم 3 — تجهيز النشر (Deployment)
+# 03 — التشغيل والنشر
 
-تُشغَّل المنظومة كاملةً عبر Docker Compose: قاعدة البيانات + الـ API + لوحة الأدمن.
+آخر مراجعة: 2026-10-05
 
-> 🌐 للنشر السحابي الحالي على **Oracle Cloud** (الخادم + قاعدة البيانات معًا في
-> Docker) راجع [`12-oracle-cloud-migration.md`](12-oracle-cloud-migration.md).
-> (الطريقة القديمة Render + Atlas في `04-cloud-deployment.md` للاطّلاع التاريخي فقط.)
+يوثّق هذا الملف الفرق بين **التطوير المحلي** و**نشر الإنتاج**. لا تستخدم خطوات التطوير المحلي كبديل لسكربت الإنتاج.
 
-## التشغيل بأمر واحد
+## التطوير المحلي
+
+من جذر المشروع:
 
 ```bash
-# من جذر المشروع
 docker compose up --build
 ```
 
-بعدها تتوفّر الخدمات على:
+الخدمات المحلية المعتادة:
 
 | الخدمة | العنوان |
-|--------|---------|
-| الـ API (REST + Socket.io) | http://localhost:4000 |
-| فحص الصحّة | http://localhost:4000/api/health |
-| لوحة الأدمن | http://localhost:8080 |
-| MongoDB | localhost:27017 |
+|---|---|
+| API + Socket.io | `http://localhost:4000` |
+| Health | `http://localhost:4000/api/health` |
+| Admin | حسب port المعرّف في `docker-compose.yml` |
+| MongoDB | محلي داخل Docker |
 
-## المكوّنات
+اعتبر `docker-compose.yml` المصدر النهائي لأسماء الخدمات والمنافذ المحلية؛ لا تنسخ قيمًا قديمة من جلسات سابقة.
 
-```
-docker-compose.yml
-├── mongo   — MongoDB 7 مع volume دائم + healthcheck
-├── api     — backend/Dockerfile (Node 20, ينتظر جاهزية mongo)
-└── admin   — admin/Dockerfile (بناء Vite ثم تقديم عبر nginx)
-```
-
-## المتغيّرات المهمّة (Environment)
-
-تُمرَّر عبر البيئة أو ملف `.env` بجانب `docker-compose.yml`:
-
-| المتغيّر | الافتراضي | الغرض |
-|---------|-----------|-------|
-| `JWT_SECRET` | change_me_super_secret | **غيّره في الإنتاج** |
-| `AUTO_ASSIGN` | false | إسناد تلقائي لأقرب كابتن |
-| `FCM_CREDENTIALS_PATH` | (فارغ) | ملف اعتماد Firebase للإشعارات |
-
-> ⚠️ لتفعيل إشعارات FCM في Docker: ضَع ملف الاعتماد داخل الحاوية عبر volume
-> واضبط `FCM_CREDENTIALS_PATH` على مساره داخلها.
-
-## أوّل تشغيل — إنشاء أدمن
+## Backend محليًا بدون Docker
 
 ```bash
-# داخل حاوية الـ API
+cd backend
+cp .env.example .env
+npm install
+npm run dev
+npm test
+npm run test:integration
+```
+
+لا تضع secrets حقيقية في `.env.example` أو ملفات التوثيق.
+
+## الإنتاج
+
+الحالة الحالية:
+
+- Backend + MongoDB على Oracle Cloud.
+- API الرسمي: `https://api.yalladelivery.org`.
+- Caddy أمام الـAPI للـHTTPS والـreverse proxy.
+- واجهات الويب على Cloudflare Workers Static Assets.
+- الوسائط العامة محفوظة على قرص Oracle الدائم، host `/home/ubuntu/yalla-media` → container `/app/media`.
+
+### تحديث Backend
+
+```bash
+cd ~/Yalla
+git fetch origin
+git pull --ff-only origin main
+bash tool/deploy-server.sh
+```
+
+لأن المستودع خاص، يجب أن يكون deploy key/SSH الخاص بالخادم صالحًا قبل `git pull`.
+
+لا تستخدم `docker compose up` على خادم الإنتاج ما لم يتم تحويل بنية الإنتاج رسميًا إلى Compose؛ سكربت `tool/deploy-server.sh` هو مسار تحديث الـAPI الحالي.
+
+### فحص ما بعد النشر
+
+```bash
+curl -fsS https://api.yalladelivery.org/api/health
+docker ps --format 'table {{.Names}}\t{{.Status}}'
+docker logs --tail 100 yalla-api
+```
+
+الاستجابة المتوقعة للصحة:
+
+```json
+{"status":"ok","service":"yalla-api"}
+```
+
+## متغيرات البيئة
+
+القيم الفعلية تُدار خارج Git. راجع `backend/.env.example` والكود وworkflow ذي الصلة قبل إضافة أو حذف أي متغير.
+
+قواعد الإنتاج:
+
+- استخدم secret قويًا لـJWT.
+- لا تستخدم `CORS_ORIGIN=*` في الإنتاج.
+- لا تكشف MongoDB للإنترنت.
+- ملف اعتماد Firebase وأي مفاتيح مزوّدات خارجية تبقى خارج المستودع.
+- عناوين API الجديدة تستخدم `https://api.yalladelivery.org`.
+
+## إنشاء أدمن محلي/بيئة جديدة
+
+استخدم script المشروع فقط في بيئة مصرح بها:
+
+```bash
 docker compose exec api npm run seed:admin "المدير" 0100000000 "StrongPass123"
 ```
 
-ثم ادخل لوحة الأدمن (http://localhost:8080) بنفس الهاتف وكلمة المرور.
+غيّر بيانات المثال فورًا ولا توثق أي بيانات دخول حقيقية.
 
-## ملاحظات الإنتاج
+## مراجع
 
-- استبدل `CORS_ORIGIN='*'` بنطاق لوحة الأدمن الحقيقي.
-- استخدم عنوان `VITE_API_URL` الحقيقي عند بناء صورة الأدمن (build arg).
-- فعّل نسخًا احتياطيًا لـ volume قاعدة البيانات `mongo_data`.
-- ضع الـ API خلف بروكسي (nginx/traefik) مع TLS، وحافظ على WebSocket upgrade.
+- [فهرس التوثيق](README.md)
+- [Oracle Cloud والتشغيل](12-oracle-cloud-migration.md)
+- [Cloudflare](11-cloudflare-pages.md)
+- [تخزين الوسائط](15-oracle-media-storage.md)
+- [أمان Cloudflare](14-cloudflare-security.md)

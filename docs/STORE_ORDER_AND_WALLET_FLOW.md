@@ -1,347 +1,183 @@
-# Store Order & Wallet Reservation Flow
+# Store Order, Payment & Settlement Flow
 
-This document describes the current backend flow for store/restaurant orders in Yalla Delivery, including wallet reservation, merchant approval, captain dispatch, delivery settlement, cancellation, inventory restoration, coupon rollback, and idempotency rules.
+آخر مراجعة: 2026-10-05
 
-## Overview
+يوثّق هذا الملف تدفق طلبات المتاجر/المطاعم الحالي على مستوى عالٍ. كان الإصدار السابق يصف حجز المبلغ داخل `WalletHold` كمسار دفع أساسي؛ تدفق إنشاء طلب المتجر الحالي يبدأ **Jawwal Pay direct payment** ويجب الرجوع للكود عند أي اختلاف.
 
-Store orders follow this sequence:
-
-```text
-Customer creates order
-        ↓
-Server validates restaurant, menu items, prices, options and stock
-        ↓
-Reward points / discounts are calculated
-        ↓
-Estimated payable amount is reserved in the customer wallet
-        ↓
-Merchant receives the order
-        ↓
-Merchant accepts or rejects
-        ↓
-If accepted → captain broadcast / auto assignment starts
-        ↓
-Merchant prepares order
-        ↓
-Merchant marks order ready
-        ↓
-Captain picks up the order
-        ↓
-Merchant confirms handover
-        ↓
-Captain delivers and enters final delivery price + delivery code
-        ↓
-Reserved wallet amount is captured using the actual final total
-        ↓
-Merchant earning, captain earning and admin commission are settled
-```
-
-## Wallet Model
-
-The customer wallet contains three important values:
-
-- `balance`: actual money currently stored in the wallet.
-- `reservedBalance`: money reserved for active orders.
-- `availableBalance`: money the customer can still spend.
+## التدفق الحالي
 
 ```text
-availableBalance = balance - reservedBalance
+Customer creates store/restaurant order
+        ↓
+Server validates store/menu/options/prices/stock/discounts
+        ↓
+Order is created with payment required
+        ↓
+Jawwal Pay payment session starts
+        ↓
+OTP sent to the wallet phone
+        ↓
+Customer confirms OTP
+        ↓
+Backend verifies payment with provider
+        ↓
+Paid order is activated
+        ↓
+Merchant receives / accepts / prepares / marks ready
+        ↓
+Captain assignment and pickup flow
+        ↓
+Delivery confirmation
+        ↓
+Financial settlement / earnings / refunds as applicable
 ```
 
-Example:
+## إنشاء الطلب
+
+الـBackend هو مصدر الحقيقة للأسعار. لا يعتمد على totals مرسلة من العميل دون إعادة حساب/تحقق.
+
+`backend/src/routes/commerce.routes.js`:
+
+- يتطلب مستخدمًا مصادقًا.
+- يطبّق `blockOrderCreationDuringMaintenance`.
+- يدعم `Idempotency-Key`.
+- ينشئ `restaurant-order` أو `reorder` مع `paymentRequired: true`.
+- يبدأ جلسة الدفع عبر `directPayment.startOrderPayment()`.
+- إذا فشل بدء الدفع، يحاول إلغاء العملية بدل ترك الطلب فعالًا بدون دفعة.
+
+## Jawwal Pay
+
+الملفات الأساسية:
 
 ```text
-balance          = 100 ₪
-reservedBalance  = 40 ₪
-availableBalance = 60 ₪
+backend/src/services/directPayment.service.js
+backend/src/services/jawwalPayClient.js
+backend/src/models/OrderPayment.js
 ```
 
-The reserved amount cannot be consumed by another order or ordinary debit operation.
+المبلغ المدفوع يُحسب في الخادم من قيمة الأصناف + التوصيل - الخصومات/المكافآت المطبقة وفق منطق الطلب الحالي.
 
-## Creating a Store Order
+يُستخدم مفتاح idempotency مرتبط بالطلب لمنع إنشاء دفعات مكررة مستقلة للطلب نفسه.
 
-The backend validates all commerce data on the server and does not trust client-submitted prices.
+## انتظار الدفع وتفعيل الطلب
 
-The payable reservation is based on:
+الطلب الذي يحتاج دفعًا لا يجب معاملته كطلب نشط قابل للتنفيذ قبل نجاح الدفع. بعد تأكيد Jawwal Pay:
+
+1. تُعلّم `OrderPayment` كمدفوعة.
+2. تُحفظ مراجع المزود المتاحة.
+3. يستدعي الخادم تفعيل الطلب المدفوع بشكل idempotent.
+
+إعادة استدعاء التأكيد لدفعة مسجلة كـ`paid` لا ينبغي أن ينتج عنه خصم ثانٍ.
+
+## إلغاء الدفع
+
+إذا لم تكتمل الدفعة، يمكن لمسار الإلغاء:
+
+- إلغاء العملية لدى المزود عندما يوجد provider reference.
+- تعليم عملية الدفع محليًا كملغاة.
+- إلغاء الطلب إذا كان لا يزال بانتظار الدفع.
+- تحرير المخزون/النقاط المحجوزة حسب implementation الحالي.
+
+الدفعة المكتملة لا تعامل كإلغاء عادي؛ الاسترداد له خدمة مستقلة.
+
+## الاسترداد
+
+مرجع Jawwal Pay للاسترداد:
 
 ```text
-items total
-+ estimated delivery fee
-- applicable reward discount
+backend/src/services/jawwalRefund.service.js
+backend/src/routes/jawwalRefund.routes.js
 ```
 
-The amount is stored through a `WalletHold` linked to the order.
-
-Each order can have only one wallet hold. This makes reservation operations idempotent and prevents duplicate holds when a request is retried.
-
-If there is not enough `availableBalance`, order creation fails and no amount is reserved.
-
-## Wallet Hold States
-
-`WalletHold` uses the following states:
-
-```text
-reserving
-active
-capturing
-releasing
-released
-```
-
-Typical successful lifecycle:
-
-```text
-reserving → active → capturing → released
-```
-
-Cancellation lifecycle:
-
-```text
-reserving → active → releasing → released
-```
+يجب أن تكون عمليات refund محمية بالصلاحيات وidempotency والتدقيق المالي.
 
 ## Merchant Flow
 
-Supported merchant states:
+تفاصيل حالات التاجر والانتقالات يجب أخذها من model/service الحاليين. القاعدة التشغيلية المهمة:
+
+- لا يبدأ تنفيذ الطلب التجاري الفعلي قبل تفعيل الطلب المدفوع.
+- قبول/تحضير/جاهزية الطلب يجب أن تبقى متناسقة مع حالة الطلب العامة.
+- الكابتن لا ينبغي أن يتجاوز متطلبات جاهزية/استلام الطلب التي يفرضها backend.
+
+لا تضف حالة جديدة في UI فقط؛ أضفها إلى state machine والخادم والاختبارات والتوثيق معًا.
+
+## Captain Flow وأكواد التحقق
+
+تدفق التسليم/الاستلام يستخدم أكواد تحقق حيث يفرضها implementation الحالي. الأكواد تُولد وتُتحقق في الخادم، ولا يجب أن يسمح العميل بتجاوزها محليًا.
+
+الأدمن يستطيع استخدام الواجهات المصرح بها للمراقبة والدعم، لكن لا تعرض الأكواد الحساسة في logs عامة أو analytics.
+
+## المخزون
+
+المخزون يُتحقق منه في الخادم. عند إنشاء طلب ثم فشل/إلغاء الدفع يجب ألا تبقى كميات محجوزة بشكل دائم. استخدم خدمات inventory/release الموجودة بدل تعديل الكمية مباشرة من route جديد.
+
+## الخصومات والمكافآت
+
+الكوبونات والعروض ونقاط المكافآت تدخل في حساب الخادم. عند إلغاء الطلب قبل التفعيل/التسوية يجب تحرير أي حجز قابل للإرجاع وفق الخدمات الحالية وبشكل idempotent.
+
+## التوزيع المالي
+
+Yalla تفصل بين:
+
+- قيمة الأصناف/مستحقات المتجر.
+- أجرة التوصيل/مستحقات الكابتن.
+- عمولة/حصة الإدارة والتسويات.
+
+لا تعيد حساب هذه القيم في التطبيق. خدمات الـBackend وسجلات المعاملات/الأرباح هي مصدر الحقيقة المالي.
+
+## المحفظة الداخلية مقابل الدفع المباشر
+
+توجد محافظ داخلية وخدمات تسوية للمستخدم/الكابتن/الإدارة، لكن هذا لا يعني أن إنشاء طلب متجر حاليًا يعتمد `WalletHold` كطريقة دفع العميل. Jawwal Pay direct payment هو المسار الذي تبدأه `commerce.routes.js` حاليًا.
+
+راجع [`05-wallet-topup.md`](05-wallet-topup.md) للتفريق بينهما.
+
+## ملفات Backend مهمة
 
 ```text
-new
-accepted
-preparing
-ready
-handed_over
-rejected
-```
-
-Allowed transitions:
-
-```text
-new → accepted
-new → rejected
-accepted → preparing
-preparing → ready
-ready → handed_over
-```
-
-A store order is not allowed to reach captain assignment states before merchant acceptance.
-
-## Captain Dispatch
-
-Store orders are not broadcast or automatically assigned to captains while the merchant status is `new`.
-
-Captain dispatch becomes allowed only after merchant acceptance.
-
-Allowed merchant states for dispatch:
-
-```text
-accepted
-preparing
-ready
-handed_over
-```
-
-When the merchant changes:
-
-```text
-new → accepted
-```
-
-the backend starts the configured dispatch mode:
-
-- broadcast mode, or
-- automatic captain assignment.
-
-Scheduled orders continue to respect their scheduled activation time.
-
-## Captain Claim Protection
-
-Captain claim is protected directly inside the atomic database query.
-
-For store orders, a captain cannot claim an order unless the merchant has already accepted it.
-
-This protection is implemented at the database update level so it cannot be bypassed by skipping model validation.
-
-## Pickup Protection
-
-A captain cannot change a store order to `picked_up` until the merchant has marked it ready.
-
-Allowed merchant states for pickup:
-
-```text
-ready
-handed_over
-```
-
-This prevents a captain from claiming to have collected food before the restaurant has completed preparation.
-
-## Merchant Handover
-
-The merchant cannot mark the order as `handed_over` unless:
-
-- a captain is assigned, and
-- the captain has already confirmed pickup.
-
-This keeps both merchant and captain state consistent.
-
-## Delivery Settlement
-
-At delivery, the captain enters:
-
-- the real delivery price, and
-- the customer delivery code.
-
-The real delivery price cannot exceed the estimated delivery price.
-
-The final charge is calculated as:
-
-```text
-actual delivery price
-+ store items total
-- applied reward discount
-```
-
-For store orders with an active hold, settlement uses `captureOrderHold()` instead of a normal wallet debit.
-
-The operation:
-
-1. deducts the actual final amount from `balance`;
-2. removes the full estimated amount from `reservedBalance`;
-3. releases any unused difference back into `availableBalance`.
-
-Example:
-
-```text
-Reserved total: 50 ₪
-Final total:    47 ₪
-
-balance decreases by 47 ₪
-reservedBalance decreases by 50 ₪
-3 ₪ becomes available again
-```
-
-The payment transaction uses an idempotency key based on the order ID, so repeated delivery confirmation cannot charge the customer twice.
-
-## Financial Distribution
-
-For a successfully delivered store order:
-
-- store item value becomes merchant credit;
-- captain receives the configured share of the delivery fee;
-- admin receives the delivery commission.
-
-Merchant earnings are recorded through `MerchantEarning` using the order as a unique reference to prevent duplicates.
-
-## Cancellation
-
-When an order reaches `CANCELLED`, the wallet hold is released centrally.
-
-This covers cancellation by:
-
-- customer;
-- admin;
-- merchant rejection;
-- system flows that persist the order as cancelled.
-
-The release operation is idempotent, so retrying cancellation does not release the same amount twice.
-
-## Merchant Rejection
-
-When the merchant rejects a new store order:
-
-- `merchantStatus` becomes `rejected`;
-- order status becomes `CANCELLED`;
-- reserved wallet funds are released;
-- reserved reward points are returned;
-- tracked inventory is restored;
-- coupon usage is rolled back when applicable.
-
-## Inventory Restoration
-
-Store items using inventory tracking are decremented only after order creation and wallet reservation succeed.
-
-If the merchant rejects the order, tracked item quantities are restored and unavailable items become available again where appropriate.
-
-## Coupon Rollback
-
-Coupon usage is counted when a valid store order is created.
-
-If that order is later cancelled in a flow eligible for rollback, the coupon usage count is restored.
-
-The coupon stores restored order references to make rollback idempotent and prevent decrementing `usedCount` more than once for the same order.
-
-## Reward Points
-
-Reward points reserved for an order are released when the order is cancelled before settlement.
-
-During delivery, the applicable reward discount is finalized before the wallet capture is calculated.
-
-## Ordinary Wallet Debits
-
-Generic wallet debits use `availableBalance`, not raw `balance`.
-
-This means funds reserved for active orders cannot be consumed by unrelated wallet operations.
-
-## Wallet API Response
-
-Wallet summaries expose:
-
-```json
-{
-  "balance": 100,
-  "reservedBalance": 40,
-  "availableBalance": 60,
-  "currency": "ILS"
-}
-```
-
-Frontend clients may display all three values, but the backend reservation and protection logic works even if an older app version only displays `balance`.
-
-## Important Backend Files
-
-Main implementation files:
-
-```text
-backend/src/models/Wallet.js
-backend/src/models/WalletHold.js
 backend/src/models/Order.js
-backend/src/models/Coupon.js
-backend/src/models/MerchantEarning.js
-
-backend/src/services/wallet.service.js
-backend/src/services/walletHold.service.js
+backend/src/models/OrderPayment.js
+backend/src/services/commerce.service.js
+backend/src/services/directPayment.service.js
+backend/src/services/jawwalPayClient.js
 backend/src/services/order.service.js
 backend/src/services/merchant.service.js
-backend/src/services/commerce.service.js
+backend/src/services/inventory.service.js
+backend/src/services/rewards.service.js
 ```
 
-Integration coverage is located under:
+## الصيانة
 
-```text
-backend/tests/integration/
-```
+عندما يكون وضع إيقاف إنشاء الطلبات مفعّلًا، `blockOrderCreationDuringMaintenance` يمنع إنشاء طلب متجر جديد من هذا المسار. لا تعتمد على إخفاء زر الطلب في العميل كحماية وحيدة.
 
-## Deployment
+## الاختبارات المطلوبة
 
-After backend changes are merged into `main`, update the Oracle server with:
+أي تغيير في هذا التدفق يجب أن يغطي على الأقل:
+
+- إعادة حساب الأسعار في الخادم.
+- idempotent order creation.
+- بدء Jawwal Pay وفشل بدء الجلسة.
+- OTP صحيح/خاطئ وإعادة المحاولة.
+- عدم تفعيل الطلب قبل الدفع.
+- تحرير المخزون/المكافآت عند الإلغاء.
+- merchant/captain state transitions.
+- التسوية والاسترداد دون ازدواج مالي.
+
+## النشر
+
+بعد دمج تغيير Backend إلى `main`:
 
 ```bash
 cd ~/Yalla
-git pull origin main
-bash deploy.sh
+git fetch origin
+git pull --ff-only origin main
+bash tool/deploy-server.sh
 ```
 
-No mobile application update is required for backend-only flow changes.
+ثم:
 
-A mobile release is only needed when the Flutter UI itself is changed, for example to visibly show `reservedBalance` and `availableBalance`.
-
-## CI Expectations
-
-Before production deployment, the following should remain green:
-
-```text
-admin-build
-backend unit tests
-backend integration tests
+```bash
+curl -fsS https://api.yalladelivery.org/api/health
+docker logs --tail 100 yalla-api
 ```
 
-Any failure in wallet, settlement, cancellation, merchant flow or restaurant-order integration tests should block deployment until investigated.
+لا تستخدم `deploy.sh` القديم؛ سكربت الإنتاج الحالي هو `tool/deploy-server.sh`.

@@ -1,84 +1,106 @@
-# إصدار Yalla على Google Play (التوقيع + AAB)
+# 08 — إصدار Yalla على Google Play
 
-هذا الدليل يشرح كيفية إنتاج **حزمة موقّعة قابلة للنشر** على Google Play، وما تبقّى
-من متطلبات المتجر.
+آخر مراجعة: 2026-10-05
 
-## نظرة عامّة على آلية التوقيع
+هذا الدليل يوضح بناء APK/AAB الموقّع ومتطلبات الإصدار. الحالة الحالية في `mobile/pubspec.yaml` وقت المراجعة:
 
-- مجلّد `mobile/android/` **يُولَّد** في CI عبر `flutter create` (لضمان توافق إصدارات
-  Gradle/AGP)، ثم نُعيد فوقه ملفّاتنا المتتبَّعة:
-  - `android/app/src/main/AndroidManifest.xml` (الاسم + الصلاحيات + أمان الشبكة).
-  - `android/app/src/main/res/xml/network_security_config.xml` (HTTPS فقط للإنتاج).
-- سكربت `mobile/tool/inject_signing.py` يحقن **إعداد توقيع الإصدار** في
-  `app/build.gradle` المولَّد، فيقرأ المفتاح من `android/key.properties`.
-- الـ workflow **Build Mobile Release** يبني `app-release.aab` (لـ Google Play)
-  و`app-release.apk` (للاختبار المباشر).
+```text
+version: 1.0.11+12
+```
 
-> مفتاح التوقيع **لا يُحفظ في المستودع إطلاقًا**. يُخزَّن مُرمَّزًا في أسرار GitHub
-> ويُحقَن أثناء البناء فقط.
+قبل أي إصدار جديد يجب زيادة `versionCode`، وتحديث `versionName` عندما يلزم.
 
-## 1) توليد مفتاح التوقيع (Keystore) — مرّة واحدة
+## التوقيع
 
-على جهازك (يتطلّب JDK):
+مفتاح التوقيع **لا يُحفظ في المستودع**. Workflow البناء يقرأ بياناته من GitHub Actions Secrets ويحقنها أثناء البناء.
+
+الأسرار المستخدمة يجب مطابقتها مع workflow الحالي قبل التغيير؛ الأسماء المتوقعة تاريخيًا تشمل:
+
+```text
+ANDROID_KEYSTORE_BASE64
+ANDROID_KEYSTORE_PASSWORD
+ANDROID_KEY_ALIAS
+ANDROID_KEY_PASSWORD
+```
+
+GitHub لا يعرض قيمة secret بعد حفظها؛ تعديل secret يستبدل القيمة السابقة.
+
+## إنشاء keystore — مرة واحدة فقط
 
 ```bash
 keytool -genkey -v -keystore yalla-upload.jks \
   -keyalg RSA -keysize 2048 -validity 10000 -alias upload
 ```
 
-احتفظ بالملفّ `yalla-upload.jks` وكلمات المرور في مكان آمن.
-⚠️ **فقدان هذا المفتاح يعني عدم القدرة على تحديث التطبيق لاحقًا** (ما لم تُفعّل
-Play App Signing، وهو مُوصى به — انظر القسم 4).
+احتفظ بنسخة آمنة خارج المستودع. Play App Signing موصى به لتقليل مخاطر فقد مفتاح الرفع.
 
-## 2) إضافة الأسرار إلى GitHub
+## البناء
 
-رمّز الـ keystore إلى base64:
+استخدم workflow الإصدار الموجود في `.github/workflows/` لتطبيق Yalla. الناتج المتوقع للإصدار الموقّع:
 
-```bash
-base64 -w0 yalla-upload.jks > yalla-upload.b64   # على macOS: base64 -i yalla-upload.jks -o yalla-upload.b64
+- `.aab` للرفع إلى Google Play.
+- `.apk` للاختبار المباشر عندما ينتجه workflow.
+
+لا تعتبر APK debug إصدارًا صالحًا للمتجر.
+
+## API الإنتاجي
+
+البناء الإنتاجي يجب أن يستخدم:
+
+```text
+https://api.yalladelivery.org
 ```
 
-ثم من **GitHub → Settings → Secrets and variables → Actions → New repository secret**
-أضِف:
+لا تستخدم DuckDNS أو عنوان localhost في build المتجر.
 
-| السرّ | القيمة |
-|------|--------|
-| `ANDROID_KEYSTORE_BASE64` | محتوى ملفّ `yalla-upload.b64` |
-| `ANDROID_KEYSTORE_PASSWORD` | كلمة مرور المخزن (storePassword) |
-| `ANDROID_KEY_ALIAS` | `upload` |
-| `ANDROID_KEY_PASSWORD` | كلمة مرور المفتاح (keyPassword) |
+## روابط Play Console الرسمية
 
-## 3) بناء الحزمة
+- سياسة الخصوصية: `https://yalladelivery.org/privacy.html`
+- حذف الحساب: `https://yalladelivery.org/delete-account.html`
 
-- من تبويب **Actions → Build Mobile Release → Run workflow** (أو تلقائيًا عند تعديل
-  `mobile/`).
-- عند اكتمال التشغيل حمّل الأثر **`yalla-aab`** (`app-release.aab`) وارفعه على
-  Google Play Console.
-- الأثر **`yalla-apk`** للتثبيت المباشر على الأجهزة للاختبار.
+لم يعد GitHub Pages هو رابط سياسة الخصوصية المعتمد للمشروع.
 
-> بلا أسرار keystore: يُبنى APK موقّع بمفتاح debug **للاختبار فقط**، ولا يُبنى AAB.
+## قائمة تحقق قبل الرفع
 
-## 4) رفعه على Google Play — قائمة تحقّق
+- [ ] CI/build ناجح على commit الإصدار.
+- [ ] `versionCode` أكبر من آخر إصدار مرفوع.
+- [ ] AAB موقّع بمفتاح الرفع الصحيح.
+- [ ] API origin هو `https://api.yalladelivery.org`.
+- [ ] سياسة الخصوصية وصفحة حذف الحساب تعملان عبر HTTPS.
+- [ ] Data Safety يطابق التطبيق الحالي فعليًا.
+- [ ] صلاحيات Android الحالية مبررة ومتوافقة مع وظائف التطبيق.
+- [ ] لقطات الشاشة والوصف وبيانات الدعم محدثة.
+- [ ] Content rating مكتمل.
+- [ ] targetSdk يحقق متطلبات Google Play الحالية وقت الإصدار.
+- [ ] تم اختبار login، إنشاء الطلب، الدفع، الإشعارات والتحديث الإجباري/الاختياري إن كان مفعّلًا.
 
-- [ ] حساب مطوّر Google Play (رسم 25$ لمرة واحدة).
-- [ ] تفعيل **Play App Signing** (مُوصى به — يحمي من فقدان مفتاح الرفع).
-- [ ] **applicationId** ثابت: `com.mohammedemad333.yalla` (لا يمكن تغييره بعد النشر).
-- [ ] **رابط سياسة الخصوصية** — منشورة تلقائيًا على GitHub Pages عبر workflow
-      «Deploy Privacy Policy (Pages)»: <https://mohammedemad333.github.io/Yalla/>
-      (المصدر: [`privacy-policy.md`](privacy-policy.md) و`site/index.html`). ضع
-      الرابط في App content. يُفعَّل النشر عند دمج التغييرات في `main`.
-- [ ] **نموذج Data Safety** — أفصِح عن: الموقع، رقم الهاتف، الصور، مُعرّف الجهاز.
-- [ ] **تبرير صلاحية الموقع** (`ACCESS_FINE_LOCATION`) — أساسي لخدمة التوصيل، وبلا
-      موقع في الخلفية.
-- [ ] **أصول المتجر:** أيقونة 512×512، رسم مميز 1024×500، ولقطات شاشة.
-- [ ] وصف قصير وطويل بالعربية.
-- [ ] تدرّج المحتوى (Content rating) عبر الاستبيان.
-- [ ] استهداف `targetSdk` حديث (≥ 35) — يوفّره Flutter stable تلقائيًا في CI.
+## Data Safety
 
-## 5) رفع الإصدارات التالية
+لا تنسخ إجابات قديمة بشكل آلي. راجع [`09-data-safety.md`](09-data-safety.md) ثم طابقها مع:
 
-زِد رقم الإصدار في `mobile/pubspec.yaml` قبل كل رفعة:
+- `mobile/pubspec.yaml`.
+- Android manifest المولّد/المخصص.
+- SDKs الحالية.
+- API الفعلية وممارسات التخزين/الحذف.
+
+## إصدار جديد
+
+مثال فقط:
 
 ```yaml
-version: 1.0.1+2   # versionName+versionCode — يجب أن يزيد versionCode في كل رفعة
+version: 1.0.12+13
 ```
+
+القاعدة المهمة هي أن الرقم بعد `+` يزيد عن كل build سبق رفعه إلى Play Console.
+
+بعد تعديل النسخة:
+
+1. شغّل CI.
+2. شغّل workflow الإصدار.
+3. اختبر artifact المناسب.
+4. ارفع AAB إلى المسار المطلوب في Play Console (اختبار/إنتاج).
+5. استخدم ملاحظات إصدار محددة لما تغير في النسخة، لا قائمة ميزات عامة.
+
+## أمان الأسرار
+
+لا تطبع keystore base64 أو كلمات المرور في logs. إذا كُشف secret، استبدله واتبع إجراءات تدوير المفتاح الممكنة في Play Console/GitHub حسب نوع السر.

@@ -1,23 +1,30 @@
-# القسم 4 — النشر السحابي القديم
+# 04 — سجل النشر السحابي القديم
 
-> **مهجور — مرجع تاريخي فقط.**
+آخر مراجعة: 2026-10-05
 
-لم تعد Yalla تستخدم Render أو MongoDB Atlas أو Vercel أو Netlify في مسار الإنتاج الحالي.
+> **مرجع تاريخي فقط — لا تستخدمه لنشر الإنتاج الحالي.**
 
-الوضع الحالي:
+كانت مراحل قديمة من Yalla تعتمد خدمات مثل Render وMongoDB Atlas وVercel/Netlify وعنوان DuckDNS. هذه ليست بنية الإنتاج الأساسية الحالية.
+
+## البنية الحالية
 
 - Backend + MongoDB: Oracle Cloud.
 - API الرسمي: `https://api.yalladelivery.org`.
+- DNS/TLS: Cloudflare.
 - الموقع العام: Cloudflare Workers Static Assets.
 - Yalla Web: Cloudflare Workers Static Assets.
 - Yalla Admin: Cloudflare Workers Static Assets.
 - Yalla Partner: Cloudflare Workers Static Assets.
-- DNS وTLS: Cloudflare.
+- وسائط عامة: قرص Oracle الدائم (`/home/ubuntu/yalla-media` → `/app/media`).
 
-للتفاصيل الحالية راجع:
+`yalla-api.duckdns.org` قد يبقى فقط للتوافق مع إصدارات قديمة، ولا يجب استخدامه في builds أو إعدادات إنتاج جديدة.
 
-- `docs/11-cloudflare-pages.md`
-- `docs/12-oracle-cloud-migration.md`
-- `README.md`
+## مصادر الحقيقة الحالية
 
-لا تستخدم إعدادات Vercel/Netlify/Render القديمة عند نشر إصدار جديد.
+- [`../README.md`](../README.md) — نظرة عامة وروابط الإنتاج.
+- [`03-deployment.md`](03-deployment.md) — التشغيل والنشر.
+- [`11-cloudflare-pages.md`](11-cloudflare-pages.md) — واجهات Cloudflare.
+- [`12-oracle-cloud-migration.md`](12-oracle-cloud-migration.md) — Oracle والتشغيل الحالي.
+- [`15-oracle-media-storage.md`](15-oracle-media-storage.md) — الوسائط.
+
+إذا ظهر في وثيقة أو إعداد جديد أي اعتماد إنتاجي على Render/Atlas/Vercel/Netlify/DuckDNS، تحقق من الكود والـworkflows قبل اعتماده؛ غالبًا هو أثر تاريخي يجب إزالته أو وسمه كتوافق قديم.

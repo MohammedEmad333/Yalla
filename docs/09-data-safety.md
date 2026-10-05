@@ -1,109 +1,107 @@
-# إجابات نموذج Data Safety — Google Play (تطبيق Yalla)
+# 09 — Google Play Data Safety Checklist
 
-جاهزة للنسخ في **Play Console → App content → Data safety**. الأسماء بالإنجليزية كما
-تظهر في النموذج. مبنيّة على ما يجمعه التطبيق فعليًا (موقع، اسم/هاتف/بريد اختياري،
-عناوين، رسائل داخل التطبيق، صور إيصالات، محفظة، رمز إشعارات FCM).
+آخر مراجعة: 2026-10-05
 
-> ملاحظة عن «المشاركة» (Sharing): Google تَعُدّ «المشاركة» نقلَ البيانات إلى **طرف
-> ثالث**. مزوّدونا (Firebase/Google، Oracle Cloud) يُعالجون البيانات
-> **نيابةً عنّا كمزوّدي خدمة** فقط، ولا يُعدّ ذلك «مشاركة» لدى Google. وفتح خرائط
-> Google للملاحة يتمّ على جهاز المستخدم بمبادرته. لذلك **Shared = No** لكل الأنواع.
+> هذا الملف **قائمة مراجعة** وليس إجابات ثابتة جاهزة للنسخ إلى Play Console. Data Safety يجب أن يطابق build الذي سترفعه فعليًا، والـSDKs والمزوّدات وسلوك الخادم في ذلك الإصدار.
 
----
+## الروابط الرسمية للمشروع
 
-## 1) الأسئلة التمهيدية (Overview)
+- سياسة الخصوصية: `https://yalladelivery.org/privacy.html`
+- حذف الحساب: `https://yalladelivery.org/delete-account.html`
 
-| السؤال | الإجابة |
-|--------|---------|
-| Does your app collect or share any of the required user data types? | **Yes** |
-| Is all of the user data collected by your app encrypted in transit? | **Yes** |
-| Do you provide a way for users to request that their data is deleted? | **Yes** |
+لا تستخدم رابط GitHub Pages القديم.
 
----
+## بيانات مستخدمة حاليًا ويجب مراجعتها في Play Console
 
-## 2) أنواع البيانات (Data types)
+### بيانات الحساب
 
-لكل نوع: **Collected = Yes**, **Shared = No**, **Processed ephemerally = No**
-(مخزَّنة)، ما لم يُذكر غير ذلك.
+قد تشمل:
 
-### Location — Precise location
-- Collected: **Yes** · Shared: **No**
-- Required or optional: **Required**
-- Purposes: **App functionality**، و**Fraud prevention, security, and compliance**
-- (السبب: تحديد نقاط الاستلام/التسليم وتتبّع الكابتن لحظيًا. لا يُجمع الموقع في الخلفية.)
+- الاسم.
+- رقم الهاتف.
+- البريد الإلكتروني عندما يضيفه المستخدم؛ البريد اختياري في التدفق الحالي.
+- معرّف الحساب/الجلسة.
 
-### Personal info — Name
-- Collected: **Yes** · Shared: **No** · Required
-- Purposes: **App functionality**، **Account management**
+الأغراض الأساسية: تشغيل الحساب، المصادقة، إدارة الخدمة والدعم.
 
-### Personal info — Phone number
-- Collected: **Yes** · Shared: **No** · Required
-- Purposes: **App functionality**، **Account management**
-- (يُعرض رقم الطرف الآخر للمستخدم/الكابتن أثناء الطلب لإتمام التوصيل فقط.)
+### الموقع
 
-### Personal info — Email address
-- Collected: **Yes** · Shared: **No** · **Optional**
-- Purposes: **App functionality**، **Account management**
-- (حقل بريد اختياري يضيفه المستخدم/يعدّله من شاشة الملف الشخصي — `email` في `User.js`.)
+Yalla Delivery يستخدم الموقع الدقيق لوظائف التوصيل التي تحتاج تحديد نقاط الاستلام/التسليم وتتبع الكابتن أثناء تنفيذ الطلب.
 
-### Personal info — Address
-- Collected: **Yes** · Shared: **No** · Required
-- Purposes: **App functionality**
-- (عناوين الاستلام/التسليم الخاصّة بالطلب.)
+راجع Android manifest والكود الفعلي قبل تحديد ما إذا كان الموقع Required/Optional، ولا تصرّح بجمع background location ما لم يكن التطبيق يطلبه ويستخدمه فعلًا.
 
-### Personal info — User IDs
-- Collected: **Yes** · Shared: **No** · Required
-- Purposes: **App functionality**، **Account management**
-- (مُعرّف الحساب داخل النظام.)
+### العناوين والطلبات
 
-### Financial info — Purchase history / Other financial info
-- Collected: **Yes** · Shared: **No** · Required
-- Purposes: **App functionality**
-- (رصيد المحفظة، المعاملات، وأرباح الكابتن — دفع داخلي، بلا معالجة بطاقات داخل التطبيق.)
+الخادم يخزن البيانات اللازمة لتنفيذ الطلب وسجله، مثل عنوان/موقع التسليم، تفاصيل الطلب، الأصناف والحالة والتقييمات.
 
-### Messages — Other in-app messages
-- Collected: **Yes** · Shared: **No** · Required
-- Purposes: **App functionality**
-- (دردشة الطلب بين المستخدم والكابتن `Message.js`، ودردشة الدعم بين المستخدم
-  والإدارة `SupportMessage.js` — يُخزَّن نصّ الرسائل على الخادم لإتمام التواصل حول الطلب.)
+### الرسائل والدعم
 
-### Photos and videos — Photos
-- Collected: **Yes** · Shared: **No** · **Optional**
-- Purposes: **App functionality**
-- (صور إيصالات شحن الرصيد — يرفعها المستخدم اختياريًا للتحقّق.)
+إذا كان build الحالي يتيح دردشة الطلب أو الدعم ويخزن الرسائل على الخادم، أدرج النوع المناسب في Data Safety.
 
-### Device or other IDs — Device or other IDs
-- Collected: **Yes** · Shared: **No** · Required
-- Purposes: **App functionality**
-- (رمز جهاز Firebase (FCM token) لإرسال إشعارات الطلبات.)
+### الصور والملفات
 
----
+قد تشمل صورًا يرفعها المستخدم أو الشريك، مثل صور المنتجات أو المرفوعات المطلوبة من ميزات محددة. تدفق إيصالات شحن الرصيد اليدوي كان موجودًا تاريخيًا؛ لا تصفه كمسار حالي إلا إذا كان ظاهرًا ومستخدمًا في build المرفوع.
 
-## 3) أنواع لا نجمعها — اترك خانتها Not collected
+### البيانات المالية/الدفع
 
-- Approximate location · Race/ethnicity · Political/religious beliefs
-  · Sexual orientation · Other personal info
-- Health and fitness · Emails · SMS or MMS · Audio · Music
-- Files and docs · Calendar · Contacts · Web browsing history
-- Payment info / Credit score (لا تُجمع بيانات بطاقات داخل التطبيق)
+طلبات المتاجر الحالية تستخدم **Jawwal Pay direct payment**. التطبيق/الخادم يعالجان بيانات لازمة لبدء وتتبع عملية الدفع، مثل رقم محفظة جوال، قيمة الطلب، حالة الدفع ومراجع العملية. OTP يُستخدم للتأكيد ولا ينبغي تخزينه أو تسجيله كبيانات تطبيق عادية.
 
-> **App info and performance → Crash logs / Diagnostics:** اتركها **Not collected**
-> إلّا إذا أضفت لاحقًا أداة تقارير أعطال (مثل Firebase Crashlytics) تُرسل السجلّات
-> إلى خادم — عندها ضعها **Yes / App functionality (أو Analytics)**.
+عند تعبئة Play Console، راجع تعريف Google الحالي لـFinancial info وPayment info وحدد جمع/مشاركة البيانات بناءً على البيانات التي تغادر الجهاز والمزوّد الذي يستقبلها.
 
----
+### المحفظة والتسويات
 
-## 4) ممارسات الأمان (Security practices)
-- Data is encrypted in transit: **Yes** (كل الاتصال عبر HTTPS).
-- Users can request that data be deleted: **Yes** — عبر البريد
-  mohammedelrefy28@gmail.com (كما في سياسة الخصوصية).
-- Committed to follow the Play Families Policy? **No** (التطبيق غير موجَّه للأطفال).
+الخادم يحتفظ ببيانات مالية تشغيلية مثل أرصدة/معاملات/أرباح أو تسويات عندما تكون الميزات مفعلة للحساب المعني.
 
----
+### Device or other IDs
 
-## 5) رابط سياسة الخصوصية (App content → Privacy policy)
-```
-https://mohammedemad333.github.io/Yalla/
+FCM token قد يُستخدم لإرسال إشعارات push. راجع Firebase SDK/config في build الحالي.
+
+### بيانات تقنية وأمنية
+
+الخادم قد يعالج IP، metadata للطلب، وسجلات تشغيل/أمان. إذا أضيف SDK تحليلات أو crash reporting في التطبيق، راجع Data Safety من جديد قبل الإصدار.
+
+## المشاركة مع مزودي الخدمة
+
+المشروع يستخدم أو قد يستخدم مزودي خدمة مثل:
+
+- Firebase Cloud Messaging.
+- Oracle Cloud للاستضافة.
+- Cloudflare للواجهات/CDN/DNS والحماية.
+- Jawwal Pay لمعالجة الدفع.
+- مزود البريد المهيأ في backend عند تفعيل رسائل البريد.
+
+لا تفترض تلقائيًا أن كل نقل لمزوّد خدمة هو “Shared = No” دون مراجعة تعريف Google Play المطبق وقت الإرسال؛ صَنّف كل تدفق حسب سياسة Data Safety الحالية ودور المزود.
+
+## أسئلة تمهيدية يجب إعادة التحقق منها
+
+- هل التطبيق يجمع أو يشارك أنواع بيانات مشمولة؟ **نعم على الأقل يجمع بيانات لازمة لتشغيل الحساب والطلبات.**
+- هل البيانات مشفرة أثناء النقل؟ يجب أن تكون اتصالات الإنتاج عبر HTTPS؛ تحقق من build والإعدادات الحالية.
+- هل يوجد مسار لحذف الحساب؟ استخدم `https://yalladelivery.org/delete-account.html` وتحقق أن الإجراء الخلفي المرتبط يعمل كما هو موصوف.
+
+## بيانات لا يجوز الافتراض بشأنها
+
+لا تضع `Not collected` لأي فئة فقط لأن الوثيقة القديمة قالت ذلك. افحص:
+
+```text
+mobile/pubspec.yaml
+mobile/android/* / manifest generated overrides
+backend routes/services
+Firebase configuration
+أي SDK analytics/crash/ads جديد
 ```
 
-> راجِع هذه الإجابات إن أضفت ميزات تجمع بيانات جديدة (تحليلات، إعلانات، تقارير أعطال).
+خصوصًا Crash logs / Diagnostics / Device IDs / Financial info يمكن أن تتغير بمجرد إضافة SDK أو مزود جديد.
+
+## قبل كل إصدار
+
+1. ثبّت commit/build المراد رفعه.
+2. راجع dependencies والصلاحيات.
+3. راجع كل بيانات تُرسل من التطبيق إلى Yalla أو طرف ثالث.
+4. راجع سياسة الخصوصية المنشورة.
+5. راجع مسار حذف الحساب.
+6. حدّث Data Safety في Play Console إن تغير أي تدفق.
+7. احتفظ بهذه الوثيقة متوافقة مع السلوك الفعلي.
+
+## تنبيه
+
+هذه الوثيقة تساعد على الجرد التقني؛ التصنيف النهائي في Play Console مسؤولية ناشر التطبيق ويجب أن يتبع تعريفات وسياسات Google السارية وقت النشر.

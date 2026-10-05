@@ -1,253 +1,167 @@
-# 12 — نقل قاعدة البيانات والـ Backend إلى Oracle Cloud
+# 12 — Oracle Cloud: سجل الهجرة وتشغيل الإنتاج
 
-توثيق عمليّة نقل منظومة Yalla من **MongoDB Atlas + Render** إلى **سيرفر Oracle Cloud (Always Free)** واحد
-يشغّل قاعدة البيانات والـ Backend معًا، مع HTTPS تلقائي ونسخ احتياطي مجدول.
+آخر مراجعة: 2026-10-05
 
-> هذا الملف سجلّ لما تمّ فعليًّا ومرجع لإعادة الإعداد أو استكشاف الأعطال. لا تضع فيه أي كلمات
-> سرّ أو مفاتيح — استبدل القيم الحسّاسة بعناصر نائبة مثل `<PASSWORD>`.
+بدأ هذا الملف كسجل لهجرة Yalla من Render + MongoDB Atlas إلى Oracle Cloud. الهجرة **مكتملة**؛ الجزء المهم الآن هو تشغيل وصيانة الإنتاج الحالي، وليس إعادة تنفيذ خطوات النقل القديمة.
 
----
+## المعمارية الحالية
 
-## لماذا النقل؟
-
-- **المساحة**: خطة Atlas المجانية محدودة بـ **512MB**؛ الـ ARM VM المجاني يوفّر مساحة أكبر بكثير.
-- **الأداء اللحظي**: تشغيل الـ Backend والقاعدة على **نفس الجهاز** يجعل الاتصال عبر `localhost`
-  بدل المرور عبر الشبكة بين مزوّدين مختلفين.
-- **بدون خمول**: Render المجاني يوقف الخدمة بعد ~15 دقيقة خمول (cold start)؛ الـ VM دائم التشغيل.
-
-**القرار**: نقل القاعدة + الـ Backend فقط. أما الواجهات (لوحة الأدمن على Vercel، تطبيق الويب على
-Cloudflare) فتبقى على الـ CDN — هو المكان الأنسب لها، ولم تكن جزءًا من مشكلة المساحة.
-
----
-
-## المعمارية بعد النقل
-
-```
-تطبيق الويب (Flutter)      لوحة الأدمن (React)        تطبيق الموبايل
-Cloudflare Worker          Vercel                     APK/AAB
-        │                        │                          │
-        └────────────┬──────────┴──────────────────────────┘
-                     │  HTTPS
-             https://yalla-api.duckdns.org   ← DuckDNS + شهادة Let's Encrypt (Caddy)
-                     │
-        ┌────────────▼─────────────── Oracle ARM VM (Ubuntu 22.04) ───────────┐
-        │  Caddy (80/443)  ──reverse_proxy──▶  yalla-api (Node, :4000)         │
-        │                                              │                        │
-        │                                     MongoDB (127.0.0.1:27017)         │
-        │                                     مقفولة على localhost فقط          │
-        └──────────────────────────────────────────────────────────────────────┘
+```text
+Cloudflare Workers Static Assets
+  ├─ yalladelivery.org
+  ├─ app.yalladelivery.org
+  ├─ admin.yalladelivery.org
+  └─ partner.yalladelivery.org
+                │
+                │ HTTPS
+                ▼
+       api.yalladelivery.org
+          Cloudflare + Caddy
+                │
+                ▼
+        yalla-api (Oracle)
+          ├─ MongoDB
+          ├─ private uploads
+          └─ /app/media
 ```
 
-- **السيرفر**: `VM.Standard.A1.Flex` — 2 OCPU / 12GB RAM (ضمن الـ Always Free).
-- **كل المكوّنات تعمل بـ Docker** (نفس صور المشروع).
-- **القاعدة غير مكشوفة للإنترنت** — مربوطة على `127.0.0.1` فقط؛ المفتوح خارجيًّا هو 80/443 فقط.
+- API الرسمي: `https://api.yalladelivery.org`.
+- Health: `https://api.yalladelivery.org/api/health`.
+- MongoDB غير مخصص للوصول العام من الإنترنت.
+- Caddy يقدّم HTTPS/reverse proxy أمام الـAPI.
+- ملفات الوسائط العامة على host: `/home/ubuntu/yalla-media`، داخل الحاوية: `/app/media`.
+- `yalla-api.duckdns.org` توافق قديم فقط.
 
----
+## الوصول إلى المستودع الخاص
 
-## الخطوات المُنفَّذة
+المستودع أصبح private. على خادم Oracle استخدم deploy key/SSH مخصصًا. مثال alias مستخدم للخادم:
 
-### 1) إنشاء الـ VM
-- Image: Canonical Ubuntu 22.04 · Shape: `VM.Standard.A1.Flex` (2 OCPU / 12GB).
-- تفعيل **Public IPv4** + توليد مفتاح SSH وتنزيل المفتاح الخاص.
-
-### 2) الاتصال + الجدار الناري
-```bash
-ssh -i <private-key>.key ubuntu@<SERVER_IP>
-```
-لاحقًا فُتح المنفذان 80/443 في طبقتين:
-- **Oracle Security List** (Ingress: TCP 80 و 443 من `0.0.0.0/0`).
-- **iptables** داخل السيرفر:
-  ```bash
-  sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT
-  sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
-  sudo netfilter-persistent save
-  ```
-
-### 3) تنصيب Docker
-```bash
-sudo apt update && sudo apt upgrade -y
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker ubuntu   # ثم إعادة تسجيل الدخول
+```sshconfig
+Host github-yalla
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/yalla_deploy
+  IdentitiesOnly yes
 ```
 
-### 4) تشغيل MongoDB بأمان
-```bash
-docker run -d --name yalla-mongo --restart unless-stopped \
-  -p 127.0.0.1:27017:27017 \
-  -v yalla_mongo_data:/data/db \
-  -e MONGO_INITDB_ROOT_USERNAME=yalla_admin \
-  -e MONGO_INITDB_ROOT_PASSWORD='<PASSWORD>' \
-  mongodb/mongodb-community-server:7.0-ubuntu2204
-```
-> `-p 127.0.0.1:27017` هو أهم سطر أمان: القاعدة تُسمَع محليًّا فقط.
-
-### 5) نقل البيانات من Atlas
-```bash
-# سحب من Atlas (نُضيف IP السيرفر في Atlas → Network Access أولًا)
-mkdir -p ~/backup && chmod 777 ~/backup
-docker run --rm -v ~/backup:/backup mongo:7 \
-  mongodump --uri='<ATLAS_CONNECTION_STRING>' --out=/backup
-
-# استعادة على السيرفر (نستخدم flags بدل URI لتجنّب ترميز الرموز في كلمة السر)
-docker run --rm --network host -v ~/backup:/backup mongo:7 \
-  mongorestore --host=127.0.0.1:27017 --username=yalla_admin \
-  --password='<PASSWORD>' --authenticationDatabase=admin /backup
-```
-نُقل **564 مستندًا** عبر كل الـ collections، وأُعيد بناء فهارس `2dsphere` تلقائيًّا.
-
-### 6) تشغيل الـ Backend على نفس السيرفر
-ملف بيئة `~/yalla.env` (بدون أسرار هنا):
-```
-NODE_ENV=production
-PORT=4000
-MONGO_URI=mongodb://yalla_admin:<ENCODED_PASSWORD>@127.0.0.1:27017/yalla?authSource=admin
-JWT_SECRET=<نفس قيمة Render — حتى لا تنتهي جلسات المستخدمين>
-JWT_EXPIRES_IN=7d
-CORS_ORIGIN=https://yalla-five-wheat.vercel.app,https://yalla.mohammedelrefy28.workers.dev
-AUTO_ASSIGN=false
-COMMISSION_RATE=0.2
-ACCEPT_TIMEOUT_SECONDS=60
-FCM_CREDENTIALS_PATH=/app/fcm.json
-```
-> **ترميز كلمة السر في `MONGO_URI`**: بدّل `/`→`%2F` و`+`→`%2B` و`=`→`%3D`.
+تحقق قبل النشر:
 
 ```bash
-cd ~/Yalla/backend && docker build -t yalla-api .
-docker run -d --name yalla-api --restart unless-stopped \
-  --network host --env-file ~/yalla.env \
-  -v ~/fcm.json:/app/fcm.json:ro \
-  yalla-api
-# فحص:  curl http://localhost:4000/api/health  →  {"status":"ok","service":"yalla-api"}
+ssh -T git@github-yalla
+cd ~/Yalla
+git fetch origin
+git status
 ```
 
-### 7) HTTPS تلقائي (DuckDNS + Caddy)
-- ساب-دومين مجاني على [duckdns.org](https://www.duckdns.org): `yalla-api.duckdns.org` → يشير لـ `<SERVER_IP>`.
-- `~/caddy/Caddyfile`:
-  ```
-  yalla-api.duckdns.org {
-      reverse_proxy localhost:4000
-  }
-  ```
-- التشغيل:
-  ```bash
-  docker run -d --name caddy --restart unless-stopped \
-    --network host \
-    -v ~/caddy/Caddyfile:/etc/caddy/Caddyfile \
-    -v caddy_data:/data \
-    caddy:2
-  # Caddy يجلب شهادة Let's Encrypt تلقائيًّا
-  # فحص:  curl https://yalla-api.duckdns.org/api/health
-  ```
+لا تضع private key أو tokens داخل المستودع.
 
-### 8) الإشعارات (FCM)
-- مفتاح Service Account من Firebase → `~/fcm.json` (`chmod 600`).
-- يُمرَّر للحاوية عبر `-v ~/fcm.json:/app/fcm.json:ro` مع `FCM_CREDENTIALS_PATH=/app/fcm.json`.
-- عند النجاح: `✅ FCM مُهيّأ — الإشعارات مفعّلة`.
+## تحديث Backend
 
-### 9) نسخ احتياطي يومي
-`~/backup-mongo.sh`:
-```bash
-#!/bin/bash
-STAMP=$(date +%F-%H%M)
-mkdir -p ~/backups
-chmod 777 ~/backups
-docker run --rm --network host -v ~/backups:/b mongo:7 \
-  mongodump --host=127.0.0.1:27017 --username=yalla_admin \
-  --password='<PASSWORD>' --authenticationDatabase=admin \
-  --archive=/b/yalla-$STAMP.gz --gzip
-find ~/backups -name '*.gz' -mtime +14 -delete   # الاحتفاظ بـ 14 يومًا
-echo "Backup done: yalla-$STAMP.gz"
-```
-الجدولة عبر `crontab -e`:
-```
-0 3 * * * /home/ubuntu/backup-mongo.sh >> /home/ubuntu/backups/cron.log 2>&1
-```
-
----
-
-## تغييرات المستودع (المصاحبة للنقل)
-
-حُدِّث العنوان الافتراضي للـ Backend من Render إلى Oracle في:
-- `.github/workflows/web-app.yml` و `.github/workflows/mobile-apk.yml` (قيمة `API_ORIGIN`).
-- `tool/build-web.sh` (القيمة الاحتياطية).
-- `admin/netlify.toml` و `mobile/lib/core/config/app_config.dart` و `docs/04`, `docs/11` (أمثلة/توثيق).
-
-خارج المستودع (لوحات التحكم):
-- **Vercel** (لوحة الأدمن): `VITE_API_URL = https://yalla-api.duckdns.org` ثم Redeploy.
-- **Cloudflare** (تطبيق الويب): يُعاد البناء عبر workflow «Build & Deploy Web App» فيُحقَن العنوان الجديد.
-
----
-
-## أوامر التشغيل والصيانة
+المسار الموصى به:
 
 ```bash
-docker ps                     # حالة الحاويات (yalla-mongo · yalla-api · caddy)
-docker logs -f yalla-api      # سجلّ الـ Backend
-docker logs caddy             # حالة الشهادة
-~/backup-mongo.sh             # نسخة احتياطية يدويّة
+cd ~/Yalla
+git fetch origin
+git pull --ff-only origin main
+bash tool/deploy-server.sh
 ```
 
-**تحديث الـ Backend — الطريقة الموصى بها (أمر واحد):**
+`tool/deploy-server.sh` هو المصدر التشغيلي للحقيقة. وظيفته تشمل بناء صورة الـBackend، استبدال الحاوية مع mounts المطلوبة، فحص الصحة، والتحقق من النسخة المنشورة والتراجع عند الفشل.
+
+لا تشغّل `docker compose up` على خادم الإنتاج كبديل سريع إلا إذا تم تغيير بنية الإنتاج رسميًا؛ Compose يبقى أساسًا للتطوير المحلي.
+
+## فحص بعد النشر
+
 ```bash
-ssh ubuntu@<SERVER_IP>
-cd ~/Yalla && git pull origin main && bash tool/deploy-server.sh
-# اختياريًّا مع مطاعم تجريبية:  SEED_RESTAURANTS=1 bash tool/deploy-server.sh
+curl -fsS https://api.yalladelivery.org/api/health
+docker ps --format 'table {{.Names}}\t{{.Status}}'
+docker logs --tail 100 yalla-api
 ```
-السكربت يسحب الكود، يبني الصورة، يستبدل الحاوية بنفس أعلام الإنتاج، يفحص
-`/api/health`، ويتراجع تلقائيًّا إلى الصورة السابقة (`yalla-api:previous`) إن فشل
-الفحص. لا يلمس حاويتَي `yalla-mongo` و`caddy` ولا قاعدة البيانات.
 
-**الطريقة اليدويّة (نفس الخطوات خطوةً خطوة):**
+الاستجابة الصحية المتوقعة:
+
+```json
+{"status":"ok","service":"yalla-api"}
+```
+
+لفحص mount الوسائط:
+
 ```bash
-cd ~/Yalla && git checkout main && git pull origin main
-docker tag yalla-api yalla-api:backup            # نسخة للتراجع عند الحاجة
-docker build -t yalla-api ./backend
-docker stop yalla-api && docker rm yalla-api
-docker run -d --name yalla-api --restart unless-stopped \
-  --network host --env-file ~/yalla.env \
-  -v ~/fcm.json:/app/fcm.json:ro \
-  -v yalla_uploads:/app/uploads \
-  -v ~/yalla-media:/app/media \
-  -e MEDIA_ROOT=/app/media \
-  yalla-api
-# فحص:  docker logs --tail 30 yalla-api ; curl -s http://localhost:4000/api/health
-# تراجع عند فشل:  docker rm -f yalla-api ; docker run ... yalla-api:backup (بنفس الأعلام)
+docker inspect yalla-api --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}' | grep /app/media
+docker exec yalla-api sh -lc 'echo "$MEDIA_ROOT"; ls -lah /app/media'
 ```
-> **مهم:** الحاوية تربط `yalla_uploads` للمستندات/الإيصالات، وتربط أيضًا
-> **`~/yalla-media:/app/media`** للصور العامة (avatars/restaurants/menu/banners).
-> الصور الجديدة لا تُخزَّن كـ binary داخل MongoDB؛ راجع `docs/15-oracle-media-storage.md`.
-> روابط `/files/<id>` القديمة تبقى متوافقة أثناء الهجرة التدريجية.
->
-> **تطبيق أندرويد للأدمن (Card 103):** أضِف `https://localhost` إلى `CORS_ORIGIN` في
-> `~/yalla.env` حتى يصل تطبيق أندرويد (أصل Capacitor) إلى الـ API.
 
----
+## MongoDB
 
-## تحديثات لاحقة على السيرفر (Card 102/103)
+قواعد التشغيل:
 
-بعد النقل، نُشِرت هذه التغييرات على نفس السيرفر (إعادة بناء `yalla-api` بالأمر أعلاه):
+- تخزين دائم للبيانات.
+- لا تعرّض `27017` للعامة.
+- بيانات الاتصال وكلمات المرور في environment خارج Git.
+- خذ نسخة MongoDB دورية واختبر الاستعادة دوريًا.
 
-- **تخزين دائم للمرفوعات:** أُضيف `-v yalla_uploads:/app/uploads` لحاوية الـ API.
-- **ترحيل الصور العامة إلى قرص Oracle:** الصور الجديدة تحت `/app/media` عبر bind mount دائم،
-  وروابط `/files/<id>` القديمة تبقى مدعومة ويمكن نقل بياناتها من MongoDB تدريجيًا.
-- **إشعارات الأدمن (#103):** الخادم يرسل Push لأجهزة المشرفين عند طلب جديد/سحب رصيد
-  (`notifyAdmins`). و`CORS_ORIGIN` يشمل `https://localhost` لتطبيق أندرويد.
-- **إزالة Render/Atlas من المستودع:** حُذف `render.yaml` وحُدِّثت الوثائق.
+لا تعتمد على أرقام قديمة لعدد المستندات أو حجم القاعدة كمؤشر صحة؛ استخدم القياسات الحالية وقت الفحص.
 
-## مهامّ متابعة (اختيارية)
+## الوسائط والنسخ الاحتياطي
 
-- [x] **إيقاف Render + Atlas** — تمّ؛ المنظومة كاملةً على Oracle الآن.
-- [ ] **نسخ احتياطي خارج السيرفر** — نقل `~/backups` دوريًّا إلى تخزين خارجي (Object Storage / Drive).
-- [ ] **مراقبة DuckDNS** — تأكيد بقاء الـ IP محدَّثًا (ثابت غالبًا).
+MongoDB لم تعد نسخة كاملة من الصور العامة. يجب نسخ مجلد الوسائط أيضًا:
 
----
+```bash
+bash ~/Yalla/tool/backup-media.sh
+```
 
-## استكشاف الأعطال
+راجع [`15-oracle-media-storage.md`](15-oracle-media-storage.md) للهجرة، التوافق مع `/files/<id>` والنسخ الاحتياطي.
 
-| العَرَض | السبب المرجّح | الحل |
-|--------|----------------|------|
-| `permission denied` عند mongodump/restore محليًّا | مجلّد الإخراج غير قابل للكتابة من الحاوية | `chmod 777 ~/backup` (أو `~/backups`) |
-| `unescaped slash in password` | رمز خاص في كلمة السر داخل الـ URI | استخدم flags منفصلة، أو رمِّز `/`→`%2F` |
-| `FCM غير مُهيّأ` | مسار/محتوى مفتاح الخدمة غير صحيح | تحقّق من `~/fcm.json` و `FCM_CREDENTIALS_PATH` |
-| المتصفّح لا يصل للـ API | HTTPS/CORS | تأكّد من شهادة Caddy ووجود نطاق الواجهة في `CORS_ORIGIN` |
-| تعذّر SSH: `UNPROTECTED PRIVATE KEY` | صلاحيات المفتاح مفتوحة (ويندوز) | `icacls` لإزالة صلاحيات المستخدمين الآخرين |
+## Caddy وCloudflare
+
+الدومين الأساسي للـAPI هو `api.yalladelivery.org`. يجب أن يظل إعداد Caddy وDNS/Cloudflare متوافقًا معه. عند تعديل Caddy:
+
+```bash
+docker exec caddy caddy validate --config /etc/caddy/Caddyfile
+docker exec caddy caddy reload --config /etc/caddy/Caddyfile
+```
+
+ثم اختبر الـAPI خارجيًا، وليس من localhost فقط.
+
+## FCM وملفات الاعتماد
+
+اعتماد Firebase وأي secrets أخرى تبقى على الخادم أو في GitHub Secrets حسب الاستخدام، ولا تُرفع إلى المستودع. عند تغيير مسار ملف اعتماد FCM، طابق القيمة مع الـmount ومتغير البيئة المستخدمين فعليًا في سكربت النشر.
+
+## ما تم إيقافه/تجاوزه
+
+العناصر التالية تاريخية وليست مسار الإنتاج الافتراضي:
+
+- Render للـBackend.
+- MongoDB Atlas كقاعدة الإنتاج الأساسية.
+- Vercel/Netlify لواجهات الإنتاج الحالية.
+- DuckDNS كعنوان API أساسي.
+- تخزين الصور العامة الجديدة كـbinary داخل MongoDB.
+
+## استكشاف أعطال سريع
+
+```bash
+# API
+curl -i https://api.yalladelivery.org/api/health
+
+# containers
+docker ps -a
+
+# backend logs
+docker logs --tail 200 yalla-api
+
+# caddy logs
+docker logs --tail 200 caddy
+
+# disk
+df -h
+du -sh ~/yalla-media
+```
+
+إذا فشل نشر جديد، لا تحذف volumes أو مجلد الوسائط أثناء الاستكشاف. ابدأ من logs وhealth ثم استخدم آلية rollback في سكربت النشر.
+
+## مراجع
+
+- [`03-deployment.md`](03-deployment.md)
+- [`11-cloudflare-pages.md`](11-cloudflare-pages.md)
+- [`14-cloudflare-security.md`](14-cloudflare-security.md)
+- [`15-oracle-media-storage.md`](15-oracle-media-storage.md)
