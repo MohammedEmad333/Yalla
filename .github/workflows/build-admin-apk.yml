@@ -1,13 +1,13 @@
-# بناء APK لنسخة أندرويد من لوحة الأدمن (Card 103) — تلقائيًا على خوادم GitHub.
+# بناء APK لنسخة أندرويد من لوحة الأدمن — تلقائيًا على خوادم GitHub.
 #
-# التشغيل: تلقائيًا عند تغيّر ملفّات admin/** على main (حتى يعكس الـ APK آخر
-# إصلاحات لوحة الأدمن دون نسيان)، أو يدويًا من تبويب Actions (Run workflow)،
+# التشغيل: تلقائيًا عند تغيّر ملفّات admin/** على main، أو يدويًا من تبويب Actions،
 # أو عند دفع وسم admin-v*.
-# النتيجة: ملف app-debug.apk يُرفع كـ Artifact لتنزيله وتثبيته على الهاتف.
+# النتيجة الأساسية: APK يُنشر على GitHub Release ثابت باسم yalla-admin-latest.
+# Artifact يبقى نسخة مؤقتة اختيارية فقط، حتى لا تمنع حصة Actions نجاح البناء.
 #
 # أسرار مطلوبة/اختيارية (Settings → Secrets and variables → Actions):
 #   GOOGLE_SERVICES_JSON         (الأسهل، لتفعيل الإشعارات) الصق محتوى ملف google-services.json كما هو.
-#   GOOGLE_SERVICES_JSON_BASE64  (بديل) نفس الملف مُرمَّزًا base64 — توليده على Linux/Mac: base64 -w0 google-services.json
+#   GOOGLE_SERVICES_JSON_BASE64  (بديل) نفس الملف مُرمَّزًا base64.
 #   ANDROID_KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD (اختياري) للإصدار الموقَّع.
 
 name: Build Admin APK
@@ -21,12 +21,13 @@ on:
         default: ''
   push:
     tags: ['admin-v*']
-    # أيّ تعديل على لوحة الأدمن يُنتج APK جديدًا تلقائيًا — كي لا يبقى المستخدم على
-    # نسخة قديمة (كانت هذه فجوة التسليم التي أبقت إصلاح التمرير خارج تطبيق أندرويد).
     branches: ['main']
     paths:
       - 'admin/**'
       - '.github/workflows/build-admin-apk.yml'
+
+permissions:
+  contents: write
 
 jobs:
   build-apk:
@@ -63,8 +64,6 @@ jobs:
         run: |
           OUT=android/app/google-services.json
           validate() {
-            # ملف google-services.json الصحيح يحوي كائن project_info.
-            # مفتاح الخدمة (fcm.json) يحوي private_key وليس project_info — نرفضه.
             if grep -q '"private_key"' "$OUT" && ! grep -q '"project_info"' "$OUT"; then
               echo "::error::يبدو أنّك وضعت مفتاح خدمة Firebase (fcm.json) بدل google-services.json. الملف المطلوب يُنزَّل من Firebase Console ← Project settings ← Your apps ← تطبيق Android بالحزمة com.yalla.admin ← google-services.json (يحوي project_info)."
               return 1
@@ -75,12 +74,10 @@ jobs:
             fi
           }
           if [ -n "$GS_JSON" ]; then
-            # الأسهل: لصق محتوى الملف كما هو في السرّ GOOGLE_SERVICES_JSON
             printf '%s' "$GS_JSON" > "$OUT"
             validate || exit 1
             echo "✅ google-services.json (JSON خام) مضاف — الإشعارات مفعّلة"
           elif [ -n "$GS_B64" ]; then
-            # بديل: base64. نزيل الفراغات/الأسطر ونفكّ الترميز بتسامح
             if ! printf '%s' "$GS_B64" | tr -d '[:space:]' | base64 -d > "$OUT" 2>/dev/null; then
               echo "::error::GOOGLE_SERVICES_JSON_BASE64 ليس base64 صالحًا. الأسهل: استخدم السرّ GOOGLE_SERVICES_JSON وألصق محتوى الملف كما هو."
               exit 1
@@ -95,9 +92,6 @@ jobs:
         env:
           INPUT_URL: ${{ github.event.inputs.api_url }}
         run: |
-          # Builds التلقائية على main يجب أن تكون دائمًا مرتبطة بالـ API الرسمي.
-          # الإدخال اليدوي يبقى متاحًا للاختبار، لكن كود production نفسه يثبّت
-          # api.yalladelivery.org كطبقة أمان إضافية ضد أي إعداد قديم.
           API_URL="https://api.yalladelivery.org"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$INPUT_URL" ]; then
             API_URL="$INPUT_URL"
@@ -114,9 +108,31 @@ jobs:
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: رفع الـ APK كـ Artifact
+      - name: تجهيز ملف الإصدار
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk ../Yalla-Admin.apk
+
+      - name: نشر APK على GitHub Release
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: yalla-admin-latest
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "Yalla Admin APK" \
+              --notes "آخر بناء متاح لتطبيق Yalla Admin على Android."
+          fi
+          gh release upload "$TAG" Yalla-Admin.apk --clobber
+          echo "✅ تم نشر Yalla-Admin.apk على GitHub Release: $TAG"
+
+      # نسخة إضافية مؤقتة فقط؛ فشل Artifact quota لا يجب أن يفشل البناء أو يمنع تنزيل APK من Release.
+      - name: رفع الـ APK كـ Artifact اختياري
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: yalla-admin-apk
           path: admin/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
