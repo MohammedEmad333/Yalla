@@ -5,12 +5,11 @@ name: Build Mobile Release
 #   • APK موقّع (app-release.apk) — للتثبيت المباشر والاختبار على الأجهزة.
 #
 # التوقيع: يتطلّب أسرار المستودع التالية (Settings → Secrets and variables → Actions):
-#   ANDROID_KEYSTORE_BASE64  — ملفّ keystore (.jks) مُرمَّز base64
+#   ANDROID_KEYSTORE_BASE64
 #   ANDROID_KEYSTORE_PASSWORD
 #   ANDROID_KEY_ALIAS
 #   ANDROID_KEY_PASSWORD
-# راجع docs/08-google-play-release.md لخطوات توليد الـ keystore وإضافة الأسرار.
-# بلا هذه الأسرار: يُبنى APK موقّع بمفتاح debug للاختبار فقط (غير صالح للنشر).
+
 on:
   workflow_dispatch:
     inputs:
@@ -23,6 +22,9 @@ on:
     paths:
       - 'mobile/**'
       - '.github/workflows/mobile-apk.yml'
+
+permissions:
+  contents: write
 
 concurrency:
   group: mobile-release-${{ github.workflow }}-${{ github.ref }}
@@ -55,6 +57,17 @@ jobs:
           echo "API_ORIGIN=$ORIGIN" >> "$GITHUB_ENV"
           echo "سيُبنى التطبيق للاتصال بـ: $ORIGIN"
 
+      - name: قراءة رقم الإصدار
+        id: version
+        run: |
+          FULL_VERSION=$(awk '/^version:/ {print $2; exit}' pubspec.yaml)
+          VERSION="${FULL_VERSION%%+*}"
+          BUILD="${FULL_VERSION#*+}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Yalla $VERSION+$BUILD"
+
       - name: تثبيت التبعيات
         run: flutter pub get
 
@@ -74,7 +87,7 @@ jobs:
         run: |
           if [ -z "$KEYSTORE_B64" ]; then
             echo "signed=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::لا توجد أسرار keystore — سيُبنى APK موقّع بمفتاح debug للاختبار فقط (غير صالح للنشر على Google Play). أضِف الأسرار لبناء AAB موقّع."
+            echo "::warning::لا توجد أسرار keystore — سيُبنى APK بمفتاح debug ولن يُنشر كإصدار."
             exit 0
           fi
           KEYSTORE_PATH="$PWD/android/app/upload-keystore.jks"
@@ -96,10 +109,37 @@ jobs:
       - name: بناء APK
         run: flutter build apk --release --dart-define=API_ORIGIN=$API_ORIGIN
 
-      # APK هو الحزمة المطلوبة للاختبار المباشر، لذلك نعطي رفعه الأولوية.
-      # إذا كان تخزين Artifacts ممتلئاً، سيحاول الـ workflow رفعه قبل الـ AAB.
-      - name: رفع الـ APK
-        id: upload_apk
+      - name: تجهيز ملفات الإصدار
+        if: steps.signing.outputs.signed == 'true'
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk "../Yalla-${{ steps.version.outputs.version }}.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "../Yalla-${{ steps.version.outputs.version }}.aab"
+
+      - name: إنشاء أو تحديث GitHub Release ورفع APK + AAB
+        if: steps.signing.outputs.signed == 'true'
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD: ${{ steps.version.outputs.build }}
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "Yalla $VERSION" \
+              --notes "Yalla $VERSION (build $BUILD)\n\nيتضمن هذا الإصدار:\n- APK للتثبيت المباشر\n- AAB للرفع إلى Google Play"
+          fi
+
+          gh release upload "$TAG" \
+            "Yalla-$VERSION.apk" \
+            "Yalla-$VERSION.aab" \
+            --clobber
+
+          echo "تم نشر APK و AAB على GitHub Release: $TAG"
+
+      # Artifacts تبقى نسخة إضافية مؤقتة فقط، ولا تمنع نجاح الإصدار إذا كانت الحصة ممتلئة.
+      - name: رفع APK كـ Artifact اختياري
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
@@ -109,7 +149,7 @@ jobs:
           retention-days: 1
           compression-level: 0
 
-      - name: رفع الـ AAB
+      - name: رفع AAB كـ Artifact اختياري
         if: steps.signing.outputs.signed == 'true'
         uses: actions/upload-artifact@v4
         continue-on-error: true
@@ -119,13 +159,3 @@ jobs:
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
-
-      - name: التحقق من رفع APK
-        if: always()
-        run: |
-          if [ "${{ steps.upload_apk.outcome }}" != "success" ]; then
-            echo "::warning::تم بناء APK بنجاح لكن GitHub رفض رفع Artifact (غالباً بسبب حصة التخزين)."
-            echo "APK موجود داخل runner في: build/app/outputs/flutter-apk/app-release.apk"
-          else
-            echo "تم رفع APK بنجاح كـ yalla-apk."
-          fi
