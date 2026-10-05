@@ -1,223 +1,102 @@
-# Yalla (يلا) — Handoff for the Next Session
+# Yalla (يلا) — Project Handoff
 
-Real-time delivery MVP (bicycles/motorcycles) with three parts:
-**User app** (Flutter), **Captain app** (Flutter, same codebase), **Admin panel** (React/Vite).
-Backend: **Node.js + Express + Socket.io + MongoDB**.
+آخر مراجعة: 2026-10-05
 
-Repo: `MohammedEmad333/Yalla`. **Work happens directly on `main`** (the user made `main` the trunk and develops on it; commit + push to `main`). Commits are authored as `MohammedEmad333`. An old branch `claude/yalla-delivery-app-mvp-n7s98t` still exists on the remote but is stale — ignore it (it couldn't be deleted from the sandbox because the proxy blocks git ref deletions).
+هذا الملف هو ملخّص تشغيلي سريع للحالة الحالية. التفاصيل المتخصصة موجودة في `docs/README.md` والملفات المرتبطة منه.
 
----
+## المستودع والمكوّنات
 
-## 🌐 Production (current) — Oracle Cloud
+المستودع: `MohammedEmad333/Yalla`.
 
-الإنتاج كلّه على **سيرفر Oracle Cloud (Always Free, Ubuntu 22.04 ARM)** واحد — **لم يعد على Render/Atlas** (حُذف `render.yaml`). التفاصيل الكاملة في [`docs/12-oracle-cloud-migration.md`](docs/12-oracle-cloud-migration.md).
+- `backend/`: Node.js + Express + Socket.io + MongoDB/Mongoose.
+- `mobile/`: تطبيق Flutter للزبون والكابتن.
+- `partner/`: تطبيق/واجهة الشريك.
+- `admin/`: React + Vite + Capacitor للوحة وتطبيق الإدارة.
+- `web-app/`: نسخة الويب/PWA.
+- `site/`: الموقع العام.
+- `bot/`: بوت WhatsApp مبني على Baileys.
+- `docs/`: التوثيق المعماري والتشغيلي.
 
-- **تشغيل يدوي بـ `docker run`** (ليس docker-compose): ثلاث حاويات — `yalla-mongo` (بيانات في volume `yalla_mongo_data`، مقفولة على `127.0.0.1`)، `yalla-api` (Node، `--network host` على :4000، env عبر `~/yalla.env`، يربط `~/fcm.json:/app/fcm.json:ro` و `yalla_uploads:/app/uploads`)، و `caddy` (HTTPS تلقائي، `~/caddy/Caddyfile` يوجّه `yalla-api.duckdns.org` → :4000).
-- **الواجهات على CDN:** لوحة الأدمن على **Vercel**، تطبيق الويب على **Cloudflare** — كلاهما يشير إلى `https://yalla-api.duckdns.org`.
-- **FCM مفعّل** عبر `~/fcm.json` (`FCM_CREDENTIALS_PATH`).
-- **تحديث الباك اند:** على السيرفر: `cd ~/Yalla && git pull origin main && bash tool/deploy-server.sh` — السكربت يبني الصورة ويعيد إنشاء الحاوية ويفحص `/api/health` ويتراجع تلقائيًّا عند الفشل (الخطوات اليدوية في `docs/12`). لا تشغّل `docker compose up` على السيرفر (يسبّب تعارضًا مع الحاويات اليدوية).
-- **الصور الشخصية** تُخزَّن في قاعدة البيانات (`FileAsset` + `/files/<id>`) لا على القرص — Card 102.
+## الإنتاج الحالي
 
-> ملاحظة: قسم «Environment gotchas» أدناه يخصّ **جهاز التطوير المحلّي (Windows)** للمطوّر، لا الإنتاج.
+| الخدمة | العنوان/المكان |
+|---|---|
+| الموقع العام | `https://yalladelivery.org` |
+| تطبيق الويب | `https://app.yalladelivery.org` |
+| Partner | `https://partner.yalladelivery.org` |
+| Admin | `https://admin.yalladelivery.org` |
+| API | `https://api.yalladelivery.org` |
+| API health | `https://api.yalladelivery.org/api/health` |
+| API docs | `https://api.yalladelivery.org/api/docs` |
 
----
+الـBackend وMongoDB يعملان على Oracle Cloud. واجهات الويب تُنشر عبر Cloudflare Workers Static Assets. DNS/TLS أمام الخدمات العامة مُدار عبر Cloudflare، وCaddy هو reverse proxy أمام الـAPI على الخادم.
 
-## ⚠️ Environment gotchas (the user's machine) — READ FIRST
+`yalla-api.duckdns.org` عنوان توافق قديم فقط، وليس عنوان الإنتاج الافتراضي للبنايات الجديدة.
 
-The user runs **Windows on ARM64** (Snapdragon) with Docker Desktop (WSL2). Getting this running took a long debugging session; here's what matters so you don't repeat it:
+## تخزين البيانات والوسائط
 
-1. **Docker must build/run arm64.** `DOCKER_DEFAULT_PLATFORM=linux/arm64` is set permanently (`setx`). Symptom if wrong: `exec format error`, or builds that "succeed" in <1s but produce nothing (silent QEMU failure).
-2. **MongoDB image** must be arm64-capable: we use `mongodb/mongodb-community-server:7.0-ubuntu2204` (the official `mongo:7` is amd64-only → "does not provide the specified platform"). This image has **no `mongosh`**, so the compose healthcheck was removed and the API retries the DB connection instead (`backend/src/config/db.js`).
-3. **Admin panel is on host port `8090`** (not 8080 — 8080 was taken by another local app on the user's machine). See `docker-compose.yml`.
-4. **Disk**: `C:` is full. The user redirected `TEMP`, `GRADLE_USER_HOME`, `PUB_CACHE` to `E:` (54 GB free) via `setx`. **Caveat:** if `PUB_CACHE` is on a *different drive* than the project (`D:`), the Kotlin incremental compiler crashes with "different roots". Fix used: `kotlin.incremental=false` in `mobile/android/gradle.properties` (or keep pub-cache on the same drive as the project).
-5. **Flutter runs on a physical phone** (`2201116SC`, a Redmi). Backend URL is passed at runtime: `flutter run --dart-define=API_HOST=<PC-LAN-IP>` (get it from `ipconfig`; phone + PC on same WiFi). Physical Android needs cleartext HTTP: add `android:usesCleartextTraffic="true"` to `<application>` in `mobile/android/app/src/main/AndroidManifest.xml`.
-6. **Firebase and google_maps_flutter were removed from the mobile app** to make it build/run without external keys. The two map screens are now map-free (preset location pickers + coordinate display). Re-add later with a Google Maps API key / `flutterfire configure` (notes in `mobile/README.md`).
-7. `mobile/android/` is generated locally with `flutter create --platforms=android .` and is **not** in the repo.
+- MongoDB داخل حاوية `yalla-mongo` مع تخزين دائم وغير مكشوف مباشرة للإنترنت.
+- ملفات الوسائط العامة على المضيف في `/home/ubuntu/yalla-media` ومربوطة داخل API إلى `/app/media`.
+- لا تعتمد على `FileAsset` binary داخل MongoDB للصور الجديدة.
+- روابط `/files/<id>` القديمة محفوظة للتوافق مع الوسائط القديمة التي تم ترحيلها.
+- مستندات الهوية والمرفوعات الحساسة لا تُخدم من `/media` العام.
 
----
+راجع `docs/15-oracle-media-storage.md`.
 
-## How to run (daily)
+## تحديث Backend في الإنتاج
 
-```powershell
-# 1) Start Docker Desktop, wait for green
-# 2) Backend + Mongo + Admin (data persists in a volume)
-cd D:\Projects\Yalla\Yalla
-docker compose up -d
-docker compose ps            # all three "Up"
+المستودع خاص، والخادم يستخدم deploy key/SSH للوصول إلى GitHub. بعد التأكد أن `origin` يعمل:
 
-# 3) Admin:   http://localhost:8090
-#    API:     http://localhost:4000/api/health
-#    Docs:    http://localhost:4000/api/docs
-
-# Rebuild only after backend code changes:
-docker compose up -d --build
-
-# First-time only: seed an admin
-docker compose exec api npm run seed:admin "المدير" 0100000000 "Pass1234"
+```bash
+cd ~/Yalla
+git fetch origin
+git pull --ff-only origin main
+bash tool/deploy-server.sh
 ```
 
-Mobile:
-```powershell
-cd D:\Projects\Yalla\Yalla\mobile
-flutter run --dart-define=API_HOST=<PC-LAN-IP>
+السكربت يعيد بناء واستبدال `yalla-api`، يحافظ على mounts الإنتاج، يفحص `/api/health` ويتراجع عند فشل النسخة الجديدة. لا تستبدله عشوائيًا بـ`docker compose up` على خادم الإنتاج إذا كان التشغيل الحالي يعتمد الحاويات المُدارة بواسطة سكربت النشر.
+
+فحوص سريعة بعد النشر:
+
+```bash
+curl -fsS https://api.yalladelivery.org/api/health
+docker ps --format 'table {{.Names}}\t{{.Status}}'
+docker logs --tail 100 yalla-api
 ```
 
-### Test accounts (already seeded in the running DB)
-- Admin: `0100000000` / `Pass1234`
-- User: `0122222222` / `User1234`
-- Captain: `0111111111` / `Cap12345`
+## التطوير المحلي
 
-There is a `curl`/PowerShell snippet earlier in the history to create captain+user+order+set-online for a full demo loop.
+```bash
+docker compose up --build
+```
 
----
+Backend مباشرة:
 
-## What's built (all on `main`, ~99 unit tests + integration tests, CI green)
+```bash
+cd backend
+cp .env.example .env
+npm install
+npm run dev
+npm test
+npm run test:integration
+```
 
-**Backend** (`backend/`, clean layered architecture: config/models/services/controllers/routes/middlewares/sockets/utils)
-- **Auth (unified):** one `/auth/login` for user/admin/captain (checks User then Captain), JWT + roles, `/auth/me`, admin-only captain creation, `seed:admin` script.
-- **Orders:** create with **server-side pricing** (Haversine + tariff, `pricing.service`), **ETA** (`utils/eta`), optional **scheduling** (`utils/schedule` + background worker `scheduler.service`), **idempotency** (`Idempotency-Key` header, partial-unique index).
-- **Assignment:** manual, **auto-assign nearest** (2dsphere `$near`), **reject → reassign** excluding rejecters, **accept-timeout → reassign** (worker). Shared `returnToPoolAndReassign`.
-- **Status machine** with validated transitions; **cancellation** (user/admin/captain, pre-pickup).
-- **Ratings & reviews** (moving average, distribution), **captain earnings** + **COD wallet** (commission/net/owed + admin settlement).
-- **User wallet & digital top-up** (`docs/05-wallet-topup.md`): `Wallet` + `WalletTransaction` models, **Strategy Pattern** payment layer (`services/payment/`: `ManualReceiptUploadStrategy` now + `JawwalPay`/`BankOfPalestine` gateway stubs for Phase 2), atomic idempotent approve/reject that credits balance, receipt image upload (multer → `/uploads`), user routes `/wallet*`, admin routes `/admin/wallet/topups*`. Adding a real gateway later = register a strategy, no wallet-logic changes.
-- **Notifications:** FCM push (config-driven, safe no-op without creds) + **in-app** notifications feed.
-- **Admin APIs:** live dashboard data, users/captains management, **order search/filter+pagination**, **CSV export**, **stats/KPIs**.
-- **Realtime:** Socket.io rooms (admins / captain:<id> / user:<id> / order:<id>).
-- **Docs:** OpenAPI spec at `/api/openapi.json` + simple viewer at `/api/docs` (`src/docs/`).
-- **Tests:** `npm test` (unit, no DB) + `npm run test:integration` (mongodb-memory-server or `TEST_MONGO_URI`; self-skips without DB). CI runs both against a real Mongo.
+لا تضع بيانات دخول حقيقية أو مفاتيح أو حسابات اختبار شخصية داخل ملفات التوثيق.
 
-**Admin** (`admin/`, React + Vite): login gate, live dashboard (manual + ⚡auto assign), users/captains management (+ approve, wallet/settle, reviews), order search + CSV export, stats page. Nav in `App.jsx`.
+## CI والنشر
 
-**Mobile** (`mobile/`, Flutter): unified single login (login/register toggle), user home (create order / my orders / **wallet** / notifications / profile), captain home (active order / earnings / notifications / profile), reactive auth via `ValueNotifier<AuthSession?>` in `AuthRepository`, in-memory-cached `TokenStorage`, `SocketService`, `ApiClient` (host via `AppConfig`/`--dart-define`). Wallet screens under `features/wallet/` (top-up via `image_picker` + multipart upload; live balance via `wallet:updated` socket event).
+الـworkflows داخل `.github/workflows/` هي المصدر الفعلي للبناء والنشر. أهم المسارات:
 
-**Deploy/CI:** production = Oracle Cloud (manual `docker run`, see «Production» above + `docs/12`). `docker-compose.yml` (mongo + api + admin + uploads volume) is for **local dev** only. `.github/workflows/ci.yml` (unit + integration + admin build) + `build-admin-apk.yml` (يبني APK للوحة الأدمن). `docs/01..03` (data architecture, realtime flow, deployment).
+- CI واختبارات المشروع.
+- Android builds لتطبيق Yalla وPartner وAdmin.
+- نشر `site`, `web-app`, `admin`, و`partner` إلى Cloudflare.
 
-**Admin Android app (Card 103):** لوحة الأدمن مُغلَّفة بـ **Capacitor** (`admin/android/`، الحزمة `com.yalla.admin`) لاستقبال إشعارات Push. الخادم يرسل Push للمشرفين عبر `notifyAdmins` (طلب جديد / سحب رصيد). البناء عبر workflow «Build Admin APK» (أسرار: `ADMIN_API_URL`, `GOOGLE_SERVICES_JSON_BASE64`). دليل: `admin/README-android.md`.
+قبل تغيير اسم secret أو متغير نشر، طابقه مع workflow الفعلي وملفات `wrangler-*.toml`.
 
----
+## قواعد التوثيق
 
-## Recently done — إعادة تصميم الواجهات (لوحة الأدمن + التطبيق + الموقع)
-شكوى المستخدم: «الـ UI في تطبيق الأدمن سيّئ جدًّا» (لقطات على الجوال تُظهر
-تبويبات تلتفّ على ٣ أسطر وأعمدة تتجاوز عرض الشاشة). أُعيد بناء الواجهات على
-**نظام تصميم واحد** بدل الأنماط السطريّة المتفرّقة.
-
-**لوحة الأدمن (`admin/`) — إعادة بناء كاملة:**
-- `src/styles/`: `tokens.css` (كل الألوان/المسافات/الحوافّ/الظلال)، `base.css`،
-  `layout.css` (هيكل التطبيق)، `components.css` (مكتبة الأصناف). `src/index.css`
-  يستوردها بالترتيب. **لا لون خامّ داخل المكوّنات** — كلّها من الرموز.
-- `src/components/ui.jsx` (Button/Card/Field/Modal/TableWrap/Badge/EmptyState/…)
-  و`src/components/icons.jsx` (أيقونات SVG بدل الإيموجي) و`src/status.js`.
-- الهيكل: شريط جانبي دائم ≥1024px، ودرج منزلق + شريط علويّ على الجوال، وتنقّل
-  مجمّع بأقسام بدل ١١ تبويبًا تلتفّ. الصفحة محفوظة في `?page=` (زرّ الرجوع يعمل).
-- كل صفحة أُعيدت كتابة عرضها فقط (المنطق ونداءات API كما هي): الجداول تصير
-  بطاقات مكدّسة على الجوال (`.yl-tablewrap--cards` + `data-label` لكل خليّة)،
-  المحادثات/الدعم كتطبيق مراسلة (قائمة ← محادثة + زرّ رجوع)، النوافذ تصير
-  أوراقًا سفليّة على الجوال. **حُذف `admin/src/theme.js`**.
-- **قاعدة للمساهمين:** أيّ صفحة جديدة تُبنى من `components/ui.jsx` وأصناف
-  `styles/components.css` — ممنوع إضافة كائن `styles` سطريّ جديد.
-
-**تطبيق يلا (`mobile/`):**
-- `core/theme/app_theme.dart`: لوحة محايدة جديدة (أسطح رماديّة + بطاقات بيضاء
-  بحدّ رفيع)، سلّم طباعة، وتنسيق موحّد لكل عناصر Material. أُضيف `YallaRadii`.
-  ⚠️ Flutter 3.47 يتطلّب `CardThemeData`/`DialogThemeData` (لا `CardTheme`).
-- `core/widgets/ui.dart`: مكوّنات مشتركة (YallaCard/StatusPill/EmptyStateView/
-  LoadingView/InfoRow/StatTile/SectionTitle) — استخدمها بدل تكرار الأنماط.
-- حُدِّثت: طلباتي، المحفظة، الإشعارات، الدعم، حسابي، أرباح الكابتن، شاشة الدخول.
-
-**الموقع (`site/`):** ورقة أنماط مشتركة `site/yalla.css` تستوردها الصفحات الثلاث
-بدل ثلاث نسخ متباينة من الأنماط المضمّنة (المحتوى والسكربتات كما هي).
-
-**التحقّق:** لقطات آليّة (Playwright) لكل صفحات اللوحة بمقاسي جوال وحاسوب مع
-تزييف الـ API — والملفّات في مجلّد مؤقّت لا في المستودع. بناء الأدمن أخضر،
-وبناء Flutter (ويب/APK) يتحقّق منه CI عند كل دفعة.
-
-## Recently added — صفحة المطاعم والطلب من القائمة (Card 110)
-تبويب **«المطاعم»** في تطبيق الزبون (على غرار sonbol.co): يختار مطعمًا، تظهر
-قائمة طعامه، ويطلب مباشرةً من التطبيق. التفاصيل الكاملة في
-[`docs/13-restaurants.md`](docs/13-restaurants.md).
-- **المبدأ:** الطلب من مطعم = طلب توصيل عادي نقطة استلامه المطعم، فيعمل معه كلّ
-  الموجود بلا تكرار (تسعير بالمسافة، محفظة، إسناد يدوي/تلقائي/بثّ، تتبّع، دردشة،
-  رمز تسليم، تقييم).
-- **الخادم:** موديلا `Restaurant` و`MenuItem`، حقل `Order.store` (نسخة ثابتة من
-  الأصناف وأسعارها + `itemsTotal`)، `utils/menu.js` (دوال نقيّة + اختبارات)،
-  `restaurant.service`/`restaurant.controller`. الأسعار تُقرأ من قاعدة البيانات
-  دائمًا — لا يُقبل سعر من العميل. زمن التحضير يُضاف للزمن التقديري.
-- **المسارات:** `GET /restaurants(+/categories,/:id)` قراءة عامّة،
-  `POST /orders/restaurant` للزبون، `/admin/restaurants(+/menu)` و`/admin/menu-items/:id`
-  للأدمن. مُوثّقة في OpenAPI.
-- **التطبيق:** `features/restaurants/` (repository + شاشة المطاعم + شاشة القائمة +
-  شاشة إتمام الطلب)، وتفاصيل الطلب تعرض الأصناف. **ملاحظة:** نسخة الويب في
-  `web-app/` مبنيّة سابقًا — تحتاج `flutter build web` لتشمل الصفحة الجديدة.
-- **لوحة الأدمن:** تبويب «المطاعم» لإضافة/تعديل/حذف المطاعم وإدارة أصنافها.
-- **بيانات تجريبية:** `npm run seed:restaurants` (أربعة مطاعم بقوائمها).
-- **الكابتن/الأدمن:** يقرآن محتوى الطلب من `packageNote` المُلخَّص تلقائيًا
-  («مطعم يلا: 2× شاورما، 1× كولا») بلا تعديل في شاشاتهما.
-- **ملاحظة مالية:** أجرة التوصيل تُخصم من المحفظة كأيّ طلب، وقيمة الأصناف تُدفع
-  للكابتن عند الاستلام (COD). ربطها بالمحفظة لاحقًا لا يحتاج تغييرًا بنيويًّا.
-
-## Recently added — بقاء الجلسة + إشعارات شاشة القفل
-- **بقاء تسجيل الدخول بعد إغلاق التطبيق:** تطبيق يلا (Flutter) يستخدم الآن
-  `EncryptedSharedPreferences` على أندرويد (`token_storage.dart`) بدل مخزن
-  Keystore الافتراضي الذي كانت مفاتيحه تُبطَل أحيانًا فتُفقد الجلسة؛ فتبقى الجلسة
-  محفوظة بموثوقيّة (`restore()` يستعيدها عند الإقلاع). لوحة الأدمن (Capacitor)
-  تحفظ التوكن في `localStorage` وتستعيده عبر `/auth/me` (بلا تغيير).
-- **إشعارات تصل والتطبيق/الشاشة مغلقة وتظهر على شاشة القفل:**
-  - الخادم يرسل `visibility:'public'` + `notificationPriority:'PRIORITY_MAX'`
-    في كتلة android (`notification.service.js`).
-  - تطبيق يلا: أُضيفت `flutter_local_notifications`؛ ننشئ قناة عالية الأهمّية
-    `yalla_orders` (Importance.max + visibility public) ونعرض الإشعار أيضًا
-    والتطبيق مفتوح (foreground) عبر `onMessage` (`push_service.dart`).
-  - لوحة الأدمن: `push.js` ينشئ قناة `yalla_orders` (importance 5، visibility 1)
-    عبر `PushNotifications.createChannel`.
-
-## Recently added — الإسناد التلقائي (بثّ الطلبات لكل الكباتن)
-زر «الإسناد التلقائي» في ترويسة اللوحة اللحظية (`admin/src/pages/LiveDashboard.jsx`)
-يبدّل إعدادًا لحظيًا في الخادم. عند التفعيل تُبثّ الطلبات الجديدة (والعائدة للمجمّع)
-لكل الكباتن المعتمَدين عبر السوكت + إشعار Push (يعمل حتى والهاتف مغلق)، ويأخذها
-**أوّل كابتن يقبلها** (قبول ذرّي عبر `findOneAndUpdate`)، ثم تختفي من شاشات الباقين.
-- **الإعداد:** `Settings` (Singleton) + `settings.service.js` (مخبّأ في الذاكرة،
-  يُحمَّل عند الإقلاع `preload`). المسارات: `GET/PATCH /api/admin/settings`.
-- **الخادم:** `order.service.js` — `broadcastOrderToCaptains` / `claimOrder`
-  (يعيد 409 إن أُخِذ الطلب) / `getAvailableBroadcastOrders` / `broadcastPendingOrders`
-  (يُبثّ المعلّق عند التفعيل). حقلا `broadcast`/`broadcastAt` في `Order`.
-  أحداث سوكت جديدة: `order:broadcast` و`order:taken`؛ وغرفة `captains` (كل الكباتن).
-  مسارات الكابتن: `GET /api/orders/available` و`POST /api/orders/:id/claim`.
-- **الكابتن (Flutter):** `active_order_screen.dart` يعرض قائمة الطلبات المتاحة
-  مع زرّ «قبول الطلب» حين لا يوجد طلب نشط، ويتحدّث لحظيًا عبر `order:broadcast`/`order:taken`.
-- **اختبارات:** `tests/settings.test.js` (وحدة) + `tests/integration/broadcastAssign.integration.test.js`.
-
-## Recently fixed (this session — Cards 104/105)
-- **#104 الصورة الشخصية لا تظهر في التطبيق ولا لوحة الأدمن:** بعد نقل التخزين إلى
-  قاعدة البيانات (Card 102)، كانت قراءة `FileAsset` بـ `.lean()` تُعيد حقل البيانات
-  كـ **BSON Binary** لا `Buffer`، فكان `res.send` يُسلسِله كـ JSON (نصّ base64)
-  بترويسة `application/json` بدل الصورة الخام — فلا تظهر في أيّ واجهة. الحلّ: أداة
-  `utils/toBuffer` تُعيد `Buffer` صحيحًا، ويُرسل مسار `/files/<id>` البايتات عبر
-  `res.end` مع `Content-Length`. + اختبارات وحدة.
-- **#105 نسخة أندرويد للوحة الأدمن — إشعارات أكثر + واجهة + سحب للتحديث:**
-  - **إشعارات أدمن جديدة (Push + داخليّة):** رسالة دعم جديدة من زبون، طلب شحن رصيد
-    (إضافة رصيد)، تسجيل زبون جديد، وطلب توثيق كابتن جديد — عبر `notifyAdmins` مع
-    حمولات نقيّة جديدة في `notification.service` (سحب الرصيد كان موجودًا مسبقًا).
-  - **السحب للتحديث:** مكوّن `admin/src/components/PullToRefresh.jsx` مستقلّ بلا
-    مكتبات، مربوط في `App.jsx` بإعادة تركيب الصفحة الحاليّة فتُعيد تحميل بياناتها.
-  - **واجهة أنسب لأندرويد:** احترام آمِن الحواف (`safe-area-inset`)، منع السحب
-    الافتراضيّ للمتصفّح (`overscroll-behavior`)، وإلغاء وميض اللمس.
-
-## Previously fixed (Cards 102/103)
-- **#102 اختفاء الصورة الشخصية:** كانت تُخزَّن على قرص الحاوية المؤقّت فتُمحى عند إعادة الإنشاء. الآن تُخزَّن في قاعدة البيانات (`FileAsset`) وتُخدَم من `/files/<id>`. أُضيف أيضًا volume دائم `yalla_uploads` للإيصالات/مستندات الكباتن. **مُطبَّق على السيرفر.**
-- **#103 نسخة أندرويد للأدمن + إشعارات:** الخادم صار يرسل Push للمشرفين (`notifyAdmins`)، ولوحة الأدمن تُسجّل جهازها (`admin/src/push.js`)، ومشروع Capacitor في `admin/android/` + workflow لبناء APK. **جانب الخادم مُطبَّق؛ يتبقّى بناء APK بأسرار Firebase.**
-
-## Previously fixed (earlier sessions)
-Unified login for all roles; fixed "login shows error but signs in after restart" (session now drives navigation directly), "no token" on requests (in-memory token cache), and broken sign-out. Backend `/auth/login` response shape unchanged, so the admin panel is unaffected.
-
-## Known gaps / good next steps
-- **Re-enable Maps** (add `google_maps_flutter` + API key; restore map screens) when keys are available. (FCM مفعّل بالفعل على السيرفر عبر `~/fcm.json`.)
-- Delete the stale remote branch `claude/yalla-delivery-app-mvp-n7s98t` (needs to be done from a normal machine; sandbox proxy blocks ref deletion).
-- Not built yet: i18n (ar/en), a ready-made Postman collection, deeper analytics.
-- Mobile: wire "My Orders" → order tracking / detail screens; add order detail navigation.
-- nginx on the admin image logs harmless `io_setup() failed` on WSL2 — non-fatal; `wsl --update` silences it.
-
-## Conventions
-- Arabic UI and Arabic code comments; keep them.
-- Every new pure helper gets `node:test` unit tests under `backend/tests/`.
-- Verify before commit: `cd backend && npm test`; for admin JSX changes, `cd admin && npm run build`.
-- Respond to the user in Arabic.
+1. `README.md` هو نظرة عامة على المنتج والمكوّنات والروابط الرسمية.
+2. `HANDOFF.md` للحالة التشغيلية الحالية فقط؛ لا تُخزّن فيه إعدادات جهاز مطوّر شخصية أو حسابات/كلمات مرور.
+3. `docs/README.md` هو فهرس التوثيق ومصدر معرفة أي ملف يجب قراءته.
+4. ملفات الهجرة القديمة تُحفظ كسجل تاريخي، لكن يجب تمييز الخطوات المنتهية بوضوح وعدم تقديم Vercel/Render/Atlas/DuckDNS كمسار نشر حالي.
+5. أي تغيير في domains أو mounts أو workflows أو متغيرات البيئة يجب أن يتبعه تحديث التوثيق في نفس PR.
