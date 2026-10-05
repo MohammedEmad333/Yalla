@@ -9,6 +9,7 @@ const captainSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     phone: { type: String, required: true, unique: true, trim: true },
     passwordHash: { type: String, required: true, select: false },
+    address: { type: String, default: '', trim: true },
     vehicleType: { type: String, enum: ['bicycle', 'electric', 'motorcycle'], default: 'motorcycle' },
     vehiclePlate: { type: String, trim: true },
     avatarUrl: { type: String, default: '' },

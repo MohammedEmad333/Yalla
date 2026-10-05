@@ -436,6 +436,7 @@ function CaptainsTab() {
             <tr>
               <th>الاسم</th>
               <th>الهاتف</th>
+              <th>العنوان</th>
               <th>المركبة</th>
               <th>الحالة</th>
               <th>التقييم</th>
@@ -450,6 +451,7 @@ function CaptainsTab() {
               <tr key={c.id}>
                 <td data-label="الاسم"><NameCell url={c.avatarUrl} name={c.name} /></td>
                 <td data-label="الهاتف" className="yl-num">{c.phone}</td>
+                <td data-label="العنوان">{c.address || '—'}</td>
                 <td data-label="المركبة">
                   {vehicleLabel(c.vehicleType)}{c.vehiclePlate ? ` · ${c.vehiclePlate}` : ''}
                 </td>
@@ -578,6 +580,7 @@ function CaptainsTab() {
           onClose={() => setDetail(null)}
           rows={[
             ['رقم الجوال', detail.phone],
+            ['العنوان', detail.address || '—'],
             ['نوع المركبة', vehicleLabel(detail.vehicleType)],
             ['لوحة المركبة', detail.vehiclePlate],
             ['الحالة', detail.status === 'online' ? 'متصل' : detail.status === 'busy' ? 'مشغول' : 'غير متصل'],
@@ -592,11 +595,12 @@ function CaptainsTab() {
   );
 }
 
-// ── Card 78: نافذة تعديل حساب كابتن (اسم/جوال/مركبة/كلمة سر + صورة) ──
+// ── Card 78: نافذة تعديل حساب كابتن (اسم/جوال/عنوان/مركبة/كلمة سر + صورة) ──
 function EditCaptainModal({ captain, onClose, onSaved }) {
   const [form, setForm] = useState({
     name: captain.name || '',
     phone: captain.phone || '',
+    address: captain.address || '',
     vehicleType: captain.vehicleType || 'motorcycle',
     vehiclePlate: captain.vehiclePlate || '',
     password: '',
@@ -613,6 +617,7 @@ function EditCaptainModal({ captain, onClose, onSaved }) {
     const payload = {
       name: form.name.trim(),
       phone: form.phone.trim(),
+      address: form.address.trim(),
       vehicleType: form.vehicleType,
       vehiclePlate: form.vehiclePlate.trim(),
     };
@@ -668,6 +673,13 @@ function EditCaptainModal({ captain, onClose, onSaved }) {
           </Field>
           <Field label="رقم الجوال">
             <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
+          </Field>
+          <Field label="العنوان">
+            <Input
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+              placeholder="مثال: نابلس — رفيديا"
+            />
           </Field>
           <Field label="المركبة">
             <Select value={form.vehicleType} onChange={(e) => setForm({ ...form, vehicleType: e.target.value })}>

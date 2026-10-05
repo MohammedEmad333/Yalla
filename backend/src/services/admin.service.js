@@ -70,12 +70,12 @@ async function listCustomers({ q } = {}) {
 }
 
 /**
- * Card 37 + Card 41: قائمة الكباتن بكل المعلومات — بما فيها الرصيد القابل للسحب.
+ * Card 37 + Card 41: قائمة الكباتن بكل المعلومات — بما فيها العنوان والرصيد القابل للسحب.
  * الرصيد المتاح = صافي أرباح الطلبات المسلّمة − (المسحوب فعلًا + المعلّق).
  */
 async function listCaptainsDetailed() {
   const captains = await Captain.find()
-    .select('name phone vehicleType vehiclePlate status isApproved rating ratingsCount avatarUrl activeOrder payoutWallets createdAt')
+    .select('name phone address vehicleType vehiclePlate status isApproved rating ratingsCount avatarUrl activeOrder payoutWallets createdAt')
     .sort({ createdAt: -1 })
     .lean();
   if (!captains.length) return [];
@@ -109,6 +109,7 @@ async function listCaptainsDetailed() {
       id: String(c._id),
       name: c.name,
       phone: c.phone,
+      address: c.address || '',
       vehicleType: c.vehicleType,
       vehiclePlate: c.vehiclePlate || '',
       status: c.status,
@@ -211,10 +212,10 @@ async function deleteCaptain(captainId, actorRole = 'admin') {
 
 /**
  * Card 78: تعديل الأدمن لبيانات حساب كابتن من لوحة التحكم —
- * الاسم، رقم الجوال، نوع/لوحة المركبة، وكلمة السر. يُطبّق الحقول المُرسَلة فقط،
+ * الاسم، رقم الجوال، العنوان، نوع/لوحة المركبة، وكلمة السر. يُطبّق الحقول المُرسَلة فقط،
  * ويتحقّق من تفرّد رقم الجوال. (تغيير الصورة عبر مسار الرفع المستقلّ.)
  * @param {string} captainId
- * @param {{name?:string, phone?:string, password?:string, vehicleType?:string, vehiclePlate?:string}} fields
+ * @param {{name?:string, phone?:string, address?:string, password?:string, vehicleType?:string, vehiclePlate?:string}} fields
  */
 async function updateCaptain(captainId, fields = {}) {
   if (!mongoose.Types.ObjectId.isValid(captainId)) throw httpError('معرّف غير صالح', 400);
@@ -223,6 +224,7 @@ async function updateCaptain(captainId, fields = {}) {
 
   const name = fields.name !== undefined ? String(fields.name).trim() : undefined;
   const phone = fields.phone !== undefined ? String(fields.phone).trim() : undefined;
+  const address = fields.address !== undefined ? String(fields.address).trim() : undefined;
   const vehiclePlate =
     fields.vehiclePlate !== undefined ? String(fields.vehiclePlate).trim() : undefined;
   const vehicleType = fields.vehicleType;
@@ -240,6 +242,7 @@ async function updateCaptain(captainId, fields = {}) {
     }
     captain.phone = phone;
   }
+  if (address !== undefined) captain.address = address;
   if (vehicleType !== undefined) {
     if (!['bicycle', 'electric', 'motorcycle'].includes(vehicleType)) {
       throw httpError('نوع المركبة غير صالح', 400);
@@ -274,6 +277,7 @@ async function updateCaptain(captainId, fields = {}) {
     id: String(captain._id),
     name: captain.name,
     phone: captain.phone,
+    address: captain.address || '',
     vehicleType: captain.vehicleType,
     vehiclePlate: captain.vehiclePlate || '',
     avatarUrl: captain.avatarUrl || '',

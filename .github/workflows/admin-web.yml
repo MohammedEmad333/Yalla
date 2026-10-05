@@ -55,12 +55,16 @@ jobs:
           echo "Building admin for API: $VITE_API_URL"
           npm run build
 
+      # Artifact storage may be temporarily full. The build/deploy must not be
+      # blocked because deployment uses admin/dist directly in the same job.
       - name: رفع نسخة الأدمن كـ Artifact
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: yalla-admin-web
           path: admin/dist
           if-no-files-found: error
+          retention-days: 1
 
       - name: نشر على Cloudflare Workers
         if: ${{ github.event_name != 'pull_request' && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
