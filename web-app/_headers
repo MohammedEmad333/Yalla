@@ -32,6 +32,8 @@
 /reset-cache.html
   Cache-Control: no-store, max-age=0, must-revalidate
   Clear-Site-Data: "cache"
+/reset-cache.js
+  Cache-Control: no-store, max-age=0, must-revalidate
 
 /flutter_service_worker.js
   Cache-Control: no-store, max-age=0, must-revalidate
