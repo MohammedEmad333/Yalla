@@ -1,0 +1,50 @@
+name: Security Lockfile Refresh
+
+on:
+  push:
+    branches:
+      - security/repo-hardening-2026-10-06
+    paths:
+      - '.github/workflows/security-lockfix.yml'
+      - 'backend/package-lock.json'
+      - 'admin/package-lock.json'
+      - 'bot/package-lock.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: security-lockfix
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: security/repo-hardening-2026-10-06
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Apply compatible npm security fixes
+        run: |
+          set -euo pipefail
+          for dir in backend admin bot; do
+            echo "==> $dir"
+            (cd "$dir" && npm audit fix --package-lock-only)
+          done
+
+      - name: Commit refreshed lockfiles
+        run: |
+          if git diff --quiet -- backend/package-lock.json admin/package-lock.json bot/package-lock.json; then
+            echo "No lockfile changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/package-lock.json admin/package-lock.json bot/package-lock.json
+          git commit -m "fix(deps): refresh vulnerable npm lockfiles"
+          git push origin HEAD:security/repo-hardening-2026-10-06
