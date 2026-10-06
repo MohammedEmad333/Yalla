@@ -32,9 +32,10 @@ app.use((req, res, next) => {
   res.set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
   next();
 });
-// credentials مطلوبة لجلسة Admin Web عبر HttpOnly cookie. CORS_ORIGIN يبقى
-// whitelist صريحًا في production، لذلك لا نسمح بدمج credentials مع origin=*.
-app.use(cors({ origin: env.corsOrigin, credentials: true }));
+// credentials مطلوبة لجلسة Admin Web عبر HttpOnly cookie. في التطوير فقط حين
+// CORS_ORIGIN='*' نعكس Origin بدل إرسال wildcard غير صالح مع credentials.
+const corsOrigin = env.corsOrigin === '*' ? true : env.corsOrigin;
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json({ limit: '100kb' })); // تحليل JSON بحدّ حجم يمنع الحمولات الضخمة
 
 // الصور العامة فقط. المستندات الحساسة (ids/receipts) لا تُخدَم static إطلاقًا؛
