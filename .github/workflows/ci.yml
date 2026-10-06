@@ -75,8 +75,10 @@ jobs:
           cache-dependency-path: admin/package-lock.json
       - name: تثبيت التبعيات
         run: npm ci
-      - name: فحص أمني للتبعيات
-        run: npm audit --audit-level=high
+      - name: فحص أمني للتبعيات الإنتاجية
+        # أدوات Vite/Capacitor CLI تبقى ضمن Dependabot، بينما هذا الـgate يمنع
+        # نشر runtime dependency عالية/حرجة بدون جرّ ترقية framework كبرى تلقائيًا.
+        run: npm audit --omit=dev --audit-level=high
       - name: بناء لوحة الأدمن
         run: npm run build
 
