@@ -12,6 +12,7 @@ const {
 } = require('../utils/adminSession');
 
 const ADMIN_ROLES = ['super_admin', 'operations', 'support', 'finance', 'marketing'];
+const OFFICIAL_ADMIN_WEB_ORIGIN = 'https://admin.yalladelivery.org';
 
 // سياسة issuer/audience أصبحت جزءًا من إصدار JWT قبل هذا التاريخ. نسمح مؤقتًا
 // فقط بالتوكن القديم الذي لا يحمل أيًّا من الحقلين وكان قد صدر قبل اكتمال
@@ -93,6 +94,10 @@ function tokenFromRequest(req) {
   return { token: null, source: null };
 }
 
+function adminCookieOriginAllowed(req) {
+  return String(req.headers.origin || '').toLowerCase() === OFFICIAL_ADMIN_WEB_ORIGIN;
+}
+
 async function authenticate(req, res, next) {
   const { token, source } = tokenFromRequest(req);
 
@@ -102,9 +107,12 @@ async function authenticate(req, res, next) {
 
   try {
     const payload = await verifyAccessToken(token);
-    // جلسة الـHttpOnly مخصّصة للأدمن فقط ولا تُستخدم لأي دور آخر.
-    if (source === 'admin-cookie' && payload.role !== ROLES.ADMIN) {
-      return res.status(401).json({ message: 'جلسة غير صالحة' });
+    // جلسة الـHttpOnly مخصّصة للأدمن الرسمي فقط: نقيّدها بالدور وبـOrigin
+    // للحدّ من CSRF من أي subdomain آخر حتى لو كان ضمن نفس الـsite.
+    if (source === 'admin-cookie') {
+      if (payload.role !== ROLES.ADMIN || !adminCookieOriginAllowed(req)) {
+        return res.status(401).json({ message: 'جلسة غير صالحة' });
+      }
     }
     req.auth = payload;
     req.authSource = source;
@@ -128,6 +136,7 @@ module.exports = {
   authorize,
   verifyAccessToken,
   tokenFromRequest,
+  adminCookieOriginAllowed,
   accountStillAllowed,
   claimsPolicyAllows,
   LEGACY_CLAIMLESS_ISSUED_BEFORE,
