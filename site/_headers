@@ -1,11 +1,10 @@
-# قواعد ترويسات HTTP لـ Cloudflare Pages — تطبيق يلا الويب (PWA)
-# https://developers.cloudflare.com/pages/configuration/headers/
+# قواعد ترويسات HTTP للموقع العام على Cloudflare Workers Static Assets.
 
 # لا تخزّن الـService Worker في الكاش حتى تصل التحديثات فورًا للمستخدمين
 /sw.js
   Cache-Control: no-cache
 
-# نوع المحتوى الصحيح لملف الـmanifest (لضمان تثبيت PWA على كل المتصفحات)
+# نوع المحتوى الصحيح لملف الـmanifest
 /manifest.webmanifest
   Content-Type: application/manifest+json
   Cache-Control: no-cache
@@ -18,8 +17,12 @@
 /logo.png
   Cache-Control: public, max-age=604800
 
-# ترويسات أمان عامة لكل الصفحات
+# ترويسات أمان عامة لكل الصفحات. نسمح فقط بخطوط Google المستخدمة في الموقع
+# وبـ inline styles/scripts لأن بعض الصفحات القانونية/التحويلية تعتمد مقاطع صغيرة مضمّنة.
 /*
   X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
-  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; worker-src 'self'; manifest-src 'self'; upgrade-insecure-requests
