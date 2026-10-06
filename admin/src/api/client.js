@@ -1,4 +1,4 @@
-// عميل API موحّد للوحة الأدمن — يرفق التوكن ويوحّد معالجة الأخطاء.
+// عميل API موحّد للوحة الأدمن — يرفق التوكن عند الحاجة ويوحّد معالجة الأخطاء.
 
 const API = (
   import.meta.env.DEV
@@ -6,16 +6,30 @@ const API = (
     : 'https://api.yalladelivery.org'
 ).replace(/\/$/, '');
 
-const getToken = () => localStorage.getItem('token');
+// قيمة توافق غير سرّية: وجودها يعني أن نسخة الويب تعتمد على HttpOnly cookie.
+// لا تُرسل كـ Bearer ولا تحتوي أي جزء من JWT.
+export const ADMIN_SESSION_SENTINEL = '__yalla_admin_cookie__';
+
+const getStoredToken = () => localStorage.getItem('token');
+const getBearerToken = () => {
+  const token = getStoredToken();
+  return token && token !== ADMIN_SESSION_SENTINEL ? token : null;
+};
+
+function authHeaders() {
+  const token = getBearerToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 async function request(path, { method = 'GET', body } = {}) {
   let res;
   try {
     res = await fetch(`${API}/api${path}`, {
       method,
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+        ...authHeaders(),
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
@@ -32,9 +46,8 @@ async function requestBlob(path) {
   let res;
   try {
     res = await fetch(`${API}/api${path}`, {
-      headers: {
-        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-      },
+      credentials: 'include',
+      headers: authHeaders(),
       cache: 'no-store',
     });
   } catch {
@@ -52,9 +65,8 @@ async function upload(path, file, field = 'image') {
   body.append(field, file);
   const res = await fetch(`${API}/api${path}`, {
     method: 'POST',
-    headers: {
-      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-    },
+    credentials: 'include',
+    headers: authHeaders(),
     body,
   });
   const data = await res.json().catch(() => null);
