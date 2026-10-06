@@ -3,12 +3,10 @@
 #
 # الاستخدام:
 #   tool/build-web.sh
-#
-# بعد التشغيل: git add web-app && git commit && git push  →  ينشر Cloudflare تلقائيًا.
 set -euo pipefail
 
-# عنوان الـ backend على Render (نفس ما يستخدمه الأدمن).
-API_ORIGIN="${API_ORIGIN:-https://yalla-api.duckdns.org}"
+# عنوان Backend الرسمي. يمكن تجاوزه صراحةً عبر API_ORIGIN لبناء بيئة أخرى.
+API_ORIGIN="${API_ORIGIN:-https://api.yalladelivery.org}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/mobile"
@@ -49,8 +47,8 @@ self.addEventListener('activate', function (event) {
 });
 EOF
 
-# صفحة تنظيف يدوية وفورية للحالات التي يبقى فيها Service Worker القديم نشطًا.
-# هذا المسار غير موجود في RESOURCES الخاصة بـ Flutter SW القديم، لذلك يمر للشبكة.
+# صفحة تنظيف يدوية للحالات التي يبقى فيها Service Worker القديم نشطًا.
+# JavaScript في ملف خارجي حتى يعمل تحت CSP الصارمة بدون unsafe-inline.
 cat > "$ROOT/web-app/reset-cache.html" <<'EOF'
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -73,31 +71,33 @@ cat > "$ROOT/web-app/reset-cache.html" <<'EOF'
     <div>جاري تحديث التطبيق وتنظيف النسخة القديمة…</div>
     <div class="spinner"></div>
   </div>
-  <script>
-    (async function () {
-      try {
-        if ('serviceWorker' in navigator) {
-          const regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map(function (reg) { return reg.unregister(); }));
-        }
-        if ('caches' in window) {
-          const keys = await caches.keys();
-          await Promise.all(keys.map(function (key) { return caches.delete(key); }));
-        }
-        try {
-          localStorage.removeItem('flutter_service_worker_version');
-        } catch (_) {}
-      } catch (_) {}
-      window.setTimeout(function () {
-        window.location.replace('/?cache-reset=' + Date.now());
-      }, 500);
-    }());
-  </script>
+  <script src="/reset-cache.js"></script>
 </body>
 </html>
+EOF
+
+cat > "$ROOT/web-app/reset-cache.js" <<'EOF'
+(async function () {
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(function (reg) { return reg.unregister(); }));
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(function (key) { return caches.delete(key); }));
+    }
+    try {
+      localStorage.removeItem('flutter_service_worker_version');
+    } catch (_) {}
+  } catch (_) {}
+  window.setTimeout(function () {
+    window.location.replace('/?cache-reset=' + Date.now());
+  }, 500);
+}());
 EOF
 
 # نسخ ملف ترويسات Cloudflare (البناء لا ينتجه)
 cp "$ROOT/tool/web-app-headers" "$ROOT/web-app/_headers"
 
-echo "✓ تم. راجع web-app/ ثم: git add web-app && git commit && git push"
+echo "✓ تم بناء web-app/ باستخدام $API_ORIGIN"

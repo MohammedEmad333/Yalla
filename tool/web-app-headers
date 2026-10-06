@@ -1,5 +1,5 @@
 # ترويسات Cloudflare لتطبيق يلا الويب (Flutter build)
-# https://developers.cloudflare.com/workers/static-assets/headers/
+# هذا الملف هو المصدر الذي ينسخه tool/build-web.sh إلى web-app/_headers.
 
 # لا تخزّن نقطة الدخول ولا مُحمّل Flutter — تصل التحديثات فورًا
 /index.html
@@ -14,27 +14,31 @@
   Cache-Control: no-store, max-age=0, must-revalidate
   Content-Type: application/manifest+json
 
-# كود التطبيق: اسم ثابت (main.dart.js) يتغيّر مع كل بناء — لا نخزّنه بكاش طويل
-# وإلّا بقي المستخدم على نسخة قديمة أيامًا. no-cache = تحقّق دائمًا (ETag/304).
+# كود التطبيق: اسمه ثابت ويتغيّر مع كل بناء، لذلك نطلب التحقق دائمًا.
 /main.dart.js
   Cache-Control: no-store, max-age=0, must-revalidate
 
-# أصول Flutter الثقيلة — canvaskit يحمل نسخة في مساره فيُخزَّن للأبد؛ الأصول أقصر
+# أصول Flutter الثقيلة
 /canvaskit/*
   Cache-Control: public, max-age=31536000, immutable
 /assets/*
   Cache-Control: public, max-age=3600
 
-# ترويسات أمان عامة
+# ترويسات أمان عامة. CSP متوافقة مع Flutter Web/CanvasKit وتمنع framing.
 /*
   X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.yalladelivery.org wss://api.yalladelivery.org; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests
 
-
-# صفحة تنظيف الكاش لا تُخزَّن إطلاقًا
+# صفحة وأداة تنظيف الكاش لا تُخزّنان إطلاقًا.
 /reset-cache.html
   Cache-Control: no-store, max-age=0, must-revalidate
   Clear-Site-Data: "cache"
+/reset-cache.js
+  Cache-Control: no-store, max-age=0, must-revalidate
 
 /flutter_service_worker.js
   Cache-Control: no-store, max-age=0, must-revalidate
