@@ -37,9 +37,9 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
           cache: true
@@ -92,12 +92,16 @@ jobs:
           API_ORIGIN="${INPUT_ORIGIN:-https://api.yalladelivery.org}"
           flutter build web --release --pwa-strategy=offline-first --dart-define=API_ORIGIN="$API_ORIGIN"
 
-      - name: رفع نسخة الويب كـ Artifact
-        uses: actions/upload-artifact@v4
+      # النسخة تُستخدم مباشرة للنشر من نفس الـjob؛ امتلاء Artifact storage
+      # يجب ألا يمنع نجاح فحص البناء أو النشر.
+      - name: رفع نسخة الويب كـ Artifact اختياري
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: yalla-partner-web
           path: partner/build/web
           if-no-files-found: error
+          retention-days: 1
 
       - name: نشر على Cloudflare Workers
         if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}

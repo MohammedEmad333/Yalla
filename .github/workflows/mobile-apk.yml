@@ -38,14 +38,14 @@ jobs:
         working-directory: mobile
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
           cache: true
@@ -140,7 +140,7 @@ jobs:
 
       # Artifacts تبقى نسخة إضافية مؤقتة فقط، ولا تمنع نجاح الإصدار إذا كانت الحصة ممتلئة.
       - name: رفع APK كـ Artifact اختياري
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         continue-on-error: true
         with:
           name: yalla-apk
@@ -151,7 +151,7 @@ jobs:
 
       - name: رفع AAB كـ Artifact اختياري
         if: steps.signing.outputs.signed == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         continue-on-error: true
         with:
           name: yalla-aab
