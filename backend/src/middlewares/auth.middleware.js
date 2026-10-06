@@ -6,8 +6,13 @@ const User = require('../models/User');
 const Captain = require('../models/Captain');
 const Merchant = require('../models/Merchant');
 const { ROLES } = require('../utils/constants');
+const {
+  ADMIN_SESSION_SENTINEL,
+  getAdminSessionTokenFromCookieHeader,
+} = require('../utils/adminSession');
 
 const ADMIN_ROLES = ['super_admin', 'operations', 'support', 'finance', 'marketing'];
+const OFFICIAL_ADMIN_WEB_ORIGIN = 'https://admin.yalladelivery.org';
 
 // سياسة issuer/audience أصبحت جزءًا من إصدار JWT قبل هذا التاريخ. نسمح مؤقتًا
 // فقط بالتوكن القديم الذي لا يحمل أيًّا من الحقلين وكان قد صدر قبل اكتمال
@@ -73,16 +78,44 @@ async function verifyAccessToken(token) {
   return payload;
 }
 
-async function authenticate(req, res, next) {
+function tokenFromRequest(req) {
   const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  const bearer = header.startsWith('Bearer ') ? header.slice(7) : null;
+
+  // الواجهة القديمة للوحة اللحظية تقرأ localStorage مباشرة. في نسخة الويب
+  // نخزن Sentinel غير سري فقط؛ عند رؤيته نستخدم جلسة HttpOnly بدل JWT من JS.
+  if (bearer && bearer !== ADMIN_SESSION_SENTINEL) {
+    return { token: bearer, source: 'bearer' };
+  }
+
+  const cookieToken = getAdminSessionTokenFromCookieHeader(req.headers.cookie);
+  if (cookieToken) return { token: cookieToken, source: 'admin-cookie' };
+
+  return { token: null, source: null };
+}
+
+function adminCookieOriginAllowed(req) {
+  return String(req.headers.origin || '').toLowerCase() === OFFICIAL_ADMIN_WEB_ORIGIN;
+}
+
+async function authenticate(req, res, next) {
+  const { token, source } = tokenFromRequest(req);
 
   if (!token) {
     return res.status(401).json({ message: 'التوكن مفقود' });
   }
 
   try {
-    req.auth = await verifyAccessToken(token);
+    const payload = await verifyAccessToken(token);
+    // جلسة الـHttpOnly مخصّصة للأدمن الرسمي فقط: نقيّدها بالدور وبـOrigin
+    // للحدّ من CSRF من أي subdomain آخر حتى لو كان ضمن نفس الـsite.
+    if (source === 'admin-cookie') {
+      if (payload.role !== ROLES.ADMIN || !adminCookieOriginAllowed(req)) {
+        return res.status(401).json({ message: 'جلسة غير صالحة' });
+      }
+    }
+    req.auth = payload;
+    req.authSource = source;
     next();
   } catch (err) {
     return res.status(401).json({ message: 'توكن غير صالح أو الحساب غير متاح' });
@@ -102,6 +135,8 @@ module.exports = {
   authenticate,
   authorize,
   verifyAccessToken,
+  tokenFromRequest,
+  adminCookieOriginAllowed,
   accountStillAllowed,
   claimsPolicyAllows,
   LEGACY_CLAIMLESS_ISSUED_BEFORE,

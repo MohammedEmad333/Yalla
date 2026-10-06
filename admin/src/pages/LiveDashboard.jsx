@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
 import { vehicleLabel } from '../vehicles';
 import { useAuth } from '../auth/AuthContext';
+import { ADMIN_SESSION_SENTINEL } from '../api/client';
 import { statusLabel, statusTone } from '../status';
 import {
   Alert,
@@ -40,6 +41,22 @@ const orderInRegions = (order, regions) => {
 };
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+// كل طلبات REST اللحظية تمر من هنا حتى ترسل HttpOnly cookie في الويب الرسمي،
+// بينما تطبيق Capacitor يواصل إرسال Bearer JWT الحقيقي.
+const authenticatedFetch = (path, token, options = {}) => {
+  const bearer = token && token !== ADMIN_SESSION_SENTINEL
+    ? { Authorization: `Bearer ${token}` }
+    : {};
+  return fetch(`${API}${path}`, {
+    credentials: 'include',
+    ...options,
+    headers: {
+      ...bearer,
+      ...(options.headers || {}),
+    },
+  });
+};
 
 // اسم صاحب الطلب كاملًا (الاسم الأول + اسم العائلة إن وُجد)
 const fullName = (u) => [u?.name, u?.lastName].filter(Boolean).join(' ') || '—';
@@ -203,7 +220,7 @@ export default function LiveDashboard() {
   const [priceEdit, setPriceEdit] = useState({}); // Card 74: {orderId: value} تحرير السعر التقريبي
   const [autoAssignOn, setAutoAssignOn] = useState(false); // الإسناد التلقائي (بثّ لكل الكباتن)
   const [autoBusy, setAutoBusy] = useState(false);        // أثناء تبديل الإسناد التلقائي
-  const token = localStorage.getItem('token');     // توكن الأدمن
+  const token = localStorage.getItem('token');     // JWT في native أو Sentinel غير سرّي في الويب
   // Card 110: نطاق مناطق الأدمن — يفلتر الأحداث اللحظية لتوافق ما يجلبه REST المفلتَر
   const { admin } = useAuth();
   const regions = useMemo(() => admin?.regions || [], [admin]);
@@ -211,27 +228,26 @@ export default function LiveDashboard() {
   // عدد الكباتن المتصلين (لعرضه في الترويسة)
   const onlineCount = captains.filter((c) => c.online).length;
 
-  // إنشاء اتصال السوكت مرة واحدة (مع تمرير التوكن في المصادقة)
+  // إنشاء اتصال السوكت مرة واحدة. withCredentials يسمح للويب بإرسال HttpOnly cookie،
+  // بينما auth.token يبقى مطلوبًا لتطبيق Capacitor وللتوافق مع الـSentinel.
   const socket = useMemo(
-    () => io(API, { auth: { token }, autoConnect: false }),
+    () => io(API, { auth: { token }, autoConnect: false, withCredentials: true }),
     [token]
   );
 
   // ── التحميل الأولي عبر REST ثم الاشتراك في الأحداث اللحظية ──────
   useEffect(() => {
-    const headers = { Authorization: `Bearer ${token}` };
-
     const loadOrders = () =>
-      fetch(`${API}/api/orders/active`, { headers }).then((r) => r.json()).then(setOrders);
+      authenticatedFetch('/api/orders/active', token).then((r) => r.json()).then(setOrders);
     // Card 34/35: نجلب كل الكباتن المعتمَدين (متصلين وغير متصلين) مع علامة الحالة،
     // ليتمكّن الأدمن من الإسناد لكابتن غير متصل ورؤية تمييز واضح لحالته.
     const loadCaptains = () =>
-      fetch(`${API}/api/orders/assignable-captains`, { headers }).then((r) => r.json()).then(setCaptains);
+      authenticatedFetch('/api/orders/assignable-captains', token).then((r) => r.json()).then(setCaptains);
 
     loadOrders();
     loadCaptains();
     // الإسناد التلقائي: نجلب حالته الحاليّة لعرض المفتاح في الترويسة
-    fetch(`${API}/api/admin/settings`, { headers })
+    authenticatedFetch('/api/admin/settings', token)
       .then((r) => r.json())
       .then((s) => setAutoAssignOn(!!s?.autoAssignBroadcast))
       .catch(() => {});
@@ -286,9 +302,9 @@ export default function LiveDashboard() {
     setAutoBusy(true);
     setAutoAssignOn(next); // تفاؤليًّا
     try {
-      const res = await fetch(`${API}/api/admin/settings`, {
+      const res = await authenticatedFetch('/api/admin/settings', token, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ autoAssignBroadcast: next }),
       });
       const data = await res.json().catch(() => null);
@@ -313,9 +329,9 @@ export default function LiveDashboard() {
     const raw = priceEdit[orderId];
     const price = Number(raw);
     if (!Number.isFinite(price) || price <= 0) return alert('أدخل سعرًا صحيحًا');
-    const res = await fetch(`${API}/api/orders/${orderId}/price`, {
+    const res = await authenticatedFetch(`/api/orders/${orderId}/price`, token, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ price }),
     });
     if (!res.ok) {
@@ -328,9 +344,9 @@ export default function LiveDashboard() {
 
   // Card 82: إرسال رمز التسليم إلى إشعارات الكابتن المُسنَد
   async function sendCode(orderId) {
-    const res = await fetch(`${API}/api/orders/${orderId}/send-code`, {
+    const res = await authenticatedFetch(`/api/orders/${orderId}/send-code`, token, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) return alert(data?.message || 'تعذّر إرسال الرمز');
@@ -342,9 +358,9 @@ export default function LiveDashboard() {
     const captainId = selected[orderId];
     if (!captainId) return alert('اختر كابتن أولًا');
 
-    await fetch(`${API}/api/orders/${orderId}/assign`, {
+    await authenticatedFetch(`/api/orders/${orderId}/assign`, token, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ captainId }),
     });
     // لا نحدّث الحالة يدويًا — سيصلنا حدث order:status_updated
@@ -352,9 +368,9 @@ export default function LiveDashboard() {
 
   // إسناد تلقائي لأقرب كابتن (يعتمد فهرس 2dsphere في الخادم)
   async function autoAssign(orderId) {
-    const res = await fetch(`${API}/api/orders/${orderId}/auto-assign`, {
+    const res = await authenticatedFetch(`/api/orders/${orderId}/auto-assign`, token, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
     });
     if (res.status === 409) {
       alert('لا يوجد كابتن متاح قريب حاليًا — جرّب الإسناد اليدوي');
@@ -367,9 +383,9 @@ export default function LiveDashboard() {
   async function cancelOrder(orderId) {
     if (!window.confirm('هل تريد إلغاء هذا الطلب؟ سيتحرّر الكابتن المُسنَد إن وُجد ويعود متاحًا.')) return;
 
-    const res = await fetch(`${API}/api/orders/${orderId}/cancel`, {
+    const res = await authenticatedFetch(`/api/orders/${orderId}/cancel`, token, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason: 'ألغاه الأدمن من اللوحة' }),
     });
     if (!res.ok) {
@@ -389,9 +405,9 @@ export default function LiveDashboard() {
       'نسبة للكابتن (تُسوّى نقدًا). سيتحرّر الكابتن المُسنَد إن وُجد ويعود متاحًا.'
     )) return;
 
-    const res = await fetch(`${API}/api/orders/${orderId}/force-complete`, {
+    const res = await authenticatedFetch(`/api/orders/${orderId}/force-complete`, token, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) {
       const data = await res.json().catch(() => null);

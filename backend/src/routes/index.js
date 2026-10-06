@@ -24,6 +24,7 @@ router.get('/governorates', (req, res) => res.json(listGovernorates()));
 router.use('/app-update', require('./appUpdate.routes'));
 router.use('/settings', require('./settings.routes'));
 
+router.use('/auth/admin-session', require('./adminSession.routes'));
 router.use('/auth', require('./auth.routes'));
 router.use('/orders', require('./order.routes'));
 router.use('/restaurants', require('./restaurant.routes'));
