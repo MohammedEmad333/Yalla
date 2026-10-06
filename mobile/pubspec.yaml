@@ -31,7 +31,7 @@ dependencies:
   # خدمة خرائط جوجل (Card 10): نفتح تطبيق/موقع خرائط جوجل للملاحة وعرض المواقع
   # عبر روابط عميقة (بلا مفتاح API ولا SDK أصلي) — يعمل على الأجهزة الحقيقية مباشرة.
   # لإضافة خريطة مضمّنة داخل التطبيق لاحقًا: أضف google_maps_flutter + مفتاح Google Maps.
-  url_launcher: ^6.2.5
+  url_launcher: ^6.3.3
 
   # إشعارات FCM (Card 22) — تصل حتى والتطبيق مغلق.
   # التهيئة عبر lib/firebase_options.dart (تُولَّد بـ `flutterfire configure`)،
