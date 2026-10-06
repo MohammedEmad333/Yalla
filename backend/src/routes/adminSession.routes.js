@@ -25,6 +25,8 @@ function isOfficialAdminWebOrigin(req) {
 // - الويب الرسمي يحصل على جلسة HttpOnly ولا يرى JWT داخل JavaScript.
 // - تطبيق Capacitor/التطوير يبقيان Bearer token للتوافق مع البيئة الأصلية.
 router.post('/login', adminLoginLimiter, validateBody(loginSchema), (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  res.set('Pragma', 'no-cache');
   const originalJson = res.json.bind(res);
 
   res.json = (body) => {
@@ -46,6 +48,7 @@ router.post('/login', adminLoginLimiter, validateBody(loginSchema), (req, res, n
 });
 
 router.post('/logout', (req, res) => {
+  res.set('Cache-Control', 'no-store');
   res.setHeader('Set-Cookie', serializeAdminSessionClearCookie());
   res.status(204).end();
 });
