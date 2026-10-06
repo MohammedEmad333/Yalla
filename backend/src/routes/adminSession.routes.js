@@ -31,7 +31,8 @@ router.post('/login', adminLoginLimiter, validateBody(loginSchema), (req, res, n
     if (!body?.token || !body?.user) return originalJson(body);
 
     if (body.user.role !== ROLES.ADMIN) {
-      return res.status(403).json = originalJson({ message: 'هذا الحساب ليس أدمن' });
+      res.status(403);
+      return originalJson({ message: 'هذا الحساب ليس أدمن' });
     }
 
     if (!isOfficialAdminWebOrigin(req)) return originalJson(body);
