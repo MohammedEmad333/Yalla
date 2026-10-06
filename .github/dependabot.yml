@@ -26,7 +26,6 @@ updates:
         patterns:
           - "*"
 
-
   - package-ecosystem: npm
     directory: /bot
     schedule:
@@ -37,6 +36,32 @@ updates:
           - "version-update:semver-major"
     groups:
       bot-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pub
+    directory: /mobile
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    groups:
+      mobile-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pub
+    directory: /partner
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    groups:
+      partner-dependencies:
         patterns:
           - "*"
 
