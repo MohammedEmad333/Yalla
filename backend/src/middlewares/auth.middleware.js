@@ -9,9 +9,31 @@ const { ROLES } = require('../utils/constants');
 
 const ADMIN_ROLES = ['super_admin', 'operations', 'support', 'finance', 'marketing'];
 
+// سياسة issuer/audience أصبحت جزءًا من إصدار JWT قبل هذا التاريخ. نسمح مؤقتًا
+// فقط بالتوكن القديم الذي لا يحمل أيًّا من الحقلين وكان قد صدر قبل اكتمال
+// الترحيل. هذه التوكنات تنتهي طبيعيًا خلال JWT_EXPIRES_IN (7d افتراضيًا)،
+// وبعدها لا يمكن لتوكن جديد بلا claims المرور حتى لو بقي مسار توافق قديم.
+const LEGACY_CLAIMLESS_ISSUED_BEFORE = Math.floor(Date.parse('2026-10-06T00:00:00Z') / 1000);
+
 function validAudience(aud) {
   if (Array.isArray(aud)) return aud.includes(env.jwtAudience);
   return aud === env.jwtAudience;
+}
+
+function claimsPolicyAllows(payload) {
+  if (!payload || typeof payload !== 'object') return false;
+
+  const issuerMatches = payload.iss === env.jwtIssuer;
+  const audienceMatches = validAudience(payload.aud);
+  if (issuerMatches && audienceMatches) return true;
+
+  // التوافق القديم يجب أن يكون claimless بالكامل ومن إصدار سابق للترحيل.
+  // وجود claim واحد فقط أو claim خاطئ يُرفض fail-closed.
+  const fullyClaimless = payload.iss === undefined && payload.aud === undefined;
+  const issuedAt = Number(payload.iat);
+  return fullyClaimless
+    && Number.isFinite(issuedAt)
+    && issuedAt < LEGACY_CLAIMLESS_ISSUED_BEFORE;
 }
 
 async function accountStillAllowed(payload) {
@@ -40,15 +62,10 @@ async function accountStillAllowed(payload) {
 }
 
 // نقطة التحقق الواحدة المستخدمة من HTTP وSocket.io.
-// نقبل مؤقتًا التوكنات القديمة التي لا تحمل iss/aud حتى تنتهي طبيعيًا، لكن إذا
-// كانت claims موجودة فيجب أن تطابق القيم الرسمية.
 async function verifyAccessToken(token) {
   const payload = jwt.verify(token, env.jwtSecret, { algorithms: ['HS256'] });
-  if (payload.iss !== undefined && payload.iss !== env.jwtIssuer) {
-    throw new Error('invalid issuer');
-  }
-  if (payload.aud !== undefined && !validAudience(payload.aud)) {
-    throw new Error('invalid audience');
+  if (!claimsPolicyAllows(payload)) {
+    throw new Error('invalid token claims');
   }
   if (!(await accountStillAllowed(payload))) {
     throw new Error('account unavailable');
@@ -81,4 +98,11 @@ function authorize(...allowedRoles) {
   };
 }
 
-module.exports = { authenticate, authorize, verifyAccessToken, accountStillAllowed };
+module.exports = {
+  authenticate,
+  authorize,
+  verifyAccessToken,
+  accountStillAllowed,
+  claimsPolicyAllows,
+  LEGACY_CLAIMLESS_ISSUED_BEFORE,
+};
