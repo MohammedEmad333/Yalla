@@ -17,6 +17,8 @@ const {
 } = require('./utils/adminSession');
 const logger = require('./utils/logger');
 
+const OFFICIAL_ADMIN_WEB_ORIGIN = 'https://admin.yalladelivery.org';
+
 // نقطة الإقلاع: نربط Express + Socket.io على خادم HTTP واحد
 async function bootstrap() {
   await connectDB(); // 1) الاتصال بقاعدة البيانات
@@ -33,21 +35,26 @@ async function bootstrap() {
   // 2) إنشاء خادم HTTP يلفّ تطبيق Express
   const server = http.createServer(app);
 
-  // 3) تركيب Socket.io على نفس الخادم
+  // 3) تركيب Socket.io على نفس الخادم. في التطوير نعكس Origin بدل wildcard
+  // لأن credentials لا تعمل مع Access-Control-Allow-Origin: *.
+  const socketCorsOrigin = env.corsOrigin === '*' ? true : env.corsOrigin;
   const io = new Server(server, {
     cors: {
-      origin: env.corsOrigin,
+      origin: socketCorsOrigin,
       methods: ['GET', 'POST', 'PATCH'],
       credentials: true,
     },
   });
 
   // Admin Web لا يستطيع قراءة HttpOnly cookie — وهذا مقصود. قبل معالج المصادقة
-  // الحالي للسوكت ننسخ JWT من الكوكي إلى handshake.auth داخل الخادم فقط. تطبيقات
-  // Capacitor تواصل إرسال Bearer JWT المعتاد دون أي تغيير.
+  // الحالي للسوكت ننسخ JWT من الكوكي إلى handshake.auth داخل الخادم فقط. لا نقبل
+  // جلسة الكوكي إلا من Origin الرسمي للوحة؛ Capacitor يواصل إرسال JWT المعتاد.
   io.use((socket, next) => {
     const provided = socket.handshake.auth?.token;
     if (provided && provided !== ADMIN_SESSION_SENTINEL) return next();
+
+    const origin = String(socket.handshake.headers.origin || '').toLowerCase();
+    if (origin !== OFFICIAL_ADMIN_WEB_ORIGIN) return next();
 
     const cookieToken = getAdminSessionTokenFromCookieHeader(socket.handshake.headers.cookie);
     if (cookieToken) {
