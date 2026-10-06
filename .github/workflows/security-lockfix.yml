@@ -31,10 +31,13 @@ jobs:
 
       - name: Apply compatible npm security fixes
         run: |
-          set -euo pipefail
+          set -u
           for dir in backend admin bot; do
             echo "==> $dir"
-            (cd "$dir" && npm audit fix --package-lock-only)
+            # npm audit fix may return non-zero when only dev/build advisories remain.
+            # Keep compatible lockfile changes and let the normal CI production audit
+            # decide whether runtime high/critical vulnerabilities are still present.
+            (cd "$dir" && npm audit fix --package-lock-only) || true
           done
 
       - name: Commit refreshed lockfiles
