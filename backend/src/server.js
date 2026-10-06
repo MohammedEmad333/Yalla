@@ -11,6 +11,10 @@ const { startScheduler } = require('./services/scheduler.service');
 const notifications = require('./services/notification.service');
 const settingsService = require('./services/settings.service');
 const { migrateLegacyAdminRoles } = require('./services/securityMigration.service');
+const {
+  ADMIN_SESSION_SENTINEL,
+  getAdminSessionTokenFromCookieHeader,
+} = require('./utils/adminSession');
 const logger = require('./utils/logger');
 
 // نقطة الإقلاع: نربط Express + Socket.io على خادم HTTP واحد
@@ -31,8 +35,30 @@ async function bootstrap() {
 
   // 3) تركيب Socket.io على نفس الخادم
   const io = new Server(server, {
-    cors: { origin: env.corsOrigin, methods: ['GET', 'POST', 'PATCH'] },
+    cors: {
+      origin: env.corsOrigin,
+      methods: ['GET', 'POST', 'PATCH'],
+      credentials: true,
+    },
   });
+
+  // Admin Web لا يستطيع قراءة HttpOnly cookie — وهذا مقصود. قبل معالج المصادقة
+  // الحالي للسوكت ننسخ JWT من الكوكي إلى handshake.auth داخل الخادم فقط. تطبيقات
+  // Capacitor تواصل إرسال Bearer JWT المعتاد دون أي تغيير.
+  io.use((socket, next) => {
+    const provided = socket.handshake.auth?.token;
+    if (provided && provided !== ADMIN_SESSION_SENTINEL) return next();
+
+    const cookieToken = getAdminSessionTokenFromCookieHeader(socket.handshake.headers.cookie);
+    if (cookieToken) {
+      socket.handshake.auth = {
+        ...(socket.handshake.auth || {}),
+        token: cookieToken,
+      };
+    }
+    next();
+  });
+
   registerSocketHandlers(io); // تسجيل معالجات الأحداث اللحظية
 
   // 4) تشغيل مُشغّل الطلبات المجدولة (يفعّل المستحقّ دوريًا)
