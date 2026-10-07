@@ -58,3 +58,21 @@ test('RedisFixedWindowStore keeps keys opaque and bounded', async () => {
   assert.equal(redisKey.includes('sensitive-client-key'), false);
   assert.match(redisKey, /^yalla:ratelimit:___api_auth:[a-f0-9]{64}$/);
 });
+
+test('two limiter stores share the same Redis counter', { skip: !process.env.TEST_REDIS_URL }, async () => {
+  const namespace = `ci-${Date.now()}-${process.pid}`;
+  const firstStore = new RedisFixedWindowStore(process.env.TEST_REDIS_URL);
+  const secondStore = new RedisFixedWindowStore(process.env.TEST_REDIS_URL);
+
+  try {
+    const first = await firstStore.check('same-client', { windowMs: 5000, max: 1, namespace });
+    const second = await secondStore.check('same-client', { windowMs: 5000, max: 1, namespace });
+    assert.equal(first.allowed, true);
+    assert.equal(second.allowed, false);
+    assert.equal(second.remaining, 0);
+    assert.ok(second.retryAfterMs > 0 && second.retryAfterMs <= 5000);
+  } finally {
+    firstStore.client.close();
+    secondStore.client.close();
+  }
+});
