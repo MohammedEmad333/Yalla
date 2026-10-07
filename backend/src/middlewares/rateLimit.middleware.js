@@ -1,9 +1,11 @@
 'use strict';
 
+const env = require('../config/env');
+const { RedisFixedWindowStore } = require('../services/redisRateLimitStore');
+
 /**
- * محدّد معدّل بسيط بنافذة ثابتة في الذاكرة (بلا تبعيات خارجية).
- * مناسب لخادم واحد؛ في نشر موزّع يُستبدل بمخزن مشترك (Redis).
- * المنطق الأساسي في صنف نقيّ (يُحقن الوقت) ليكون قابلًا للاختبار.
+ * محدّد معدّل محلي بنافذة ثابتة. يبقى كـ fallback عند تعذّر Redis حتى لا تتحول
+ * مشكلة مخزن المعدّل إلى انقطاع كامل للـ API، ويُستخدم مباشرةً في اختبارات الوحدة.
  */
 class RateLimiter {
   constructor({ windowMs, max }) {
@@ -21,7 +23,6 @@ class RateLimiter {
     }
   }
 
-  // فحص طلب لمفتاح معيّن؛ الوقت يُحقن لسهولة الاختبار.
   check(key, now = Date.now()) {
     this.sweep(now);
     const entry = this.hits.get(key);
@@ -39,6 +40,22 @@ class RateLimiter {
   }
 }
 
+let sharedStore;
+let lastRedisWarningAt = 0;
+
+function getSharedStore() {
+  if (!env.redisUrl) return null;
+  if (!sharedStore) sharedStore = new RedisFixedWindowStore(env.redisUrl);
+  return sharedStore;
+}
+
+function warnRedisFallback(error) {
+  const now = Date.now();
+  if (now - lastRedisWarningAt < 60_000) return;
+  lastRedisWarningAt = now;
+  console.warn('[rate-limit] Redis unavailable; using per-process fallback:', error?.message || error);
+}
+
 function defaultKeyGenerator(req) {
   return req.ip || req.socket?.remoteAddress || 'unknown';
 }
@@ -48,27 +65,50 @@ function normalizeKey(value) {
   return (key || 'unknown').slice(0, 256);
 }
 
-function rateLimit({ windowMs = 60_000, max = 60, keyGenerator = defaultKeyGenerator } = {}) {
-  const limiter = new RateLimiter({ windowMs, max });
+function applyHeaders(res, max, result) {
+  res.set('X-RateLimit-Limit', String(max));
+  res.set('X-RateLimit-Remaining', String(Math.max(0, result.remaining)));
+  if (!result.allowed) {
+    res.set('Retry-After', String(Math.max(1, Math.ceil((result.retryAfterMs || 1000) / 1000))));
+  }
+}
 
-  return (req, res, next) => {
+function rateLimit({
+  windowMs = 60_000,
+  max = 60,
+  namespace = 'default',
+  keyGenerator = defaultKeyGenerator,
+  store,
+} = {}) {
+  const localLimiter = new RateLimiter({ windowMs, max });
+  const configuredStore = store === undefined ? getSharedStore() : store;
+
+  return async (req, res, next) => {
     let key;
     try {
       key = normalizeKey(keyGenerator(req));
     } catch {
       key = normalizeKey(defaultKeyGenerator(req));
     }
-    const result = limiter.check(key);
 
-    res.set('X-RateLimit-Limit', String(max));
-    res.set('X-RateLimit-Remaining', String(Math.max(0, result.remaining)));
+    let result;
+    if (configuredStore) {
+      try {
+        result = await configuredStore.check(key, { windowMs, max, namespace });
+      } catch (error) {
+        warnRedisFallback(error);
+        result = localLimiter.check(key);
+      }
+    } else {
+      result = localLimiter.check(key);
+    }
 
+    applyHeaders(res, max, result);
     if (!result.allowed) {
-      res.set('Retry-After', String(Math.ceil(result.retryAfterMs / 1000)));
       return res.status(429).json({ message: 'محاولات كثيرة جدًا، حاول لاحقًا' });
     }
-    next();
+    return next();
   };
 }
 
-module.exports = { RateLimiter, rateLimit };
+module.exports = { RateLimiter, rateLimit, normalizeKey };
