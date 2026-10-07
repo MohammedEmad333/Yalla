@@ -18,7 +18,7 @@ test('Redis RESP encoder creates a valid command frame', () => {
 test('Redis RESP parser handles integer arrays', () => {
   const parsed = parseResp(Buffer.from('*2\r\n:4\r\n:913\r\n'));
   assert.deepEqual(parsed.value, [4, 913]);
-  assert.equal(parsed.next, 17);
+  assert.equal(parsed.next, 14);
 });
 
 test('RedisFixedWindowStore maps atomic Redis response to limiter result', async () => {
