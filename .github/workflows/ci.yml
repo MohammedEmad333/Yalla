@@ -15,26 +15,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── فحص الـ Backend: اختبارات الوحدة + التكامل ضدّ MongoDB حقيقي ──
+  # ── فحص الـ Backend: اختبارات الوحدة + التكامل ضدّ MongoDB وRedis حقيقيين ──
   backend:
     runs-on: ubuntu-latest
-
-    # حاوية MongoDB جانبية — تتيح تشغيل اختبارات التكامل دون تنزيل ثنائي مؤقت
     services:
       mongo:
         image: mongo:7
         ports:
           - 27017:27017
-        # ننتظر جاهزية القاعدة قبل بدء الخطوات
         options: >-
           --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
 
     defaults:
       run:
         working-directory: backend
+
+    env:
+      REDIS_URL: redis://127.0.0.1:6379/0
+      TEST_REDIS_URL: redis://127.0.0.1:6379/0
 
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -55,12 +65,10 @@ jobs:
         run: npm test
 
       - name: اختبارات التكامل (ضدّ MongoDB)
-        # تمرير عنوان القاعدة يجعل العدّة تستخدم مونجو الحقيقي بدل التنزيل
         env:
           TEST_MONGO_URI: mongodb://localhost:27017/yalla_ci
         run: npm run test:integration
 
-  # ── فحص بناء لوحة الأدمن (يلتقط أخطاء البناء مبكرًا) ──
   admin-build:
     runs-on: ubuntu-latest
     defaults:
@@ -76,8 +84,6 @@ jobs:
       - name: تثبيت التبعيات
         run: npm ci
       - name: فحص أمني للتبعيات الإنتاجية
-        # أدوات Vite/Capacitor CLI تبقى ضمن Dependabot، بينما هذا الـgate يمنع
-        # نشر runtime dependency عالية/حرجة بدون جرّ ترقية framework كبرى تلقائيًا.
         run: npm audit --omit=dev --audit-level=high
       - name: بناء لوحة الأدمن
         run: npm run build

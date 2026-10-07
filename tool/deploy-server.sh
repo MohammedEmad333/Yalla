@@ -4,20 +4,8 @@
 # الأمر الموصى به من جذر المستودع:
 #   cd ~/Yalla && bash deploy.sh
 #
-# ويمكن تشغيل هذا الملف مباشرةً عند الحاجة:
-#   cd ~/Yalla && bash tool/deploy-server.sh
-#
-# ماذا يفعل: يسحب آخر كود، يبني صورة yalla-api جديدة، يستبدل الحاوية، ثمّ
-# يفحص /api/health — وإن فشل الفحص يتراجع تلقائيًّا إلى الصورة السابقة.
-# لا يلمس قاعدة البيانات ولا حاوية mongo ولا caddy.
-#
-# متغيّرات اختيارية:
-#   BRANCH=main            الفرع الذي يُسحب
-#   ENV_FILE=~/yalla.env   ملفّ متغيّرات البيئة
-#   FCM_FILE=~/fcm.json    ملفّ اعتماد FCM (يُربَط للقراءة فقط إن وُجد)
-#   MEDIA_HOST_DIR=~/yalla-media  مجلّد الصور الدائم على قرص Oracle
-#   يجب أن يحتوي ENV_FILE على API_BIND_HOST=127.0.0.1 في Oracle production.
-#   SEED_RESTAURANTS=1     تعبئة مطاعم تجريبية بعد النشر (آمن للتكرار)
+# ماذا يفعل: يسحب آخر كود، يضمن تشغيل Redis محلي غير مكشوف، يبني صورة yalla-api،
+# يستبدل الحاوية، ثم يفحص /api/health. وإن فشل الفحص يتراجع للصورة السابقة.
 set -euo pipefail
 
 BRANCH="${BRANCH:-main}"
@@ -26,6 +14,7 @@ FCM_FILE="${FCM_FILE:-$HOME/fcm.json}"
 MEDIA_HOST_DIR="${MEDIA_HOST_DIR:-$HOME/yalla-media}"
 IMAGE="yalla-api"
 CONTAINER="yalla-api"
+REDIS_CONTAINER="yalla-redis"
 HEALTH_URL="http://localhost:4000/api/health"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -34,21 +23,15 @@ fail() { printf '\n✖ %s\n' "$1" >&2; exit 1; }
 
 [ -f "$ENV_FILE" ] || fail "ملفّ البيئة غير موجود: $ENV_FILE"
 
-# الإنتاج الحالي يعمل داخل Docker. إذا بقيت نسخة قديمة من yalla-api في PM2
-# من إعداد سابق، نحذفها حتى لا تنافس الحاوية على المنفذ 4000.
 if command -v pm2 >/dev/null 2>&1 && pm2 describe "$CONTAINER" >/dev/null 2>&1; then
   say "إزالة تشغيل PM2 القديم لـ $CONTAINER"
   pm2 delete "$CONTAINER" >/dev/null 2>&1 || true
   pm2 save >/dev/null 2>&1 || true
 fi
 
-# الصور الجديدة لا تعيش داخل الحاوية. ننشئ مجلدًا ثابتًا على قرص Oracle
-# ونربطه دائمًا إلى /app/media حتى يبقى المحتوى عند استبدال/تراجع الحاوية.
 mkdir -p "$MEDIA_HOST_DIR"
 [ -d "$MEDIA_HOST_DIR" ] || fail "تعذّر إنشاء مجلّد الصور: $MEDIA_HOST_DIR"
 
-# تحقّق مبكر من إعدادات الأمان من دون طباعة قيم الأسرار في السجل.
-# التطبيق نفسه يكرر التحقق عند الإقلاع، لكن الفشل هنا أوضح ويمنع استبدال الحاوية بإعداد غير آمن.
 env_value() {
   local key="$1"
   sed -n "s/^${key}=//p" "$ENV_FILE" | tail -n 1 | tr -d '\r'
@@ -66,6 +49,35 @@ CORS_VALUE="$(env_value CORS_ORIGIN)"
 BIND_VALUE="$(env_value API_BIND_HOST)"
 [ "$BIND_VALUE" = "127.0.0.1" ] || fail "API_BIND_HOST يجب أن يكون 127.0.0.1 في Oracle production حتى لا ينكشف المنفذ 4000 مباشرة"
 
+REDIS_VALUE="$(env_value REDIS_URL)"
+[ -n "$REDIS_VALUE" ] || fail "REDIS_URL غير مضبوط في $ENV_FILE"
+case "$REDIS_VALUE" in
+  redis://127.0.0.1:6379|redis://127.0.0.1:6379/|redis://127.0.0.1:6379/0|redis://localhost:6379|redis://localhost:6379/|redis://localhost:6379/0) ;;
+  *) fail "في Oracle production اضبط REDIS_URL=redis://127.0.0.1:6379/0 حتى يبقى Redis محليًا وغير مكشوف" ;;
+esac
+
+say "ضمان تشغيل Redis محلي"
+if ! docker inspect "$REDIS_CONTAINER" >/dev/null 2>&1; then
+  docker run -d --name "$REDIS_CONTAINER" --restart unless-stopped \
+    -p 127.0.0.1:6379:6379 \
+    redis:7.4-alpine redis-server --appendonly no --save '' >/dev/null
+elif [ "$(docker inspect -f '{{.State.Running}}' "$REDIS_CONTAINER")" != "true" ]; then
+  docker start "$REDIS_CONTAINER" >/dev/null
+fi
+
+REDIS_OK=""
+for i in $(seq 1 15); do
+  if docker exec "$REDIS_CONTAINER" redis-cli ping 2>/dev/null | grep -q '^PONG$'; then REDIS_OK=1; break; fi
+  sleep 1
+done
+[ -n "$REDIS_OK" ] || fail "Redis لم يصبح جاهزًا"
+PUBLISHED_REDIS="$(docker port "$REDIS_CONTAINER" 6379/tcp 2>/dev/null || true)"
+case "$PUBLISHED_REDIS" in
+  127.0.0.1:6379) ;;
+  *) fail "Redis يجب أن يكون مربوطًا فقط على 127.0.0.1:6379؛ الحالي: ${PUBLISHED_REDIS:-غير معروف}" ;;
+esac
+echo "  ✓ Redis جاهز ومتاح محليًا فقط"
+
 say "سحب آخر كود من الفرع $BRANCH"
 cd "$ROOT"
 git fetch origin "$BRANCH"
@@ -75,7 +87,6 @@ GIT_SHA="$(git rev-parse HEAD)"
 echo "  آخر كوميت: $(git log --oneline -1)"
 echo "  SHA الكامل: $GIT_SHA"
 
-# تأكد أن نسخة المصدر التي سنبنيها تحتوي إصلاح رفع صور البانرات.
 grep -q "banners/:bannerId/image" "$ROOT/backend/src/routes/admin.routes.js" \
   || fail "نسخة المصدر الحالية لا تحتوي مسار رفع صور البانرات الجديد"
 
@@ -90,7 +101,6 @@ fi
 say "بناء صورة الباك اند"
 docker build --build-arg GIT_SHA="$GIT_SHA" -t "$IMAGE" "$ROOT/backend"
 
-# تشغيل الحاوية بنفس أعلام الإنتاج (راجع docs/12-oracle-cloud-migration.md)
 run_container() {
   local tag="$1"
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
@@ -133,9 +143,6 @@ fi
 HEALTH_JSON="$(curl -fsS --max-time 5 "$HEALTH_URL")"
 echo "  ✓ $HEALTH_JSON"
 
-# لا نكتفي بصحة HTTP: نتحقق أن الحاوية نفسها تحتوي ملف الراوتر الجديد،
-# وأن متغيّر APP_GIT_SHA الداخلي يطابق نفس SHA الذي سحبناه قبل البناء.
-# لا نكشف SHA في /api/health لأن endpoint عام.
 docker exec "$CONTAINER" sh -lc "grep -q \"banners/:bannerId/image\" /app/src/routes/admin.routes.js" \
   || fail "الحاوية تعمل بكود قديم: مسار رفع صور البانرات غير موجود داخلها"
 
@@ -145,7 +152,6 @@ CONTAINER_GIT_SHA="$(docker exec "$CONTAINER" sh -lc 'printf %s "${APP_GIT_SHA:-
 
 echo "  ✓ تم التحقق من نسخة الكود ومسار رفع صور البانرات"
 
-# تعبئة مطاعم تجريبية عند الطلب (SEED_RESTAURANTS=1)
 if [ "${SEED_RESTAURANTS:-0}" = "1" ]; then
   say "تعبئة مطاعم تجريبية"
   docker exec "$CONTAINER" npm run seed:restaurants || echo "  ⚠️ تعذّرت التعبئة (تجاهلها إن كانت المطاعم موجودة)"
@@ -157,4 +163,5 @@ docker ps --format '  {{.Names}}\t{{.Status}}' | grep -E 'yalla|caddy' || true
 echo
 echo "  فحص خارجي:  curl -s https://api.yalladelivery.org/api/health"
 echo "  المطاعم:     curl -s https://api.yalladelivery.org/api/restaurants"
+echo "  Redis:       127.0.0.1:6379 (localhost only)"
 echo "  الصور:        $MEDIA_HOST_DIR -> /app/media"
