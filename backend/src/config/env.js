@@ -1,16 +1,11 @@
 'use strict';
 
-// تحميل متغيّرات البيئة من ملف .env ثم تجميعها في كائن واحد.
-// نلفّ الاستدعاء بحماية حتى تعمل أدوات مثل الاختبارات دون تثبيت التبعيات.
 try {
   require('dotenv').config();
 } catch {
   // dotenv غير مثبّت — نعتمد على متغيّرات البيئة الموجودة مباشرةً
 }
 
-// أصول تطبيقات Capacitor الأصلية. مع androidScheme:"https" يكون أصل Android
-// هو https://localhost، وعلى iOS يكون capacitor://localhost. لا نضيف
-// http://localhost تلقائيًا في الإنتاج؛ يمكن إضافته يدويًا في CORS_ORIGIN للتطوير.
 const CAPACITOR_ORIGINS = ['https://localhost', 'capacitor://localhost'];
 
 const OFFICIAL_WEB_ORIGINS = [
@@ -21,8 +16,6 @@ const OFFICIAL_WEB_ORIGINS = [
   'https://partner.yalladelivery.org',
 ];
 
-// يقبل CORS_ORIGIN رابطًا واحدًا أو عدّة روابط مفصولة بفاصلة.
-// القيمة "*" مسموحة في التطوير فقط؛ validateProductionEnv يرفضها في الإنتاج.
 function parseCorsOrigin(value) {
   if (!value || value.trim() === '*') return '*';
   const list = value
@@ -44,36 +37,44 @@ function validateProductionEnv() {
   if (!corsOrigin || corsOrigin === '*') {
     throw new Error('CORS_ORIGIN must explicitly list trusted origins in production');
   }
+
+  const redisUrl = (process.env.REDIS_URL || '').trim();
+  if (!redisUrl) {
+    throw new Error('REDIS_URL must be explicitly set in production for distributed rate limiting');
+  }
+  let parsed;
+  try {
+    parsed = new URL(redisUrl);
+  } catch {
+    throw new Error('REDIS_URL must be a valid redis:// URL');
+  }
+  if (parsed.protocol !== 'redis:') throw new Error('REDIS_URL must use redis://');
+  if (parsed.username || parsed.password) {
+    throw new Error('REDIS_URL credentials are unsupported; bind Redis to localhost/private network instead');
+  }
 }
 
 validateProductionEnv();
 
 const env = {
   port: parseInt(process.env.PORT, 10) || 4000,
-  // عنوان الاستماع. في Oracle production نضبطه إلى 127.0.0.1 حتى لا يكون
-  // المنفذ 4000 مكشوفًا مباشرة؛ Cloudflare Tunnel وCaddy المحليان يصلان له عبر loopback.
   apiBindHost: process.env.API_BIND_HOST || '0.0.0.0',
   nodeEnv: process.env.NODE_ENV || 'development',
   mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/yalla',
+  redisUrl: (process.env.REDIS_URL || '').trim(),
   jwtSecret: process.env.JWT_SECRET || 'change_me_super_secret',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   jwtIssuer: process.env.JWT_ISSUER || 'yalla-api',
   jwtAudience: process.env.JWT_AUDIENCE || 'yalla-clients',
   corsOrigin: parseCorsOrigin(process.env.CORS_ORIGIN),
-  // مستندات OpenAPI تكون مغلقة افتراضيًا في production ولا تُفتح إلا صراحةً.
   enableApiDocs: process.env.ENABLE_API_DOCS === 'true',
-  // تفعيل الإسناد التلقائي لأقرب كابتن عند إنشاء الطلب
   autoAssign: process.env.AUTO_ASSIGN === 'true',
-  // نسبة عمولة الشركة من قيمة كل توصيلة (0.2 = 20%)
   commissionRate: parseFloat(process.env.COMMISSION_RATE) || 0.2,
-  // مهلة قبول الكابتن للطلب المُسنَد قبل إلغاء الإسناد وإعادته (ثوانٍ) — ٣ دقائق (Card 54)
   acceptTimeoutSeconds: parseInt(process.env.ACCEPT_TIMEOUT_SECONDS, 10) || 180,
-  // إعدادات إشعارات Firebase (اختيارية — إن غابت تُعطَّل الإشعارات).
   fcm: {
     credentialsPath: process.env.FCM_CREDENTIALS_PATH || '',
     credentialsJson: process.env.FCM_CREDENTIALS_JSON || '',
   },
-  // SMTP اختياري: لا يمنع الإقلاع إن لم يُضبط، لكن خدمة البريد سترفض الإرسال برسالة واضحة.
   smtp: {
     host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
     port: parseInt(process.env.SMTP_PORT, 10) || 587,
