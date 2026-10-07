@@ -14,21 +14,27 @@ const { ROLES } = require('../utils/constants');
 const { normalizePhone } = require('../utils/phone');
 
 // حدّ أشدّ على مسارات المصادقة لمنع هجمات التخمين (brute force)
-const authLimiter = rateLimit({ windowMs: 60_000, max: 20 });
+const authLimiter = rateLimit({ windowMs: 60_000, max: 20, namespace: 'auth-ip-v1' });
 // حدود إضافية مرتبطة بالهوية نفسها، حتى لا يمكن تجاوز الحماية بتوزيع المحاولات
 // على عناوين IP كثيرة أو إغراق بريد واحد بطلبات إعادة التعيين.
 const forgotPasswordIdentityLimiter = rateLimit({
   windowMs: 15 * 60_000,
   max: 3,
+  namespace: 'password-forgot-identity-v1',
   keyGenerator: (req) => `forgot:${String(req.body?.email || '').trim().toLowerCase()}`,
 });
 const resetPasswordIdentityLimiter = rateLimit({
   windowMs: 15 * 60_000,
   max: 10,
+  namespace: 'password-reset-identity-v1',
   keyGenerator: (req) => `reset:${String(req.body?.email || '').trim().toLowerCase()}`,
 });
 // رفع مستندات الهوية مكلف بالمساحة؛ حد مستقل أكثر تشددًا.
-const captainApplyLimiter = rateLimit({ windowMs: 60 * 60_000, max: 5 });
+const captainApplyLimiter = rateLimit({
+  windowMs: 60 * 60_000,
+  max: 5,
+  namespace: 'captain-apply-ip-v1',
+});
 
 // لا نكشف في استجابة 401 هل رقم الحساب موجود أم أن كلمة المرور فقط خاطئة.
 function maskUnauthorizedLogin(req, res, next) {
