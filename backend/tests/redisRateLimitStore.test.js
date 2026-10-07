@@ -76,3 +76,26 @@ test('two limiter stores share the same Redis counter', { skip: !process.env.TES
     secondStore.client.close();
   }
 });
+
+test('distinct namespaces isolate counters for the same client', { skip: !process.env.TEST_REDIS_URL }, async () => {
+  const suffix = `${Date.now()}-${process.pid}`;
+  const store = new RedisFixedWindowStore(process.env.TEST_REDIS_URL);
+
+  try {
+    const auth = await store.check('same-client', {
+      windowMs: 5000,
+      max: 1,
+      namespace: `auth-${suffix}`,
+    });
+    const admin = await store.check('same-client', {
+      windowMs: 5000,
+      max: 1,
+      namespace: `admin-${suffix}`,
+    });
+
+    assert.equal(auth.allowed, true);
+    assert.equal(admin.allowed, true);
+  } finally {
+    store.client.close();
+  }
+});
