@@ -11,7 +11,11 @@ const {
   serializeAdminSessionClearCookie,
 } = require('../utils/adminSession');
 
-const adminLoginLimiter = rateLimit({ windowMs: 60_000, max: 10 });
+const adminLoginLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  namespace: 'admin-login-ip-v1',
+});
 const loginSchema = {
   phone: [V.required, V.phone],
   password: [V.required],
