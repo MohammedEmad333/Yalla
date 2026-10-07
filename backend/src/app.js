@@ -67,8 +67,9 @@ app.use(
 // توافق الصور القديمة: /files/<id> يبقى صالحًا أثناء نقل FileAsset من MongoDB إلى القرص.
 app.use('/files', publicAssetHeaders, require('./routes/files.routes'));
 
-// حدّ معدّل عام سخيّ لكل الـ API (طبقة حماية أساسية ضدّ الإساءة)
-app.use('/api', rateLimit({ windowMs: 60_000, max: 300 }));
+// حدّ معدّل عام سخيّ لكل الـ API. في الإنتاج تُخزّن العدادات في Redis كي تكون
+// مشتركة بين جميع نسخ الـ API بدل أن يستطيع العميل تجاوز الحد بتبديل النسخة.
+app.use('/api', rateLimit({ windowMs: 60_000, max: 300, namespace: 'api-global-v1' }));
 app.use('/api', routes);                 // كل الـ API تحت البادئة /api
 
 // معالجة 404 ثم الأخطاء المركزية (يجب أن تكونا في النهاية)
