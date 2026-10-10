@@ -121,6 +121,15 @@ jobs:
         run: flutter pub get
       - name: تحليل Flutter
         run: flutter analyze --no-fatal-infos
+      - name: اختبارات Flutter للشركاء
+        run: flutter test
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: اختبار بناء صورة Backend للإنتاج
+        run: docker build --build-arg GIT_SHA="${{ github.sha }}" -t yalla-api:ci ./backend
 
   bot-check:
     runs-on: ubuntu-latest

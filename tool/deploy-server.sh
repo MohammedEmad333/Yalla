@@ -106,13 +106,15 @@ run_container() {
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   docker run -d --name "$CONTAINER" --restart unless-stopped \
     --network host --env-file "$ENV_FILE" \
-    -e APP_GIT_SHA="$GIT_SHA" \
     -e MEDIA_ROOT=/app/media \
     ${FCM_MOUNT:-} \
     -v yalla_uploads:/app/uploads \
     -v "$MEDIA_HOST_DIR:/app/media" \
     "$tag" >/dev/null
 }
+
+# APP_GIT_SHA is baked into each image at build time. Do not override it
+# when restoring :previous, otherwise rollback reports the failed new SHA.
 
 FCM_MOUNT=""
 [ -f "$FCM_FILE" ] && FCM_MOUNT="-v $FCM_FILE:/app/fcm.json:ro"

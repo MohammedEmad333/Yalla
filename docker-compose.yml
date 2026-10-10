@@ -7,7 +7,7 @@ services:
     container_name: yalla-mongo
     restart: unless-stopped
     ports:
-      - '27017:27017'
+      - '127.0.0.1:27017:27017'
     volumes:
       - mongo_data:/data/db
 
@@ -34,7 +34,7 @@ services:
       NODE_ENV: development
       MONGO_URI: mongodb://mongo:27017/yalla
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: ${JWT_SECRET:-change_me_super_secret}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in a local .env file}
       JWT_EXPIRES_IN: 7d
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       AUTO_ASSIGN: ${AUTO_ASSIGN:-false}

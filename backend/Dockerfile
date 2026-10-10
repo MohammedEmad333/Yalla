@@ -1,11 +1,11 @@
 # صورة تشغيل الـ Backend (Node.js + Express + Socket.io)
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
 # نثبّت التبعيات أولًا للاستفادة من طبقات الكاش (تتغيّر أقل من الكود)
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 # ثم ننسخ بقيّة الكود
 COPY . .
