@@ -77,3 +77,16 @@ test('isOrderDelayed: صحيح فقط بعد الزمن التقديري + مه�
 test('isOrderDelayed: طلب بلا زمن تقديري لا يُعتبر متأخّرًا', () => {
   assert.equal(isOrderDelayed({ etaMinutes: 0, createdAt: new Date(0) }, Date.now()), false);
 });
+
+
+test('deliveryDueAt: rejects invalid timestamps and non-finite ETA', () => {
+  assert.equal(deliveryDueAt({ createdAt: 'not-a-date', etaMinutes: 20 }), null);
+  assert.equal(deliveryDueAt({ createdAt: new Date(0), etaMinutes: Infinity }), null);
+  assert.equal(deliveryDueAt({ createdAt: new Date(0), etaMinutes: -3 }), null);
+});
+
+test('isOrderDelayed: invalid clock values never trigger a delayed alert', () => {
+  const order = { createdAt: new Date(0), etaMinutes: 15 };
+  assert.equal(isOrderDelayed(order, NaN), false);
+  assert.equal(isOrderDelayed(order, 'invalid'), false);
+});
