@@ -50,6 +50,12 @@ async function canJoinOrderRoom(user, orderId) {
 }
 
 function validCoordinates(lng, lat) {
+  // Empty strings and null coerce to zero in JS, but aren't valid GPS readings.
+  if (lng === null || lat === null || lng === undefined || lat === undefined) return false;
+  if (typeof lng !== 'number' && typeof lng !== 'string') return false;
+  if (typeof lat !== 'number' && typeof lat !== 'string') return false;
+  if (typeof lng === 'string' && !lng.trim()) return false;
+  if (typeof lat === 'string' && !lat.trim()) return false;
   const x = Number(lng);
   const y = Number(lat);
   return Number.isFinite(x) && Number.isFinite(y) && x >= -180 && x <= 180 && y >= -90 && y <= 90;
