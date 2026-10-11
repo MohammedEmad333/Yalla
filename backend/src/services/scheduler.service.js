@@ -2,6 +2,7 @@
 
 const orderService = require('./order.service');
 const logger = require('../utils/logger');
+const { singleFlight } = require('../utils/singleFlight');
 
 // مُشغّل خلفي بسيط: يفحص الطلبات المجدولة دوريًا ويُفعّل المستحقّ منها.
 // (لخادم واحد؛ في نشر موزّع يُفضّل قفل/طابور مشترك لتفادي التكرار.)
@@ -30,7 +31,9 @@ function startScheduler({ intervalMs = 60_000 } = {}) {
     }
   }
 
-  const handle = setInterval(tick, intervalMs);
+  // Never overlap ticks within one process; a slow DB call could otherwise
+  // race against the next scheduled activation or delayed-order warning.
+  const handle = setInterval(singleFlight(tick), intervalMs);
   if (handle.unref) handle.unref(); // لا يمنع إغلاق العملية
   logger.info(`⏰ مُشغّل الطلبات المجدولة يعمل كل ${intervalMs / 1000} ثانية`);
 
