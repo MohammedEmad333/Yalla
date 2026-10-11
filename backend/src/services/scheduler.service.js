@@ -13,26 +13,23 @@ const { singleFlight } = require('../utils/singleFlight');
  * @returns {{ stop: Function }} مقبض لإيقاف المُشغّل
  */
 function startScheduler({ intervalMs = 60_000 } = {}) {
-  async function tick() {
+  // Each stage is independent: an intermittent DB error while activating scheduled
+  // orders must not suppress reassignment and delayed-order alerts for this tick.
+  async function runStage(label, operation) {
     try {
-      // 1) تفعيل الطلبات المجدولة المستحقّة
-      const activated = await orderService.activateDueScheduledOrders();
-      if (activated > 0) logger.info(`⏰ فُعّل ${activated} طلب مجدول مستحقّ`);
-
-      // 2) إعادة إسناد الطلبات التي انتهت مهلة قبولها
-      const reassigned = await orderService.expireStaleAssignments();
-      if (reassigned > 0) logger.info(`⏰ أُعيد إسناد ${reassigned} طلب انتهت مهلته`);
-
-      // 3) تنبيه الأدمن بالطلبات المتأخّرة عن زمنها التقديري (Card 40)
-      const delayed = await orderService.warnDelayedOrders();
-      if (delayed > 0) logger.warn(`⏰ نُبّه الأدمن عن ${delayed} طلب متأخّر`);
+      const count = await operation();
+      if (count > 0) logger.info(`⏰ ${label}: ${count}`);
     } catch (err) {
-      logger.error('خطأ في المُشغّل الخلفي:', err.message);
+      logger.error(`خطأ في ${label}:`, err.message);
     }
   }
 
-  // Never overlap ticks within one process; a slow DB call could otherwise
-  // race against the next scheduled activation or delayed-order warning.
+  async function tick() {
+    await runStage('تفعيل الطلبات المجدولة', () => orderService.activateDueScheduledOrders());
+    await runStage('إعادة إسناد الطلبات المنتهية', () => orderService.expireStaleAssignments());
+    await runStage('تنبيهات الطلبات المتأخرة', () => orderService.warnDelayedOrders());
+  }
+
   const handle = setInterval(singleFlight(tick), intervalMs);
   if (handle.unref) handle.unref(); // لا يمنع إغلاق العملية
   logger.info(`⏰ مُشغّل الطلبات المجدولة يعمل كل ${intervalMs / 1000} ثانية`);
