@@ -56,16 +56,18 @@ const DELAY_GRACE_MINUTES = 10;
 function deliveryDueAt(order) {
   if (!order) return null;
   const start = order.timeline?.acceptedAt || order.timeline?.assignedAt || order.createdAt || null;
-  const eta = Number(order.etaMinutes) || 0;
-  if (!start || eta <= 0) return null;
-  return new Date(start).getTime() + eta * 60_000;
+  const eta = Number(order.etaMinutes);
+  if (!start || !Number.isFinite(eta) || eta <= 0) return null;
+  const startMs = new Date(start).getTime();
+  if (!Number.isFinite(startMs)) return null;
+  return startMs + eta * 60_000;
 }
 
 function isOrderDelayed(order, now = Date.now(), graceMinutes = DELAY_GRACE_MINUTES) {
   const due = deliveryDueAt(order);
   if (due == null) return false;
   const t = now instanceof Date ? now.getTime() : Number(now);
-  return t > due + graceMinutes * 60_000;
+  return Number.isFinite(t) && t > due + graceMinutes * 60_000;
 }
 
 module.exports = {
