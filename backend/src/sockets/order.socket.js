@@ -117,11 +117,14 @@ function registerSocketHandlers(io) {
         if (!(await canJoinOrderRoom(socket.user, orderId))) throw new Error('غير مصرّح لهذا الطلب');
 
         const coordinates = [Number(lng), Number(lat)];
-        await Captain.updateOne(
+        const result = await Captain.updateOne(
           { _id: id, isApproved: true },
           { currentLocation: { type: 'Point', coordinates, updatedAt: new Date() } },
           { runValidators: true }
         );
+        if (result.matchedCount !== 1) {
+          throw new Error('تعذّر تحديث الموقع: حساب الكابتن غير معتمد أو غير متاح');
+        }
 
         io.to(ROOMS.order(orderId)).to(ROOMS.admins()).emit(EVENTS.CAPTAIN_LOCATION, {
           orderId,
