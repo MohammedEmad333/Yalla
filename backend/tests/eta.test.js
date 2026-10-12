@@ -90,3 +90,13 @@ test('isOrderDelayed: invalid clock values never trigger a delayed alert', () =>
   assert.equal(isOrderDelayed(order, NaN), false);
   assert.equal(isOrderDelayed(order, 'invalid'), false);
 });
+
+
+test('isOrderDelayed: invalid negative or non-finite grace never generates alerts', () => {
+  const order = { timeline: { acceptedAt: new Date('2026-01-01T10:00:00Z') }, etaMinutes: 20 };
+  const now = new Date('2026-01-01T10:21:00Z');
+  for (const grace of [-1, NaN, Infinity, 'invalid']) {
+    assert.equal(isOrderDelayed(order, now, grace), false);
+  }
+  assert.equal(isOrderDelayed(order, now, 0), true);
+});
