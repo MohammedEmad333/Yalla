@@ -5,7 +5,7 @@ const Captain = require('../models/Captain');
 const orderService = require('./order.service');
 const { etaBreakdown } = require('../utils/eta');
 const { ORDER_STATUS } = require('../utils/constants');
-const { isDispatchReady } = require('../utils/dispatchReadiness');
+const { isDispatchReady, dispatchReadyQuery } = require('../utils/dispatchReadiness');
 const { validGeoPoint } = require('../utils/geoPoint');
 
 function httpError(message, statusCode = 400) {
@@ -64,12 +64,12 @@ async function assignBest(adminId, orderId) {
 }
 
 async function pendingOrders() {
-  const rows = await Order.find({ status: ORDER_STATUS.PENDING })
+  const rows = await Order.find(dispatchReadyQuery())
     .populate('user', 'name lastName phone')
     .sort({ createdAt: 1 })
     .limit(100)
     .lean();
-  return rows.filter((order) => isDispatchReady(order)).map((order) => ({
+  return rows.map((order) => ({
     id: order._id,
     user: order.user,
     pickup: order.pickup,
