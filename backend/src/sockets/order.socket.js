@@ -9,6 +9,7 @@ const chatService = require('../services/chat.service');
 const ioRef = require('./io');
 const logger = require('../utils/logger');
 const { ROLES, ROOMS, EVENTS, CAPTAIN_STATUS } = require('../utils/constants');
+const { hasActiveCaptainSockets } = require('../utils/captainConnections');
 const { TRACKABLE_ORDER_STATUSES } = require('../utils/trackingRules');
 
 const LIVE_ADMIN_ROLES = new Set(['super_admin', 'operations', 'support']);
@@ -177,6 +178,9 @@ function registerSocketHandlers(io) {
       logger.info(`❎ فصل الاتصال: ${role}:${id}`);
       if (role !== ROLES.CAPTAIN) return;
       try {
+        // A captain can have multiple app sessions or a new connection during
+        // reconnect. Only mark offline when no other live socket remains.
+        if (await hasActiveCaptainSockets(io, id)) return;
         const captain = await Captain.findById(id).select('status activeOrder');
         if (captain && captain.status === CAPTAIN_STATUS.ONLINE && !captain.activeOrder) {
           await Captain.findByIdAndUpdate(id, { status: CAPTAIN_STATUS.OFFLINE });
