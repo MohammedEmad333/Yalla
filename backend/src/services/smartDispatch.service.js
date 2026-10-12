@@ -6,6 +6,7 @@ const orderService = require('./order.service');
 const { etaBreakdown } = require('../utils/eta');
 const { ORDER_STATUS } = require('../utils/constants');
 const { isDispatchReady } = require('../utils/dispatchReadiness');
+const { validGeoPoint } = require('../utils/geoPoint');
 
 function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
@@ -22,7 +23,7 @@ async function loadPending(orderId) {
 async function recommendations(orderId) {
   const order = await loadPending(orderId);
   const coords = order.pickup?.location?.coordinates;
-  if (!Array.isArray(coords) || coords.length !== 2) throw httpError('موقع الاستلام غير صالح');
+  if (!validGeoPoint(coords)) throw httpError('موقع الاستلام غير صالح');
   const rows = await Captain.smartDispatchCandidates(coords, {
     maxKm: 15,
     excludeIds: order.rejectedBy || [],
