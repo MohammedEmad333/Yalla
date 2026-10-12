@@ -9,6 +9,7 @@ const chatService = require('../services/chat.service');
 const ioRef = require('./io');
 const logger = require('../utils/logger');
 const { ROLES, ROOMS, EVENTS, CAPTAIN_STATUS } = require('../utils/constants');
+const { TRACKABLE_ORDER_STATUSES } = require('../utils/trackingRules');
 
 const LIVE_ADMIN_ROLES = new Set(['super_admin', 'operations', 'support']);
 
@@ -121,6 +122,14 @@ function registerSocketHandlers(io) {
         if (role !== ROLES.CAPTAIN) throw new Error('غير مصرّح');
         if (!validCoordinates(lng, lat)) throw new Error('إحداثيات غير صالحة');
         if (!(await canJoinOrderRoom(socket.user, orderId))) throw new Error('غير مصرّح لهذا الطلب');
+        // A delivered/cancelled order must not keep receiving or broadcasting
+        // captain GPS updates, even if an old client remains connected.
+        const activeOrder = await Order.exists({
+          _id: orderId,
+          captain: id,
+          status: { $in: TRACKABLE_ORDER_STATUSES },
+        });
+        if (!activeOrder) throw new Error('لا يمكن تحديث موقع طلب غير نشط');
 
         const coordinates = [Number(lng), Number(lat)];
         const result = await Captain.updateOne(
