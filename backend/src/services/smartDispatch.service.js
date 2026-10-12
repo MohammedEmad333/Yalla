@@ -5,6 +5,7 @@ const Captain = require('../models/Captain');
 const orderService = require('./order.service');
 const { etaBreakdown } = require('../utils/eta');
 const { ORDER_STATUS } = require('../utils/constants');
+const { isDispatchReady } = require('../utils/dispatchReadiness');
 
 function httpError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
@@ -14,6 +15,7 @@ async function loadPending(orderId) {
   const order = await Order.findById(orderId).lean();
   if (!order) throw httpError('الطلب غير موجود', 404);
   if (order.status !== ORDER_STATUS.PENDING) throw httpError('الطلب لم يعد بانتظار الإسناد', 400);
+  if (!isDispatchReady(order)) throw httpError('الطلب غير جاهز للإسناد بعد', 409);
   return order;
 }
 
@@ -66,7 +68,7 @@ async function pendingOrders() {
     .sort({ createdAt: 1 })
     .limit(100)
     .lean();
-  return rows.map((order) => ({
+  return rows.filter((order) => isDispatchReady(order)).map((order) => ({
     id: order._id,
     user: order.user,
     pickup: order.pickup,
