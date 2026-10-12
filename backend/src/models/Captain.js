@@ -3,6 +3,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { CAPTAIN_STATUS } = require('../utils/constants');
+const { locationAgeMinutes } = require('../utils/locationFreshness');
 
 const captainSchema = new mongoose.Schema(
   {
@@ -94,12 +95,12 @@ Captain.smartDispatchCandidates = async function smartDispatchCandidates(
       const loadPenalty = Math.min(1, Number(row.activeOrdersCount || 0) / MAX_ACTIVE);
       const rating = Math.max(0, Math.min(5, Number(row.rating || 0)));
       const ratingPenalty = 1 - rating / 5;
-      const ageMin = Math.max(0, (now - new Date(row.currentLocation?.updatedAt || 0).getTime()) / 60000);
+      const ageMin = locationAgeMinutes(row.currentLocation?.updatedAt, now);
       const freshnessPenalty = Math.min(1, ageMin / 15);
       const score = Number((distancePenalty * 0.55 + loadPenalty * 0.25 + ratingPenalty * 0.15 + freshnessPenalty * 0.05).toFixed(4));
-      return { ...row, distanceKm: Number(distanceKm.toFixed(2)), locationAgeMinutes: Math.round(ageMin), dispatchScore: score };
+      return { ...row, distanceKm: Number(distanceKm.toFixed(2)), locationAgeMinutes: Number.isFinite(ageMin) ? Math.round(ageMin) : null, dispatchScore: score };
     })
-    .filter((row) => row.locationAgeMinutes <= 30)
+    .filter((row) => row.locationAgeMinutes !== null && row.locationAgeMinutes <= 30)
     .sort((a, b) => a.dispatchScore - b.dispatchScore || a.distanceKm - b.distanceKm);
 };
 
