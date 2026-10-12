@@ -67,7 +67,9 @@ function isOrderDelayed(order, now = Date.now(), graceMinutes = DELAY_GRACE_MINU
   const due = deliveryDueAt(order);
   if (due == null) return false;
   const t = now instanceof Date ? now.getTime() : Number(now);
-  return Number.isFinite(t) && t > due + graceMinutes * 60_000;
+  const grace = Number(graceMinutes);
+  if (!Number.isFinite(grace) || grace < 0) return false;
+  return Number.isFinite(t) && t > due + grace * 60_000;
 }
 
 module.exports = {
