@@ -9,6 +9,7 @@ const chatService = require('../services/chat.service');
 const ioRef = require('./io');
 const logger = require('../utils/logger');
 const { ROLES, ROOMS, EVENTS, CAPTAIN_STATUS } = require('../utils/constants');
+const { TRACKABLE_ORDER_STATUSES } = require('../utils/trackingRules');
 
 const LIVE_ADMIN_ROLES = new Set(['super_admin', 'operations', 'support']);
 
@@ -126,7 +127,7 @@ function registerSocketHandlers(io) {
         const activeOrder = await Order.exists({
           _id: orderId,
           captain: id,
-          status: { $in: ['assigned', 'accepted', 'picked_up'] },
+          status: { $in: TRACKABLE_ORDER_STATUSES },
         });
         if (!activeOrder) throw new Error('لا يمكن تحديث موقع طلب غير نشط');
 
