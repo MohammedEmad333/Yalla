@@ -14,7 +14,8 @@ function validateScheduledAt(value, now = new Date()) {
   if (value === undefined || value === null || value === '') return null; // طلب فوري
 
   const when = new Date(value);
-  if (Number.isNaN(when.getTime())) return 'وقت الجدولة غير صالح';
+  if (!Number.isFinite(when.getTime())) return 'وقت الجدولة غير صالح';
+  if (!Number.isFinite(now.getTime())) return 'الوقت الحالي غير صالح';
   if (when.getTime() <= now.getTime()) return 'يجب أن يكون وقت الجدولة في المستقبل';
   if (when.getTime() - now.getTime() > MAX_AHEAD_MS) return 'لا يمكن الجدولة لأكثر من 7 أيام';
 
@@ -29,7 +30,9 @@ function validateScheduledAt(value, now = new Date()) {
  */
 function isDue(scheduledAt, now = new Date()) {
   if (!scheduledAt) return true;
-  return new Date(scheduledAt).getTime() <= now.getTime();
+  const dueAt = new Date(scheduledAt).getTime();
+  const currentTime = now.getTime();
+  return Number.isFinite(dueAt) && Number.isFinite(currentTime) && dueAt <= currentTime;
 }
 
 /**
