@@ -3,6 +3,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { CAPTAIN_STATUS } = require('../utils/constants');
+const { validGeoPoint } = require('../utils/geoPoint');
 const { locationAgeMinutes } = require('../utils/locationFreshness');
 
 const captainSchema = new mongoose.Schema(
@@ -63,7 +64,9 @@ Captain.smartDispatchCandidates = async function smartDispatchCandidates(
   coordinates,
   { maxKm = 10, excludeIds = [], limit = 20 } = {}
 ) {
-  if (!Array.isArray(coordinates) || coordinates.length !== 2) return [];
+  // This helper is also called directly by automatic assignment; never pass
+  // malformed coordinates to $geoNear even if a controller was bypassed.
+  if (!validGeoPoint(coordinates)) return [];
   const excluded = (excludeIds || []).map((id) => new mongoose.Types.ObjectId(String(id)));
   const maxDistance = Math.max(1, Number(maxKm) || 10) * 1000;
   const geoQuery = {
