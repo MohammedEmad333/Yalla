@@ -6,6 +6,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../config/app_config.dart';
 import '../storage/token_storage.dart';
+import 'order_room_subscriptions.dart';
 
 class SocketService {
   // نفس عنوان الـ Backend (بدون /api لأن السوكت على الجذر) — يُضبط عبر --dart-define
@@ -13,6 +14,7 @@ class SocketService {
 
   final TokenStorage _tokenStorage;
   io.Socket? _socket;
+  final OrderRoomSubscriptions _rooms = OrderRoomSubscriptions();
 
   // مستمعو الأحداث المُسجّلون من الشاشات. نحتفظ بهم في خريطة (حدث -> قائمة دوال)
   // حتى نُعيد ربطهم بالسوكت فور اكتمال الاتصال (connect غير متزامن) وعند إعادة
@@ -30,6 +32,7 @@ class SocketService {
     if (_socket != null && _socket!.connected) return;
 
     final token = await _tokenStorage.read();
+    _socket?.dispose();
     _socket = io.io(
       _url,
       io.OptionBuilder()
@@ -42,6 +45,7 @@ class SocketService {
     // نربط مُوزّعًا واحدًا لكل حدث مسجّل على مثيل السوكت. socket.io يحتفظ
     // بالمستمعين عبر إعادة الاتصال، فيكفي ربطها مرّة عند إنشاء السوكت.
     _bindRegisteredListeners();
+    _socket!.onConnect((_) => _rooms.restore(_emitOrderJoin));
     _socket!.connect();
   }
 
@@ -83,7 +87,13 @@ class SocketService {
   }
 
   // الانضمام لغرفة طلب معيّن لاستقبال تحديثاته وموقع الكابتن
-  void joinOrder(String orderId) => _socket?.emit('order:join', {'orderId': orderId});
+  void joinOrder(String orderId) =>
+      _rooms.join(orderId, isConnected, _emitOrderJoin);
+
+  void leaveOrder(String orderId) => _rooms.remove(orderId);
+
+  void _emitOrderJoin(String orderId) =>
+      _socket?.emit('order:join', {'orderId': orderId});
 
   // الاستماع لموقع الكابتن اللحظي
   void Function() onCaptainLocation(void Function(Map<String, dynamic>) cb) =>
@@ -145,6 +155,7 @@ class SocketService {
   void dispose() {
     _socket?.dispose();
     _socket = null;
+    _rooms.clear();
     _listeners.clear();
   }
 }
