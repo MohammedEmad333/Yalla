@@ -13,4 +13,23 @@ function isDispatchReady(order, now = new Date()) {
   return true;
 }
 
-module.exports = { isDispatchReady };
+// Match the same eligibility rules inside MongoDB before sorting/limiting.
+// A post-limit JS filter could hide ready orders behind 100 future orders.
+function dispatchReadyQuery(now = new Date()) {
+  return {
+    status: ORDER_STATUS.PENDING,
+    $and: [
+      { $or: [
+        { scheduledAt: null },
+        { scheduledActivated: true },
+        { scheduledAt: { $lte: now } },
+      ] },
+      { $or: [
+        { 'store.restaurant': null },
+        { 'store.merchantStatus': { $in: [...READY_STORE_STATUSES] } },
+      ] },
+    ],
+  };
+}
+
+module.exports = { isDispatchReady, dispatchReadyQuery };
