@@ -38,3 +38,13 @@ test('isDue: يقارن وقت الجدولة بالحاضر', () => {
   assert.equal(isDue('2026-01-10T11:59:00Z', NOW), true);  // مضى
   assert.equal(isDue('2026-01-10T12:01:00Z', NOW), false); // لم يحن
 });
+
+
+test('schedule: invalid reference time is rejected instead of accepting future requests', () => {
+  assert.equal(validateScheduledAt('2026-01-11T12:00:00Z', new Date(NaN)), 'الوقت الحالي غير صالح');
+});
+
+test('isDue: invalid schedules and clocks never become due', () => {
+  assert.equal(isDue('invalid-date', NOW), false);
+  assert.equal(isDue('2026-01-10T11:00:00Z', new Date(NaN)), false);
+});
