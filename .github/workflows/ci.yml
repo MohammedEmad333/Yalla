@@ -9,12 +9,48 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      admin: ${{ steps.filter.outputs.admin }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      partner: ${{ steps.filter.outputs.partner }}
+      docker: ${{ steps.filter.outputs.docker }}
+      bot: ${{ steps.filter.outputs.bot }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.backend == 'true'
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            admin:
+              - 'admin/**'
+              - '.github/workflows/ci.yml'
+            mobile:
+              - 'mobile/**'
+              - '.github/workflows/ci.yml'
+            partner:
+              - 'partner/**'
+              - '.github/workflows/ci.yml'
+            docker:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            bot:
+              - 'bot/**'
+              - '.github/workflows/ci.yml'
   # ── فحص الـ Backend: اختبارات الوحدة + التكامل ضدّ MongoDB وRedis حقيقيين ──
   backend:
     runs-on: ubuntu-latest
@@ -70,6 +106,8 @@ jobs:
         run: npm run test:integration
 
   admin-build:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.admin == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -89,6 +127,8 @@ jobs:
         run: npm run build
 
   mobile-check:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -107,6 +147,8 @@ jobs:
         run: flutter test
 
   partner-check:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.partner == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -125,6 +167,8 @@ jobs:
         run: flutter test
 
   docker-build:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.docker == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -132,6 +176,8 @@ jobs:
         run: docker build --build-arg GIT_SHA="${{ github.sha }}" -t yalla-api:ci ./backend
 
   bot-check:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.bot == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
