@@ -1,6 +1,8 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
+// Use the mock provider rather than external payment credentials in CI.
+process.env.NODE_ENV = 'test';
 const jawwal = require('../src/services/jawwalPayClient');
 const { amountFor } = require('../src/services/directPayment.service');
 
