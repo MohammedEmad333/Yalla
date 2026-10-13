@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/network/api_client.dart';
+import 'claim_error_policy.dart';
 import '../../core/realtime/socket_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/input_behavior.dart';
@@ -179,8 +180,9 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       });
       _snack('تم قبول الطلب — أصبح طلبك النشط 🛵');
     } on ApiException catch (e) {
-      // 409 = أخذه كابتن آخر — نُزيله من القائمة
-      if (mounted) {
+      // A connectivity failure does not mean another captain claimed this order.
+      // Only a conflict response indicates the broadcast can be removed.
+      if (mounted && shouldRemoveClaimOnError(e.statusCode)) {
         setState(() => _available = _available.where((o) => o['_id'] != orderId).toList());
       }
       _snack(e.message);
