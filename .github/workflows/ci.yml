@@ -27,28 +27,41 @@ jobs:
       bot: ${{ steps.filter.outputs.bot }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: dorny/paths-filter@v3
-        id: filter
         with:
-          filters: |
-            backend:
-              - 'backend/**'
-              - '.github/workflows/ci.yml'
-            admin:
-              - 'admin/**'
-              - '.github/workflows/ci.yml'
-            mobile:
-              - 'mobile/**'
-              - '.github/workflows/ci.yml'
-            partner:
-              - 'partner/**'
-              - '.github/workflows/ci.yml'
-            docker:
-              - 'backend/**'
-              - '.github/workflows/ci.yml'
-            bot:
-              - 'bot/**'
-              - '.github/workflows/ci.yml'
+          fetch-depth: 0
+      - name: Detect changed components
+        id: filter
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            for component in backend admin mobile partner docker bot; do
+              echo "$component=true" >> "$GITHUB_OUTPUT"
+            done
+            exit 0
+          fi
+
+          git fetch --no-tags origin main
+          git diff --name-only origin/main...HEAD > /tmp/ci-changed-files
+          if grep -qx '.github/workflows/ci.yml' /tmp/ci-changed-files; then
+            for component in backend admin mobile partner docker bot; do
+              echo "$component=true" >> "$GITHUB_OUTPUT"
+            done
+            exit 0
+          fi
+
+          for component in backend admin mobile partner bot; do
+            if grep -q "^$component/" /tmp/ci-changed-files; then
+              echo "$component=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$component=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
+          if grep -q '^backend/' /tmp/ci-changed-files; then
+            echo "docker=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docker=false" >> "$GITHUB_OUTPUT"
+          fi
   # ── فحص الـ Backend: اختبارات الوحدة + التكامل ضدّ MongoDB وRedis حقيقيين ──
   backend:
     needs: changes
