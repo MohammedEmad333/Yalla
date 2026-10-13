@@ -64,11 +64,18 @@ class ApiClient {
     }
 
     final stopwatch = (kDebugMode || kProfileMode) ? (Stopwatch()..start()) : null;
-    final res = await http.post(
+    final http.Response res;
+    try {
+      res = await http.post(
       Uri.parse('$baseUrl$path'),
       headers: await _headers(),
       body: jsonEncode(requestBody),
-    );
+    ).timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      throw ApiException(0, writeNetworkFailureMessage(timedOut: true));
+    } on http.ClientException {
+      throw ApiException(0, writeNetworkFailureMessage());
+    }
     stopwatch?.stop();
     if (stopwatch != null) _logRequest('POST', path, res, stopwatch.elapsedMilliseconds);
     final data = _handle(res);
@@ -140,11 +147,18 @@ class ApiClient {
 
   Future<dynamic> put(String path, dynamic body) async {
     final stopwatch = (kDebugMode || kProfileMode) ? (Stopwatch()..start()) : null;
-    final res = await http.put(
+    final http.Response res;
+    try {
+      res = await http.put(
       Uri.parse('$baseUrl$path'),
       headers: await _headers(),
       body: jsonEncode(body),
-    );
+    ).timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      throw ApiException(0, writeNetworkFailureMessage(timedOut: true));
+    } on http.ClientException {
+      throw ApiException(0, writeNetworkFailureMessage());
+    }
     stopwatch?.stop();
     if (stopwatch != null) _logRequest('PUT', path, res, stopwatch.elapsedMilliseconds);
     final data = _handle(res);
@@ -154,11 +168,18 @@ class ApiClient {
 
   Future<dynamic> patch(String path, Map<String, dynamic> body) async {
     final stopwatch = (kDebugMode || kProfileMode) ? (Stopwatch()..start()) : null;
-    final res = await http.patch(
+    final http.Response res;
+    try {
+      res = await http.patch(
       Uri.parse('$baseUrl$path'),
       headers: await _headers(),
       body: jsonEncode(body),
-    );
+    ).timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      throw ApiException(0, writeNetworkFailureMessage(timedOut: true));
+    } on http.ClientException {
+      throw ApiException(0, writeNetworkFailureMessage());
+    }
     stopwatch?.stop();
     if (stopwatch != null) _logRequest('PATCH', path, res, stopwatch.elapsedMilliseconds);
     final data = _handle(res);
@@ -168,11 +189,18 @@ class ApiClient {
 
   Future<dynamic> delete(String path, [Map<String, dynamic>? body]) async {
     final stopwatch = (kDebugMode || kProfileMode) ? (Stopwatch()..start()) : null;
-    final res = await http.delete(
+    final http.Response res;
+    try {
+      res = await http.delete(
       Uri.parse('$baseUrl$path'),
       headers: await _headers(),
       body: body != null ? jsonEncode(body) : null,
-    );
+    ).timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      throw ApiException(0, writeNetworkFailureMessage(timedOut: true));
+    } on http.ClientException {
+      throw ApiException(0, writeNetworkFailureMessage());
+    }
     stopwatch?.stop();
     if (stopwatch != null) _logRequest('DELETE', path, res, stopwatch.elapsedMilliseconds);
     final data = _handle(res);
