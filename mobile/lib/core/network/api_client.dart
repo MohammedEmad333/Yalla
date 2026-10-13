@@ -2,9 +2,11 @@
 // (يعتمد على حزمة http؛ يمكن استبداله بـ dio دون تغيير الطبقات الأعلى.)
 
 import 'dart:convert';
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'network_error.dart';
 import 'package:http_parser/http_parser.dart' show MediaType;
 
 import '../config/app_config.dart';
@@ -89,7 +91,15 @@ class ApiClient {
 
   Future<dynamic> _performGet(String path) async {
     final stopwatch = (kDebugMode || kProfileMode) ? (Stopwatch()..start()) : null;
-    final res = await http.get(Uri.parse('$baseUrl$path'), headers: await _headers());
+    final http.Response res;
+    try {
+      res = await http.get(Uri.parse('$baseUrl$path'), headers: await _headers())
+          .timeout(const Duration(seconds: 20));
+    } on TimeoutException {
+      throw ApiException(0, networkFailureMessage(timedOut: true));
+    } on http.ClientException {
+      throw ApiException(0, networkFailureMessage());
+    }
     stopwatch?.stop();
     if (stopwatch != null) {
       _logRequest('GET', path, res, stopwatch.elapsedMilliseconds);
