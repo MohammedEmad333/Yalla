@@ -32,8 +32,6 @@ jobs:
         with:
           filters: |
             backend:
-    needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.backend == 'true'
               - 'backend/**'
               - '.github/workflows/ci.yml'
             admin:
@@ -53,6 +51,8 @@ jobs:
               - '.github/workflows/ci.yml'
   # ── فحص الـ Backend: اختبارات الوحدة + التكامل ضدّ MongoDB وRedis حقيقيين ──
   backend:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     services:
       mongo:
