@@ -141,6 +141,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       final data = await widget.api.get('/captains/me/orders');
       final list = (data as List).cast<Map<String, dynamic>>();
       final active = list.where((o) => _activeStatuses.contains(o['status'])).toList();
+      if (!mounted) return;
       setState(() => _order = active.isNotEmpty ? active.first : null);
     } on ApiException catch (e) {
       _snack(e.message);
