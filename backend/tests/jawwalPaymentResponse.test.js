@@ -30,3 +30,27 @@ test('direct payment amount includes items and delivery less earned discount', (
   assert.equal(amountFor({ store: { itemsTotal: 10 }, price: 5, rewardDiscount: 100 }), 0);
   assert.equal(amountFor({ price: 12.235 }), 12.24);
 });
+
+test('retrying a payment initiation with the same idempotency key preserves reference', async () => {
+  const args = {
+    mobile: '0591234567',
+    amount: 17.5,
+    externalReference: 'order-retry-001',
+    idempotencyKey: 'jawwal-order:order-retry-001',
+  };
+  const first = await jawwal.createPayment(args);
+  const retried = await jawwal.createPayment(args);
+  assert.equal(first.reference, retried.reference);
+  assert.ok(first.reference);
+});
+
+test('simulated gateway confirmation returns a paid response', async () => {
+  const payment = await jawwal.createPayment({
+    mobile: '0591234567',
+    amount: 30,
+    externalReference: 'order-confirm-002',
+    idempotencyKey: 'jawwal-order:order-confirm-002',
+  });
+  const confirmed = await jawwal.confirmPayment(payment.reference, '1234');
+  assert.equal(jawwal.isPaid(confirmed), true);
+});
