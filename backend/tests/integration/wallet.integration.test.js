@@ -36,3 +36,49 @@ test('historical wallet ledger prevents a negative balance', async (t) => {
   wallet = await Wallet.findOne({ user: user._id });
   assert.equal(wallet.balance, 40);
 });
+
+test('historical wallet debit respects funds reserved for active orders', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const user = await makeUser();
+  await walletService.creditWallet(user._id, 100);
+  await Wallet.updateOne({ user: user._id }, { $set: { reservedBalance: 75 } });
+
+  await assert.rejects(
+    () => walletService.debitWallet(user._id, 30),
+    /الرصيد المتاح غير كافٍ/
+  );
+  let wallet = await Wallet.findOne({ user: user._id });
+  assert.equal(wallet.balance, 100);
+  assert.equal(wallet.reservedBalance, 75);
+
+  await walletService.debitWallet(user._id, 25);
+  wallet = await Wallet.findOne({ user: user._id });
+  assert.equal(wallet.balance, 75);
+  assert.equal(wallet.reservedBalance, 75);
+  const summary = await walletService.getWalletSummary(user._id);
+  assert.equal(summary.availableBalance, 0);
+});
+
+test('historical wallet debit rejects a missing wallet without creating debt', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const user = await makeUser();
+  await assert.rejects(
+    () => walletService.debitWallet(user._id, 1),
+    /الرصيد المتاح غير كافٍ/
+  );
+  assert.equal(await Wallet.countDocuments({ user: user._id }), 0);
+});
+
+test('historical wallet balance summary distinguishes available and reserved funds', async (t) => {
+  if (!state.dbReady) return t.skip('لا قاعدة بيانات');
+  const user = await makeUser();
+  await walletService.creditWallet(user._id, 200);
+  await Wallet.updateOne({ user: user._id }, { $set: { reservedBalance: 45 } });
+  const summary = await walletService.getWalletSummary(user._id);
+  assert.deepEqual(summary, {
+    balance: 200,
+    reservedBalance: 45,
+    availableBalance: 155,
+    currency: 'ILS',
+  });
+});
