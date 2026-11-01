@@ -208,11 +208,7 @@
 
     }());
 
-    // إخفاء شاشة التحميل بمجرّد أن يرسم Flutter أول إطار.
-    window.addEventListener('flutter-first-frame', function () {
-      var s = document.getElementById('splash');
-      if (s) { s.classList.add('splash-hidden'); setTimeout(function () { s.remove(); }, 400); }
-    });
+
   </script>
   <script>
     // إزالة Service Worker/Cache القديم الخاص ببناء Flutter Web حتى لا يبقى
@@ -238,6 +234,7 @@
       }
     }());
   </script>
-  <script src="flutter_bootstrap.js" async></script>
+  <script src="splash-controller.js" defer></script>
+  <script src="flutter_bootstrap.js" defer></script>
 </body>
 </html>
