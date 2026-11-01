@@ -128,7 +128,6 @@ ThemeData buildYallaTheme([Brightness brightness = Brightness.light]) {
   final theme = base.copyWith(
     scaffoldBackgroundColor: YallaColors.surface,
     textTheme: text,
-    fontFamily: 'YallaArabic',
     splashFactory: InkSparkle.splashFactory,
 
     // شريط علوي مسطّح على لون الخلفية (إحساس نظيف)
