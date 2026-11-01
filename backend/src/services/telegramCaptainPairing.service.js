@@ -14,6 +14,10 @@ async function issueCode(captainId) {
   await Pairing.create({ captainId, codeHash: hashCode(code), expiresAt: new Date(Date.now() + TTL_MS) });
   return { code, expiresInSeconds: TTL_MS / 1000 };
 }
+async function getLinkStatus(captainId) {
+  const link = await Link.findOne({ captainId }).select('linkedAt').lean();
+  return { linked: Boolean(link), linkedAt: link ? link.linkedAt : null };
+}
 async function unlink(captainId) {
   await Pairing.deleteMany({ captainId });
   await Link.deleteOne({ captainId });
@@ -63,4 +67,4 @@ async function redeemCode({ code, telegramUserId, telegramChatId }) {
   return { linked: true };
 }
 
-module.exports = { issueCode, unlink, hashCode, redeemCode };
+module.exports = { issueCode, unlink, getLinkStatus, hashCode, redeemCode };
