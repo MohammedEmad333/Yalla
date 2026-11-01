@@ -53,18 +53,3 @@ async function handleUpdate(update, send) {
   });
 }
 module.exports = { createTelegramClient, handleUpdate, redeemPairing };
-).exec(input);
-  if (match) {
-    let linked = false;
-    try { linked = await redeemPairing(match[1], message.from.id, chat.id); }
-    catch (err) { console.error('Pairing bridge error:', err.message); }
-    await send('sendMessage', { chat_id: chat.id, text: linked ? 'تم ربط حساب الكابتن بنجاح.' : 'تعذر ربط الحساب. تحقق من الرمز أو اطلب رمزًا جديدًا من التطبيق.' });
-    return;
-  }
-  await send('sendMessage', {
-    chat_id: chat.id,
-    text: 'Yalla Delivery — بوت الكباتن\n\nسيتم تفعيل ربط الحساب الآمن قريبًا. لا ترسل كلمة المرور أو رمز التحقق هنا. استخدم تطبيق Yalla حاليًا لإدارة الطلبات.',
-    disable_web_page_preview: true,
-  });
-}
-module.exports = { createTelegramClient, handleUpdate, redeemPairing };
