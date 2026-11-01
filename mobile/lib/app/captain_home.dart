@@ -6,6 +6,7 @@ import '../core/network/api_client.dart';
 import '../core/onboarding/onboarding.dart';
 import '../core/realtime/socket_service.dart';
 import '../features/captain/active_order_screen.dart';
+import '../features/captain/captain_telegram_screen.dart';
 import '../features/captain/earnings_screen.dart';
 import '../features/captain/wallet_screen.dart';
 import '../features/notifications/notifications_screen.dart';
@@ -25,12 +26,13 @@ class _CaptainHomeState extends State<CaptainHome> {
   int _index = 0;
   late final List<Widget> _pages;
 
-  static const _labels = ['الطلب', 'أرباحي', 'محفظتي', 'الإشعارات', 'حسابي'];
+  static const _labels = ['الطلب', 'أرباحي', 'محفظتي', 'الإشعارات', 'تيليجرام', 'حسابي'];
   static const _icons = [
     Icons.local_shipping_outlined,
     Icons.trending_up_outlined,
     Icons.account_balance_wallet_outlined,
     Icons.notifications_none,
+    Icons.telegram,
     Icons.person_outline,
   ];
   static const _selectedIcons = [
@@ -38,6 +40,7 @@ class _CaptainHomeState extends State<CaptainHome> {
     Icons.trending_up,
     Icons.account_balance_wallet,
     Icons.notifications,
+    Icons.telegram,
     Icons.person,
   ];
 
@@ -49,6 +52,7 @@ class _CaptainHomeState extends State<CaptainHome> {
       EarningsScreen(api: widget.api, socket: widget.socket),
       CaptainWalletScreen(api: widget.api, socket: widget.socket),
       NotificationsScreen(api: widget.api, socket: widget.socket),
+      CaptainTelegramScreen(api: widget.api),
       ProfileScreen(api: widget.api, onLogout: widget.onLogout),
     ];
     widget.socket.connect();
