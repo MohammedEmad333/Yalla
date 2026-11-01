@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -19,6 +21,20 @@ class _CaptainTelegramScreenState extends State<CaptainTelegramScreen> {
   String? _code;
   DateTime? _expiresAt;
   String? _error;
+  Timer? _expiryTimer;
+
+  void _clearCode() {
+    _expiryTimer?.cancel();
+    _expiryTimer = null;
+    _code = null;
+    _expiresAt = null;
+  }
+
+  @override
+  void dispose() {
+    _expiryTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -31,7 +47,7 @@ class _CaptainTelegramScreenState extends State<CaptainTelegramScreen> {
     try {
       final data = await widget.api.get('/telegram-captain/link') as Map;
       if (!mounted) return;
-      setState(() { _linked = data['linked'] == true; if (_linked!) _code = null; });
+      setState(() { _linked = data['linked'] == true; if (_linked!) _clearCode(); });
     } catch (_) {
       if (mounted) setState(() => _error = 'تعذر التحقق من حالة الربط. حاول مجددًا.');
     } finally {
@@ -40,13 +56,18 @@ class _CaptainTelegramScreenState extends State<CaptainTelegramScreen> {
   }
 
   Future<void> _issue() async {
-    setState(() { _busy = true; _error = null; _code = null; });
+    setState(() { _busy = true; _error = null; _clearCode(); });
     try {
       final data = await widget.api.post('/telegram-captain/pairing-code', {}) as Map;
       if (!mounted) return;
       setState(() {
         _code = data['code'] as String?;
-        _expiresAt = DateTime.now().add(Duration(seconds: (data['expiresInSeconds'] as num?)?.toInt() ?? 300));
+        final seconds = (data['expiresInSeconds'] as num?)?.toInt() ?? 300;
+        _expiresAt = DateTime.now().add(Duration(seconds: seconds));
+        _expiryTimer?.cancel();
+        _expiryTimer = Timer(Duration(seconds: seconds), () {
+          if (mounted) setState(_clearCode);
+        });
       });
     } catch (_) {
       if (mounted) setState(() => _error = 'تعذر إصدار الرمز. تأكد من اعتماد حساب الكابتن.');
@@ -72,7 +93,7 @@ class _CaptainTelegramScreenState extends State<CaptainTelegramScreen> {
     try {
       await widget.api.delete('/telegram-captain/link');
       if (!mounted) return;
-      setState(() { _linked = false; _code = null; });
+      setState(() { _linked = false; _clearCode(); });
     } catch (_) {
       if (mounted) setState(() => _error = 'تعذر إلغاء الربط.');
     } finally {
