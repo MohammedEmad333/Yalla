@@ -22,6 +22,13 @@ router.post('/internal/redeem', rateLimit({ windowMs: 60_000, max: 10, namespace
   } catch (err) { next(err); }
 });
 router.use(authenticate, authorize(ROLES.CAPTAIN));
+router.get('/link', async (req, res, next) => {
+  try {
+    const result = await pairing.getLinkStatus(req.auth.id);
+    res.set('Cache-Control', 'no-store');
+    res.json(result);
+  } catch (err) { next(err); }
+});
 router.post('/pairing-code', async (req, res, next) => {
   try {
     const result = await pairing.issueCode(req.auth.id);
