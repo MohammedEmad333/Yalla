@@ -53,6 +53,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: YallaArabic
+      fonts:
+        - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
   assets:
     - assets/icon/
 
