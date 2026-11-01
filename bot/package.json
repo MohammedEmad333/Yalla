@@ -17,7 +17,7 @@
     "express": "^4.19.2",
     "pino": "^9.5.0",
     "qrcode-terminal": "^0.12.0",
-    "link-preview-js": "^5.0.0"
+    "link-preview-js": "^5.0.1"
   },
   "overrides": {
     "link-preview-js": "$link-preview-js"
