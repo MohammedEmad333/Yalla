@@ -1,23 +1,31 @@
-# Yalla Telegram Captain Bot (safe foundation)
+# Yalla Telegram Captain Bot
 
-A standalone **private-chat-only** Telegram webhook service. No customer data or captain actions are enabled until server-side pairing, authorization and order-state tests are implemented.
+Standalone private-chat-only Telegram webhook service (Node.js 22+, no npm dependencies).
 
-## Local setup
-Node.js 22+ required. No npm dependencies.
+## Configuration
 
-```sh
-export TELEGRAM_BOT_TOKEN='from BotFather'
-export TELEGRAM_WEBHOOK_SECRET='random-secret-allowed-by-Telegram'
-node --test test/*.test.js
-node index.js
-```
+Set secrets in the deployment environment, never in git. The backend and bot must share the **same** TELEGRAM_PAIRING_BRIDGE_SECRET (at least 32 characters).
 
-The service listens on 127.0.0.1:8098 by default. Configure your TLS reverse proxy to route only `POST /telegram/webhook` to this service. Register the public HTTPS webhook with Telegram's `setWebhook` using the same secret_token. Do not expose the local port publicly.
+- TELEGRAM_BOT_TOKEN: Telegram BotFather token
+- TELEGRAM_WEBHOOK_SECRET: Telegram webhook secret_token (1–256 ASCII letters, digits, underscores or hyphens)
+- TELEGRAM_PAIRING_BRIDGE_SECRET: high-entropy service-to-service shared secret, on BOTH backend and bot
+- YALLA_BACKEND_URL: backend origin (HTTPS or localhost HTTP), e.g. https://api.yalladelivery.org
+- PORT: local webhook port (default 8098, bound to 127.0.0.1)
 
-## Safety
-- No order actions or account linking are implemented yet.
-- Never collect credentials or OTPs in Telegram.
-- Group chats are ignored; callback queries are acknowledged.
-- Bot token and webhook secret must remain outside git.
-- Telegram delivery may be retried; future state-changing actions must be idempotent and authorized server-side.
-- Do not deploy as a working captain interface until the pairing and API authorization phases pass.
+Run `node --test test/*.test.js` and `node index.js` from this directory. Configure the HTTPS reverse proxy for POST /telegram/webhook and register Telegram's setWebhook with secret_token. Do not expose port 8098 publicly.
+
+## Account pairing
+
+1. An authenticated, approved captain requests POST /api/telegram-captain/pairing-code using their captain JWT.
+2. The backend returns a single-use code valid for five minutes.
+3. The captain sends `/start CODE` in a **private** chat with the bot.
+4. The bot calls POST /api/telegram-captain/internal/redeem with the shared secret. The backend validates, consumes and links the code.
+5. An authenticated captain may revoke the link using DELETE /api/telegram-captain/link.
+
+## Safety and rollout
+
+- Never send passwords or OTPs to the bot.
+- No order management, customer data access, or captain order actions are enabled yet.
+- Configure and validate the backend bridge and webhook secrets before deploying.
+- Telegram may retry deliveries. Account linking is single-use; future order actions require separate authorization and idempotency tests.
+- Verify the real pairing flow with a test captain before enabling the bot publicly.

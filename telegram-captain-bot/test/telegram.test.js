@@ -66,3 +66,31 @@ test('rejects insecure remote bridge URLs', async () => {
     else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = prevSecret;
   }
 });
+
+test('private /start with pairing code invokes backend bridge', async () => {
+  const previousUrl = process.env.YALLA_BACKEND_URL;
+  const previousSecret = process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+  const previousFetch = global.fetch;
+  process.env.YALLA_BACKEND_URL = 'https://api.example.org';
+  process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = 'c'.repeat(40);
+  const code = 'A'.repeat(32);
+  let redeemed = false;
+  global.fetch = async (url, opts) => {
+    assert.equal(new URL(url).pathname, '/api/telegram-captain/internal/redeem');
+    assert.equal(JSON.parse(opts.body).code, code);
+    redeemed = true;
+    return { status: 200 };
+  };
+  try {
+    const sent = [];
+    await handleUpdate({ message: { chat: { id: 42, type: 'private' }, from: { id: 42 }, text: '/start ' + code } }, async (method, payload) => sent.push({ method, payload }));
+    assert.equal(redeemed, true);
+    assert.match(sent[0].payload.text, /تم ربط/);
+  } finally {
+    global.fetch = previousFetch;
+    if (previousUrl === undefined) delete process.env.YALLA_BACKEND_URL;
+    else process.env.YALLA_BACKEND_URL = previousUrl;
+    if (previousSecret === undefined) delete process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+    else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = previousSecret;
+  }
+});
