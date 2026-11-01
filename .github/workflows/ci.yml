@@ -103,6 +103,13 @@ jobs:
         run: flutter pub get
       - name: تحليل Flutter
         run: flutter analyze --no-fatal-infos
+      - name: تجهيز الخط العربي للاختبارات
+        run: |
+          mkdir -p assets/fonts
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 90 \
+            --output assets/fonts/IBMPlexSansArabic-Regular.ttf \
+            https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexsansarabic/IBMPlexSansArabic-Regular.ttf
+          test "$(wc -c < assets/fonts/IBMPlexSansArabic-Regular.ttf)" -gt 10000
       - name: اختبارات Flutter
         run: flutter test
 
