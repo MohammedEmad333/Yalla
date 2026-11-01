@@ -38,7 +38,7 @@ async function handleUpdate(update, send) {
   }
   if (!message?.text || message.from?.is_bot) return;
   const input = message.text.trim();
-  const match = new RegExp('^/start(?:@\\\\w+)?\\\\s+([A-Za-z0-9_-]{32})
+  const match = /^\/start(?:@\w+)?\s+([A-Za-z0-9_-]{32})$/.exec(input);
   if (match) {
     let linked = false;
     try { linked = await redeemPairing(match[1], message.from.id, chat.id); }
