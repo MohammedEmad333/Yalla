@@ -8,7 +8,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// ألوان علامة يلا — مصدر واحد للألوان في التطبيق كلّه.
 ///
@@ -124,16 +123,12 @@ ThemeData buildYallaTheme([Brightness brightness = Brightness.light]) {
     labelLarge: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
   );
 
-  TextTheme text;
-  try {
-    text = GoogleFonts.ibmPlexSansArabicTextTheme(plain);
-  } catch (_) {
-    text = plain;
-  }
+  final text = plain.apply(fontFamily: 'YallaArabic');
 
   final theme = base.copyWith(
     scaffoldBackgroundColor: YallaColors.surface,
     textTheme: text,
+    fontFamily: 'YallaArabic',
     splashFactory: InkSparkle.splashFactory,
 
     // شريط علوي مسطّح على لون الخلفية (إحساس نظيف)
