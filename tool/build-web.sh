@@ -11,6 +11,22 @@ API_ORIGIN="${API_ORIGIN:-https://api.yalladelivery.org}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/mobile"
 
+# Fetch the OFL-licensed Arabic font into Flutter assets before building.
+FONT_DIR="$ROOT/mobile/assets/fonts"
+FONT_FILE="$FONT_DIR/IBMPlexSansArabic-Regular.ttf"
+mkdir -p "$FONT_DIR"
+if [ ! -s "$FONT_FILE" ]; then
+  curl --fail --location --retry 3 --connect-timeout 15 --max-time 90 \
+    --output "$FONT_FILE.tmp" \
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexsansarabic/IBMPlexSansArabic-Regular.ttf"
+  mv "$FONT_FILE.tmp" "$FONT_FILE"
+fi
+test "$(wc -c < "$FONT_FILE")" -gt 10000 || {
+  echo "Arabic font missing or invalid" >&2
+  exit 1
+}
+
+
 echo "▶ بناء Flutter web بعنوان: $API_ORIGIN"
 # --no-web-resources-cdn: خدمة canvaskit/محرّك الويب محليًّا بدل CDN خارجي (gstatic)
 flutter build web --release --no-web-resources-cdn --no-tree-shake-icons --pwa-strategy=none --dart-define=API_ORIGIN="$API_ORIGIN"
