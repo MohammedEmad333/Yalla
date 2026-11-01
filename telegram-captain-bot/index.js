@@ -1,11 +1,6 @@
 'use strict';
 const { createServer } = require('node:http');
-const { timingSafeEqual } = require('node:crypto');
-function secretMatches(actual, expected) {
-  if (typeof actual !== 'string' || typeof expected !== 'string') return false;
-  const a = Buffer.from(actual), b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+const { secretMatches } = require('./src/security');
 const { createTelegramClient, handleUpdate } = require('./src/telegram');
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) { console.error('TELEGRAM_BOT_TOKEN is required'); process.exit(1); }
