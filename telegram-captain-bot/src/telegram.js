@@ -11,6 +11,22 @@ function createTelegramClient(token, fetchImpl = fetch) {
     return result.result;
   };
 }
+async function redeemPairing(code, userId, chatId, fetchImpl = fetch) {
+  const base = process.env.YALLA_BACKEND_URL;
+  const secret = process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+  if (!base || !secret || secret.length < 32) throw new Error('Telegram pairing bridge is not configured');
+  const url = new URL('/api/telegram-captain/internal/redeem', base);
+  if (url.protocol !== 'https:' && !['127.0.0.1', 'localhost'].includes(url.hostname)) {
+    throw new Error('Telegram pairing bridge requires HTTPS');
+  }
+  const response = await fetchImpl(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-telegram-pairing-secret': secret },
+    body: JSON.stringify({ code, telegramUserId: String(userId), telegramChatId: String(chatId) }),
+    signal: AbortSignal.timeout(8000),
+  });
+  return response.status === 200;
+}
 async function handleUpdate(update, send) {
   const message = update?.message;
   const callback = update?.callback_query;
@@ -21,10 +37,19 @@ async function handleUpdate(update, send) {
     return;
   }
   if (!message?.text || message.from?.is_bot) return;
+  const input = message.text.trim();
+  const match = /^\\/start(?:@\\w+)?\\s+([A-Za-z0-9_-]{32})$/.exec(input);
+  if (match) {
+    let linked = false;
+    try { linked = await redeemPairing(match[1], message.from.id, chat.id); }
+    catch (err) { console.error('Pairing bridge error:', err.message); }
+    await send('sendMessage', { chat_id: chat.id, text: linked ? 'تم ربط حساب الكابتن بنجاح.' : 'تعذر ربط الحساب. تحقق من الرمز أو اطلب رمزًا جديدًا من التطبيق.' });
+    return;
+  }
   await send('sendMessage', {
     chat_id: chat.id,
     text: 'Yalla Delivery — بوت الكباتن\n\nسيتم تفعيل ربط الحساب الآمن قريبًا. لا ترسل كلمة المرور أو رمز التحقق هنا. استخدم تطبيق Yalla حاليًا لإدارة الطلبات.',
     disable_web_page_preview: true,
   });
 }
-module.exports = { createTelegramClient, handleUpdate };
+module.exports = { createTelegramClient, handleUpdate, redeemPairing };
