@@ -9,7 +9,7 @@ test('ignores group messages', async () => {
 });
 test('private start is informational, no order mutations', async () => {
   const calls = [];
-  await handleUpdate({ message: { chat: { id: 2, type: 'private' }, text: '/start' } }, async (...args) => calls.push(args));
+  await handleUpdate({ message: { chat: { id: 2, type: 'private' }, from: { id: 2 }, text: '/start' } }, async (...args) => calls.push(args));
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], 'sendMessage');
   assert.match(calls[0][1].text, /ربط الحساب/);
@@ -92,5 +92,39 @@ test('private /start with pairing code invokes backend bridge', async () => {
     else process.env.YALLA_BACKEND_URL = previousUrl;
     if (previousSecret === undefined) delete process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
     else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = previousSecret;
+  }
+});
+
+test('backend 5xx response triggers retry instead of false success', async () => {
+  const oldUrl = process.env.YALLA_BACKEND_URL;
+  const oldSecret = process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+  process.env.YALLA_BACKEND_URL = 'https://api.example.org';
+  process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = 'D'.repeat(48);
+  try {
+    await assert.rejects(
+      redeemPairing('A'.repeat(32), '4', '4', async () => ({ status: 503 })),
+      /Pairing bridge HTTP 503/
+    );
+  } finally {
+    if (oldUrl === undefined) delete process.env.YALLA_BACKEND_URL;
+    else process.env.YALLA_BACKEND_URL = oldUrl;
+    if (oldSecret === undefined) delete process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+    else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = oldSecret;
+  }
+});
+
+test('invalid pairing code is reported without retrying', async () => {
+  const oldUrl = process.env.YALLA_BACKEND_URL;
+  const oldSecret = process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+  process.env.YALLA_BACKEND_URL = 'https://api.example.org';
+  process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = 'D'.repeat(48);
+  try {
+    assert.equal(await redeemPairing('A'.repeat(32), '4', '4',
+      async () => ({ status: 400 })), false);
+  } finally {
+    if (oldUrl === undefined) delete process.env.YALLA_BACKEND_URL;
+    else process.env.YALLA_BACKEND_URL = oldUrl;
+    if (oldSecret === undefined) delete process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+    else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = oldSecret;
   }
 });
