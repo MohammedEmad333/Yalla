@@ -52,3 +52,12 @@ If deployment fails with `AuthenticationFailed: storedKey mismatch`, first verif
 - GitHub CI adds `telegram-captain-check`; backend Mongo integration tests cover valid, expired, replayed, unapproved, revoked and concurrent pairing attempts.
 - Do not claim the live server is updated until `systemctl` status, webhook registration, production backend connectivity and a real test-captain pairing/revoke/re-pair flow have been verified.
 - The general backend deploy script does not install or restart the separate `yalla-telegram-captain.service`. Deploy the bot using its existing systemd unit and secret environment, check `http://127.0.0.1:8098/health`, and verify HTTPS routing.
+
+## Order assignment Telegram notifications — opt-in phase
+
+- Only a read-only order ID and an instruction to open the Yalla app are sent. No customer information, addresses, payment details, OTPs, or order mutation commands.
+- Disabled by default: `TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED=true` must be explicitly set in the backend environment after review.
+- The backend also needs `TELEGRAM_BOT_TOKEN` in its private environment. Do not publish this token or print it in logs.
+- Best-effort only: failures do not block assignment. No durable outbox, guaranteed delivery, or exactly-once notification guarantee.
+- Verify with an approved, linked test captain before enabling for production. Roll back by setting the flag to false and redeploying the backend.
+- Tests: `cd backend && node --test tests/telegramCaptainNotification.test.js`.
