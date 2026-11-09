@@ -2,7 +2,7 @@
 #
 # التشغيل: تلقائيًا عند تغيّر ملفّات admin/** على main، أو يدويًا من تبويب Actions،
 # أو عند دفع وسم admin-v*.
-# النتيجة الأساسية: APK يُنشر على GitHub Release ثابت باسم yalla-admin-latest.
+# النتيجة الأساسية: APK يُحدَّث على yalla-admin-latest، وتُنشأ نسخة مرقّمة لكل versionName جديد على main.
 # Artifact يبقى نسخة مؤقتة اختيارية فقط، حتى لا تمنع حصة Actions نجاح البناء.
 #
 # أسرار مطلوبة/اختيارية (Settings → Secrets and variables → Actions):
@@ -125,6 +125,35 @@ jobs:
           fi
           gh release upload "$TAG" Yalla-Admin.apk --clobber
           echo "✅ تم نشر Yalla-Admin.apk على GitHub Release: $TAG"
+
+      # إصدار مرقّم مستقلّ عند الدمج إلى main. لا نعيد نشره عند بناءات لاحقة
+      # بنفس versionName، بينما yalla-admin-latest يستمر بالتحديث دائمًا.
+      - name: نشر إصدار Android مرقّم
+        if: github.ref == 'refs/heads/main'
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(awk '$1 == "versionName" { gsub(/"/, "", $2); print $2; exit }' admin/android/app/build.gradle)"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error::Invalid admin Android versionName: $VERSION"
+            exit 1
+          }
+          TAG="admin-v$VERSION"
+          APK="Yalla-Admin-$VERSION.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "✅ الإصدار $TAG موجود مسبقًا؛ لن نعدّل ملفه المحفوظ"
+          else
+            cp Yalla-Admin.apk "$APK"
+            gh release create "$TAG" "$APK" \
+              --target "$GITHUB_SHA" \
+              --title "Yalla Admin v$VERSION" \
+              --notes "إصدار تطبيق إدارة Yalla للاندرويد: تعديل بيانات الزبائن وإعادة تعيين كلمة المرور عبر Super Admin. هذا APK من بناء GitHub Actions (debug signing) وليس نسخة متجر موقعة بمفتاح إصدار." \
+              --latest=false
+            gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx "$APK"
+            echo "✅ تم إصدار $TAG بالملف $APK"
+          fi
 
       # نسخة إضافية مؤقتة فقط؛ فشل Artifact quota لا يجب أن يفشل البناء أو يمنع تنزيل APK من Release.
       - name: رفع الـ APK كـ Artifact اختياري

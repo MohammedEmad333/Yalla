@@ -23,7 +23,9 @@
    - أو `GOOGLE_SERVICES_JSON_BASE64` (بديل): على Linux/Mac نفّذ
      `base64 -w0 google-services.json` وألصق الناتج (تجنّب ترميز Windows فقد يُفسد القيمة).
 2. من تبويب **Actions** → اختر **Build Admin APK** → **Run workflow**.
-3. بعد انتهاء البناء، نزّل الـ APK من قسم **Artifacts** (`yalla-admin-apk`) وثبّته على الهاتف.
+3. بعد انتهاء البناء، نزّل الـ APK من [إصدارات GitHub](https://github.com/MohammedEmad333/Yalla/releases)؛ رابط **yalla-admin-latest** يُحدّث تلقائيًا، وعند رفع رقم النسخة على `main` يُنشأ إصدار مرقّم مثل `admin-v1.0.1`.
+
+> الملف المبني حاليًا من نوع Debug APK وموقّع بمفتاح التطوير، وقد لا يُثبَّت كتحديث فوق تطبيق موقّع بمفتاح مختلف. للإصدار الرسمي المستقر على الأجهزة يجب استخدام توقيع Android ثابت.
 
 > بلا إعداد Firebase يُبنى التطبيق ويعمل بالكامل لكن **بلا إشعارات Push**.
 > عنوان الـ API الافتراضي لنسخة الإنتاج هو `https://api.yalladelivery.org`، وأصل
