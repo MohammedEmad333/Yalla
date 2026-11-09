@@ -51,6 +51,7 @@ router.get('/user-counts', ctrl.getUserCounts);
 
 // إنشاء طلب توصيل من لوحة الأدمن — صلاحية orders حصريًا (وليس users).
 router.get('/orders/customers', requireAdminCapability('orders'), adminOrderCtrl.searchCustomers);
+router.get('/orders/captains', requireAdminCapability('orders'), adminOrderCtrl.listCaptains);
 router.post('/orders/preview', requireAdminCapability('orders'), blockOrderCreationDuringMaintenance, adminOrderCtrl.preview);
 router.post('/orders', requireAdminCapability('orders'), blockOrderCreationDuringMaintenance, adminOrderCtrl.create);
 router.get('/account', ctrl.getAdminAccount);
