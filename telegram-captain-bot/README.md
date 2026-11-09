@@ -39,3 +39,14 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 - TELEGRAM_WEBHOOK_SECRET must now contain **32-256 allowed ASCII characters**. Coordinate changing this value in the bot environment and Telegram's setWebhook secret_token; deploy with a shorter existing secret will fail fast.
 - Test locally with `npm test`. GitHub CI runs this suite independently of the WhatsApp bot.
 - No customer order actions, payments or location sharing are added by this change.
+
+
+## Captain read-only order alerts (phase 1)
+
+- /orders and /myorders show at most five active orders for the paired captain.
+- The refresh buttons query the backend on every press. Approval, Telegram identity, and current captain assignment are checked server-side.
+- Inbound webhook remains /telegram/webhook; /internal/order-event is loopback-only and protected with TELEGRAM_PAIRING_BRIDGE_SECRET.
+- Only IDs/status are sent from the backend to the internal event endpoint; the bot revalidates and then sends a short safe message. No user names, phone numbers, addresses, map data, OTPs, codes, wallet or payment details are sent to Telegram.
+- Backend-to-bot notifications are opt-in via TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED=true in the production backend env. Leave disabled until new backend and bot versions are deployed and verified.
+- Event delivery is best-effort with bounded in-memory deduplication, not a durable message queue. FCM/app remain authoritative.
+- Telegram cannot accept, reject, or mutate orders in this phase.
