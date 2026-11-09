@@ -1542,11 +1542,6 @@ async function getActiveOrders(regions) {
  * @param {{actorId?:string}} ctx
  */
 async function updateOrderPrice(orderId, newPrice, { actorId = null } = {}) {
-  const price = Math.round(Number(newPrice));
-  if (!Number.isFinite(price) || price < pricing.TARIFF.minFare) {
-    throw httpError(`السعر التقريبي يجب ألّا يقلّ عن ${pricing.TARIFF.minFare} ₪`, 400);
-  }
-
   const order = await Order.findById(orderId).select('+deliveryCode');
   if (!order) throw httpError('الطلب غير موجود', 404);
   if ([ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED].includes(order.status)) {
@@ -1554,6 +1549,11 @@ async function updateOrderPrice(orderId, newPrice, { actorId = null } = {}) {
   }
   if (order.adminFixedPrice) {
     throw httpError('السعر الإداري المحدد عند إنشاء الطلب ثابت؛ لا يمكن تغييره بعد حجز الرصيد', 409);
+  }
+
+  const price = Math.round(Number(newPrice));
+  if (!Number.isFinite(price) || price < pricing.TARIFF.minFare) {
+    throw httpError(`السعر التقريبي يجب ألّا يقلّ عن ${pricing.TARIFF.minFare} ₪`, 400);
   }
 
   const from = order.price;
