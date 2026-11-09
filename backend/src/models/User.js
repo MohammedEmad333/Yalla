@@ -24,6 +24,7 @@ const userSchema = new mongoose.Schema(
     passwordResetCodeHash: { type: String, default: null, select: false },
     passwordResetExpiresAt: { type: Date, default: null, select: false },
     passwordHash: { type: String, required: true, select: false },
+    sessionVersion: { type: Number, default: 0, min: 0, select: false },
     role: { type: String, enum: [ROLES.USER, ROLES.ADMIN], default: ROLES.USER },
     adminRole: {
       type: String,
