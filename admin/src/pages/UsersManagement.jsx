@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, API } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import { VEHICLE_TYPES, vehicleLabel } from '../vehicles';
 import {
   Alert,
@@ -112,8 +113,11 @@ function AccountDetailsModal({ title, avatarUrl, name, rows, onClose }) {
 
 // ── تبويب الزبائن (Card 41) ────────────────────────────────────
 function UsersTab() {
+  const { access } = useAuth();
+  const canEdit = ['super_admin', 'operations'].includes(access?.adminRole);
   const [users, setUsers] = useState([]);
   const [q, setQ] = useState('');
+  const [editingUser, setEditingUser] = useState(null);
   const [detail, setDetail] = useState(null);       // Card 91: الحساب المعروضة تفاصيله
   const [crediting, setCrediting] = useState(null); // الزبون المطلوب إضافة رصيد له
 
@@ -182,6 +186,7 @@ function UsersTab() {
                 <td data-label="إجراء" className="yl-td-actions">
                   <div className="yl-btnrow">
                     <Button size="sm" onClick={() => setDetail(u)}>تفاصيل</Button>
+                    {canEdit && <Button size="sm" variant="soft" onClick={() => setEditingUser(u)}>تعديل البيانات</Button>}
                     <Button size="sm" variant="success" onClick={() => setCrediting(u)}>إضافة رصيد</Button>
                     <Button
                       size="sm"
@@ -197,6 +202,14 @@ function UsersTab() {
             ))}
           </tbody>
         </TableWrap>
+      )}
+
+      {editingUser && (
+        <EditCustomerModal
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSaved={() => { setEditingUser(null); load(); }}
+        />
       )}
 
       {/* Card 91: تفاصيل حساب الزبون */}
@@ -230,6 +243,88 @@ function UsersTab() {
         />
       )}
     </>
+  );
+}
+
+
+function EditCustomerModal({ user, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name: user.firstName || user.name || '',
+    lastName: user.lastName || '',
+    phone: user.phone || '',
+    email: user.email || '',
+    governorate: user.governorate || '',
+    city: user.city || '',
+    address: user.addressDetails || '',
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    const original = {
+      name: user.firstName || user.name || '',
+      lastName: user.lastName || '',
+      phone: user.phone || '',
+      email: user.email || '',
+      governorate: user.governorate || '',
+      city: user.city || '',
+      address: user.addressDetails || '',
+    };
+    const patch = Object.fromEntries(
+      Object.entries(form)
+        .map(([key, value]) => [key, value.trim()])
+        .filter(([key, value]) => value !== original[key])
+    );
+    if (!Object.keys(patch).length) {
+      onClose();
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.patch(`/admin/users/${user.id}`, patch);
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title="تعديل بيانات الزبون" onClose={onClose}>
+      <form onSubmit={submit} className="yl-stack">
+        <div className="yl-formgrid">
+          <Field label="الاسم الأول">
+            <Input value={form.name} maxLength={100} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          </Field>
+          <Field label="اسم العائلة">
+            <Input value={form.lastName} maxLength={100} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+          </Field>
+          <Field label="رقم الجوال">
+            <Input type="tel" dir="ltr" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
+          </Field>
+          <Field label="البريد الإلكتروني">
+            <Input type="email" dir="ltr" maxLength={254} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </Field>
+          <Field label="المحافظة">
+            <Input maxLength={100} value={form.governorate} onChange={(e) => setForm({ ...form, governorate: e.target.value })} />
+          </Field>
+          <Field label="المدينة">
+            <Input maxLength={100} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+          </Field>
+        </div>
+        <Field label="تفاصيل العنوان">
+          <Input maxLength={500} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+        </Field>
+        <p className="yl-muted">يتم تعديل بيانات التواصل والعنوان فقط؛ لا تتغير صلاحيات الحساب أو رصيده.</p>
+        {error && <Alert tone="error">{error}</Alert>}
+        <div className="yl-btnrow">
+          <Button variant="primary" type="submit" disabled={busy} loading={busy}>حفظ التعديلات</Button>
+          <Button type="button" onClick={onClose} disabled={busy}>إلغاء</Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
