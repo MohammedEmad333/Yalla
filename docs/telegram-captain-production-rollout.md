@@ -52,3 +52,15 @@ If deployment fails with `AuthenticationFailed: storedKey mismatch`, first verif
 - GitHub CI adds `telegram-captain-check`; backend Mongo integration tests cover valid, expired, replayed, unapproved, revoked and concurrent pairing attempts.
 - Do not claim the live server is updated until `systemctl` status, webhook registration, production backend connectivity and a real test-captain pairing/revoke/re-pair flow have been verified.
 - The general backend deploy script does not install or restart the separate `yalla-telegram-captain.service`. Deploy the bot using its existing systemd unit and secret environment, check `http://127.0.0.1:8098/health`, and verify HTTPS routing.
+
+
+## Read-only captain order notifications (phase 1, 2026-11-09)
+
+- The existing pairing flow remains unchanged. The private bot adds /orders to show up to 5 currently assigned, accepted, or picked-up orders, and read-only status buttons for those orders. Every read is authorized server-side using BOTH Telegram user ID and private chat ID, linked to an approved captain and the currently assigned order.
+- Automatic Telegram notifications cover manual/automatic assignment, broadcast claim, regular captain status updates, cancellation, and administrative completion. No customer name, phone, precise address, map coordinates, wallet information, delivery code, or pickup code leaves the backend for Telegram.
+- **Opt-in rollout**: set TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED=true in ~/yalla.env only AFTER deploying both the new API and the standalone bot service. Default is disabled; order read commands work without the flag.
+- Backend sends only order/captain IDs, event kind, and status to http://127.0.0.1:8098/internal/order-event over host loopback using the existing TELEGRAM_PAIRING_BRIDGE_SECRET. The bot checks the secret, validates schema, and calls /api/telegram-captain/internal/resolve-event to recheck current assignment, approval and link before sending any Telegram message.
+- /api/telegram-captain/internal/orders and /internal/order are private, secret-protected, rate-limited, no-store endpoints. NEVER use these from Flutter or a public website.
+- The bot does not add acceptance/rejection or any mutations. These require a separate review of captain authorization, order state changes and idempotency.
+- Notifications are best-effort and deduplicated in-memory for 10 minutes by event ID (not a durable queue). A bot outage can lose notifications. Yalla app/FCM remain the source of truth.
+- Deploy Backend first, then update the bot and verify health. Run a controlled test order with an approved, paired captain. Enable the flag only once all checks pass; do not rotate existing bridge secrets or print environment values.

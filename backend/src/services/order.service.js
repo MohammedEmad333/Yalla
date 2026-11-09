@@ -8,6 +8,7 @@ const env = require('../config/env');
 const logger = require('../utils/logger');
 const pricing = require('./pricing.service');
 const notifications = require('./notification.service');
+const telegramCaptainNotifier = require('./telegramCaptainNotifier.service');
 const settingsService = require('./settings.service');
 const chat = require('./chat.service');
 const walletService = require('./wallet.service');
@@ -531,6 +532,7 @@ async function commitAssignment(order, captain, { actorId, actorRole }) {
     .sendToTokens(captain.deviceTokens, assignedPayload)
     .catch((e) => logger.warn('تعذّر إرسال إشعار الإسناد:', e.message));
   notifications.createInApp(captain._id, 'captain', assignedPayload); // إشعار داخلي
+  telegramCaptainNotifier.notifyOrderEvent(order, 'assigned');
 
   return populated;
 }
@@ -776,6 +778,7 @@ async function claimOrder(captainId, orderId) {
 
   notifyCaptainPickupCodeIfReady(order._id, captain._id)
     .catch((e) => logger.warn('تعذّر إرسال رمز استلام المتجر للكابتن:', e.message));
+  telegramCaptainNotifier.notifyOrderEvent(order, 'assigned');
 
   return populated;
 }
@@ -1113,6 +1116,7 @@ async function updateOrderStatus(
 
   broadcastOrderUpdate(order);
   pushOrderStatusToUser(order); // إشعار المستخدم بتغيّر الحالة (بلا انتظار)
+  telegramCaptainNotifier.notifyOrderEvent(order, 'status');
   if (order.store?.restaurant) {
     notifications.notifyMerchantByRestaurant(order.store.restaurant, {
       title: nextStatus === ORDER_STATUS.DELIVERED ? '✅ تم تسليم طلب المتجر' : 'تحديث طلب المتجر',
@@ -1409,6 +1413,7 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
     io.get().to(ROOMS.captain(captainId.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
     const cancelPayload = notifications.orderCancelledPayload(order);
     notifications.createInApp(captainId, 'captain', cancelPayload); // إشعار داخلي
+    telegramCaptainNotifier.notifyOrderEvent(order, 'status');
     // إشعار Push للكابتن بإلغاء الطلب
     Captain.findById(captainId)
       .select('deviceTokens')
@@ -1481,6 +1486,7 @@ async function forceCompleteByAdmin(orderId, { actorId } = {}) {
 
   broadcastOrderUpdate(order);
   pushOrderStatusToUser(order); // إشعار المستخدم بتغيّر الحالة (بلا انتظار)
+  telegramCaptainNotifier.notifyOrderEvent(order, 'status');
 
   // Card 80: الإغلاق الإداريّ يُنهي الطلب (تسليم) → احذف الحساب الخارجي المؤقّت إن وُجد
   await maybeDeleteExternalCustomer(order.user);
