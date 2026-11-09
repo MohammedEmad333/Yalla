@@ -72,6 +72,7 @@ router.post('/menu-items/:itemId/image', uploadImage.single('image'), restaurant
 
 router.get('/users', ctrl.listUsers);
 router.get('/customers', ctrl.listCustomersDetailed);
+router.patch('/users/:userId', ctrl.updateCustomer);
 router.patch('/users/:userId/active', ctrl.setUserActive);
 router.delete('/users/:userId', ctrl.deleteUser);
 
