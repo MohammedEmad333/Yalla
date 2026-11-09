@@ -9,7 +9,7 @@ test('ignores group messages', async () => {
 });
 test('private start is informational, no order mutations', async () => {
   const calls = [];
-  await handleUpdate({ message: { chat: { id: 2, type: 'private' }, text: '/start' } }, async (...args) => calls.push(args));
+  await handleUpdate({ message: { chat: { id: 2, type: 'private' }, from: { id: 2 }, text: '/start' } }, async (...args) => calls.push(args));
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], 'sendMessage');
   assert.match(calls[0][1].text, /ربط الحساب/);
