@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { EDITABLE_FIELDS, parseCustomerProfilePatch } = require('../src/utils/customerProfile');
+const { EDITABLE_FIELDS, parseCustomerProfilePatch, parseCustomerUpdate } = require('../src/utils/customerProfile');
 
 test('customer profile patch updates only allowed contact fields', () => {
   assert.deepEqual(EDITABLE_FIELDS, ['name', 'lastName', 'phone', 'email', 'governorate', 'city', 'address']);
@@ -39,4 +39,16 @@ test('customer profile patch rejects privileged fields and malformed payloads', 
   assert.throws(() => parseCustomerProfilePatch({ name: 42 }), /نصوصًا/);
   assert.throws(() => parseCustomerProfilePatch({ name: '  ' }), /اسم الزبون/);
   assert.throws(() => parseCustomerProfilePatch({ address: 'a'.repeat(501) }), /طويلة/);
+});
+
+test('password update is validated separately and never included in profile patch', () => {
+  const result = parseCustomerUpdate({ name: 'محمد', newPassword: 'BetterPass123!' });
+  assert.deepEqual(result.patch, { name: 'محمد' });
+  assert.equal(result.newPassword, 'BetterPass123!');
+  assert.deepEqual(parseCustomerUpdate({ newPassword: 'BetterPass123!' }).patch, {});
+  assert.throws(() => parseCustomerUpdate({ newPassword: 'short' }), /10/);
+  assert.throws(() => parseCustomerUpdate({ newPassword: '' }), /10/);
+  assert.throws(() => parseCustomerUpdate({ newPassword: 'x'.repeat(129) }), /128/);
+  assert.throws(() => parseCustomerUpdate({ newPassword: 22 }), /10/);
+  assert.throws(() => parseCustomerUpdate({ passwordHash: 'bad', newPassword: 'BetterPass123!' }), /لا يُسمح/);
 });
