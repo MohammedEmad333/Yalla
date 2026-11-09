@@ -161,7 +161,7 @@ async function listUsers(req, res, next) {
 
 async function updateCustomer(req, res, next) {
   try {
-    res.json(await adminService.updateCustomer(req.params.userId, req.body, req.auth.id));
+    res.json(await adminService.updateCustomer(req.params.userId, req.body, req.auth.id, req.auth.adminRole));
   } catch (err) {
     next(err);
   }
