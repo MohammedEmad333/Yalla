@@ -120,6 +120,10 @@ export default function OrdersPage() {
             <p>تم إنشاء الطلب <b>#{createdOrder.id.slice(-6)}</b> بنجاح.</p>
             <p>السعر التقريبي: <b>{createdOrder.price} ₪</b></p>
             <p>الحالة: {statusLabel(createdOrder.status)}. تم حجز المبلغ من محفظة الزبون.</p>
+            {createdOrder.captainId && <p>تم إسناده للكابتن المحدد.</p>}
+            {createdOrder.assignmentError && (
+              <p role="alert">الطلب محفوظ، لكن الإسناد يحتاج مراجعة: {createdOrder.assignmentError}</p>
+            )}
             {createdOrder.reused && <p className="yl-muted">هذا هو الطلب الأصلي؛ لم يُنشأ طلب مكرر.</p>}
             <Button onClick={() => setCreatedOrder(null)}>إغلاق</Button>
           </div>
