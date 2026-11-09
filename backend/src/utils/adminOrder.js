@@ -80,7 +80,7 @@ function parseAdminOrder(input, requireKey = false) {
       typeof customPrice !== 'number' ||
       !Number.isFinite(customPrice) ||
       customPrice < 0 || customPrice > 10000 ||
-      !Number.isInteger(customPrice * 100)
+      Math.abs(Math.round(customPrice * 100) - customPrice * 100) > 1e-7
     ) {
       throw httpError('السعر اليدوي يجب أن يكون من 0 إلى 10000 شيكل وبحد أقصى منزلتين عشريتين');
     }
