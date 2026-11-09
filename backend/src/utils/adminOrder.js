@@ -55,7 +55,10 @@ function parseAdminOrder(input, requireKey = false) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw httpError('بيانات الطلب غير صالحة');
   }
-  const allowed = new Set(['userId', 'pickup', 'dropoff', 'packageNote', 'requestKey']);
+  const allowed = new Set([
+    'userId', 'pickup', 'dropoff', 'packageNote', 'requestKey',
+    'priceMode', 'customPrice', 'priceReason', 'captainId',
+  ]);
   if (Object.keys(input).some((key) => !allowed.has(key))) {
     throw httpError('توجد حقول غير مسموحة في الطلب');
   }
@@ -65,6 +68,32 @@ function parseAdminOrder(input, requireKey = false) {
   const pickup = parseAddress(input.pickup, 'الاستلام');
   const dropoff = parseAddress(input.dropoff, 'التسليم');
   const packageNote = textField(input.packageNote, 'وصف الشحنة', 500);
+  const priceMode = input.priceMode === undefined ? 'calculated' : input.priceMode;
+  if (!['calculated', 'custom'].includes(priceMode)) {
+    throw httpError('اختر طريقة تسعير صالحة');
+  }
+  let customPrice;
+  let priceReason = '';
+  if (priceMode === 'custom') {
+    customPrice = input.customPrice;
+    if (
+      typeof customPrice !== 'number' ||
+      !Number.isFinite(customPrice) ||
+      customPrice < 0 || customPrice > 10000 ||
+      !Number.isInteger(customPrice * 100)
+    ) {
+      throw httpError('السعر اليدوي يجب أن يكون من 0 إلى 10000 شيكل وبحد أقصى منزلتين عشريتين');
+    }
+    priceReason = textField(input.priceReason, 'سبب تحديد السعر', 250, true);
+  } else if (input.customPrice !== undefined || input.priceReason !== undefined) {
+    throw httpError('لا ترسل سعرًا يدويًا إلا عند اختيار التسعير اليدوي');
+  }
+
+  const captainId = input.captainId === undefined || input.captainId === ''
+    ? null : input.captainId;
+  if (captainId !== null && (typeof captainId !== 'string' || !/^[a-f\d]{24}$/i.test(captainId))) {
+    throw httpError('اختر كابتنًا صالحًا');
+  }
   let requestKey;
   if (requireKey) {
     if (typeof input.requestKey !== 'string' || !/^[A-Za-z0-9:_-]{16,128}$/.test(input.requestKey)) {
@@ -74,7 +103,11 @@ function parseAdminOrder(input, requireKey = false) {
   } else if (input.requestKey !== undefined) {
     throw httpError('مفتاح الطلب غير مطلوب لمعاينة السعر');
   }
-  return { userId: input.userId, payload: { pickup, dropoff, packageNote }, requestKey };
+  return {
+    userId: input.userId,
+    payload: { pickup, dropoff, packageNote },
+    priceMode, customPrice, priceReason, captainId, requestKey,
+  };
 }
 
 module.exports = { parseAdminOrder };
