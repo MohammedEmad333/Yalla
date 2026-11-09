@@ -2,16 +2,21 @@
 const { createServer } = require('node:http');
 const { secretMatches } = require('./security');
 const { createUpdateProcessor } = require('./updateProcessor');
+const { makeEventHandler } = require('./eventServer');
 
-function createWebhookServer({ secret, processUpdate, logger = console }) {
+function createWebhookServer({ secret, processUpdate, bridgeSecret, deliverOrderEvent, logger = console }) {
   if (typeof secret !== 'string' || !/^[A-Za-z0-9_-]{32,256}$/.test(secret)) {
     throw new Error('TELEGRAM_WEBHOOK_SECRET must be 32-256 allowed ASCII characters');
   }
   const processOnce = createUpdateProcessor(processUpdate);
+  const handleEvent = deliverOrderEvent ? makeEventHandler({ secret: bridgeSecret, deliver: deliverOrderEvent, logger }) : null;
 
   return createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/health') {
       res.writeHead(200); res.end('ok'); return;
+    }
+    if (req.method === 'POST' && req.url === '/internal/order-event' && handleEvent) {
+      await handleEvent(req, res); return;
     }
     if (req.method !== 'POST' || req.url !== '/telegram/webhook') {
       res.writeHead(404); res.end(); return;

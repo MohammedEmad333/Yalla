@@ -1,6 +1,7 @@
 'use strict';
 const { createWebhookServer } = require('./src/webhook');
 const { createTelegramClient, handleUpdate } = require('./src/telegram');
+const { deliverEvent } = require('./src/captainOrders');
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) { console.error('TELEGRAM_BOT_TOKEN is required'); process.exit(1); }
@@ -17,6 +18,8 @@ try {
   server = createWebhookServer({
     secret: process.env.TELEGRAM_WEBHOOK_SECRET,
     processUpdate: (update) => handleUpdate(update, client),
+    bridgeSecret: process.env.TELEGRAM_PAIRING_BRIDGE_SECRET,
+    deliverOrderEvent: (event) => deliverEvent(event, client),
   });
 } catch (error) {
   console.error('Telegram webhook configuration error:', error.message);
