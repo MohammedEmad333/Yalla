@@ -17,6 +17,11 @@ export default function CreateAdminOrder({ onClose, onCreated }) {
   const [dropoff, setDropoff] = useState(emptyAddress);
   const [packageNote, setPackageNote] = useState('');
   const [quote, setQuote] = useState(null);
+  const [captains, setCaptains] = useState([]);
+  const [captainId, setCaptainId] = useState('');
+  const [priceMode, setPriceMode] = useState('calculated');
+  const [customPrice, setCustomPrice] = useState('0');
+  const [priceReason, setPriceReason] = useState('');
   const [requestKey, setRequestKey] = useState(newKey);
   const [busy, setBusy] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -24,6 +29,7 @@ export default function CreateAdminOrder({ onClose, onCreated }) {
 
   useEffect(() => {
     api.get('/neighborhoods?grouped=1').then(setCities).catch((err) => setError(err.message));
+    api.get('/admin/orders/captains').then(setCaptains).catch((err) => setError(err.message));
   }, []);
 
   function invalidate() {
@@ -63,6 +69,9 @@ export default function CreateAdminOrder({ onClose, onCreated }) {
     pickup,
     dropoff,
     packageNote,
+    priceMode,
+    ...(priceMode === 'custom' ? { customPrice: Number(customPrice), priceReason } : {}),
+    ...(captainId ? { captainId } : {}),
   };
 
   async function preview(e) {
@@ -71,6 +80,9 @@ export default function CreateAdminOrder({ onClose, onCreated }) {
     setError('');
     setQuote(null);
     try {
+      if (priceMode === 'custom' && (!customPrice.trim() || !Number.isFinite(Number(customPrice)) || Number(customPrice) < 0 || !priceReason.trim())) {
+        throw new Error('أدخل السعر اليدوي وسبب تحديده، أو اختر التسعير التلقائي');
+      }
       const result = await api.post('/admin/orders/preview', body);
       setQuote(result);
     } catch (err) {
@@ -82,7 +94,12 @@ export default function CreateAdminOrder({ onClose, onCreated }) {
 
   async function createOrder() {
     if (!quote?.sufficientBalance || !selectedUser) return;
-    if (!window.confirm(`تأكيد إنشاء طلب للزبون ${quote.customerName} بسعر تقريبي ${quote.price} ₪ مع حجز المبلغ من محفظته؟`)) return;
+    const billing = quote.price === 0 ? 'طلب مجاني دون خصم من المحفظة'
+      : `سيُحجز ${quote.price} ₪ من محفظة الزبون`;
+    const assignee = captainId
+      ? `\nالكابتن: ${captains.find((c) => c._id === captainId)?.name || 'المحدد'}`
+      : '\nالإسناد: وفق إعدادات التوزيع الحالية';
+    if (!window.confirm(`تأكيد إنشاء الطلب للزبون ${quote.customerName} بسعر ${quote.price} ₪؟\n${billing}${assignee}`)) return;
     setBusy(true);
     setError('');
     try {
@@ -130,7 +147,7 @@ export default function CreateAdminOrder({ onClose, onCreated }) {
   return (
     <Modal title="إنشاء طلب توصيل" onClose={() => { if (!busy) onClose(); }}>
       <div className="yl-stack">
-        <p className="yl-muted">طلب توصيل عادي لزبون مسجّل، يتم حجز الأجرة التقديرية من رصيده المتاح. لا يتم خصمها نهائيًا إلا عند التسليم.</p>
+        <p className="yl-muted">طلب توصيل عادي لزبون مسجّل. يمكنك اعتماد السعر المقترح أو إدخال سعر خاص حتى 0 ₪، وتعيين كابتن محدد. الطلب المجاني لا يخصم من الزبون ولا يضيف أرباحًا للكابتن.</p>
         <form onSubmit={searchCustomers} className="yl-stack yl-stack--sm">
           <Field label="ابحث عن الزبون بالاسم أو رقم الهاتف">
             <Input value={query} maxLength={60} onChange={(e) => { setQuery(e.target.value); setCustomers([]); setSelectedUser(''); invalidate(); }} placeholder="اسم الزبون أو هاتفه" />
@@ -152,6 +169,36 @@ export default function CreateAdminOrder({ onClose, onCreated }) {
           <Field label="وصف الشحنة (اختياري)">
             <Input maxLength={500} value={packageNote} onChange={(e) => { setPackageNote(e.target.value); invalidate(); }} placeholder="مثال: طرد صغير" />
           </Field>
+          <div className="yl-formgrid">
+            <Field label="طريقة تحديد السعر">
+              <Select value={priceMode} onChange={(e) => { setPriceMode(e.target.value); invalidate(); }}>
+                <option value="calculated">السعر التلقائي حسب المسافة</option>
+                <option value="custom">سعر يدوي (يقبل صفر)</option>
+              </Select>
+            </Field>
+            {priceMode === 'custom' && (
+              <Field label="السعر اليدوي بالشيكل">
+                <Input type="number" dir="ltr" min="0" max="10000" step="0.01" value={customPrice}
+                  onChange={(e) => { setCustomPrice(e.target.value); invalidate(); }} required />
+              </Field>
+            )}
+          </div>
+          {priceMode === 'custom' && (
+            <Field label="سبب تعديل السعر (للتدقيق)">
+              <Input maxLength={250} value={priceReason} onChange={(e) => { setPriceReason(e.target.value); invalidate(); }}
+                placeholder="مثال: طلب مجاني لتعويض زبون" required />
+            </Field>
+          )}
+          <Field label="اختيار كابتن (اختياري)">
+            <Select value={captainId} onChange={(e) => { setCaptainId(e.target.value); invalidate(); }}>
+              <option value="">دون تحديد، استخدم إعدادات الإسناد الحالية</option>
+              {captains.map((c) => (
+                <option key={c._id} value={c._id} disabled={!c.assignable}>
+                  {c.name} · {c.phone} · {c.status} · {c.activeOrdersCount}/{c.maxOrders} طلبات
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Button type="submit" variant="soft" disabled={busy || !selectedUser || !pickup.neighborhood || !dropoff.neighborhood} loading={busy}>
             معاينة السعر والرصيد
           </Button>
@@ -160,9 +207,12 @@ export default function CreateAdminOrder({ onClose, onCreated }) {
           <div className="yl-card yl-card--flat yl-card--pad yl-stack yl-stack--sm">
             <b>مراجعة الطلب — {quote.customerName}</b>
             <span>المسافة التقديرية: {quote.distanceKm} كم</span>
-            <span>الأجرة التقديرية: <b>{quote.price} ₪</b></span>
+            <span>السعر المقترح حسب المسافة: <b>{quote.recommendedPrice} ₪</b></span>
+            <span>السعر المعتمد: <b>{quote.price} ₪</b>{quote.freeDelivery ? ' (مجاني)' : ''}</span>
+            <span>الكابتن: {captainId ? captains.find((c) => c._id === captainId)?.name || 'المحدد' : 'حسب إعدادات الإسناد'}</span>
             <span>الرصيد المتاح: <b>{quote.availableBalance} ₪</b></span>
-            {!quote.sufficientBalance && <Alert tone="error">الرصيد غير كافٍ. يجب شحن محفظة الزبون أولًا؛ لن يتم إنشاء طلب غير مدفوع.</Alert>}
+            {!quote.sufficientBalance && <Alert tone="error">الرصيد لا يكفي السعر المعتمد. لا يُنشأ الطلب حتى يتوفر الرصيد، أو يُعتمد سعر مجاني بصلاحية الإدارة.</Alert>}
+            {quote.price === 0 && <Alert tone="warning">الطلب مجاني: لا حجز رصيد ولا خصم ولا عمولة أو ربح مالي للكابتن.</Alert>}
             {quote.sufficientBalance && (
               <Button variant="primary" type="button" disabled={busy} loading={busy} onClick={createOrder}>تأكيد إنشاء الطلب</Button>
             )}
