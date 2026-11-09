@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { Alert, Button, Field, Input, Modal, Select } from '../components/ui';
 
@@ -17,6 +17,7 @@ export default function CreateAdminOrder({ onClose, onCreated }) {
   const [dropoff, setDropoff] = useState(emptyAddress);
   const [packageNote, setPackageNote] = useState('');
   const [quote, setQuote] = useState(null);
+  const revision = useRef(0);
   const [captains, setCaptains] = useState([]);
   const [captainId, setCaptainId] = useState('');
   const [priceMode, setPriceMode] = useState('calculated');
@@ -33,6 +34,7 @@ export default function CreateAdminOrder({ onClose, onCreated }) {
   }, []);
 
   function invalidate() {
+    revision.current += 1;
     setQuote(null);
     setError('');
     setRequestKey(newKey());
@@ -79,12 +81,16 @@ export default function CreateAdminOrder({ onClose, onCreated }) {
     setBusy(true);
     setError('');
     setQuote(null);
+    const revisionAtStart = revision.current;
+    const previewPayload = { ...body };
     try {
       if (priceMode === 'custom' && (!customPrice.trim() || !Number.isFinite(Number(customPrice)) || Number(customPrice) < 0 || !priceReason.trim())) {
         throw new Error('أدخل السعر اليدوي وسبب تحديده، أو اختر التسعير التلقائي');
       }
-      const result = await api.post('/admin/orders/preview', body);
-      setQuote(result);
+      const result = await api.post('/admin/orders/preview', previewPayload);
+      if (revision.current === revisionAtStart) {
+        setQuote({ ...result, confirmedPayload: previewPayload });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -103,7 +109,7 @@ export default function CreateAdminOrder({ onClose, onCreated }) {
     setBusy(true);
     setError('');
     try {
-      const result = await api.post('/admin/orders', { ...body, requestKey });
+      const result = await api.post('/admin/orders', { ...quote.confirmedPayload, requestKey });
       onCreated(result);
     } catch (err) {
       // Keep the same idempotency key for safe retry after a network error.
