@@ -71,6 +71,7 @@ const orderSchema = new mongoose.Schema(
             price: { type: Number, default: 0 },
     // Explicitly free administrative delivery. Does not debit the customer or credit captain.
     adminFreeDelivery: { type: Boolean, default: false },
+    adminFixedPrice: { type: Boolean, default: false },
     adminRequestHash: { type: String, default: '', select: false },
             _id: false,
           }],
