@@ -50,7 +50,8 @@ test('Telegram HTTP failures are reported', async () => {
     fetchImpl: async () => ({ ok: false, status: 429 }),
   }), /HTTP 429/);
 });
-\ntest('enabled flag still requires an explicit pilot allowlist', async () => {
+
+test('enabled flag still requires an explicit pilot allowlist', async () => {
   assert.equal((await notifyAssignedOrder({ captainId, orderId }, {
     env: { TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED: 'true', TELEGRAM_BOT_TOKEN: 'test-only' },
     findLink() { throw new Error('must not query link'); },
