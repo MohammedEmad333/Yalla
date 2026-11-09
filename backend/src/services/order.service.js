@@ -8,6 +8,7 @@ const env = require('../config/env');
 const logger = require('../utils/logger');
 const pricing = require('./pricing.service');
 const notifications = require('./notification.service');
+const telegramCaptainNotifications = require('./telegramCaptainNotification.service');
 const settingsService = require('./settings.service');
 const chat = require('./chat.service');
 const walletService = require('./wallet.service');
@@ -531,6 +532,10 @@ async function commitAssignment(order, captain, { actorId, actorRole }) {
     .sendToTokens(captain.deviceTokens, assignedPayload)
     .catch((e) => logger.warn('تعذّر إرسال إشعار الإسناد:', e.message));
   notifications.createInApp(captain._id, 'captain', assignedPayload); // إشعار داخلي
+  // Best-effort, read-only and opt-in. Never block an assigned order.
+  telegramCaptainNotifications.notifyAssignedOrder({
+    captainId: captain._id, orderId: order._id,
+  }).catch((e) => logger.warn('Telegram captain notification failed:', e.message));
 
   return populated;
 }
