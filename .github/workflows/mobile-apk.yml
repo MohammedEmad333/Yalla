@@ -65,11 +65,14 @@ jobs:
           BUILD="${FULL_VERSION#*+}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION+$BUILD" >> "$GITHUB_OUTPUT"
           echo "Yalla $VERSION+$BUILD"
 
       - name: تثبيت التبعيات
         run: flutter pub get
+
+      - name: تجهيز الخط العربي قبل الاختبارات والبناء
+        run: bash tool/prepare_fonts.sh
 
       - name: اختبارات Flutter
         run: flutter test
@@ -85,10 +88,9 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_B64" ]; then
-            echo "signed=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::لا توجد أسرار keystore — سيُبنى APK بمفتاح debug ولن يُنشر كإصدار."
-            exit 0
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Missing release-signing secrets; refusing a debug-signed release."
+            exit 1
           fi
           KEYSTORE_PATH="$PWD/android/app/upload-keystore.jks"
           echo "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"
@@ -112,10 +114,10 @@ jobs:
       - name: تجهيز ملفات الإصدار
         if: steps.signing.outputs.signed == 'true'
         run: |
-          cp build/app/outputs/flutter-apk/app-release.apk "../Yalla-${{ steps.version.outputs.version }}.apk"
-          cp build/app/outputs/bundle/release/app-release.aab "../Yalla-${{ steps.version.outputs.version }}.aab"
+          cp build/app/outputs/flutter-apk/app-release.apk "../Yalla-${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "../Yalla-${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.aab"
 
-      - name: إنشاء أو تحديث GitHub Release ورفع APK + AAB
+      - name: إنشاء GitHub Release دون استبدال ملفات قديمة
         if: steps.signing.outputs.signed == 'true'
         working-directory: .
         env:
@@ -124,17 +126,16 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           BUILD: ${{ steps.version.outputs.build }}
         run: |
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" \
-              --target "$GITHUB_SHA" \
-              --title "Yalla $VERSION" \
-              --notes "Yalla $VERSION (build $BUILD)\n\nيتضمن هذا الإصدار:\n- APK للتثبيت المباشر\n- AAB للرفع إلى Google Play"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists; bump the version instead of replacing artifacts."
+            exit 1
           fi
-
-          gh release upload "$TAG" \
-            "Yalla-$VERSION.apk" \
-            "Yalla-$VERSION.aab" \
-            --clobber
+          gh release create "$TAG" \
+            "Yalla-$VERSION+$BUILD.apk" \
+            "Yalla-$VERSION+$BUILD.aab" \
+            --target "$GITHUB_SHA" \
+            --title "Yalla $VERSION (build $BUILD)" \
+            --notes "Signed APK and Google Play AAB for Yalla $VERSION (build $BUILD)."
 
           echo "تم نشر APK و AAB على GitHub Release: $TAG"
 

@@ -113,7 +113,7 @@ async function sendToTokens(tokens, { title, body, data = {} }) {
           defaultSound: true,
           priority: 'high',
           // Card 22: يظهر الإشعار بمحتواه كاملًا على شاشة القفل (لا يُخفى/يُطوى)
-          visibility: 'public',
+          visibility: 'private',
           // يُوقظ الشاشة ويظهر كإشعار منبثق (heads-up) حتى والهاتف مقفل
           notificationPriority: 'PRIORITY_MAX',
           defaultVibrateTimings: true,
@@ -166,12 +166,12 @@ function orderStatusPayload(order) {
   };
 }
 
-// إشعار صاحب الطلب برمز التسليم (Card 20) — يعطيه للكابتن عند الاستلام
-function deliveryCodePayload(order, code) {
+// Do not expose delivery code in lock-screen notification or FCM data.
+function deliveryCodePayload(order) {
   return {
     title: '🔑 رمز تسليم طلبك',
-    body: `رمزك هو ${code} — أعطِه للكابتن عند استلام الطلب لتأكيد التسليم`,
-    data: { type: 'DELIVERY_CODE', orderId: String(order._id), code: String(code) },
+    body: 'رمز التسليم متاح داخل تفاصيل الطلب في التطبيق.',
+    data: { type: 'DELIVERY_CODE', orderId: String(order._id) },
   };
 }
 

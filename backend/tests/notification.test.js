@@ -21,6 +21,15 @@ test('orderAssignedPayload: يحمل نوع ومعرّف الطلب', () => {
   assert.ok(p.title.length > 0 && p.body.includes('وسط البلد'));
 });
 
+test('delivery code never leaks in push notification data or text', () => {
+  const code = '7319';
+  const payload = notifications.deliveryCodePayload(sampleOrder, code);
+  assert.equal(payload.data.type, 'DELIVERY_CODE');
+  assert.equal(payload.data.orderId, 'abc123');
+  assert.equal(Object.hasOwn(payload.data, 'code'), false);
+  assert.equal(payload.body.includes(code), false);
+});
+
 test('orderStatusPayload: نصّ عربي مناسب لكل حالة', () => {
   const p = notifications.orderStatusPayload({ _id: 'x', status: 'delivered' });
   assert.equal(p.data.status, 'delivered');

@@ -38,3 +38,6 @@ __pycache__/
 
 # ملفات Flutter المولّدة
 **/GeneratedPluginRegistrant.java
+
+# Font downloaded during build
+/assets/fonts/*.ttf
