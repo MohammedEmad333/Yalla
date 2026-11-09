@@ -223,6 +223,7 @@ async function createOrder(userId, payload, idempotencyKey, options = {}) {
     order = new Order({
       user: userId,
       adminFreeDelivery,
+      adminFixedPrice: adminPricing,
       adminRequestHash: options.adminRequestHash || '',
       pickup,
       dropoff,
@@ -960,11 +961,11 @@ async function updateOrderStatus(
     const prepaid = order.payment?.status === 'paid';
     // الطلب المدفوع مسبقًا يُحاسَب على أجرة التوصيل التي ظهرت للزبون وقت الدفع.
     // الطلبات القديمة التي تعتمد على المحفظة تحتفظ بمنطق السعر الحقيقي الحالي.
-    realPrice = order.adminFreeDelivery ? 0 : prepaid ? Number(order.price) : Number(finalPrice);
+    realPrice = order.adminFixedPrice ? Number(order.price) : prepaid ? Number(order.price) : Number(finalPrice);
     if (!order.adminFreeDelivery && !(realPrice > 0)) {
       throw httpError(prepaid ? 'أجرة التوصيل المدفوعة غير صالحة' : 'أدخل السعر الحقيقي للتوصيل قبل تأكيد التسليم', 400);
     }
-    if (!order.adminFreeDelivery && !prepaid && realPrice > order.price) {
+    if (!order.adminFixedPrice && !prepaid && realPrice > order.price) {
       throw httpError(
         `السعر الحقيقي (${realPrice} ₪) يجب ألّا يتجاوز السعر التقريبي (${order.price} ₪)`,
         400
@@ -1550,6 +1551,9 @@ async function updateOrderPrice(orderId, newPrice, { actorId = null } = {}) {
   if (!order) throw httpError('الطلب غير موجود', 404);
   if ([ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED].includes(order.status)) {
     throw httpError('لا يمكن تعديل سعر طلب منتهٍ', 400);
+  }
+  if (order.adminFixedPrice) {
+    throw httpError('السعر الإداري المحدد عند إنشاء الطلب ثابت؛ لا يمكن تغييره بعد حجز الرصيد', 409);
   }
 
   const from = order.price;
