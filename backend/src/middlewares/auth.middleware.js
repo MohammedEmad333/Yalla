@@ -45,7 +45,12 @@ async function accountStillAllowed(payload) {
   if (!payload?.id || !payload?.role) return false;
 
   if (payload.role === ROLES.USER) {
-    return Boolean(await User.exists({ _id: payload.id, role: ROLES.USER, isActive: true }));
+    const user = await User.findOne({ _id: payload.id, role: ROLES.USER, isActive: true })
+      .select('+sessionVersion').lean();
+    if (!user) return false;
+    // Old tokens without a version remain valid only until the first admin reset.
+    const tokenVersion = Number.isSafeInteger(payload.sessionVersion) ? payload.sessionVersion : 0;
+    return tokenVersion === (user.sessionVersion || 0);
   }
   if (payload.role === ROLES.CAPTAIN) {
     return Boolean(await Captain.exists({ _id: payload.id, isApproved: true }));

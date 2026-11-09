@@ -124,7 +124,7 @@ async function registerUser(req, res, next) {
       .notifyAdmins(notifications.newUserAdminPayload(user))
       .catch(() => {});
 
-    const token = signToken(user._id, user.role);
+    const token = signToken(user._id, user.role, { sessionVersion: user.sessionVersion || 0 });
     res.status(201).json({
       token,
       user: {
@@ -151,7 +151,7 @@ async function loginUser(req, res, next) {
     const { password } = req.body;
 
     // 1) مستخدم أو أدمن
-    const user = await User.findOne({ phone }).select('+passwordHash');
+    const user = await User.findOne({ phone }).select('+passwordHash +sessionVersion');
     if (user) {
       if (!(await user.verifyPassword(password))) {
         return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
@@ -161,7 +161,10 @@ async function loginUser(req, res, next) {
       }
       // Card 110: نطاق مناطق الأدمن يُحمَل في التوكن ويُعاد للوحة لتفلتر واجهتها
       const regions = user.role === ROLES.ADMIN ? user.regions || [] : [];
-      const token = signToken(user._id, user.role, regions.length ? { regions } : {});
+      const token = signToken(user._id, user.role, {
+        ...(regions.length ? { regions } : {}),
+        ...(user.role === ROLES.USER ? { sessionVersion: user.sessionVersion || 0 } : {}),
+      });
       return res.json({
         token,
         user: {

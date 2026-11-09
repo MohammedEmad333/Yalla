@@ -4,6 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Merchant = require('../models/Merchant');
+const MerchantStaff = require('../models/MerchantStaff');
+const { parseCustomerUpdate } = require('../utils/customerProfile');
+const { normalizePalestinianMobile } = require('../utils/phone');
 const Captain = require('../models/Captain');
 const CaptainApplication = require('../models/CaptainApplication');
 const Wallet = require('../models/Wallet');
@@ -41,7 +45,7 @@ async function listCustomers({ q } = {}) {
     filter.$or = [{ name: new RegExp(q, 'i') }, { phone: new RegExp(q, 'i') }];
   }
   const users = await User.find(filter)
-    .select('name lastName phone email city governorate address avatarUrl isActive createdAt')
+    .select('name lastName phone email city governorate address avatarUrl isActive isExternal createdAt')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -56,10 +60,15 @@ async function listCustomers({ q } = {}) {
   return users.map((u) => ({
     id: String(u._id),
     name: [u.name, u.lastName].filter(Boolean).join(' ').trim() || u.name,
+    firstName: u.name,
+    lastName: u.lastName || '',
     phone: u.phone,
     email: u.email || '',
     // Card 96: مكان السكن — المحافظة + تفاصيل العنوان (مع تراجع للمدينة القديمة)
     governorate: u.governorate || '',
+    city: u.city || '',
+    addressDetails: u.address || '',
+    isExternal: Boolean(u.isExternal),
     address:
       [u.governorate, u.address].filter(Boolean).join(' — ') || u.city || u.address || '',
     avatarUrl: u.avatarUrl || '', // Card 76: صورة العميل تظهر في لوحة التحكم
@@ -67,6 +76,72 @@ async function listCustomers({ q } = {}) {
     isActive: u.isActive,
     createdAt: u.createdAt,
   }));
+}
+
+
+/**
+ * Customer profile edits are authorized by the admin 'users' capability.
+ * Password changes require the live server-verified Super Admin role.
+ * Never return, log or echo the submitted password.
+ */
+async function updateCustomer(userId, input, actorId, actorAdminRole) {
+  if (!mongoose.Types.ObjectId.isValid(userId)) throw httpError('معرّف غير صالح', 400);
+  const { patch, newPassword } = parseCustomerUpdate(input);
+  if (newPassword !== undefined && actorAdminRole !== 'super_admin') {
+    throw httpError('تغيير كلمة المرور متاح لـ Super Admin فقط', 403);
+  }
+  const user = await User.findOne({ _id: userId, role: ROLES.USER }).select('+sessionVersion');
+  if (!user) throw httpError('الزبون غير موجود', 404);
+
+  const changed = Object.keys(patch).filter((key) => {
+    const previous = user[key] == null ? undefined : String(user[key]);
+    return previous !== patch[key] && !(previous === '' && patch[key] === undefined);
+  });
+  if (!changed.length && newPassword === undefined) return { id: String(user._id), unchanged: true };
+
+  if (changed.includes('phone')) {
+    const phone = normalizePalestinianMobile(patch.phone);
+    const collisions = await Promise.all([
+      User.exists({ _id: { $ne: user._id }, phone }),
+      Captain.exists({ phone }),
+      Merchant.exists({ phone }),
+      MerchantStaff.exists({ phone }),
+    ]);
+    if (collisions.some(Boolean)) throw httpError('رقم الجوال مستخدم في حساب آخر', 409);
+  }
+  if (changed.includes('email') && patch.email) {
+    if (await User.exists({ _id: { $ne: user._id }, email: patch.email })) {
+      throw httpError('البريد الإلكتروني مستخدم في حساب آخر', 409);
+    }
+  }
+
+  for (const key of changed) user[key] = patch[key];
+  if (changed.includes('email')) {
+    user.emailVerifiedAt = null;
+    user.emailVerificationCodeHash = null;
+    user.emailVerificationExpiresAt = null;
+  }
+  if (newPassword !== undefined) {
+    await user.setPassword(newPassword);
+    user.passwordResetCodeHash = null;
+    user.passwordResetExpiresAt = null;
+    // Login tokens include this version, so previously issued sessions expire.
+    user.sessionVersion = (user.sessionVersion || 0) + 1;
+  }
+  try {
+    await user.save();
+  } catch (err) {
+    if (err.code === 11000) throw httpError('رقم الجوال أو البريد الإلكتروني مستخدم بالفعل', 409);
+    throw err;
+  }
+
+  await Log.create({
+    actorId,
+    actorRole: 'admin',
+    action: 'CUSTOMER_PROFILE_UPDATED',
+    meta: { userId: String(user._id), fields: changed, passwordChanged: newPassword !== undefined },
+  });
+  return { id: String(user._id), changed, passwordChanged: newPassword !== undefined };
 }
 
 /**
@@ -423,6 +498,7 @@ async function listCaptainsData() {
 
 module.exports = {
   listCustomers,
+  updateCustomer,
   listCaptainsDetailed,
   deleteUser,
   deleteCaptain,
