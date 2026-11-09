@@ -7,11 +7,18 @@ on:
         description: 'عنوان الـ Backend'
         required: false
         default: 'https://api.yalladelivery.org'
+  pull_request:
+    paths:
+      - 'partner/**'
+      - '.github/workflows/partner-apk.yml'
   push:
     branches: ['main']
     paths:
       - 'partner/**'
       - '.github/workflows/partner-apk.yml'
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -34,8 +41,10 @@ jobs:
         run: |
           flutter pub get
           flutter analyze --no-fatal-infos
+          flutter test
 
       - name: تجهيز توقيع الإصدار
+        if: github.event_name != 'pull_request'
         id: signing
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -43,10 +52,9 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_B64" ]; then
-            echo "signed=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::لا يوجد keystore؛ سيتم بناء APK للاختبار فقط."
-            exit 0
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Missing Android signing secrets for Partner Play release."
+            exit 1
           fi
           KEYSTORE_PATH="$PWD/android/app/upload-keystore.jks"
           echo "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"
@@ -75,6 +83,7 @@ jobs:
           flutter build appbundle --release --dart-define=API_ORIGIN="$API_ORIGIN"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: github.event_name != 'pull_request'
         with:
           name: yalla-partner-apk
           path: partner/build/app/outputs/flutter-apk/app-release.apk

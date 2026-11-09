@@ -68,3 +68,13 @@ https://partner.yalladelivery.org
 ```
 
 إلى قائمة الأصول المسموحة، مع الإبقاء على الأصول الحالية.
+
+## Google Play Partner readiness
+
+- Partner applicationId: `com.mohammedemad333.yallapartner`.
+- Android compileSdk and targetSdk are pinned to API 36.
+- Production API defaults to `https://api.yalladelivery.org`.
+- Account creation is supported. The approved store screen and pending/rejected application screen now link to the official account-deletion request instructions: `https://yalladelivery.org/delete-account.html#section-2`. This is a request process, not automatic deletion.
+- Android PR workflow builds a test APK and runs Flutter analysis/tests. Signed APK/AAB builds are reserved for main/manual releases when all release signing secrets are present.
+- Before uploading an AAB, verify its versionCode is higher than all builds uploaded in Play Console, and confirm the upload-signing certificate matches the existing app. The repository currently declares `1.0.0+1`; do not increase it blindly before checking Play Console.
+- Google Play production access application answers must reflect real closed-test participants and observed feedback, not the source code alone.

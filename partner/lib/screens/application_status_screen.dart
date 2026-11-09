@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/session.dart';
+import '../core/account_deletion.dart';
 
 class ApplicationStatusScreen extends StatefulWidget {
   final PartnerSession session;
@@ -93,6 +94,12 @@ class _ApplicationStatusScreenState extends State<ApplicationStatusScreen> {
                             ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                             : const Icon(Icons.refresh_rounded),
                         label: const Text('تحديث حالة الطلب'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextButton.icon(
+                        onPressed: () => openAccountDeletion(context),
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        label: const Text('طلب حذف الحساب والبيانات'),
                       ),
                       const SizedBox(height: 10),
                       OutlinedButton.icon(
