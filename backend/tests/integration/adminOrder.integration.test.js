@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const { before, after, beforeEach } = require('node:test');
 const { connect, disconnect, clearDb, state } = require('./setup');
 const User = require('../../src/models/User');
+const Captain = require('../../src/models/Captain');
 const Order = require('../../src/models/Order');
 const WalletHold = require('../../src/models/WalletHold');
 const Log = require('../../src/models/Log');
@@ -87,4 +88,83 @@ test('support cannot create orders, disabled customer cannot be targeted', async
   const operator = await makeUser('Operator', '0597000118', 'admin', { adminRole: 'operations' });
   await User.updateOne({ _id: customer._id }, { $set: { isActive: false } });
   await assert.rejects(() => adminOrder.preview(input(customer._id), operator._id), { statusCode: 404 });
+});
+
+test('Super Admin can create a free order with zero wallet balance', async (t) => {
+  if (!state.dbReady) return t.skip('MongoDB unavailable');
+  const admin = await makeUser('Owner', '0597000121', 'admin', { adminRole: 'super_admin' });
+  const customer = await makeUser('Customer', '0597000122');
+  const details = {
+    ...input(customer._id),
+    priceMode: 'custom',
+    customPrice: 0,
+    priceReason: 'تعويض خدمة',
+    requestKey: 'free-admin-delivery-12345',
+  };
+  // Use a clean preview without the idempotency key.
+  const preview = await adminOrder.preview({
+    ...input(customer._id), priceMode: 'custom', customPrice: 0, priceReason: 'تعويض خدمة',
+  }, admin._id);
+  assert.equal(preview.price, 0);
+  assert.equal(preview.sufficientBalance, true);
+  assert.equal(preview.freeDelivery, true);
+  const result = await adminOrder.create(details, admin._id);
+  const order = await Order.findById(result.id);
+  assert.equal(order.price, 0);
+  assert.equal(order.adminFreeDelivery, true);
+  assert.equal(order.status, ORDER_STATUS.PENDING);
+  assert.equal(await WalletHold.countDocuments({ order: order._id }), 0);
+  const again = await adminOrder.create(details, admin._id);
+  assert.equal(again.id, result.id);
+  assert.equal(again.reused, true);
+  assert.equal(await Order.countDocuments({}), 1);
+  const audit = await Log.findOne({ action: 'ORDER_CREATED_BY_ADMIN' });
+  assert.equal(audit.meta.paymentMode, 'admin_free');
+  assert.equal(audit.meta.customPrice, 0);
+  assert.equal(audit.meta.priceReason, 'تعويض خدمة');
+  await assert.rejects(() => adminOrder.create({
+    ...details, customPrice: 10,
+  }, admin._id), { statusCode: 409 });
+});
+
+test('Admin can select approved captain and preserve zero-price order', async (t) => {
+  if (!state.dbReady) return t.skip('MongoDB unavailable');
+  const admin = await makeUser('Owner', '0597000123', 'admin', { adminRole: 'super_admin' });
+  const customer = await makeUser('Customer', '0597000124');
+  const captain = new Captain({ name: 'Selected Captain', phone: '0597000125', isApproved: true });
+  await captain.setPassword('a-test-password');
+  await captain.save();
+  const result = await adminOrder.create({
+    ...input(customer._id), priceMode: 'custom', customPrice: 0,
+    priceReason: 'طلب مجاني إداري', captainId: String(captain._id),
+    requestKey: 'select-captain-1234567',
+  }, admin._id);
+  assert.equal(result.assignmentError, null);
+  const order = await Order.findById(result.id);
+  assert.equal(order.status, ORDER_STATUS.ASSIGNED);
+  assert.equal(String(order.captain), String(captain._id));
+  assert.equal(order.price, 0);
+  assert.equal(await WalletHold.countDocuments({ order: order._id }), 0);
+  const again = await adminOrder.create({
+    ...input(customer._id), priceMode: 'custom', customPrice: 0,
+    priceReason: 'طلب مجاني إداري', captainId: String(captain._id),
+    requestKey: 'select-captain-1234567',
+  }, admin._id);
+  assert.equal(again.id, result.id);
+  assert.equal(again.reused, true);
+});
+
+test('Captain selection rejects unapproved captain', async (t) => {
+  if (!state.dbReady) return t.skip('MongoDB unavailable');
+  const admin = await makeUser('Owner', '0597000126', 'admin', { adminRole: 'super_admin' });
+  const customer = await makeUser('Customer', '0597000127');
+  const captain = new Captain({ name: 'Unapproved', phone: '0597000128', isApproved: false });
+  await captain.setPassword('a-test-password');
+  await captain.save();
+  await assert.rejects(() => adminOrder.create({
+    ...input(customer._id), priceMode: 'custom', customPrice: 0,
+    priceReason: 'اختبار', captainId: String(captain._id),
+    requestKey: 'unapproved-captain-1234',
+  }, admin._id), { statusCode: 400 });
+  assert.equal(await Order.countDocuments({}), 0);
 });
