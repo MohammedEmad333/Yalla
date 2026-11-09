@@ -248,6 +248,10 @@ function UsersTab() {
 
 
 function EditCustomerModal({ user, onClose, onSaved }) {
+  const { access } = useAuth();
+  const canResetPassword = access?.adminRole === 'super_admin';
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [form, setForm] = useState({
     name: user.firstName || user.name || '',
     lastName: user.lastName || '',
@@ -277,6 +281,21 @@ function EditCustomerModal({ user, onClose, onSaved }) {
         .map(([key, value]) => [key, value.trim()])
         .filter(([key, value]) => value !== original[key])
     );
+    if (newPassword) {
+      if (!canResetPassword) {
+        setError('تغيير كلمة المرور متاح لـ Super Admin فقط');
+        return;
+      }
+      if (newPassword.length < 10 || newPassword.length > 128) {
+        setError('كلمة المرور الجديدة يجب أن تكون بين 10 و128 حرفًا');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setError('تأكيد كلمة المرور غير مطابق');
+        return;
+      }
+      patch.newPassword = newPassword;
+    }
     if (!Object.keys(patch).length) {
       onClose();
       return;
@@ -317,7 +336,29 @@ function EditCustomerModal({ user, onClose, onSaved }) {
         <Field label="تفاصيل العنوان">
           <Input maxLength={500} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
         </Field>
-        <p className="yl-muted">يتم تعديل بيانات التواصل والعنوان فقط؛ لا تتغير صلاحيات الحساب أو رصيده.</p>
+        {canResetPassword && (
+          <>
+            <Field label="كلمة مرور جديدة" hint="اختياري — اتركها فارغة للإبقاء على كلمة المرور الحالية (10 أحرف على الأقل)">
+              <Input
+                type="password"
+                value={newPassword}
+                minLength={10}
+                maxLength={128}
+                autoComplete="new-password"
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </Field>
+            <Field label="تأكيد كلمة المرور الجديدة">
+              <Input
+                type="password"
+                value={confirmPassword}
+                autoComplete="new-password"
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </Field>
+          </>
+        )}
+        <p className="yl-muted">تغيير كلمة المرور متاح لـ Super Admin فقط ويؤدي إلى تسجيل خروج الزبون من جلساته السابقة. لا تتغير صلاحيات الحساب أو رصيده.</p>
         {error && <Alert tone="error">{error}</Alert>}
         <div className="yl-btnrow">
           <Button variant="primary" type="submit" disabled={busy} loading={busy}>حفظ التعديلات</Button>
