@@ -29,3 +29,13 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 - Configure and validate the backend bridge and webhook secrets before deploying.
 - Telegram may retry deliveries. Account linking is single-use; future order actions require separate authorization and idempotency tests.
 - Verify the real pairing flow with a test captain before enabling the bot publicly.
+
+## Webhook reliability and duplicate deliveries (2026-11-09)
+
+- The bot acknowledges Telegram updates with HTTP 200 **only after successful processing**.
+- Transient Telegram/backend failures return 503 so Telegram can retry. Invalid/used codes receive a user-readable failure without retrying.
+- Concurrent duplicate update IDs are coalesced and successfully completed IDs are remembered in a bounded, 10-minute in-memory cache. This is **not** a durable queue and cannot guarantee exactly-once delivery after a process restart.
+- Repeated pairing with the same 32-character code, captain and private Telegram account safely returns success while the consumed pairing code remains valid; attempts from other accounts are still rejected.
+- TELEGRAM_WEBHOOK_SECRET must now contain **32-256 allowed ASCII characters**. Coordinate changing this value in the bot environment and Telegram's setWebhook secret_token; deploy with a shorter existing secret will fail fast.
+- Test locally with `npm test`. GitHub CI runs this suite independently of the WhatsApp bot.
+- No customer order actions, payments or location sharing are added by this change.

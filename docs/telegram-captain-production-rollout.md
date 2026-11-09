@@ -43,3 +43,12 @@ If deployment fails with `AuthenticationFailed: storedKey mismatch`, first verif
 - [ ] Integration tests: valid, expired, replayed, wrong-captain, and revoked pairing
 - [ ] End-to-end verification using approved test captain
 - [ ] Production deployment, device verification and release checks after verification
+
+## Reliability hardening (2026-11-09, requires deployment)
+
+- Bot checks `TELEGRAM_WEBHOOK_SECRET` length (32-256), rejecting weak configuration before listening. If the current production secret is shorter, generate a new random secret and update BOTH systemd environment and Telegram webhook registration as one controlled rollout. Do not print tokens or secrets in console output.
+- The bot now waits for successful update processing before HTTP 200. Transient bridge or Telegram API failures return 503 to enable Telegram retries.
+- Update ID deduplication is in-memory with 10-minute expiry; retries after a process restart can still happen. Pairing redemption is idempotent for the same active consumed code and same linked captain/Telegram chat only.
+- GitHub CI adds `telegram-captain-check`; backend Mongo integration tests cover valid, expired, replayed, unapproved, revoked and concurrent pairing attempts.
+- Do not claim the live server is updated until `systemctl` status, webhook registration, production backend connectivity and a real test-captain pairing/revoke/re-pair flow have been verified.
+- The general backend deploy script does not install or restart the separate `yalla-telegram-captain.service`. Deploy the bot using its existing systemd unit and secret environment, check `http://127.0.0.1:8098/health`, and verify HTTPS routing.

@@ -39,6 +39,19 @@ async function redeemCode({ code, telegramUserId, telegramChatId }) {
   if (userId !== chatId) throw invalidPairing(); // Only private Telegram chats may link accounts.
   const existing = await Link.findOne({ telegramUserId: userId });
   if (existing) {
+    // Telegram may retry when the webhook connection drops after successful
+    // linking. Report success only for a consumed, still-valid code bound to
+    // the SAME approved captain and Telegram chat; never allow re-linking.
+    const samePairing = await Pairing.exists({
+      codeHash: hashCode(code),
+      consumedAt: { $ne: null },
+      expiresAt: { $gt: new Date() },
+      captainId: existing.captainId,
+    });
+    if (samePairing && existing.telegramChatId === chatId &&
+        await Captain.exists({ _id: existing.captainId, isApproved: true })) {
+      return { linked: true };
+    }
     const err = new Error('Telegram account already linked');
     err.status = 409;
     throw err;

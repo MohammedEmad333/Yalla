@@ -94,3 +94,37 @@ test('private /start with pairing code invokes backend bridge', async () => {
     else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = previousSecret;
   }
 });
+
+test('backend 5xx response triggers retry instead of false success', async () => {
+  const oldUrl = process.env.YALLA_BACKEND_URL;
+  const oldSecret = process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+  process.env.YALLA_BACKEND_URL = 'https://api.example.org';
+  process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = 'D'.repeat(48);
+  try {
+    await assert.rejects(
+      redeemPairing('A'.repeat(32), '4', '4', async () => ({ status: 503 })),
+      /Pairing bridge HTTP 503/
+    );
+  } finally {
+    if (oldUrl === undefined) delete process.env.YALLA_BACKEND_URL;
+    else process.env.YALLA_BACKEND_URL = oldUrl;
+    if (oldSecret === undefined) delete process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+    else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = oldSecret;
+  }
+});
+
+test('invalid pairing code is reported without retrying', async () => {
+  const oldUrl = process.env.YALLA_BACKEND_URL;
+  const oldSecret = process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+  process.env.YALLA_BACKEND_URL = 'https://api.example.org';
+  process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = 'D'.repeat(48);
+  try {
+    assert.equal(await redeemPairing('A'.repeat(32), '4', '4',
+      async () => ({ status: 400 })), false);
+  } finally {
+    if (oldUrl === undefined) delete process.env.YALLA_BACKEND_URL;
+    else process.env.YALLA_BACKEND_URL = oldUrl;
+    if (oldSecret === undefined) delete process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+    else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = oldSecret;
+  }
+});
