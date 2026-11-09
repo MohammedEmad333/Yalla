@@ -17,4 +17,9 @@ async function create(req, res, next) {
   catch (err) { next(err); }
 }
 
-module.exports = { searchCustomers, preview, create };
+async function listCaptains(req, res, next) {
+  try { res.json(await service.listCaptains()); }
+  catch (err) { next(err); }
+}
+
+module.exports = { searchCustomers, listCaptains, preview, create };
