@@ -95,6 +95,7 @@ function requestFingerprint(parsed) {
     packageNote: parsed.payload.packageNote,
     priceMode: parsed.priceMode,
     customPrice: parsed.customPrice ?? null,
+    priceReason: parsed.priceReason,
     captainId: parsed.captainId,
   })).digest('hex');
 }
