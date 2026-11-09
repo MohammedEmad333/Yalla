@@ -115,7 +115,16 @@ async function create(input, actorId) {
 
   // The normal creation service owns reservations, notifications, dispatch, and
   // duplicate-key handling. Disable automatic dispatch only for captain selection.
-  const order = await orderService.createOrder(userId, payload, requestKey, {
+  // Older captain app builds still ask for a final price. Clearly mark free
+  // deliveries in the order instructions so the captain knows not to collect cash.
+  const createPayload = parsed.priceMode === 'custom' && parsed.customPrice === 0
+    ? {
+      ...payload,
+      packageNote: ['توصيل مجاني بقرار الإدارة. لا تحصّل أي مبلغ من الزبون.', payload.packageNote]
+        .filter(Boolean).join(' '),
+    }
+    : payload;
+  const order = await orderService.createOrder(userId, createPayload, requestKey, {
     ...(parsed.priceMode === 'custom' ? { adminPrice: parsed.customPrice } : {}),
     adminRequestHash: hash,
     skipAutoDispatch: !!captainId,
