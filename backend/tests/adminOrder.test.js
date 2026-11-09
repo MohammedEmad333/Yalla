@@ -46,3 +46,28 @@ test('admin create requires idempotency key and keeps it in separate namespace',
   const created = parseAdminOrder({ ...sample(), requestKey: 'abcde1234567890fedcba' }, true);
   assert.equal(created.requestKey, 'admin:abcde1234567890fedcba');
 });
+
+test('explicit zero and positive custom fares are accepted with a reason', () => {
+  for (const customPrice of [0, 1, 8, 12.5, 9999.99]) {
+    const result = parseAdminOrder({
+      ...sample(),
+      priceMode: 'custom',
+      customPrice,
+      priceReason: 'تعويض موثق',
+      captainId: '507f1f77bcf86cd799439012',
+    });
+    assert.equal(result.customPrice, customPrice);
+    assert.equal(result.captainId, '507f1f77bcf86cd799439012');
+  }
+});
+
+test('administrative price validation refuses forbidden overrides and malformed prices', () => {
+  for (const price of [-1, Infinity, NaN, '0', null, 10000.01, 2.999]) {
+    assert.throws(() => parseAdminOrder({
+      ...sample(), priceMode: 'custom', customPrice: price, priceReason: 'مراجعة',
+    }), { statusCode: 400 });
+  }
+  assert.throws(() => parseAdminOrder({ ...sample(), priceMode: 'custom', customPrice: 0 }), { statusCode: 400 });
+  assert.throws(() => parseAdminOrder({ ...sample(), priceMode: 'calculated', customPrice: 0 }), { statusCode: 400 });
+  assert.throws(() => parseAdminOrder({ ...sample(), captainId: 'invalid' }), { statusCode: 400 });
+});
