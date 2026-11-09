@@ -159,6 +159,14 @@ async function listUsers(req, res, next) {
   }
 }
 
+async function updateCustomer(req, res, next) {
+  try {
+    res.json(await adminService.updateCustomer(req.params.userId, req.body, req.auth.id));
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function setUserActive(req, res, next) {
   try {
     const { isActive } = req.body;
@@ -473,6 +481,7 @@ module.exports = {
   updateSettings,
   sendBroadcast,
   listUsers,
+  updateCustomer,
   setUserActive,
   listChats,
   getChatMessages,
