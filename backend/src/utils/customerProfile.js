@@ -2,8 +2,8 @@
 
 const { normalizePalestinianMobile } = require('./phone');
 
-// The admin may edit profile/contact fields only. Account roles, passwords,
-// balances, verification state and activation have separate protected flows.
+// The admin may edit only profile/contact fields. A password reset is validated
+// separately and requires Super Admin on the server. Other account fields stay protected.
 const EDITABLE_FIELDS = Object.freeze([
   'name', 'lastName', 'phone', 'email', 'governorate', 'city', 'address',
 ]);
@@ -56,4 +56,26 @@ function parseCustomerProfilePatch(input) {
   return patch;
 }
 
-module.exports = { EDITABLE_FIELDS, parseCustomerProfilePatch };
+function parseCustomerUpdate(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw badRequest('بيانات التعديل غير صالحة');
+  }
+  const { newPassword, ...profileFields } = input;
+  const passwordProvided = Object.prototype.hasOwnProperty.call(input, 'newPassword');
+  if (!passwordProvided && Object.keys(profileFields).length === 0) {
+    throw badRequest('أدخل بيانات لتعديلها');
+  }
+  if (passwordProvided && (
+    typeof newPassword !== 'string' ||
+    newPassword.length < 10 ||
+    newPassword.length > 128 ||
+    !newPassword.trim()
+  )) {
+    throw badRequest('كلمة المرور الجديدة يجب أن تكون بين 10 و128 حرفًا');
+  }
+  const patch = Object.keys(profileFields).length
+    ? parseCustomerProfilePatch(profileFields) : {};
+  return { patch, newPassword: passwordProvided ? newPassword : undefined };
+}
+
+module.exports = { EDITABLE_FIELDS, parseCustomerProfilePatch, parseCustomerUpdate };
