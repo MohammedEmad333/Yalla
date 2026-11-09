@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Merchant = require('../models/Merchant');
 const MerchantStaff = require('../models/MerchantStaff');
-const { parseCustomerProfilePatch } = require('../utils/customerProfile');
+const { parseCustomerUpdate } = require('../utils/customerProfile');
 const { normalizePalestinianMobile } = require('../utils/phone');
 const Captain = require('../models/Captain');
 const CaptainApplication = require('../models/CaptainApplication');
@@ -80,12 +80,16 @@ async function listCustomers({ q } = {}) {
 
 
 /**
- * Admin-only profile update. Refuses all fields outside the narrow allowlist.
- * Does not change privileges, wallets, passwords or activation state.
+ * Customer profile edits are authorized by the admin 'users' capability.
+ * Password changes require the live server-verified Super Admin role.
+ * Never return, log or echo the submitted password.
  */
-async function updateCustomer(userId, input, actorId) {
+async function updateCustomer(userId, input, actorId, actorAdminRole) {
   if (!mongoose.Types.ObjectId.isValid(userId)) throw httpError('معرّف غير صالح', 400);
-  const patch = parseCustomerProfilePatch(input);
+  const { patch, newPassword } = parseCustomerUpdate(input);
+  if (newPassword !== undefined && actorAdminRole !== 'super_admin') {
+    throw httpError('تغيير كلمة المرور متاح لـ Super Admin فقط', 403);
+  }
   const user = await User.findOne({ _id: userId, role: ROLES.USER });
   if (!user) throw httpError('الزبون غير موجود', 404);
 
@@ -93,7 +97,7 @@ async function updateCustomer(userId, input, actorId) {
     const previous = user[key] == null ? undefined : String(user[key]);
     return previous !== patch[key] && !(previous === '' && patch[key] === undefined);
   });
-  if (!changed.length) return { id: String(user._id), unchanged: true };
+  if (!changed.length && newPassword === undefined) return { id: String(user._id), unchanged: true };
 
   if (changed.includes('phone')) {
     const phone = normalizePalestinianMobile(patch.phone);
@@ -111,24 +115,21 @@ async function updateCustomer(userId, input, actorId) {
     }
   }
 
-  const update = {};
-  const unset = {};
-  for (const key of changed) {
-    if (key === 'email' && patch.email === undefined) unset.email = 1;
-    else update[key] = patch[key];
-  }
+  for (const key of changed) user[key] = patch[key];
   if (changed.includes('email')) {
-    update.emailVerifiedAt = null;
-    update.emailVerificationCodeHash = null;
-    update.emailVerificationExpiresAt = null;
+    user.emailVerifiedAt = null;
+    user.emailVerificationCodeHash = null;
+    user.emailVerificationExpiresAt = null;
+  }
+  if (newPassword !== undefined) {
+    await user.setPassword(newPassword);
+    user.passwordResetCodeHash = null;
+    user.passwordResetExpiresAt = null;
+    // Login tokens include this version, so previously issued sessions expire.
+    user.sessionVersion = (user.sessionVersion || 0) + 1;
   }
   try {
-    const updated = await User.findOneAndUpdate(
-      { _id: user._id, role: ROLES.USER },
-      { ...(Object.keys(update).length ? { $set: update } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) },
-      { new: true, runValidators: true }
-    );
-    if (!updated) throw httpError('الزبون غير موجود', 404);
+    await user.save();
   } catch (err) {
     if (err.code === 11000) throw httpError('رقم الجوال أو البريد الإلكتروني مستخدم بالفعل', 409);
     throw err;
@@ -138,9 +139,9 @@ async function updateCustomer(userId, input, actorId) {
     actorId,
     actorRole: 'admin',
     action: 'CUSTOMER_PROFILE_UPDATED',
-    meta: { userId: String(user._id), fields: changed },
+    meta: { userId: String(user._id), fields: changed, passwordChanged: newPassword !== undefined },
   });
-  return { id: String(user._id), changed };
+  return { id: String(user._id), changed, passwordChanged: newPassword !== undefined };
 }
 
 /**
