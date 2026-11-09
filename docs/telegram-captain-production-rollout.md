@@ -56,7 +56,7 @@ If deployment fails with `AuthenticationFailed: storedKey mismatch`, first verif
 ## Order assignment Telegram notifications — opt-in phase
 
 - Only a read-only order ID and an instruction to open the Yalla app are sent. No customer information, addresses, payment details, OTPs, or order mutation commands.
-- Disabled by default: `TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED=true` must be explicitly set in the backend environment after review.
+- Disabled by default: `TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED=true` must be explicitly set in the backend environment after review. It additionally requires an explicit recipient allowlist: `TELEGRAM_CAPTAIN_NOTIFICATIONS_CAPTAIN_IDS=<24-hex-test-captain-ID>`. A comma-separated list is supported. The literal `*` is an intentional all-captains opt-in, **not** for the pilot. With no allowlist, no messages are sent.
 - The backend also needs `TELEGRAM_BOT_TOKEN` in its private environment. Do not publish this token or print it in logs.
 - Best-effort only: failures do not block assignment. No durable outbox, guaranteed delivery, or exactly-once notification guarantee.
 - Verify with an approved, linked test captain before enabling for production. Roll back by setting the flag to false and redeploying the backend.

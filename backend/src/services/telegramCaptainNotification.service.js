@@ -3,6 +3,15 @@
 const Captain = require('../models/Captain');
 const Link = require('../models/TelegramCaptainLink');
 const enabled = (env = process.env) => env.TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED === 'true';
+// Explicit recipient allowlist for safe production pilot. '*' deliberately opts into all.
+function allowedCaptain(captainId, env = process.env) {
+  const raw = env.TELEGRAM_CAPTAIN_NOTIFICATIONS_CAPTAIN_IDS || '';
+  if (raw.trim() === '*') return true;
+  const id = String(captainId).toLowerCase();
+  if (!/^[0-9a-f]{24}$/.test(id)) return false;
+  return raw.split(',').some((entry) => entry.trim().toLowerCase() === id);
+}
+
 function assignmentText(orderId) {
   if (!/^[0-9a-f]{24}$/i.test(String(orderId))) throw new Error('Invalid order ID');
   return '📦 تم إسناد طلب جديد إليك في Yalla.\nرقم الطلب: ' + String(orderId) +
@@ -15,6 +24,7 @@ async function notifyAssignedOrder({ captainId, orderId }, {
   fetchImpl = fetch,
 } = {}) {
   if (!enabled(env)) return { status: 'disabled' };
+  if (!allowedCaptain(captainId, env)) return { status: 'not-allowlisted' };
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return { status: 'unconfigured' };
   const link = await findLink(captainId);
@@ -37,4 +47,4 @@ async function notifyAssignedOrder({ captainId, orderId }, {
   if (!result.ok) throw new Error('Telegram notification API error');
   return { status: 'sent' };
 }
-module.exports = { enabled, assignmentText, notifyAssignedOrder };
+module.exports = { enabled, allowedCaptain, assignmentText, notifyAssignedOrder };

@@ -5,7 +5,11 @@ const { notifyAssignedOrder, assignmentText } = require('../src/services/telegra
 const captainId = '507f1f77bcf86cd799439011';
 const orderId = '507f1f77bcf86cd799439012';
 const link = { telegramUserId: '123456', telegramChatId: '123456' };
-const env = { TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED: 'true', TELEGRAM_BOT_TOKEN: 'test-only' };
+const env = {
+  TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED: 'true',
+  TELEGRAM_CAPTAIN_NOTIFICATIONS_CAPTAIN_IDS: captainId,
+  TELEGRAM_BOT_TOKEN: 'test-only',
+};
 test('disabled by default; no DB query', async () => {
   assert.deepEqual(await notifyAssignedOrder({ captainId, orderId }, {
     env: {}, findLink() { throw Error('unexpected query'); },
@@ -45,4 +49,16 @@ test('Telegram HTTP failures are reported', async () => {
     env, findLink: async () => link, isApproved: async () => true,
     fetchImpl: async () => ({ ok: false, status: 429 }),
   }), /HTTP 429/);
+});
+\ntest('enabled flag still requires an explicit pilot allowlist', async () => {
+  assert.equal((await notifyAssignedOrder({ captainId, orderId }, {
+    env: { TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED: 'true', TELEGRAM_BOT_TOKEN: 'test-only' },
+    findLink() { throw new Error('must not query link'); },
+  })).status, 'not-allowlisted');
+});
+test('unlisted captain cannot receive an assignment', async () => {
+  assert.equal((await notifyAssignedOrder({ captainId, orderId }, {
+    env: { ...env, TELEGRAM_CAPTAIN_NOTIFICATIONS_CAPTAIN_IDS: '507f1f77bcf86cd799439099' },
+    findLink() { throw new Error('must not query link'); },
+  })).status, 'not-allowlisted');
 });
