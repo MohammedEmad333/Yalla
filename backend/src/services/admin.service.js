@@ -90,7 +90,7 @@ async function updateCustomer(userId, input, actorId, actorAdminRole) {
   if (newPassword !== undefined && actorAdminRole !== 'super_admin') {
     throw httpError('تغيير كلمة المرور متاح لـ Super Admin فقط', 403);
   }
-  const user = await User.findOne({ _id: userId, role: ROLES.USER });
+  const user = await User.findOne({ _id: userId, role: ROLES.USER }).select('+sessionVersion');
   if (!user) throw httpError('الزبون غير موجود', 404);
 
   const changed = Object.keys(patch).filter((key) => {
