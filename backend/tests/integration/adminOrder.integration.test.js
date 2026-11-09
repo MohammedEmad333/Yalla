@@ -194,3 +194,30 @@ test('free admin delivery can be completed with no payment', async (t) => {
   assert.equal(done.captainNet, 0);
   assert.equal(await WalletHold.countDocuments({ order: order._id }), 0);
 });
+
+test('fixed admin fare stays unchanged at delivery and is reserved', async (t) => {
+  if (!state.dbReady) return t.skip('MongoDB unavailable');
+  const admin = await makeUser('Admin', '0597000133', 'admin', { adminRole: 'super_admin' });
+  const customer = await makeUser('Customer', '0597000134');
+  await walletService.creditWallet(customer._id, 30);
+  const captain = new Captain({ name: 'Captain', phone: '0597000135', isApproved: true });
+  await captain.setPassword('a-test-password');
+  await captain.save();
+  const created = await adminOrder.create({
+    ...input(customer._id), priceMode: 'custom', customPrice: 2.5,
+    priceReason: 'special rate', captainId: String(captain._id),
+    requestKey: 'fixed-admin-fare-1234567',
+  }, admin._id);
+  const order = await Order.findById(created.id).select('+deliveryCode');
+  assert.equal(order.price, 2.5);
+  assert.equal(order.adminFixedPrice, true);
+  assert.equal((await WalletHold.findOne({ order: order._id })).amount, 2.5);
+  await assert.rejects(() => orderService.updateOrderPrice(order._id, 5, { actorId: admin._id }), { statusCode: 409 });
+  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.ACCEPTED);
+  await orderService.updateOrderStatus(captain._id, order._id, ORDER_STATUS.PICKED_UP);
+  const done = await orderService.updateOrderStatus(
+    captain._id, order._id, ORDER_STATUS.DELIVERED, '', order.deliveryCode, 1
+  );
+  assert.equal(done.finalPrice, 2.5);
+  assert.equal(done.customerCharged, 2.5);
+});
