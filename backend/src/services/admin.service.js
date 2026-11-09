@@ -4,6 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Merchant = require('../models/Merchant');
+const MerchantStaff = require('../models/MerchantStaff');
+const { parseCustomerProfilePatch } = require('../utils/customerProfile');
+const { normalizePalestinianMobile } = require('../utils/phone');
 const Captain = require('../models/Captain');
 const CaptainApplication = require('../models/CaptainApplication');
 const Wallet = require('../models/Wallet');
@@ -41,7 +45,7 @@ async function listCustomers({ q } = {}) {
     filter.$or = [{ name: new RegExp(q, 'i') }, { phone: new RegExp(q, 'i') }];
   }
   const users = await User.find(filter)
-    .select('name lastName phone email city governorate address avatarUrl isActive createdAt')
+    .select('name lastName phone email city governorate address avatarUrl isActive isExternal createdAt')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -56,10 +60,15 @@ async function listCustomers({ q } = {}) {
   return users.map((u) => ({
     id: String(u._id),
     name: [u.name, u.lastName].filter(Boolean).join(' ').trim() || u.name,
+    firstName: u.name,
+    lastName: u.lastName || '',
     phone: u.phone,
     email: u.email || '',
     // Card 96: مكان السكن — المحافظة + تفاصيل العنوان (مع تراجع للمدينة القديمة)
     governorate: u.governorate || '',
+    city: u.city || '',
+    addressDetails: u.address || '',
+    isExternal: Boolean(u.isExternal),
     address:
       [u.governorate, u.address].filter(Boolean).join(' — ') || u.city || u.address || '',
     avatarUrl: u.avatarUrl || '', // Card 76: صورة العميل تظهر في لوحة التحكم
@@ -67,6 +76,71 @@ async function listCustomers({ q } = {}) {
     isActive: u.isActive,
     createdAt: u.createdAt,
   }));
+}
+
+
+/**
+ * Admin-only profile update. Refuses all fields outside the narrow allowlist.
+ * Does not change privileges, wallets, passwords or activation state.
+ */
+async function updateCustomer(userId, input, actorId) {
+  if (!mongoose.Types.ObjectId.isValid(userId)) throw httpError('معرّف غير صالح', 400);
+  const patch = parseCustomerProfilePatch(input);
+  const user = await User.findOne({ _id: userId, role: ROLES.USER });
+  if (!user) throw httpError('الزبون غير موجود', 404);
+
+  const changed = Object.keys(patch).filter((key) => {
+    const previous = user[key] == null ? undefined : String(user[key]);
+    return previous !== patch[key] && !(previous === '' && patch[key] === undefined);
+  });
+  if (!changed.length) return { id: String(user._id), unchanged: true };
+
+  if (changed.includes('phone')) {
+    const phone = normalizePalestinianMobile(patch.phone);
+    const collisions = await Promise.all([
+      User.exists({ _id: { $ne: user._id }, phone }),
+      Captain.exists({ phone }),
+      Merchant.exists({ phone }),
+      MerchantStaff.exists({ phone }),
+    ]);
+    if (collisions.some(Boolean)) throw httpError('رقم الجوال مستخدم في حساب آخر', 409);
+  }
+  if (changed.includes('email') && patch.email) {
+    if (await User.exists({ _id: { $ne: user._id }, email: patch.email })) {
+      throw httpError('البريد الإلكتروني مستخدم في حساب آخر', 409);
+    }
+  }
+
+  const update = {};
+  const unset = {};
+  for (const key of changed) {
+    if (key === 'email' && patch.email === undefined) unset.email = 1;
+    else update[key] = patch[key];
+  }
+  if (changed.includes('email')) {
+    update.emailVerifiedAt = null;
+    update.emailVerificationCodeHash = null;
+    update.emailVerificationExpiresAt = null;
+  }
+  try {
+    const updated = await User.findOneAndUpdate(
+      { _id: user._id, role: ROLES.USER },
+      { ...(Object.keys(update).length ? { $set: update } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) },
+      { new: true, runValidators: true }
+    );
+    if (!updated) throw httpError('الزبون غير موجود', 404);
+  } catch (err) {
+    if (err.code === 11000) throw httpError('رقم الجوال أو البريد الإلكتروني مستخدم بالفعل', 409);
+    throw err;
+  }
+
+  await Log.create({
+    actorId,
+    actorRole: 'admin',
+    action: 'CUSTOMER_PROFILE_UPDATED',
+    meta: { userId: String(user._id), fields: changed },
+  });
+  return { id: String(user._id), changed };
 }
 
 /**
@@ -423,6 +497,7 @@ async function listCaptainsData() {
 
 module.exports = {
   listCustomers,
+  updateCustomer,
   listCaptainsDetailed,
   deleteUser,
   deleteCaptain,
