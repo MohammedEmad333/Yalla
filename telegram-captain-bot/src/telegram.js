@@ -58,7 +58,7 @@ async function handleUpdate(update, send) {
   }
   await send('sendMessage', {
     chat_id: chat.id,
-    text: 'Yalla Delivery — بوت الكباتن\n\nاربط حسابك من تطبيق Yalla، ثم اكتب /orders لعرض طلباتك النشطة وتحديث حالتها. لا ترسل كلمة المرور أو رمز التحقق هنا. إدارة الطلبات تتم من تطبيق Yalla.',
+    text: 'Yalla Delivery — بوت الكباتن\n\nلإكمال ربط الحساب، استخدم تطبيق Yalla، ثم اكتب /orders لعرض طلباتك النشطة وتحديث حالتها. لا ترسل كلمة المرور أو رمز التحقق هنا. إدارة الطلبات تتم من تطبيق Yalla.',
     disable_web_page_preview: true,
   });
 }
