@@ -1,7 +1,6 @@
 'use strict';
 
 const User = require('../models/User');
-const Order = require('../models/Order');
 const Wallet = require('../models/Wallet');
 const Log = require('../models/Log');
 const orderService = require('./order.service');
