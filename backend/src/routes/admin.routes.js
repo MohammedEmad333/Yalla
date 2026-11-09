@@ -3,6 +3,8 @@
 const path = require('path');
 const router = require('express').Router();
 const ctrl = require('../controllers/admin.controller');
+const adminOrderCtrl = require('../controllers/adminOrder.controller');
+const { blockOrderCreationDuringMaintenance } = require('../middlewares/orderMaintenance.middleware');
 const support = require('../controllers/support.controller');
 const restaurantCtrl = require('../controllers/restaurant.controller');
 const expansionCtrl = require('../controllers/expansion.controller');
@@ -46,6 +48,11 @@ router.post('/stats/reset', ctrl.resetStats);
 router.get('/wallet', ctrl.getAdminWallet);
 router.get('/wallet/export', ctrl.exportAdminWallet);
 router.get('/user-counts', ctrl.getUserCounts);
+
+// إنشاء طلب توصيل من لوحة الأدمن — صلاحية orders حصريًا (وليس users).
+router.get('/orders/customers', requireAdminCapability('orders'), adminOrderCtrl.searchCustomers);
+router.post('/orders/preview', requireAdminCapability('orders'), blockOrderCreationDuringMaintenance, adminOrderCtrl.preview);
+router.post('/orders', requireAdminCapability('orders'), blockOrderCreationDuringMaintenance, adminOrderCtrl.create);
 router.get('/account', ctrl.getAdminAccount);
 router.patch('/account', ctrl.updateAdminAccount);
 router.get('/settings', ctrl.getSettings);
