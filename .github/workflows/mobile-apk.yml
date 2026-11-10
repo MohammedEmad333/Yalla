@@ -71,6 +71,9 @@ jobs:
       - name: تثبيت التبعيات
         run: flutter pub get
 
+      - name: تجهيز الخط العربي للبناء والاختبارات
+        run: bash tool/prepare_font.sh
+
       - name: اختبارات Flutter
         run: flutter test
 

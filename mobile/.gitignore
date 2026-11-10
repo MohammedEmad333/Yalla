@@ -38,3 +38,6 @@ __pycache__/
 
 # ملفات Flutter المولّدة
 **/GeneratedPluginRegistrant.java
+
+# خط IBM Plex Sans Arabic يُنزّل أثناء تجهيز البناء ولا يُحفظ ضمن Git.
+/assets/fonts/IBMPlexSansArabic-Regular.ttf

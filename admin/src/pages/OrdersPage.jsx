@@ -118,8 +118,13 @@ export default function OrdersPage() {
         <Modal title="تم إنشاء الطلب" onClose={() => setCreatedOrder(null)}>
           <div className="yl-stack">
             <p>تم إنشاء الطلب <b>#{createdOrder.id.slice(-6)}</b> بنجاح.</p>
-            <p>السعر التقريبي: <b>{createdOrder.price} ₪</b></p>
-            <p>الحالة: {statusLabel(createdOrder.status)}. تم حجز المبلغ من محفظة الزبون.</p>
+            <p>السعر المعتمد: <b>{createdOrder.price} ₪</b></p>
+            <p>الحالة: {statusLabel(createdOrder.status)}.</p>
+            {Number(createdOrder.price) === 0 ? (
+              <p role="status">الطلب مجاني (0 ₪). لم يتم حجز أو خصم أي مبلغ من محفظة الزبون.</p>
+            ) : (
+              <p role="status">تم حجز {createdOrder.price} ₪ من محفظة الزبون حتى تسوية الطلب.</p>
+            )}
             {createdOrder.captainId && <p>تم إسناده للكابتن المحدد.</p>}
             {createdOrder.assignmentError && (
               <p role="alert">الطلب محفوظ، لكن الإسناد يحتاج مراجعة: {createdOrder.assignmentError}</p>

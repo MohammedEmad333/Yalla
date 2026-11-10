@@ -37,9 +37,13 @@ cp /tmp/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
 
 ### 4) التشغيل
 ```bash
+bash tool/prepare_font.sh
 flutter pub get
 flutter run
 ```
+
+خط IBM Plex Sans Arabic مفتوح المصدر ويُحضّر بواسطة السكربت أعلاه. يجب تشغيله قبل `flutter test` أو `flutter build` محليًا، بينما تستخدمه GitHub Actions تلقائيًا قبل الاختبارات وبناء الإصدار. لا يُرفع ملف الخط إلى Git.
+
 
 ### 5) اسم التطبيق وأيقونته على الجهاز (مرّة واحدة بعد توليد المنصّات)
 الاسم الافتراضي الذي يظهر تحت الأيقونة هو «mobile» وأيقونة Flutter الافتراضية.
