@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { api, API } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
+import CreateAdminOrder from '../components/CreateAdminOrder';
 import { statusLabel, statusTone, ORDER_STATUS_AR } from '../status';
 import {
   Badge,
@@ -13,7 +15,7 @@ import {
   Select,
   TableWrap,
 } from '../components/ui';
-import { IconDownload, IconOrders, IconSearch } from '../components/icons';
+import { IconDownload, IconOrders, IconSearch, IconPlus } from '../components/icons';
 
 const STATUSES = ['', 'pending', 'assigned', 'accepted', 'picked_up', 'delivered', 'cancelled'];
 
@@ -28,6 +30,10 @@ function fmtTime(d) {
 }
 
 export default function OrdersPage() {
+  const { access } = useAuth();
+  const canCreateOrder = ['super_admin', 'operations'].includes(access?.adminRole);
+  const [creating, setCreating] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState(null);
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
@@ -88,10 +94,41 @@ export default function OrdersPage() {
   return (
     <>
       <PageHeader title="بحث الطلبات" subtitle={`الإجمالي: ${data.total} طلب`}>
+        {canCreateOrder && (
+          <Button variant="primary" icon={<IconPlus size={18} />} onClick={() => setCreating(true)}>
+            إنشاء طلب جديد
+          </Button>
+        )}
         <Button variant="soft" icon={<IconDownload size={18} />} onClick={exportCsv}>
           تصدير CSV
         </Button>
       </PageHeader>
+
+      {creating && (
+        <CreateAdminOrder
+          onClose={() => setCreating(false)}
+          onCreated={(result) => {
+            setCreating(false);
+            setCreatedOrder(result);
+            load(1);
+          }}
+        />
+      )}
+      {createdOrder && (
+        <Modal title="تم إنشاء الطلب" onClose={() => setCreatedOrder(null)}>
+          <div className="yl-stack">
+            <p>تم إنشاء الطلب <b>#{createdOrder.id.slice(-6)}</b> بنجاح.</p>
+            <p>السعر التقريبي: <b>{createdOrder.price} ₪</b></p>
+            <p>الحالة: {statusLabel(createdOrder.status)}. تم حجز المبلغ من محفظة الزبون.</p>
+            {createdOrder.captainId && <p>تم إسناده للكابتن المحدد.</p>}
+            {createdOrder.assignmentError && (
+              <p role="alert">الطلب محفوظ، لكن الإسناد يحتاج مراجعة: {createdOrder.assignmentError}</p>
+            )}
+            {createdOrder.reused && <p className="yl-muted">هذا هو الطلب الأصلي؛ لم يُنشأ طلب مكرر.</p>}
+            <Button onClick={() => setCreatedOrder(null)}>إغلاق</Button>
+          </div>
+        </Modal>
+      )}
 
       {/* شريط الفلاتر */}
       <div className="yl-toolbar">

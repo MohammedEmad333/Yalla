@@ -148,10 +148,13 @@ function ensureCoordsFromNeighborhood(loc) {
  */
 async function createOrder(userId, payload, idempotencyKey, options = {}) {
   const paymentRequired = options.paymentRequired === true;
+  const adminPrice = options.adminPrice;
+  const adminPricing = typeof adminPrice === 'number' && Number.isFinite(adminPrice) && adminPrice >= 0;
+  const adminFreeDelivery = adminPricing && adminPrice === 0;
   // منع التكرار: إن وُصل نفس المفتاح سابقًا نُعيد الطلب الأصلي بدل إنشاء نسخة.
   const key = normalizeIdempotencyKey(idempotencyKey);
   if (key) {
-    const existing = await Order.findOne({ user: userId, idempotencyKey: key });
+    const existing = await Order.findOne({ user: userId, idempotencyKey: key }).select('+adminRequestHash');
     if (existing) {
       existing.$locals.yallaCreatedNow = false;
       return existing;
@@ -165,11 +168,13 @@ async function createOrder(userId, payload, idempotencyKey, options = {}) {
   const dropoff = ensureCoordsFromNeighborhood(normalizeLocation(payload.dropoff));
 
   // نحسب المسافة والسعر التقريبي والزمن في الخادم (مصدر الحقيقة) بدل الثقة بقيم العميل.
-  const { distanceKm, price } = pricing.quote(
+  const quote = pricing.quote(
     pickup.location.coordinates,
     dropoff.location.coordinates,
     payload.vehicleType
   );
+  const { distanceKm } = quote;
+  const price = adminPricing ? adminPrice : quote.price;
   // Card 110: طلبات المطاعم تُضيف زمن التحضير إلى الزمن المتوقّع للتوصيل
   const etaMinutes =
     estimateEtaMinutes(distanceKm, payload.vehicleType) +
@@ -180,7 +185,10 @@ async function createOrder(userId, payload, idempotencyKey, options = {}) {
   // الطلب العادي يحتاج أجرة التوصيل فقط.
   const itemsTotal = Number(payload.store?.itemsTotal) || 0;
   const estimatedTotal = price + itemsTotal;
-  const reward = await rewardsService.reserveForOrder(userId, payload.rewardPoints, estimatedTotal);
+  // Administrative orders must not spend or reserve customer reward points.
+  const reward = adminPricing
+    ? { pointsUsed: 0, pointsPerIls: 0, discountIls: 0 }
+    : await rewardsService.reserveForOrder(userId, payload.rewardPoints, estimatedTotal);
   const requiredBalance = Math.max(0, estimatedTotal - reward.discountIls);
 
   // الدفع الجديد يتم مباشرةً عبر جوال ولا يعتمد على رصيد محفظة الزبون.
@@ -214,6 +222,9 @@ async function createOrder(userId, payload, idempotencyKey, options = {}) {
   try {
     order = new Order({
       user: userId,
+      adminFreeDelivery,
+      adminFixedPrice: adminPricing,
+      adminRequestHash: options.adminRequestHash || '',
       pickup,
       dropoff,
       packageNote: payload.packageNote,
@@ -308,7 +319,7 @@ async function createOrder(userId, payload, idempotencyKey, options = {}) {
 
   // الإسناد التلقائي (بثّ لكل الكباتن): عند تفعيله من لوحة الأدمن يُبثّ الطلب لكل
   // الكباتن (مع إشعار Push) ليأخذه أوّل من يقبل — للطلبات المستحقّة فقط.
-  if (settingsService.isBroadcastMode() && isDue(order.scheduledAt)) {
+  if (!options.skipAutoDispatch && settingsService.isBroadcastMode() && isDue(order.scheduledAt)) {
     try {
       return await broadcastOrderToCaptains(order);
     } catch (err) {
@@ -319,7 +330,7 @@ async function createOrder(userId, payload, idempotencyKey, options = {}) {
   // إسناد تلقائي لأقرب كابتن عند التفعيل (AUTO_ASSIGN=true) — للطلبات المستحقّة فقط.
   // الطلبات المجدولة مستقبلًا تبقى pending حتى يحين وقتها. إن لم يوجد كابتن يبقى
   // الطلب pending للإسناد اليدوي — دون كسر تدفّق الإنشاء.
-  if (env.autoAssign && isDue(order.scheduledAt)) {
+  if (!options.skipAutoDispatch && env.autoAssign && isDue(order.scheduledAt)) {
     try {
       const result = await autoAssignOrder(order._id, { actorRole: 'system' });
       if (result.assigned) return result.order;
@@ -950,11 +961,11 @@ async function updateOrderStatus(
     const prepaid = order.payment?.status === 'paid';
     // الطلب المدفوع مسبقًا يُحاسَب على أجرة التوصيل التي ظهرت للزبون وقت الدفع.
     // الطلبات القديمة التي تعتمد على المحفظة تحتفظ بمنطق السعر الحقيقي الحالي.
-    realPrice = prepaid ? Number(order.price) : Number(finalPrice);
-    if (!(realPrice > 0)) {
+    realPrice = order.adminFixedPrice ? Number(order.price) : prepaid ? Number(order.price) : Number(finalPrice);
+    if (!order.adminFreeDelivery && !(realPrice > 0)) {
       throw httpError(prepaid ? 'أجرة التوصيل المدفوعة غير صالحة' : 'أدخل السعر الحقيقي للتوصيل قبل تأكيد التسليم', 400);
     }
-    if (!prepaid && realPrice > order.price) {
+    if (!order.adminFixedPrice && !prepaid && realPrice > order.price) {
       throw httpError(
         `السعر الحقيقي (${realPrice} ₪) يجب ألّا يتجاوز السعر التقريبي (${order.price} ₪)`,
         400
@@ -996,8 +1007,10 @@ async function updateOrderStatus(
 
     const itemsTotal = Number(order.store?.itemsTotal) || 0;
     const grossTotal = realPrice + itemsTotal;
-    const rewardSettlement = await rewardsService.settleOrderDiscount(order, grossTotal);
-    const chargeAmount = Math.max(0, grossTotal - rewardSettlement.discountIls);
+    const rewardSettlement = order.adminFreeDelivery
+      ? { discountIls: 0 }
+      : await rewardsService.settleOrderDiscount(order, grossTotal);
+    const chargeAmount = order.adminFreeDelivery ? 0 : Math.max(0, grossTotal - rewardSettlement.discountIls);
     try {
       if (chargeAmount > 0 && order.payment?.status !== 'paid') {
         await walletService.chargeForOrder(order.user, chargeAmount, order._id, {
@@ -1529,15 +1542,18 @@ async function getActiveOrders(regions) {
  * @param {{actorId?:string}} ctx
  */
 async function updateOrderPrice(orderId, newPrice, { actorId = null } = {}) {
-  const price = Math.round(Number(newPrice));
-  if (!Number.isFinite(price) || price < pricing.TARIFF.minFare) {
-    throw httpError(`السعر التقريبي يجب ألّا يقلّ عن ${pricing.TARIFF.minFare} ₪`, 400);
-  }
-
   const order = await Order.findById(orderId).select('+deliveryCode');
   if (!order) throw httpError('الطلب غير موجود', 404);
   if ([ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED].includes(order.status)) {
     throw httpError('لا يمكن تعديل سعر طلب منتهٍ', 400);
+  }
+  if (order.adminFixedPrice) {
+    throw httpError('السعر الإداري المحدد عند إنشاء الطلب ثابت؛ لا يمكن تغييره بعد حجز الرصيد', 409);
+  }
+
+  const price = Math.round(Number(newPrice));
+  if (!Number.isFinite(price) || price < pricing.TARIFF.minFare) {
+    throw httpError(`السعر التقريبي يجب ألّا يقلّ عن ${pricing.TARIFF.minFare} ₪`, 400);
   }
 
   const from = order.price;

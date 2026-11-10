@@ -223,8 +223,13 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     num? finalPrice;
     if (next == 'delivered') {
       final approx = (_order?['price'] as num?) ?? 0;
-      finalPrice = await _askFinalPrice(approx);
-      if (finalPrice == null) return; // ألغى الكابتن
+      if (_order?['adminFixedPrice'] == true) {
+        // Admin-set price is final (including zero): do not ask the captain to override it.
+        finalPrice = approx;
+      } else {
+        finalPrice = await _askFinalPrice(approx);
+        if (finalPrice == null) return; // ألغى الكابتن
+      }
       deliveryCode = await _askDeliveryCode();
       if (deliveryCode == null) return; // ألغى الكابتن الإدخال
     }
