@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../core/api_client.dart';
 import '../core/app_config.dart';
+import '../core/account_deletion.dart';
 
 class StoreScreen extends StatefulWidget {
   final ApiClient api;
@@ -217,6 +218,12 @@ class _StoreScreenState extends State<StoreScreen> {
           onPressed: _busy ? null : _save,
           icon: const Icon(Icons.save_outlined),
           label: Text(_busy ? 'جارٍ الحفظ...' : 'حفظ إعدادات المتجر'),
+        ),
+        const SizedBox(height: 12),
+        TextButton.icon(
+          onPressed: () => openAccountDeletion(context),
+          icon: const Icon(Icons.delete_outline_rounded),
+          label: const Text('طلب حذف الحساب والبيانات'),
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(

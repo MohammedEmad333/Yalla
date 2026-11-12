@@ -1,7 +1,7 @@
 class AppConfig {
   static const String origin = String.fromEnvironment(
     'API_ORIGIN',
-    defaultValue: 'https://yalla-api.duckdns.org',
+    defaultValue: 'https://api.yalladelivery.org',
   );
   static const String apiBaseUrl = '$origin/api';
 
