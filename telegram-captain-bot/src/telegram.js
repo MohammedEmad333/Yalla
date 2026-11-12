@@ -1,4 +1,5 @@
 'use strict';
+const { handleReadOnlyCommand } = require('./captainOrders');
 function createTelegramClient(token, fetchImpl = fetch) {
   return async function send(method, payload) {
     const response = await fetchImpl('https://api.telegram.org/bot' + token + '/' + method, {
@@ -41,8 +42,9 @@ async function handleUpdate(update, send) {
   const callback = update?.callback_query;
   const chat = message?.chat || callback?.message?.chat;
   if (!chat || chat.type !== 'private') return;
+  if (await handleReadOnlyCommand(update, send)) return;
   if (callback) {
-    await send('answerCallbackQuery', { callback_query_id: callback.id, text: 'الخدمة قيد التجهيز' });
+    await send('answerCallbackQuery', { callback_query_id: callback.id, text: 'استخدم /orders لعرض طلباتك' });
     return;
   }
   if (!message?.text || message.from?.is_bot || !message.from?.id) return;
@@ -56,7 +58,7 @@ async function handleUpdate(update, send) {
   }
   await send('sendMessage', {
     chat_id: chat.id,
-    text: 'Yalla Delivery — بوت الكباتن\n\nسيتم تفعيل ربط الحساب الآمن قريبًا. لا ترسل كلمة المرور أو رمز التحقق هنا. استخدم تطبيق Yalla حاليًا لإدارة الطلبات.',
+    text: 'Yalla Delivery — بوت الكباتن\n\nلإكمال ربط الحساب، استخدم تطبيق Yalla، ثم اكتب /orders لعرض طلباتك النشطة وتحديث حالتها. لا ترسل كلمة المرور أو رمز التحقق هنا. إدارة الطلبات تتم من تطبيق Yalla.',
     disable_web_page_preview: true,
   });
 }
