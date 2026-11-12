@@ -21,6 +21,15 @@ test('orderAssignedPayload: يحمل نوع ومعرّف الطلب', () => {
   assert.ok(p.title.length > 0 && p.body.includes('وسط البلد'));
 });
 
+test('delivery code is never included in push notification body or data', () => {
+  const code = '7319';
+  const p = notifications.deliveryCodePayload(sampleOrder, code);
+  assert.equal(p.data.type, 'DELIVERY_CODE');
+  assert.equal(p.data.orderId, 'abc123');
+  assert.equal(Object.hasOwn(p.data, 'code'), false);
+  assert.equal(p.body.includes(code), false);
+});
+
 test('orderStatusPayload: نصّ عربي مناسب لكل حالة', () => {
   const p = notifications.orderStatusPayload({ _id: 'x', status: 'delivered' });
   assert.equal(p.data.status, 'delivered');
