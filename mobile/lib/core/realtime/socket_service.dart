@@ -7,6 +7,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../config/app_config.dart';
 import '../storage/token_storage.dart';
 import 'order_room_subscriptions.dart';
+import 'socket_payload.dart';
 
 class SocketService {
   // نفس عنوان الـ Backend (بدون /api لأن السوكت على الجذر) — يُضبط عبر --dart-define
@@ -61,7 +62,8 @@ class SocketService {
   void _dispatch(String event, dynamic data) {
     final cbs = _listeners[event];
     if (cbs == null || data == null) return;
-    final map = Map<String, dynamic>.from(data as Map);
+    final map = parseSocketPayload(data);
+    if (map == null) return;
     for (final cb in List.of(cbs)) {
       cb(map);
     }
