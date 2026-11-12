@@ -65,7 +65,7 @@ jobs:
           BUILD="${FULL_VERSION#*+}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION+$BUILD" >> "$GITHUB_OUTPUT"
           echo "Yalla $VERSION+$BUILD"
 
       - name: تثبيت التبعيات
@@ -88,10 +88,14 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_B64" ]; then
+          if [ -z "$KEYSTORE_B64" ] && [ -z "$KEYSTORE_PASSWORD" ] && [ -z "$KEY_ALIAS" ] && [ -z "$KEY_PASSWORD" ]; then
             echo "signed=false" >> "$GITHUB_OUTPUT"
             echo "::warning::لا توجد أسرار keystore — سيُبنى APK بمفتاح debug ولن يُنشر كإصدار."
             exit 0
+          fi
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Incomplete release signing secrets."
+            exit 1
           fi
           KEYSTORE_PATH="$PWD/android/app/upload-keystore.jks"
           echo "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"
@@ -115,8 +119,8 @@ jobs:
       - name: تجهيز ملفات الإصدار
         if: steps.signing.outputs.signed == 'true'
         run: |
-          cp build/app/outputs/flutter-apk/app-release.apk "../Yalla-${{ steps.version.outputs.version }}.apk"
-          cp build/app/outputs/bundle/release/app-release.aab "../Yalla-${{ steps.version.outputs.version }}.aab"
+          cp build/app/outputs/flutter-apk/app-release.apk "../Yalla-${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "../Yalla-${{ steps.version.outputs.version }}+${{ steps.version.outputs.build }}.aab"
 
       - name: إنشاء أو تحديث GitHub Release ورفع APK + AAB
         if: steps.signing.outputs.signed == 'true'
@@ -127,7 +131,10 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           BUILD: ${{ steps.version.outputs.build }}
         run: |
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists; bump version/build instead of overwriting artifacts."
+            exit 1
+          else
             gh release create "$TAG" \
               --target "$GITHUB_SHA" \
               --title "Yalla $VERSION" \
@@ -135,9 +142,8 @@ jobs:
           fi
 
           gh release upload "$TAG" \
-            "Yalla-$VERSION.apk" \
-            "Yalla-$VERSION.aab" \
-            --clobber
+            "Yalla-$VERSION+$BUILD.apk" \
+            "Yalla-$VERSION+$BUILD.aab"
 
           echo "تم نشر APK و AAB على GitHub Release: $TAG"
 

@@ -119,7 +119,7 @@ class PushService {
             channelDescription: _ordersChannel.description,
             importance: Importance.max,
             priority: Priority.max,
-            visibility: NotificationVisibility.public, // محتوى كامل على شاشة القفل
+            visibility: NotificationVisibility.private, // حماية محتوى الإشعار على شاشة القفل
             playSound: true,
             icon: '@mipmap/ic_launcher',
           ),
