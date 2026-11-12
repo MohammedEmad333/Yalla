@@ -1,0 +1,9 @@
+# Android-only configuration for the Linux mobile release workflow.
+# The repository deliberately does not track the iOS Runner assets.
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/icon/yalla_icon.png
+  min_sdk_android: 21
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/icon/yalla_icon_foreground.png
