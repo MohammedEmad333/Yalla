@@ -78,7 +78,7 @@ jobs:
         run: flutter test
 
       - name: توليد أيقونة التطبيق
-        run: dart run flutter_launcher_icons || echo "تخطّي توليد الأيقونة"
+        run: dart run flutter_launcher_icons -f tool/flutter_launcher_icons_android.yaml
 
       - name: تجهيز توقيع الإصدار
         id: signing
