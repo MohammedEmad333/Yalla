@@ -793,6 +793,11 @@ async function claimOrder(captainId, orderId) {
   notifyCaptainPickupCodeIfReady(order._id, captain._id)
     .catch((e) => logger.warn('تعذّر إرسال رمز استلام المتجر للكابتن:', e.message));
 
+  // Optional Telegram pilot message. Never block order transitions or financial operations.
+  telegramCaptainNotifications.notifyOrderStatus({
+    captainId: captain._id, orderId: order._id, status: ORDER_STATUS.ACCEPTED,
+  }).catch((e) => logger.warn('Telegram captain status notification failed:', e.message));
+
   return populated;
 }
 
@@ -1130,6 +1135,10 @@ async function updateOrderStatus(
   });
 
   broadcastOrderUpdate(order);
+  // Optional Telegram pilot message. Never block order transitions or financial operations.
+  telegramCaptainNotifications.notifyOrderStatus({
+    captainId: captainId, orderId: order._id, status: nextStatus,
+  }).catch((e) => logger.warn('Telegram captain status notification failed:', e.message));
   pushOrderStatusToUser(order); // إشعار المستخدم بتغيّر الحالة (بلا انتظار)
   if (order.store?.restaurant) {
     notifications.notifyMerchantByRestaurant(order.store.restaurant, {
@@ -1422,6 +1431,13 @@ async function cancelOrder(orderId, { actorId, actorRole }, reason = '') {
     meta: { reason: order.cancelReason },
   });
 
+  if (captainId) {
+    // Optional Telegram pilot message. Never block order transitions or financial operations.
+    telegramCaptainNotifications.notifyOrderStatus({
+      captainId: captainId, orderId: order._id, status: ORDER_STATUS.CANCELLED,
+    }).catch((e) => logger.warn('Telegram captain status notification failed:', e.message));
+  }
+
   // إشعار الكابتن (إن كان مُسنَدًا) بأن الطلب أُلغي + بقية الأطراف
   if (captainId) {
     io.get().to(ROOMS.captain(captainId.toString())).emit(EVENTS.ORDER_STATUS_UPDATED, order);
@@ -1498,6 +1514,12 @@ async function forceCompleteByAdmin(orderId, { actorId } = {}) {
   });
 
   broadcastOrderUpdate(order);
+  if (captainId) {
+    // Optional Telegram pilot message. Never block order transitions or financial operations.
+    telegramCaptainNotifications.notifyOrderStatus({
+      captainId: captainId, orderId: order._id, status: ORDER_STATUS.DELIVERED,
+    }).catch((e) => logger.warn('Telegram captain status notification failed:', e.message));
+  }
   pushOrderStatusToUser(order); // إشعار المستخدم بتغيّر الحالة (بلا انتظار)
 
   // Card 80: الإغلاق الإداريّ يُنهي الطلب (تسليم) → احذف الحساب الخارجي المؤقّت إن وُجد
