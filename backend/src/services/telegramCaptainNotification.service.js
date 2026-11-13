@@ -76,7 +76,8 @@ async function notifyOrderStatus({ captainId, orderId, status }, {
 } = {}) {
   if (!enabled(env)) return { status: 'disabled' };
   if (!allowedCaptain(captainId, env)) return { status: 'not-allowlisted' };
-  if (!/^[a-f0-9]{24}$/i.test(String(orderId)) ||
+  if (!/^[a-f0-9]{24}$/i.test(String(captainId)) ||
+      !/^[a-f0-9]{24}$/i.test(String(orderId)) ||
       !Object.hasOwn(STATUS_TEXT, status)) return { status: 'invalid-event' };
   if (!env.TELEGRAM_BOT_TOKEN) return { status: 'unconfigured' };
   const [link, approved, current] = await Promise.all([
