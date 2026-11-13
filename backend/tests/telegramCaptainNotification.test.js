@@ -63,3 +63,66 @@ test('unlisted captain cannot receive an assignment', async () => {
     findLink() { throw new Error('must not query link'); },
   })).status, 'not-allowlisted');
 });
+
+const { notifyOrderStatus, orderStatusText } = require('../src/services/telegramCaptainNotification.service');
+const options = {
+  env, findLink: async () => link, isApproved: async () => true,
+  findCurrentOrder: async () => true,
+  fetchImpl: async () => ({ ok: true, json: async () => ({ ok: true }) }),
+};
+test('status notifications are disabled by default and do not query data', async () => {
+  assert.deepEqual(await notifyOrderStatus({ captainId, orderId, status: 'accepted' }, {
+    env: {}, findLink: () => { throw Error('queried'); },
+    findCurrentOrder: () => { throw Error('queried'); },
+  }), { status: 'disabled' });
+});
+test('status notifications require pilot allowlist and valid events', async () => {
+  assert.equal((await notifyOrderStatus({ captainId, orderId, status: 'accepted' }, {
+    ...options, env: { ...env, TELEGRAM_CAPTAIN_NOTIFICATIONS_CAPTAIN_IDS: '' },
+  })).status, 'not-allowlisted');
+  assert.equal((await notifyOrderStatus({ captainId, orderId, status: 'assigned' }, options)).status, 'invalid-event');
+  assert.equal((await notifyOrderStatus({ captainId, orderId: 'invalid', status: 'cancelled' }, options)).status, 'invalid-event');
+});
+test('status notifications require same private Telegram chat and approved captain', async () => {
+  assert.equal((await notifyOrderStatus({ captainId, orderId, status: 'picked_up' }, {
+    ...options, findLink: async () => ({ telegramUserId: '2', telegramChatId: '1' }),
+  })).status, 'unlinked');
+  assert.equal((await notifyOrderStatus({ captainId, orderId, status: 'picked_up' }, {
+    ...options, isApproved: async () => false,
+  })).status, 'unapproved');
+});
+test('status notifications suppress stale or reassigned orders', async () => {
+  assert.equal((await notifyOrderStatus({ captainId, orderId, status: 'delivered' }, {
+    ...options, findCurrentOrder: async (id, owner, status) => {
+      assert.equal(id, orderId);
+      assert.equal(owner, captainId);
+      assert.equal(status, 'delivered');
+      return null;
+    },
+  })).status, 'stale-event');
+});
+test('status payload excludes sensitive fields even if passed extra customer data', async () => {
+  for (const status of ['accepted', 'picked_up', 'delivered', 'cancelled']) {
+    let payload;
+    const result = await notifyOrderStatus({
+      captainId, orderId, status, phone: '0599000000',
+      deliveryCode: '1234', address: 'Private address', wallet: 500,
+    }, {
+      ...options, fetchImpl: async (_url, req) => {
+        payload = JSON.parse(req.body);
+        return { ok: true, json: async () => ({ ok: true }) };
+      },
+    });
+    assert.equal(result.status, 'sent');
+    assert.equal(payload.chat_id, link.telegramChatId);
+    assert.equal(payload.protect_content, true);
+    assert.ok(payload.text.includes(orderId.slice(-6)));
+    assert.ok(!/0599000000|1234|Private address|wallet|500/.test(payload.text));
+  }
+  assert.throws(() => orderStatusText('bad', 'accepted'), /Invalid order status/);
+});
+test('Telegram status API errors do not pretend to be sent', async () => {
+  await assert.rejects(notifyOrderStatus({ captainId, orderId, status: 'accepted' }, {
+    ...options, fetchImpl: async () => ({ ok: false, status: 429 }),
+  }), /HTTP 429/);
+});

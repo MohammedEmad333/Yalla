@@ -25,7 +25,7 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 ## Safety and rollout
 
 - Never send passwords or OTPs to the bot.
-- No order management, customer data access, or captain order actions are enabled yet.
+- Read-only `/orders`, `/myorders` and status refresh are available for linked approved captains in private chats. No Telegram order mutations, customer identity, addresses, OTPs, or payment data are exposed.
 - Configure and validate the backend bridge and webhook secrets before deploying.
 - Telegram may retry deliveries. Account linking is single-use; future order actions require separate authorization and idempotency tests.
 - Verify the real pairing flow with a test captain before enabling the bot publicly.
@@ -39,3 +39,12 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 - TELEGRAM_WEBHOOK_SECRET must now contain **32-256 allowed ASCII characters**. Coordinate changing this value in the bot environment and Telegram's setWebhook secret_token; deploy with a shorter existing secret will fail fast.
 - Test locally with `npm test`. GitHub CI runs this suite independently of the WhatsApp bot.
 - No customer order actions, payments or location sharing are added by this change.
+
+
+## Pilot status alerts (backend only)
+
+- The existing opt-in backend sender now supports accepted, picked_up, delivered, and cancelled events.
+- Disabled unless `TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED=true` and the captain is explicitly included in `TELEGRAM_CAPTAIN_NOTIFICATIONS_CAPTAIN_IDS`; a wildcard is not suitable for the pilot.
+- Before sending an event, the backend checks that the captain is approved, linked to a matching private Telegram chat, and still owns the order in the expected current status.
+- Only a short order reference and safe status label are sent. The order remains read-only in Telegram. No separate event bridge or new bot secrets are introduced.
+- Changes to backend code do not automatically deploy the separate bot systemd service. Start with a single approved pilot captain and verify actual order transitions.
