@@ -15,8 +15,61 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+
+  # Reduce PR runner minutes without weakening the complete main-branch suite.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.select.outputs.backend }}
+      admin: ${{ steps.select.outputs.admin }}
+      mobile: ${{ steps.select.outputs.mobile }}
+      partner: ${{ steps.select.outputs.partner }}
+      docker: ${{ steps.select.outputs.docker }}
+      bot: ${{ steps.select.outputs.bot }}
+      telegram: ${{ steps.select.outputs.telegram }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Detect affected components (fallback to full suite)
+        id: select
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          backend=false; admin=false; mobile=false; partner=false
+          docker=false; bot=false; telegram=false; full=false
+          if [[ "$GITHUB_EVENT_NAME" != pull_request || -z "$PR_BASE_SHA" ]]; then
+            full=true
+          elif ! git cat-file -e "$PR_BASE_SHA^{commit}" 2>/dev/null; then
+            full=true
+          else
+            changed=$(git diff --name-only "$PR_BASE_SHA"...HEAD) || full=true
+            [[ -n "$changed" ]] || full=true
+            while IFS= read -r file; do
+              case "$file" in
+                backend/*) backend=true; docker=true; telegram=true ;;
+                admin/*) admin=true ;;
+                mobile/*) mobile=true ;;
+                partner/*) partner=true ;;
+                bot/*) bot=true ;;
+                telegram-captain-bot/*) telegram=true ;;
+                docs/*|site/*) : ;;
+                *) full=true ;;
+              esac
+            done <<< "$changed"
+          fi
+          if [[ "$full" == true ]]; then
+            backend=true; admin=true; mobile=true; partner=true
+            docker=true; bot=true; telegram=true
+          fi
+          printf '%s\n' "backend=$backend" "admin=$admin" "mobile=$mobile" \
+            "partner=$partner" "docker=$docker" "bot=$bot" "telegram=$telegram" >> "$GITHUB_OUTPUT"
   # ── فحص الـ Backend: اختبارات الوحدة + التكامل ضدّ MongoDB وRedis حقيقيين ──
   backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     services:
       mongo:
@@ -70,6 +123,8 @@ jobs:
         run: npm run test:integration
 
   admin-build:
+    needs: changes
+    if: needs.changes.outputs.admin == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -89,6 +144,8 @@ jobs:
         run: npm run build
 
   mobile-check:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -109,6 +166,8 @@ jobs:
         run: flutter test
 
   partner-check:
+    needs: changes
+    if: needs.changes.outputs.partner == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -127,6 +186,8 @@ jobs:
         run: flutter test
 
   docker-build:
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -134,6 +195,8 @@ jobs:
         run: docker build --build-arg GIT_SHA="${{ github.sha }}" -t yalla-api:ci ./backend
 
   bot-check:
+    needs: changes
+    if: needs.changes.outputs.bot == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -155,6 +218,8 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
   telegram-captain-check:
+    needs: changes
+    if: needs.changes.outputs.telegram == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -173,3 +238,37 @@ jobs:
           node --check src/updateProcessor.js
       - name: اختبارات بوت تلجرام
         run: npm test
+
+  # Stable required status, including when unaffected jobs are intentionally skipped.
+  ci-required:
+    if: always()
+    needs: [changes, backend, admin-build, mobile-check, partner-check, docker-build, bot-check, telegram-captain-check]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce successful affected jobs
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          jobs = json.loads(os.environ['NEEDS_JSON'])
+          outputs = jobs.get('changes', {}).get('outputs', {})
+          checks = {
+            'backend': 'backend', 'admin-build': 'admin',
+            'mobile-check': 'mobile', 'partner-check': 'partner',
+            'docker-build': 'docker', 'bot-check': 'bot',
+            'telegram-captain-check': 'telegram',
+          }
+          errors = []
+          if jobs.get('changes', {}).get('result') != 'success':
+              errors.append('change detection failed')
+          for name, flag in checks.items():
+              result = jobs.get(name, {}).get('result')
+              if outputs.get(flag) == 'true' and result != 'success':
+                  errors.append(f'{name} required, but {result}')
+              elif outputs.get(flag) != 'true' and result not in ('success', 'skipped'):
+                  errors.append(f'{name} unexpectedly {result}')
+          if errors:
+              sys.exit('; '.join(errors))
+          print('All required component checks passed.')
+          PY
