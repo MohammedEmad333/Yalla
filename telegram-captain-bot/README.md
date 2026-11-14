@@ -77,3 +77,6 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 - The details view offers both status refresh and `My active orders` navigation. A refresh always queries the authenticated backend again; no stale cached ownership or customer details are used.
 - All callbacks require a private chat whose chat ID matches the Telegram sender. Unlinked captains receive no order details or order buttons.
 - These are read-only Telegram controls. Accepting, rejecting, cancelling or delivering an order remains available only in the Yalla app.
+
+- Inline list refresh, order status and menu navigation edit the existing Telegram message when a valid message ID is available, reducing chat clutter. Slash commands still create new messages.
+- Refresh after unlinking or losing order access removes old actionable buttons. A no-change edit is safely acknowledged; unexpected Telegram API failures still propagate for retry.
