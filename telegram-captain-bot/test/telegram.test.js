@@ -203,3 +203,54 @@ test('private menu orders delegates to authenticated read-only backend', async (
     else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = oldSecret;
   }
 });
+
+test('permanently blocked Telegram users do not trigger infinite webhook retries', async () => {
+  const send = createTelegramClient('test-token', async () => ({
+    ok: false, status: 403,
+    json: async () => ({ ok: false, error_code: 403, description: 'Forbidden: bot was blocked by the user' }),
+  }));
+  assert.equal(await send('sendMessage', { chat_id: 1, text: 'hello' }), null);
+});
+
+test('expired callback acknowledgements are safely discarded', async () => {
+  const send = createTelegramClient('test-token', async () => ({
+    ok: false, status: 400,
+    json: async () => ({ ok: false, error_code: 400, description: 'Bad Request: query is too old and response timeout expired or query ID is invalid' }),
+  }));
+  assert.equal(await send('answerCallbackQuery', { callback_query_id: 'expired' }), null);
+  await assert.rejects(send('sendMessage', { chat_id: 1, text: 'hello' }), /Telegram HTTP 400/);
+});
+
+test('authorization, rate limits and server errors still retry instead of being swallowed', async () => {
+  for (const [status, description] of [
+    [403, 'Forbidden: invalid token'],
+    [429, 'Too Many Requests: retry after 10'],
+    [502, 'Bad Gateway'],
+  ]) {
+    const send = createTelegramClient('test-token', async () => ({
+      ok: false, status, json: async () => ({ ok: false, error_code: status, description }),
+    }));
+    await assert.rejects(send('sendMessage', { chat_id: 1, text: 'hi' }),
+      new RegExp('Telegram HTTP ' + status));
+  }
+});
+
+test('Telegram API errors never expose backend response descriptions or tokens', async () => {
+  const token = 'do-not-leak-secret-token';
+  const send = createTelegramClient(token, async () => ({
+    ok: false, status: 401,
+    json: async () => ({ ok: false, error_code: 401, description: token }),
+  }));
+  await assert.rejects(send('sendMessage', { chat_id: 1 }), (error) => {
+    assert.doesNotMatch(error.message, /do-not-leak-secret-token/);
+    assert.match(error.message, /Telegram HTTP 401/);
+    return true;
+  });
+});
+
+test('malformed Telegram responses fail closed', async () => {
+  const send = createTelegramClient('test-token', async () => ({
+    ok: true, status: 200, json: async () => { throw Error('bad json'); },
+  }));
+  await assert.rejects(send('sendMessage', { chat_id: 1 }), /Telegram API invalid response/);
+});

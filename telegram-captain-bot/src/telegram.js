@@ -1,14 +1,39 @@
 'use strict';
 const { handleReadOnlyCommand } = require('./captainOrders');
+
+// Telegram will never deliver to a user who blocked the bot, and an expired
+// callback cannot be answered. Retrying these updates forever is harmful.
+// All other errors still reject so the webhook can retry transient failures.
+function isPermanentTelegramError(method, status, description) {
+  const detail = String(description || '').toLowerCase();
+  if (status === 403 && method === 'sendMessage') {
+    return /bot was blocked by the user|user is deactivated|bot can't initiate conversation|bot was kicked from the group chat/.test(detail);
+  }
+  if (status === 400 && method === 'answerCallbackQuery') {
+    return /query is too old|query id is invalid|query_id_invalid/.test(detail);
+  }
+  return false;
+}
 function createTelegramClient(token, fetchImpl = fetch) {
   return async function send(method, payload) {
     const response = await fetchImpl('https://api.telegram.org/bot' + token + '/' + method, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload), signal: AbortSignal.timeout(4500),
     });
-    if (!response.ok) throw new Error('Telegram HTTP ' + response.status);
-    const result = await response.json();
-    if (!result.ok) throw new Error('Telegram API error');
+    // Body is inspected only to distinguish permanent delivery failures.
+    // Never include Telegram's response body or bot token in thrown errors.
+    let result;
+    try {
+      result = await response.json();
+    } catch {
+      if (!response.ok) throw new Error('Telegram HTTP ' + response.status);
+      throw new Error('Telegram API invalid response');
+    }
+    if (!response.ok || !result?.ok) {
+      const status = Number(result?.error_code) || response.status;
+      if (isPermanentTelegramError(method, status, result?.description)) return null;
+      throw new Error(response.ok ? 'Telegram API error' : 'Telegram HTTP ' + response.status);
+    }
     return result.result;
   };
 }
