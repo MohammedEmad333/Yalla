@@ -161,8 +161,8 @@ test('help and privacy callbacks are answered without backend requests', async (
       callback_query: { id: 'cb-' + name, from: { id: 71 },
         data: 'menu:' + name, message: { chat: { id: 71, type: 'private' } } },
     }, async (method, payload) => calls.push({ method, payload }));
-    assert.deepEqual(calls.map(x => x.method), ['sendMessage', 'answerCallbackQuery']);
-    assert.equal(calls[0].payload.chat_id, 71);
+    assert.deepEqual(calls.map(x => x.method), ['answerCallbackQuery', 'sendMessage']);
+    assert.equal(calls[1].payload.chat_id, 71);
   }
 });
 
