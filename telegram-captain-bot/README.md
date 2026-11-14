@@ -70,3 +70,10 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 - If a captain blocks the bot or deactivates their Telegram account, the API returns a known permanent error. The webhook safely acknowledges the corresponding update instead of retrying the impossible message indefinitely.
 - Expired Telegram callback acknowledgements are also treated as permanent. Unauthorized responses, rate limits, server outages, malformed API replies and other unexpected errors still fail the webhook so Telegram may retry.
 - Bot tokens and raw Telegram error descriptions are never included in thrown error messages. This does not change pairing authorization, per-captain allowlists or order mutations.
+
+## Refreshable private order navigation
+
+- `/orders` and `/myorders` show up to five current assigned/accepted/picked-up orders with one button per order, a `Refresh list` button and a safe return to the help menu.
+- The details view offers both status refresh and `My active orders` navigation. A refresh always queries the authenticated backend again; no stale cached ownership or customer details are used.
+- All callbacks require a private chat whose chat ID matches the Telegram sender. Unlinked captains receive no order details or order buttons.
+- These are read-only Telegram controls. Accepting, rejecting, cancelling or delivering an order remains available only in the Yalla app.
