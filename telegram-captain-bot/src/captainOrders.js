@@ -13,6 +13,18 @@ function orderButtons(order) {
     [{ text: '📋 جميع طلباتي النشطة', callback_data: 'orders:refresh' }],
   ] };
 }
+// Inline navigation edits the current bot message instead of filling the chat
+// with duplicate order lists. Message-only commands still create a new message.
+function sendReadOnlyView(send, chatId, payload, callback) {
+  const messageId = callback?.message?.message_id;
+  if (!Number.isSafeInteger(messageId) || messageId <= 0) {
+    return send('sendMessage', { chat_id: chatId, ...payload });
+  }
+  // Clearing stale buttons matters when a captain was unlinked or reassigned.
+  const edited = payload.reply_markup ? payload
+    : { ...payload, reply_markup: { inline_keyboard: [] } };
+  return send('editMessageText', { chat_id: chatId, message_id: messageId, ...edited });
+}
 function backendUrl(path) {
   const base = process.env.YALLA_BACKEND_URL;
   if (!base) throw new Error('Telegram bridge URL is missing');
@@ -58,10 +70,10 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
           [{ text: '❓ القائمة الرئيسية', callback_data: 'menu:help' }],
         ] },
       };
-    // Acknowledge button presses after successful lookup and before the new message.
-    // Preserve a non-2xx webhook response for transient backend/Telegram failures.
+    // Acknowledge after the fresh authorization check; edit the active bot card.
+    // Transient backend/Telegram errors still fail the webhook for retry.
     if (callback) await send('answerCallbackQuery', { callback_query_id: callback.id });
-    await send('sendMessage', { chat_id: chat.id, ...payload });
+    await sendReadOnlyView(send, chat.id, payload, callback);
     return true;
   }
   // A full MongoDB order ID is required. Never resolve short references across accounts.
@@ -103,8 +115,10 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
       : result.order ? '🛵 حالة الطلب الآن:\n' + formatOrder(result.order)
         : 'الطلب غير متاح لهذا الحساب.';
     await send('answerCallbackQuery', { callback_query_id: callback.id });
-    await send('sendMessage', { chat_id: chat.id, text: payload,
-      ...(result.order ? { reply_markup: orderButtons(result.order) } : {}) });
+    await sendReadOnlyView(send, chat.id, {
+      text: payload,
+      ...(result?.linked && result.order ? { reply_markup: orderButtons(result.order) } : {}),
+    }, callback);
     return true;
   }
   return false;
@@ -123,4 +137,4 @@ async function deliverEvent(event, send, request = requestBackend) {
   });
   return { delivered: true };
 }
-module.exports = { handleReadOnlyCommand, deliverEvent, requestBackend, formatOrder, orderButtons };
+module.exports = { handleReadOnlyCommand, deliverEvent, requestBackend, formatOrder, orderButtons, sendReadOnlyView };
