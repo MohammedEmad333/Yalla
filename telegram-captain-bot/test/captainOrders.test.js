@@ -221,3 +221,59 @@ test('individual order status offers safe navigation back to order list', async 
   }));
   assert.equal(calls[1][1].reply_markup.inline_keyboard[1][0].callback_data, 'orders:refresh');
 });
+
+
+test('refresh edits the existing order list card instead of sending a new message', async () => {
+  const calls = [];
+  const id = 'a'.repeat(24);
+  await handleReadOnlyCommand({ callback_query: {
+    id: 'refresh-edit', from: { id: 17 }, data: 'orders:refresh',
+    message: { message_id: 101, chat: { id: 17, type: 'private' } },
+  } }, async (method, payload) => calls.push({ method, payload }),
+  async () => ({ linked: true, orders: [{ orderId: id, reference: 'aaaaaa', status: 'accepted' }] }));
+  assert.deepEqual(calls.map(x => x.method), ['answerCallbackQuery', 'editMessageText']);
+  assert.equal(calls[1].payload.message_id, 101);
+  assert.equal(calls[1].payload.chat_id, 17);
+  assert.equal(calls[1].payload.reply_markup.inline_keyboard[0][0].callback_data, 'status:' + id);
+});
+
+test('refresh after unlink removes any previously actionable inline buttons', async () => {
+  const calls = [];
+  await handleReadOnlyCommand({ callback_query: {
+    id: 'unlinked-edit', from: { id: 17 }, data: 'orders:refresh',
+    message: { message_id: 102, chat: { id: 17, type: 'private' } },
+  } }, async (method, payload) => calls.push({ method, payload }),
+  async () => ({ linked: false, orders: [{ orderId: 'b'.repeat(24), reference: 'bbbbbb' }] }));
+  assert.equal(calls[1].method, 'editMessageText');
+  assert.deepEqual(calls[1].payload.reply_markup, { inline_keyboard: [] });
+  assert.doesNotMatch(calls[1].payload.text, /bbbbbb/);
+});
+
+test('status detail callbacks reuse the same message and recheck order ownership', async () => {
+  const calls = [];
+  const id = 'd'.repeat(24);
+  await handleReadOnlyCommand({ callback_query: {
+    id: 'status-edit', from: { id: 24 }, data: 'status:' + id,
+    message: { message_id: 203, chat: { id: 24, type: 'private' } },
+  } }, async (method, payload) => calls.push({ method, payload }), async (path, body) => {
+    assert.equal(path, '/api/telegram-captain/internal/order');
+    assert.equal(body.telegramUserId, '24');
+    assert.equal(body.orderId, id);
+    return { linked: true, order: { orderId: id, reference: 'dddddd', status: 'picked_up' } };
+  });
+  assert.deepEqual(calls.map(x => x.method), ['answerCallbackQuery', 'editMessageText']);
+  assert.equal(calls[1].payload.message_id, 203);
+  assert.equal(calls[1].payload.reply_markup.inline_keyboard[1][0].callback_data, 'orders:refresh');
+});
+
+test('reassigned order refresh removes the stale status button', async () => {
+  const calls = [];
+  await handleReadOnlyCommand({ callback_query: {
+    id: 'reassigned', from: { id: 24 }, data: 'status:' + 'c'.repeat(24),
+    message: { message_id: 204, chat: { id: 24, type: 'private' } },
+  } }, async (method, payload) => calls.push({ method, payload }),
+  async () => ({ linked: true, order: null }));
+  assert.equal(calls[1].method, 'editMessageText');
+  assert.deepEqual(calls[1].payload.reply_markup, { inline_keyboard: [] });
+  assert.match(calls[1].payload.text, /غير متاح/);
+});
