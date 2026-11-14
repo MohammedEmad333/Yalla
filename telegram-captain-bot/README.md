@@ -64,3 +64,9 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 - The ID must be the complete 24-character hexadecimal order ID. Short references are not globally searchable.
 - Every lookup reuses the existing authenticated backend `/internal/order` route, which rechecks approved Telegram linkage and order ownership; missing, inaccessible or reassigned orders are not revealed.
 - Responses include only a short reference, current status and sanitized optional store name, plus a safe refresh button. No writes or customer details are available.
+
+## Permanent Telegram delivery failures
+
+- If a captain blocks the bot or deactivates their Telegram account, the API returns a known permanent error. The webhook safely acknowledges the corresponding update instead of retrying the impossible message indefinitely.
+- Expired Telegram callback acknowledgements are also treated as permanent. Unauthorized responses, rate limits, server outages, malformed API replies and other unexpected errors still fail the webhook so Telegram may retry.
+- Bot tokens and raw Telegram error descriptions are never included in thrown error messages. This does not change pairing authorization, per-captain allowlists or order mutations.
