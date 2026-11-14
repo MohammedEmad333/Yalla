@@ -193,8 +193,8 @@ test('private menu orders delegates to authenticated read-only backend', async (
       callback_query: { id: 'cb-orders', from: { id: 71 },
         data: 'menu:orders', message: { chat: { id: 71, type: 'private' } } },
     }, async (method, payload) => calls.push({ method, payload }));
-    assert.deepEqual(calls.map(x => x.method), ['sendMessage', 'answerCallbackQuery']);
-    assert.match(calls[0].payload.text, /لا توجد لديك طلبات نشطة/);
+    assert.deepEqual(calls.map(x => x.method), ['answerCallbackQuery', 'sendMessage']);
+    assert.match(calls[1].payload.text, /لا توجد لديك طلبات نشطة/);
   } finally {
     global.fetch = oldFetch;
     if (oldUrl === undefined) delete process.env.YALLA_BACKEND_URL;
@@ -253,4 +253,45 @@ test('malformed Telegram responses fail closed', async () => {
     ok: true, status: 200, json: async () => { throw Error('bad json'); },
   }));
   await assert.rejects(send('sendMessage', { chat_id: 1 }), /Telegram API invalid response/);
+});
+
+
+test('private menu navigation edits current message without duplicate replies', async () => {
+  const calls = [];
+  await handleUpdate({ callback_query: {
+    id: 'menu-nav', from: { id: 77 }, data: 'menu:privacy',
+    message: { message_id: 55, chat: { id: 77, type: 'private' } },
+  } }, async (method, payload) => calls.push({ method, payload }));
+  assert.deepEqual(calls.map(x => x.method), ['answerCallbackQuery', 'editMessageText']);
+  assert.equal(calls[1].payload.message_id, 55);
+  assert.match(calls[1].payload.text, /الخصوصية/);
+});
+
+test('orders menu callback acknowledges once and updates existing card', async () => {
+  const oldUrl = process.env.YALLA_BACKEND_URL;
+  const oldSecret = process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+  const oldFetch = global.fetch;
+  process.env.YALLA_BACKEND_URL = 'https://api.example.org';
+  process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = 'F'.repeat(48);
+  global.fetch = async (url, opts) => {
+    assert.equal(new URL(url).pathname, '/api/telegram-captain/internal/orders');
+    assert.deepEqual(JSON.parse(opts.body), { telegramUserId: '77', telegramChatId: '77' });
+    return { ok: true, json: async () => ({ linked: true, orders: [] }) };
+  };
+  try {
+    const calls = [];
+    await handleUpdate({ callback_query: {
+      id: 'menu-orders-nav', from: { id: 77 }, data: 'menu:orders',
+      message: { message_id: 56, chat: { id: 77, type: 'private' } },
+    } }, async (method, payload) => calls.push({ method, payload }));
+    assert.deepEqual(calls.map(x => x.method), ['answerCallbackQuery', 'editMessageText']);
+    assert.equal(calls[1].payload.message_id, 56);
+    assert.match(calls[1].payload.text, /لا توجد لديك طلبات نشطة/);
+  } finally {
+    global.fetch = oldFetch;
+    if (oldUrl === undefined) delete process.env.YALLA_BACKEND_URL;
+    else process.env.YALLA_BACKEND_URL = oldUrl;
+    if (oldSecret === undefined) delete process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+    else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = oldSecret;
+  }
 });
