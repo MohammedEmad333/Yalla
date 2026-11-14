@@ -12,6 +12,11 @@ function isPermanentTelegramError(method, status, description) {
   if (status === 400 && method === 'answerCallbackQuery') {
     return /query is too old|query id is invalid|query_id_invalid/.test(detail);
   }
+  // Refresh can produce identical content; Telegram rejects no-op edits.
+  // This is harmless and must not cause repeated webhook delivery.
+  if (status === 400 && method === 'editMessageText') {
+    return /message is not modified/.test(detail);
+  }
   return false;
 }
 function createTelegramClient(token, fetchImpl = fetch) {
@@ -99,19 +104,27 @@ async function handleUpdate(update, send) {
   if (callback?.data?.startsWith('menu:')) {
     const action = callback.data.slice(5);
     if (action === 'orders') {
+      // Reuse the same callback to retain message ID and acknowledge once.
       await handleReadOnlyCommand({
-        message: { chat, from: callback.from, text: '/orders' },
+        callback_query: { ...callback, data: 'orders:refresh' },
       }, send);
-    } else if (action === 'help' || action === 'privacy') {
-      await send('sendMessage', {
-        chat_id: chat.id, text: action === 'privacy' ? PRIVACY_TEXT : HELP_TEXT,
-        reply_markup: helpKeyboard(),
-      });
+      return;
     }
-    await send('answerCallbackQuery', {
-      callback_query_id: callback.id,
-      ...(!['orders', 'help', 'privacy'].includes(action) ? { text: 'خيار غير متاح' } : {}),
-    });
+    if (action === 'help' || action === 'privacy') {
+      await send('answerCallbackQuery', { callback_query_id: callback.id });
+      const payload = {
+        chat_id: chat.id,
+        text: action === 'privacy' ? PRIVACY_TEXT : HELP_TEXT,
+        reply_markup: helpKeyboard(),
+      };
+      if (Number.isSafeInteger(callback.message?.message_id) && callback.message.message_id > 0) {
+        await send('editMessageText', { ...payload, message_id: callback.message.message_id });
+      } else {
+        await send('sendMessage', payload);
+      }
+      return;
+    }
+    await send('answerCallbackQuery', { callback_query_id: callback.id, text: 'خيار غير متاح' });
     return;
   }
   if (await handleReadOnlyCommand(update, send)) return;
