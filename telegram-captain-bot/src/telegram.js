@@ -12,6 +12,11 @@ function isPermanentTelegramError(method, status, description) {
   if (status === 400 && method === 'answerCallbackQuery') {
     return /query is too old|query id is invalid|query_id_invalid/.test(detail);
   }
+  // Refresh can produce identical content; Telegram rejects no-op edits.
+  // This is harmless and must not cause repeated webhook delivery.
+  if (status === 400 && method === 'editMessageText') {
+    return /message is not modified/.test(detail);
+  }
   return false;
 }
 function createTelegramClient(token, fetchImpl = fetch) {
