@@ -53,7 +53,7 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
   }
   // A full MongoDB order ID is required. Never resolve short references across accounts.
   // The backend independently verifies the private Telegram identity and order owner.
-  const lookup = /^\\/order(?:@\\w+)?(?:\\s+(.+))?$/i.exec(input);
+  const lookup = /^\/order(?:@\w+)?(?:\s+(.+))?$/i.exec(input);
   if (lookup) {
     const id = String(lookup[1] || '').trim();
     if (!/^[a-f0-9]{24}$/i.test(id)) {
@@ -70,7 +70,7 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
       ? 'حسابك غير مرتبط أو غير معتمد. اربطه من تطبيق Yalla.'
       : !result.order
         ? 'الطلب غير متاح لهذا الحساب.'
-        : '🛵 حالة الطلب الآن:\\n' + formatOrder(result.order);
+        : '🛵 حالة الطلب الآن:\n' + formatOrder(result.order);
     await send('sendMessage', {
       chat_id: chat.id, text: messageText,
       ...(result?.linked && result.order ? { reply_markup: orderButtons(result.order) } : {}),
