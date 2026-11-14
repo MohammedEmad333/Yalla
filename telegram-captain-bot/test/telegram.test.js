@@ -295,3 +295,21 @@ test('orders menu callback acknowledges once and updates existing card', async (
     else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = oldSecret;
   }
 });
+
+
+test('unchanged message edit is a safe no-op and other edit errors still retry', async () => {
+  const unchanged = createTelegramClient('test-token', async () => ({
+    ok: false, status: 400, json: async () => ({
+      ok: false, error_code: 400, description: 'Bad Request: message is not modified: specified new message content and reply markup are exactly the same',
+    }),
+  }));
+  assert.equal(await unchanged('editMessageText', { chat_id: 1, message_id: 12, text: 'unchanged' }), null);
+  await assert.rejects(unchanged('sendMessage', { chat_id: 1, text: 'unchanged' }), /Telegram HTTP 400/);
+
+  const invalid = createTelegramClient('test-token', async () => ({
+    ok: false, status: 400, json: async () => ({
+      ok: false, error_code: 400, description: 'Bad Request: message to edit not found',
+    }),
+  }));
+  await assert.rejects(invalid('editMessageText', { chat_id: 1, message_id: 12, text: 'update' }), /Telegram HTTP 400/);
+});
