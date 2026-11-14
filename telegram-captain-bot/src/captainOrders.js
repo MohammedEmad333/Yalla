@@ -51,6 +51,32 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
     await send('sendMessage', { chat_id: chat.id, ...payload });
     return true;
   }
+  // A full MongoDB order ID is required. Never resolve short references across accounts.
+  // The backend independently verifies the private Telegram identity and order owner.
+  const lookup = /^\\/order(?:@\\w+)?(?:\\s+(.+))?$/i.exec(input);
+  if (lookup) {
+    const id = String(lookup[1] || '').trim();
+    if (!/^[a-f0-9]{24}$/i.test(id)) {
+      await send('sendMessage', {
+        chat_id: chat.id,
+        text: 'استخدم /order مع رقم الطلب الكامل (24 حرفًا)، أو /orders لعرض الطلبات النشطة.',
+      });
+      return true;
+    }
+    const result = await request('/api/telegram-captain/internal/order', {
+      telegramUserId: String(sender.id), telegramChatId: String(chat.id), orderId: id,
+    });
+    const messageText = !result?.linked
+      ? 'حسابك غير مرتبط أو غير معتمد. اربطه من تطبيق Yalla.'
+      : !result.order
+        ? 'الطلب غير متاح لهذا الحساب.'
+        : '🛵 حالة الطلب الآن:\\n' + formatOrder(result.order);
+    await send('sendMessage', {
+      chat_id: chat.id, text: messageText,
+      ...(result?.linked && result.order ? { reply_markup: orderButtons(result.order) } : {}),
+    });
+    return true;
+  }
   if (callback?.data?.startsWith('status:')) {
     if (!/^status:[a-f0-9]{24}$/i.test(callback.data)) {
       await send('answerCallbackQuery', { callback_query_id: callback.id, text: 'طلب غير صالح' });
