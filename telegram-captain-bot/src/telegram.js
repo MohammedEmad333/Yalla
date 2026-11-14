@@ -37,11 +37,57 @@ async function redeemPairing(code, userId, chatId, fetchImpl = fetch) {
   // Do not acknowledge the webhook before Telegram can retry.
   throw new Error('Pairing bridge HTTP ' + response.status);
 }
+
+const HELP_TEXT = [
+  '🛵 Yalla | مساعد الكابتن',
+  '',
+  '📋 /orders أو /myorders: آخر 5 طلبات نشطة.',
+  '🔄 استخدم زر تحديث الحالة لمعرفة حالة الطلب الحالية.',
+  '🔗 لربط الحساب: أنشئ رمز الربط من تطبيق Yalla ثم أرسله مع /start.',
+  '❓ /help: قائمة الأوامر.',
+  '🔒 /privacy: سياسة الخصوصية.',
+  '',
+  'قبول الطلب أو تسليمه أو إلغاؤه يتم فقط داخل تطبيق Yalla.',
+].join('\n');
+const PRIVACY_TEXT = [
+  '🔒 الخصوصية في بوت Yalla',
+  '',
+  'نعرض للكابتن المرتبط والمعتمد مرجع الطلب وحالته المختصرة واسم المتجر عند توفره.',
+  'لا نعرض أسماء العملاء أو أرقامهم أو عناوينهم أو رموز التحقق أو بيانات المحفظة.',
+  'لا ترسل كلمة مرور أو رمز تحقق هنا. إلغاء الربط يتم من تطبيق Yalla.',
+].join('\n');
+function helpKeyboard() {
+  return { inline_keyboard: [
+    [{ text: '📋 طلباتي النشطة', callback_data: 'menu:orders' }],
+    [{ text: '🔒 الخصوصية', callback_data: 'menu:privacy' }],
+    [{ text: '❓ المساعدة', callback_data: 'menu:help' }],
+  ] };
+}
+
 async function handleUpdate(update, send) {
   const message = update?.message;
   const callback = update?.callback_query;
   const chat = message?.chat || callback?.message?.chat;
   if (!chat || chat.type !== 'private') return;
+  if (callback && (!callback.from?.id || String(callback.from.id) !== String(chat.id))) return;
+  if (callback?.data?.startsWith('menu:')) {
+    const action = callback.data.slice(5);
+    if (action === 'orders') {
+      await handleReadOnlyCommand({
+        message: { chat, from: callback.from, text: '/orders' },
+      }, send);
+    } else if (action === 'help' || action === 'privacy') {
+      await send('sendMessage', {
+        chat_id: chat.id, text: action === 'privacy' ? PRIVACY_TEXT : HELP_TEXT,
+        reply_markup: helpKeyboard(),
+      });
+    }
+    await send('answerCallbackQuery', {
+      callback_query_id: callback.id,
+      ...(!['orders', 'help', 'privacy'].includes(action) ? { text: 'خيار غير متاح' } : {}),
+    });
+    return;
+  }
   if (await handleReadOnlyCommand(update, send)) return;
   if (callback) {
     await send('answerCallbackQuery', { callback_query_id: callback.id, text: 'استخدم /orders لعرض طلباتك' });
@@ -50,6 +96,15 @@ async function handleUpdate(update, send) {
   if (!message?.text || message.from?.is_bot || !message.from?.id) return;
   if (String(message.from.id) !== String(chat.id)) return;
   const input = message.text.trim();
+  const command = /^\/(help|commands|privacy|start)(?:@\w+)?$/i.exec(input);
+  if (command) {
+    await send('sendMessage', {
+      chat_id: chat.id,
+      text: command[1].toLowerCase() === 'privacy' ? PRIVACY_TEXT : HELP_TEXT,
+      reply_markup: helpKeyboard(), disable_web_page_preview: true,
+    });
+    return;
+  }
   const match = /^\/start(?:@\w+)?\s+([A-Za-z0-9_-]{32})$/.exec(input);
   if (match) {
     const linked = await redeemPairing(match[1], message.from.id, chat.id);
@@ -62,4 +117,4 @@ async function handleUpdate(update, send) {
     disable_web_page_preview: true,
   });
 }
-module.exports = { createTelegramClient, handleUpdate, redeemPairing };
+module.exports = { createTelegramClient, handleUpdate, redeemPairing, HELP_TEXT, PRIVACY_TEXT, helpKeyboard };

@@ -48,3 +48,12 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 - Before sending an event, the backend checks that the captain is approved, linked to a matching private Telegram chat, and still owns the order in the expected current status.
 - Only a short order reference and safe status label are sent. The order remains read-only in Telegram. No separate event bridge or new bot secrets are introduced.
 - Changes to backend code do not automatically deploy the separate bot systemd service. Start with a single approved pilot captain and verify actual order transitions.
+
+
+## Captain self-service menu
+
+- In a private chat, use `/start`, `/help`, or `/commands` to see the safe read-only menu.
+- `/privacy` explains what the bot intentionally excludes from replies and how to unlink in the Yalla app.
+- Inline buttons provide **My active orders**, **Privacy**, and **Help**.
+- The active orders button uses the same authenticated backend endpoint and private-chat identity match as `/orders`.
+- A callback from an identity different from the private chat owner is ignored. No Telegram-based accept, delivery, cancel, payments, or customer data access is introduced.

@@ -128,3 +128,78 @@ test('invalid pairing code is reported without retrying', async () => {
     else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = oldSecret;
   }
 });
+
+
+test('private help and privacy commands show safe interactive menu', async () => {
+  for (const [command, expected] of [['/help', /الأوامر/], ['/commands', /الأوامر/],
+    ['/start', /الأوامر/], ['/privacy', /الخصوصية/]]) {
+    const calls = [];
+    await handleUpdate({
+      message: { chat: { id: 71, type: 'private' }, from: { id: 71 }, text: command },
+    }, async (method, payload) => calls.push({ method, payload }));
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, 'sendMessage');
+    assert.match(calls[0].payload.text, expected);
+    assert.equal(calls[0].payload.reply_markup.inline_keyboard[0][0].callback_data, 'menu:orders');
+    assert.doesNotMatch(calls[0].payload.text, /0599000000|12345678/);
+  }
+});
+
+test('menu callbacks never respond to a different Telegram identity', async () => {
+  const calls = [];
+  await handleUpdate({
+    callback_query: { id: 'cb-other', from: { id: 90 },
+      data: 'menu:privacy', message: { chat: { id: 71, type: 'private' } } },
+  }, async (method) => calls.push(method));
+  assert.deepEqual(calls, []);
+});
+
+test('help and privacy callbacks are answered without backend requests', async () => {
+  for (const name of ['help', 'privacy']) {
+    const calls = [];
+    await handleUpdate({
+      callback_query: { id: 'cb-' + name, from: { id: 71 },
+        data: 'menu:' + name, message: { chat: { id: 71, type: 'private' } } },
+    }, async (method, payload) => calls.push({ method, payload }));
+    assert.deepEqual(calls.map(x => x.method), ['sendMessage', 'answerCallbackQuery']);
+    assert.equal(calls[0].payload.chat_id, 71);
+  }
+});
+
+test('unknown menu callback is acknowledged without order access', async () => {
+  const calls = [];
+  await handleUpdate({
+    callback_query: { id: 'cb-unknown', from: { id: 71 },
+      data: 'menu:invalid', message: { chat: { id: 71, type: 'private' } } },
+  }, async (method, payload) => calls.push({ method, payload }));
+  assert.deepEqual(calls.map(x => x.method), ['answerCallbackQuery']);
+  assert.match(calls[0].payload.text, /غير متاح/);
+});
+
+test('private menu orders delegates to authenticated read-only backend', async () => {
+  const oldUrl = process.env.YALLA_BACKEND_URL;
+  const oldSecret = process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+  const oldFetch = global.fetch;
+  process.env.YALLA_BACKEND_URL = 'https://api.example.org';
+  process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = 'F'.repeat(48);
+  global.fetch = async (url, opts) => {
+    assert.equal(new URL(url).pathname, '/api/telegram-captain/internal/orders');
+    assert.deepEqual(JSON.parse(opts.body), { telegramUserId: '71', telegramChatId: '71' });
+    return { ok: true, json: async () => ({ linked: true, orders: [] }) };
+  };
+  try {
+    const calls = [];
+    await handleUpdate({
+      callback_query: { id: 'cb-orders', from: { id: 71 },
+        data: 'menu:orders', message: { chat: { id: 71, type: 'private' } } },
+    }, async (method, payload) => calls.push({ method, payload }));
+    assert.deepEqual(calls.map(x => x.method), ['sendMessage', 'answerCallbackQuery']);
+    assert.match(calls[0].payload.text, /لا توجد لديك طلبات نشطة/);
+  } finally {
+    global.fetch = oldFetch;
+    if (oldUrl === undefined) delete process.env.YALLA_BACKEND_URL;
+    else process.env.YALLA_BACKEND_URL = oldUrl;
+    if (oldSecret === undefined) delete process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+    else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = oldSecret;
+  }
+});
