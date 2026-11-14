@@ -142,7 +142,7 @@ test('orders list has a refresh button and safe direct navigation for at most 5 
   const calls = [];
   const many = Array.from({ length: 8 }, (_, i) => ({
     orderId: String(i + 1).padStart(24, 'a'), reference: '00000' + (i + 1),
-    status: i % 2 ? 'picked_up' : 'accepted', storeName: 'Store\\nName',
+    status: i % 2 ? 'picked_up' : 'accepted', storeName: 'Store\nName',
   }));
   const request = async (path, body) => {
     assert.equal(path, '/api/telegram-captain/internal/orders');
@@ -157,7 +157,7 @@ test('orders list has a refresh button and safe direct navigation for at most 5 
   assert.equal(payload.reply_markup.inline_keyboard[5][0].callback_data, 'orders:refresh');
   assert.equal(payload.reply_markup.inline_keyboard[6][0].callback_data, 'menu:help');
   assert.equal((payload.text.match(/المتجر:/g) || []).length, 5);
-  assert.doesNotMatch(payload.text, /Store\\nName/);
+  assert.doesNotMatch(payload.text, /Store\nName/);
   assert.match(payload.reply_markup.inline_keyboard[0][0].text, /تم قبوله/);
 });
 
