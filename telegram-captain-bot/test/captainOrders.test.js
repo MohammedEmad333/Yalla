@@ -136,3 +136,88 @@ test('/order from a forged private chat identity is ignored without backend acce
   }), false);
   assert.deepEqual(calls, []);
 });
+
+
+test('orders list has a refresh button and safe direct navigation for at most 5 orders', async () => {
+  const calls = [];
+  const many = Array.from({ length: 8 }, (_, i) => ({
+    orderId: String(i + 1).padStart(24, 'a'), reference: '00000' + (i + 1),
+    status: i % 2 ? 'picked_up' : 'accepted', storeName: 'Store\\nName',
+  }));
+  const request = async (path, body) => {
+    assert.equal(path, '/api/telegram-captain/internal/orders');
+    assert.deepEqual(body, { telegramUserId: '11', telegramChatId: '11' });
+    return { linked: true, orders: many };
+  };
+  assert.equal(await handleReadOnlyCommand({
+    message: { chat: { type: 'private', id: 11 }, from: { id: 11 }, text: '/orders' },
+  }, async (...args) => calls.push(args), request), true);
+  const payload = calls[0][1];
+  assert.equal(payload.reply_markup.inline_keyboard.length, 7);
+  assert.equal(payload.reply_markup.inline_keyboard[5][0].callback_data, 'orders:refresh');
+  assert.equal(payload.reply_markup.inline_keyboard[6][0].callback_data, 'menu:help');
+  assert.equal((payload.text.match(/المتجر:/g) || []).length, 5);
+  assert.doesNotMatch(payload.text, /Store\\nName/);
+  assert.match(payload.reply_markup.inline_keyboard[0][0].text, /تم قبوله/);
+});
+
+test('orders refresh button re-checks ownership in private chat and acknowledges callback', async () => {
+  const id = 'c'.repeat(24);
+  const calls = [];
+  const request = async (path, body) => {
+    assert.equal(path, '/api/telegram-captain/internal/orders');
+    assert.deepEqual(body, { telegramUserId: '17', telegramChatId: '17' });
+    return { linked: true, orders: [{ orderId: id, reference: 'cccccc', status: 'assigned' }] };
+  };
+  assert.equal(await handleReadOnlyCommand({
+    callback_query: {
+      id: 'refresh-one', from: { id: 17 }, data: 'orders:refresh',
+      message: { chat: { type: 'private', id: 17 } },
+    },
+  }, async (...args) => calls.push(args), request), true);
+  assert.deepEqual(calls.map(x => x[0]), ['answerCallbackQuery', 'sendMessage']);
+  assert.equal(calls[1][1].reply_markup.inline_keyboard[0][0].callback_data, 'status:' + id);
+});
+
+test('orders refresh ignores mismatched private chat identity and group callbacks', async () => {
+  for (const chat of [
+    { id: 17, type: 'private' }, { id: 18, type: 'group' },
+  ]) {
+    const calls = [];
+    assert.equal(await handleReadOnlyCommand({
+      callback_query: {
+        id: 'forged', from: { id: 18 }, data: 'orders:refresh',
+        message: { chat },
+      },
+    }, async (...args) => calls.push(args), async () => { throw Error('must not call backend'); }), false);
+    assert.deepEqual(calls, []);
+  }
+});
+
+test('refreshing an unlinked account reveals no orders or navigation buttons', async () => {
+  const calls = [];
+  await handleReadOnlyCommand({
+    callback_query: {
+      id: 'unlinked', from: { id: 17 }, data: 'orders:refresh',
+      message: { chat: { type: 'private', id: 17 } },
+    },
+  }, async (...args) => calls.push(args), async () => ({
+    linked: false, orders: [{ orderId: 'a'.repeat(24), reference: 'aaaaaa', status: 'accepted' }],
+  }));
+  assert.equal(calls[1][1].reply_markup, undefined);
+  assert.match(calls[1][1].text, /غير مرتبط/);
+  assert.doesNotMatch(calls[1][1].text, /aaaaaa/);
+});
+
+test('individual order status offers safe navigation back to order list', async () => {
+  const id = 'd'.repeat(24), calls = [];
+  await handleReadOnlyCommand({
+    callback_query: {
+      id: 'detail', from: { id: 21 }, data: 'status:' + id,
+      message: { chat: { type: 'private', id: 21 } },
+    },
+  }, async (...args) => calls.push(args), async () => ({
+    linked: true, order: { orderId: id, reference: 'dddddd', status: 'picked_up' },
+  }));
+  assert.equal(calls[1][1].reply_markup.inline_keyboard[1][0].callback_data, 'orders:refresh');
+});
