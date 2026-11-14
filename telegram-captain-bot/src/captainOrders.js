@@ -8,7 +8,10 @@ function formatOrder(order) {
 }
 function orderButtons(order) {
   if (!/^[a-f0-9]{24}$/i.test(order.orderId || '')) return undefined;
-  return { inline_keyboard: [[{ text: '🔄 تحديث الحالة', callback_data: 'status:' + order.orderId }]] };
+  return { inline_keyboard: [
+    [{ text: '🔄 تحديث الحالة', callback_data: 'status:' + order.orderId }],
+    [{ text: '📋 جميع طلباتي النشطة', callback_data: 'orders:refresh' }],
+  ] };
 }
 function backendUrl(path) {
   const base = process.env.YALLA_BACKEND_URL;
@@ -34,20 +37,30 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
   if (chat?.type !== 'private' || !sender?.id || String(sender.id) !== String(chat.id)) return false;
   const input = String(message?.text || '').trim();
 
-  if (/^\/(?:orders|myorders)(?:@\w+)?$/i.test(input)) {
+  if (/^\/(?:orders|myorders)(?:@\w+)?$/i.test(input) || callback?.data === 'orders:refresh') {
     const result = await request('/api/telegram-captain/internal/orders', {
       telegramUserId: String(sender.id), telegramChatId: String(chat.id),
     });
+    // Each button triggers a fresh ownership-checked backend lookup.
+    const orders = Array.isArray(result?.orders) ? result.orders.slice(0, 5) : [];
+    const buttons = orders
+      .filter(o => /^[a-f0-9]{24}$/i.test(o.orderId || ''))
+      .map(o => [{ text: '🔎 #' + clean(o.reference, 6) + ' · ' +
+        (STATUS[o.status] || 'غير معروفة'), callback_data: 'status:' + o.orderId }]);
     const payload = !result?.linked
       ? { text: 'حسابك غير مرتبط أو غير معتمد. اربطه من إعدادات الكابتن في تطبيق Yalla.' }
-      : !Array.isArray(result.orders) || !result.orders.length
-        ? { text: 'لا توجد لديك طلبات نشطة حاليًا.' }
-        : {
-          text: '🛵 طلباتك النشطة (آخر 5):\n\n' + result.orders.map(formatOrder).join('\n\n'),
-          reply_markup: { inline_keyboard: result.orders
-            .filter(o => /^[a-f0-9]{24}$/i.test(o.orderId || ''))
-            .map(o => [{ text: '🔄 #' + clean(o.reference, 6), callback_data: 'status:' + o.orderId }]) },
-        };
+      : {
+        text: !orders.length ? 'لا توجد لديك طلبات نشطة حاليًا.'
+          : '🛵 طلباتك النشطة (آخر 5):\n\n' + orders.map(formatOrder).join('\n\n'),
+        reply_markup: { inline_keyboard: [
+          ...buttons,
+          [{ text: '🔄 تحديث القائمة', callback_data: 'orders:refresh' }],
+          [{ text: '❓ القائمة الرئيسية', callback_data: 'menu:help' }],
+        ] },
+      };
+    // Acknowledge button presses after successful lookup and before the new message.
+    // Preserve a non-2xx webhook response for transient backend/Telegram failures.
+    if (callback) await send('answerCallbackQuery', { callback_query_id: callback.id });
     await send('sendMessage', { chat_id: chat.id, ...payload });
     return true;
   }
