@@ -86,3 +86,53 @@ test('store names cannot inject multiline content', () => {
   assert.equal(formatOrder({ reference: '123456', status: 'assigned', storeName: 'X\nY' }),
     '#123456 — تم إسناده\nالمتجر: X Y');
 });
+
+
+test('private /order command looks up only full ID scoped to the Telegram identity', async () => {
+  const id = 'a'.repeat(24);
+  const calls = [];
+  const request = async (path, body) => {
+    assert.equal(path, '/api/telegram-captain/internal/order');
+    assert.deepEqual(body, { telegramUserId: '321', telegramChatId: '321', orderId: id });
+    return { linked: true, order: { orderId: id, reference: 'aaaaaa', status: 'picked_up', storeName: 'Store' } };
+  };
+  assert.equal(await handleReadOnlyCommand({ message: {
+    chat: { type: 'private', id: 321 }, from: { id: 321 },
+    text: '/order ' + id,
+  } }, async (...args) => calls.push(args), request), true);
+  assert.match(calls[0][1].text, /قيد التوصيل/);
+  assert.equal(calls[0][1].reply_markup.inline_keyboard[0][0].callback_data, 'status:' + id);
+});
+test('/order rejects short, injected, and absent IDs without backend calls', async () => {
+  for (const input of ['/order', '/order abcdef', '/order ../etc/passwd', '/order ' + 'a'.repeat(24) + ' extra']) {
+    const calls = [];
+    assert.equal(await handleReadOnlyCommand({ message: {
+      chat: { type: 'private', id: 321 }, from: { id: 321 }, text: input,
+    } }, async (...args) => calls.push(args), async () => {
+      throw Error('backend must not be called');
+    }), true);
+    assert.match(calls[0][1].text, /24 حرفًا/);
+  }
+});
+test('/order never reveals an unowned or unlinked order', async () => {
+  for (const [result, expected] of [
+    [{ linked: true, order: null }, /غير متاح/],
+    [{ linked: false, order: { status: 'accepted', reference: '123456' } }, /غير مرتبط/],
+  ]) {
+    const calls = [];
+    await handleReadOnlyCommand({ message: {
+      chat: { type: 'private', id: 321 }, from: { id: 321 }, text: '/order ' + 'b'.repeat(24),
+    } }, async (...args) => calls.push(args), async () => result);
+    assert.match(calls[0][1].text, expected);
+    assert.equal(calls[0][1].reply_markup, undefined);
+  }
+});
+test('/order from a forged private chat identity is ignored without backend access', async () => {
+  const calls = [];
+  assert.equal(await handleReadOnlyCommand({ message: {
+    chat: { type: 'private', id: 321 }, from: { id: 900 }, text: '/order ' + 'a'.repeat(24),
+  } }, async (...args) => calls.push(args), async () => {
+    throw Error('forged identity may not access backend');
+  }), false);
+  assert.deepEqual(calls, []);
+});

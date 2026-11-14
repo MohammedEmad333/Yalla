@@ -57,3 +57,10 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 - Inline buttons provide **My active orders**, **Privacy**, and **Help**.
 - The active orders button uses the same authenticated backend endpoint and private-chat identity match as `/orders`.
 - A callback from an identity different from the private chat owner is ignored. No Telegram-based accept, delivery, cancel, payments, or customer data access is introduced.
+
+## Single-order read-only lookup
+
+- Use `/order FULL_ORDER_ID` in the captain's private Telegram chat to view an owned order's current safe status.
+- The ID must be the complete 24-character hexadecimal order ID. Short references are not globally searchable.
+- Every lookup reuses the existing authenticated backend `/internal/order` route, which rechecks approved Telegram linkage and order ownership; missing, inaccessible or reassigned orders are not revealed.
+- Responses include only a short reference, current status and sanitized optional store name, plus a safe refresh button. No writes or customer details are available.
