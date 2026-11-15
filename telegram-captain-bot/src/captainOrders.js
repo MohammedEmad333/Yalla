@@ -78,13 +78,13 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
   }
   // A full MongoDB order ID is required. Never resolve short references across accounts.
   // The backend independently verifies the private Telegram identity and order owner.
-  const lookup = /^\/order(?:@\w+)?(?:\s+(.+))?$/i.exec(input);
+  const lookup = /^\/(?:order|status)(?:@\w+)?(?:\s+(.+))?$/i.exec(input);
   if (lookup) {
     const id = String(lookup[1] || '').trim();
     if (!/^[a-f0-9]{24}$/i.test(id)) {
       await send('sendMessage', {
         chat_id: chat.id,
-        text: 'استخدم /order مع رقم الطلب الكامل (24 حرفًا)، أو /orders لعرض الطلبات النشطة.',
+        text: 'استخدم /order أو /status مع رقم الطلب الكامل (24 حرفًا)، أو /orders لعرض الطلبات النشطة.',
       });
       return true;
     }

@@ -73,6 +73,8 @@ const HELP_TEXT = [
   '',
   '📋 /orders أو /myorders: آخر 5 طلبات نشطة.',
   '🔎 /order رقم_الطلب: استعلام عن طلب محدد من حسابك فقط (24 حرفًا).',
+  '📦 /status رقم_الطلب: عرض حالة طلبك الحاليّة بصلاحيات القراءة فقط.',
+  '🏠 /menu: العودة إلى القائمة الرئيسية.',
   '🔄 استخدم زر تحديث الحالة لمعرفة حالة الطلب الحالية.',
   '🔗 لربط الحساب: أنشئ رمز الربط من تطبيق Yalla ثم أرسله مع /start.',
   '❓ /help: قائمة الأوامر.',
@@ -135,7 +137,7 @@ async function handleUpdate(update, send) {
   if (!message?.text || message.from?.is_bot || !message.from?.id) return;
   if (String(message.from.id) !== String(chat.id)) return;
   const input = message.text.trim();
-  const command = /^\/(help|commands|privacy|start)(?:@\w+)?$/i.exec(input);
+  const command = /^\/(help|commands|privacy|start|menu)(?:@\w+)?$/i.exec(input);
   if (command) {
     await send('sendMessage', {
       chat_id: chat.id,
