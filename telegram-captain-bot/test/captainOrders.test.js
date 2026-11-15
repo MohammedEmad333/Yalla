@@ -322,3 +322,58 @@ test('/status cannot expose unlinked or reassigned orders', async () => {
   }, async (...args) => calls.push(args), async () => { throw Error('forged identity'); }), false);
   assert.deepEqual(calls, []);
 });
+
+test('/account reports linked and approved state without exposing any order fields', async () => {
+  const calls = [];
+  const id = 'a'.repeat(24);
+  const handled = await handleReadOnlyCommand({
+    message: { chat: { type: 'private', id: 41 }, from: { id: 41 }, text: '/account' },
+  }, async (method, payload) => calls.push({ method, payload }), async (path, body) => {
+    assert.equal(path, '/api/telegram-captain/internal/orders');
+    assert.deepEqual(body, { telegramUserId: '41', telegramChatId: '41' });
+    return { linked: true, orders: [{ orderId: id, reference: 'secret', storeName: 'Private Store' }] };
+  });
+  assert.equal(handled, true);
+  assert.equal(calls[0].method, 'sendMessage');
+  assert.match(calls[0].payload.text, /مرتبط ومعتمد/);
+  assert.doesNotMatch(calls[0].payload.text, /secret|Private Store|aaaaaaaa/);
+  assert.equal(calls[0].payload.reply_markup.inline_keyboard[0][0].callback_data, 'orders:refresh');
+});
+
+test('/account unlinked response never displays orders or access buttons', async () => {
+  const calls = [];
+  await handleReadOnlyCommand({
+    message: { chat: { type: 'private', id: 41 }, from: { id: 41 }, text: '/account' },
+  }, async (method, payload) => calls.push({ method, payload }), async () => ({
+    linked: false, orders: [{ orderId: 'a'.repeat(24), reference: 'secret' }],
+  }));
+  assert.match(calls[0].payload.text, /غير مرتبط/);
+  assert.doesNotMatch(calls[0].payload.text, /secret/);
+  assert.deepEqual(calls[0].payload.reply_markup.inline_keyboard.map(row => row[0].callback_data), ['menu:help']);
+});
+
+test('private account status callback updates the existing card and acknowledges once', async () => {
+  const calls = [];
+  const handled = await handleReadOnlyCommand({
+    callback_query: {
+      id: 'account-card', data: 'account:status', from: { id: 41 },
+      message: { message_id: 200, chat: { type: 'private', id: 41 } },
+    },
+  }, async (method, payload) => calls.push({ method, payload }), async () => ({
+    linked: true, orders: [],
+  }));
+  assert.equal(handled, true);
+  assert.deepEqual(calls.map(c => c.method), ['answerCallbackQuery', 'editMessageText']);
+  assert.equal(calls[1].payload.message_id, 200);
+});
+
+test('/account ignores private chat identity mismatch and groups', async () => {
+  for (const chat of [{ type: 'private', id: 9 }, { type: 'group', id: 41 }]) {
+    const calls = [];
+    const handled = await handleReadOnlyCommand({
+      message: { chat, from: { id: 41 }, text: '/account' },
+    }, async (method) => calls.push(method), async () => { throw Error('must not access backend'); });
+    assert.equal(handled, false);
+    assert.deepEqual(calls, []);
+  }
+});
