@@ -80,3 +80,9 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 
 - Inline list refresh, order status and menu navigation edit the existing Telegram message when a valid message ID is available, reducing chat clutter. Slash commands still create new messages.
 - Refresh after unlinking or losing order access removes old actionable buttons. A no-change edit is safely acknowledged; unexpected Telegram API failures still propagate for retry.
+
+## Read-only command shortcuts
+
+- `/menu` opens the private-chat help menu with inline navigation buttons.
+- `/status FULL_ORDER_ID` is a safe alias for `/order FULL_ORDER_ID`. A complete 24-character hexadecimal order ID is required; the backend independently rechecks the linked approved captain and order ownership on every lookup.
+- These shortcuts never update an order, expose customer data, or bypass the private-chat identity check. Inline navigation continues to refresh backend authorization on every request.
