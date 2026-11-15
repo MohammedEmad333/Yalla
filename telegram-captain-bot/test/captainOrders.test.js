@@ -277,3 +277,48 @@ test('reassigned order refresh removes the stale status button', async () => {
   assert.deepEqual(calls[1].payload.reply_markup, { inline_keyboard: [] });
   assert.match(calls[1].payload.text, /غير متاح/);
 });
+
+test('/status uses the exact owned-order lookup and stays read-only', async () => {
+  const id = 'e'.repeat(24), calls = [];
+  let count = 0;
+  const handled = await handleReadOnlyCommand({
+    message: { chat: { type: 'private', id: 55 }, from: { id: 55 }, text: '/status ' + id },
+  }, async (...args) => calls.push(args), async (path, body) => {
+    count++;
+    assert.equal(path, '/api/telegram-captain/internal/order');
+    assert.deepEqual(body, { telegramUserId: '55', telegramChatId: '55', orderId: id });
+    return { linked: true, order: { orderId: id, reference: 'eeeeee', status: 'accepted' } };
+  });
+  assert.equal(handled, true);
+  assert.equal(count, 1);
+  assert.match(calls[0][1].text, /تم قبوله/);
+  assert.equal(calls[0][1].reply_markup.inline_keyboard[0][0].callback_data, 'status:' + id);
+});
+
+test('/status rejects invalid IDs without contacting backend', async () => {
+  for (const text of ['/status', '/status short', '/status ' + 'e'.repeat(24) + ' extra']) {
+    const calls = [];
+    const handled = await handleReadOnlyCommand({
+      message: { chat: { type: 'private', id: 55 }, from: { id: 55 }, text },
+    }, async (...args) => calls.push(args), async () => { throw Error('unexpected backend request'); });
+    assert.equal(handled, true);
+    assert.match(calls[0][1].text, /24 حرفًا/);
+  }
+});
+
+test('/status cannot expose unlinked or reassigned orders', async () => {
+  const id = 'e'.repeat(24);
+  for (const response of [{ linked: false, order: { orderId: id, status: 'accepted' } }, { linked: true, order: null }]) {
+    const calls = [];
+    await handleReadOnlyCommand({
+      message: { chat: { type: 'private', id: 55 }, from: { id: 55 }, text: '/status ' + id },
+    }, async (...args) => calls.push(args), async () => response);
+    assert.equal(calls[0][1].reply_markup, undefined);
+    assert.doesNotMatch(calls[0][1].text, /eeeeee/);
+  }
+  const calls = [];
+  assert.equal(await handleReadOnlyCommand({
+    message: { chat: { type: 'private', id: 55 }, from: { id: 56 }, text: '/status ' + id },
+  }, async (...args) => calls.push(args), async () => { throw Error('forged identity'); }), false);
+  assert.deepEqual(calls, []);
+});
