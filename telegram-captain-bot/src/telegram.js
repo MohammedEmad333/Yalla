@@ -75,6 +75,7 @@ const HELP_TEXT = [
   '🔎 /order رقم_الطلب: استعلام عن طلب محدد من حسابك فقط (24 حرفًا).',
   '📦 /status رقم_الطلب: عرض حالة طلبك الحاليّة بصلاحيات القراءة فقط.',
   '🏠 /menu: العودة إلى القائمة الرئيسية.',
+  '✅ /account: التأكد من ارتباط حساب الكابتن واعتماده بأمان.',
   '🔄 استخدم زر تحديث الحالة لمعرفة حالة الطلب الحالية.',
   '🔗 لربط الحساب: أنشئ رمز الربط من تطبيق Yalla ثم أرسله مع /start.',
   '❓ /help: قائمة الأوامر.',
@@ -92,6 +93,7 @@ const PRIVACY_TEXT = [
 function helpKeyboard() {
   return { inline_keyboard: [
     [{ text: '📋 طلباتي النشطة', callback_data: 'menu:orders' }],
+    [{ text: '✅ حالة الربط', callback_data: 'menu:account' }],
     [{ text: '🔒 الخصوصية', callback_data: 'menu:privacy' }],
     [{ text: '❓ المساعدة', callback_data: 'menu:help' }],
   ] };
@@ -105,6 +107,13 @@ async function handleUpdate(update, send) {
   if (callback && (!callback.from?.id || String(callback.from.id) !== String(chat.id))) return;
   if (callback?.data?.startsWith('menu:')) {
     const action = callback.data.slice(5);
+    if (action === 'account') {
+      // Preserve callback identity and current message for safe in-place navigation.
+      await handleReadOnlyCommand({
+        callback_query: { ...callback, data: 'account:status' },
+      }, send);
+      return;
+    }
     if (action === 'orders') {
       // Reuse the same callback to retain message ID and acknowledge once.
       await handleReadOnlyCommand({
