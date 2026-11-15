@@ -49,6 +49,27 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
   if (chat?.type !== 'private' || !sender?.id || String(sender.id) !== String(chat.id)) return false;
   const input = String(message?.text || '').trim();
 
+  // Account status uses the existing authenticated captain orders endpoint.
+  // Its response is reduced to a boolean; do not reveal orders on this view.
+  if (/^\/account(?:@\w+)?$/i.test(input) || callback?.data === 'account:status') {
+    const result = await request('/api/telegram-captain/internal/orders', {
+      telegramUserId: String(sender.id), telegramChatId: String(chat.id),
+    });
+    const linked = result?.linked === true;
+    const payload = {
+      text: linked
+        ? '✅ حساب الكابتن مرتبط ومعتمد في Yalla.\nيمكنك استخدام /orders لعرض طلباتك النشطة.'
+        : '🔒 حساب الكابتن غير مرتبط أو غير معتمد.\nاربطه من إعدادات الكابتن داخل تطبيق Yalla.',
+      reply_markup: { inline_keyboard: [
+        ...(linked ? [[{ text: '📋 طلباتي النشطة', callback_data: 'orders:refresh' }]] : []),
+        [{ text: '🏠 القائمة الرئيسية', callback_data: 'menu:help' }],
+      ] },
+    };
+    if (callback) await send('answerCallbackQuery', { callback_query_id: callback.id });
+    await sendReadOnlyView(send, chat.id, payload, callback);
+    return true;
+  }
+
   if (/^\/(?:orders|myorders)(?:@\w+)?$/i.test(input) || callback?.data === 'orders:refresh') {
     const result = await request('/api/telegram-captain/internal/orders', {
       telegramUserId: String(sender.id), telegramChatId: String(chat.id),
