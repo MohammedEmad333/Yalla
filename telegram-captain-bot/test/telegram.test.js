@@ -334,3 +334,41 @@ test('/menu ignores attempts to spoof chat identity or use a group', async () =>
     assert.deepEqual(calls, []);
   }
 });
+
+test('/account menu button uses authenticated read-only backend and edits one message', async () => {
+  const oldUrl = process.env.YALLA_BACKEND_URL;
+  const oldSecret = process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+  const oldFetch = global.fetch;
+  process.env.YALLA_BACKEND_URL = 'https://api.example.org';
+  process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = 'G'.repeat(48);
+  global.fetch = async (url, opts) => {
+    assert.equal(new URL(url).pathname, '/api/telegram-captain/internal/orders');
+    assert.deepEqual(JSON.parse(opts.body), { telegramUserId: '82', telegramChatId: '82' });
+    return { ok: true, json: async () => ({ linked: true, orders: [] }) };
+  };
+  try {
+    const calls = [];
+    await handleUpdate({ callback_query: {
+      id: 'account-menu', data: 'menu:account', from: { id: 82 },
+      message: { message_id: 202, chat: { id: 82, type: 'private' } },
+    } }, async (method, payload) => calls.push({ method, payload }));
+    assert.deepEqual(calls.map(c => c.method), ['answerCallbackQuery', 'editMessageText']);
+    assert.equal(calls[1].payload.message_id, 202);
+    assert.match(calls[1].payload.text, /مرتبط ومعتمد/);
+  } finally {
+    global.fetch = oldFetch;
+    if (oldUrl === undefined) delete process.env.YALLA_BACKEND_URL;
+    else process.env.YALLA_BACKEND_URL = oldUrl;
+    if (oldSecret === undefined) delete process.env.TELEGRAM_PAIRING_BRIDGE_SECRET;
+    else process.env.TELEGRAM_PAIRING_BRIDGE_SECRET = oldSecret;
+  }
+});
+
+test('/account menu callback rejects forged private chat identity', async () => {
+  const calls = [];
+  await handleUpdate({ callback_query: {
+    id: 'account-forged', data: 'menu:account', from: { id: 83 },
+    message: { message_id: 202, chat: { id: 82, type: 'private' } },
+  } }, async (method) => calls.push(method));
+  assert.deepEqual(calls, []);
+});
