@@ -313,3 +313,24 @@ test('unchanged message edit is a safe no-op and other edit errors still retry',
   }));
   await assert.rejects(invalid('editMessageText', { chat_id: 1, message_id: 12, text: 'update' }), /Telegram HTTP 400/);
 });
+
+test('/menu opens read-only help keyboard in the matching private chat', async () => {
+  const calls = [];
+  await handleUpdate({
+    message: { chat: { id: 88, type: 'private' }, from: { id: 88 }, text: '/menu' },
+  }, async (method, payload) => calls.push({ method, payload }));
+  assert.deepEqual(calls.map(x => x.method), ['sendMessage']);
+  assert.match(calls[0].payload.text, /مساعد الكابتن/);
+  assert.equal(calls[0].payload.reply_markup.inline_keyboard[0][0].callback_data, 'menu:orders');
+  assert.match(calls[0].payload.text, /\/status/);
+});
+
+test('/menu ignores attempts to spoof chat identity or use a group', async () => {
+  for (const chat of [{ id: 88, type: 'group' }, { id: 88, type: 'private' }]) {
+    const calls = [];
+    await handleUpdate({
+      message: { chat, from: { id: 89 }, text: '/menu' },
+    }, async (method) => calls.push(method));
+    assert.deepEqual(calls, []);
+  }
+});
