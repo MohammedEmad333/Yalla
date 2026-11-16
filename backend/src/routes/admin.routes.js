@@ -6,6 +6,7 @@ const ctrl = require('../controllers/admin.controller');
 const adminOrderCtrl = require('../controllers/adminOrder.controller');
 const { blockOrderCreationDuringMaintenance } = require('../middlewares/orderMaintenance.middleware');
 const support = require('../controllers/support.controller');
+const telegramMetrics = require('../services/telegramCaptainMetrics.service');
 const restaurantCtrl = require('../controllers/restaurant.controller');
 const expansionCtrl = require('../controllers/expansion.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
@@ -43,6 +44,17 @@ router.get('/private-files/:kind/:filename', (req, res) => {
   });
 });
 
+// Aggregates only, never display chat/captain/order IDs or raw error bodies.
+router.get('/telegram/metrics', requireAdminCapability('operations'), async (req, res, next) => {
+  try {
+    const days = req.query.days === undefined ? 7 : Number(req.query.days);
+    res.set('Cache-Control', 'private, no-store');
+    res.json(await telegramMetrics.snapshot({ days }));
+  } catch (error) {
+    if (error instanceof RangeError) return res.status(400).json({ message: 'Invalid metrics window' });
+    next(error);
+  }
+});
 router.get('/stats', ctrl.getStats);
 router.post('/stats/reset', ctrl.resetStats);
 router.get('/wallet', ctrl.getAdminWallet);
