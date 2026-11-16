@@ -153,9 +153,11 @@ test('orders list has a refresh button and safe direct navigation for at most 5 
     message: { chat: { type: 'private', id: 11 }, from: { id: 11 }, text: '/orders' },
   }, async (...args) => calls.push(args), request), true);
   const payload = calls[0][1];
-  assert.equal(payload.reply_markup.inline_keyboard.length, 7);
+  assert.equal(payload.reply_markup.inline_keyboard.length, 8);
   assert.equal(payload.reply_markup.inline_keyboard[5][0].callback_data, 'orders:refresh');
-  assert.equal(payload.reply_markup.inline_keyboard[6][0].callback_data, 'menu:help');
+  assert.equal(payload.reply_markup.inline_keyboard[5][1].callback_data, 'orders:filter:assigned');
+  assert.equal(payload.reply_markup.inline_keyboard[6][0].callback_data, 'orders:refresh');
+  assert.equal(payload.reply_markup.inline_keyboard[7][0].callback_data, 'menu:help');
   assert.equal((payload.text.match(/المتجر:/g) || []).length, 5);
   assert.doesNotMatch(payload.text, /Store\nName/);
   assert.match(payload.reply_markup.inline_keyboard[0][0].text, /تم قبوله/);
