@@ -377,3 +377,68 @@ test('/account ignores private chat identity mismatch and groups', async () => {
     assert.deepEqual(calls, []);
   }
 });
+
+test('/latest reads only the newest active order through the authenticated bridge', async () => {
+  const first = 'a'.repeat(24), second = 'b'.repeat(24), calls = [];
+  const handled = await handleReadOnlyCommand({
+    message: { chat: { id: 71, type: 'private' }, from: { id: 71 }, text: '/latest' },
+  }, async (method, payload) => calls.push({ method, payload }), async (path, body) => {
+    assert.equal(path, '/api/telegram-captain/internal/orders');
+    assert.deepEqual(body, { telegramUserId: '71', telegramChatId: '71' });
+    return { linked: true, orders: [
+      { orderId: first, reference: 'aaaaaa', status: 'accepted' },
+      { orderId: second, reference: 'bbbbbb', status: 'assigned' },
+    ] };
+  });
+  assert.equal(handled, true);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].payload.text, /aaaaaa/);
+  assert.doesNotMatch(calls[0].payload.text, /bbbbbb/);
+  assert.equal(calls[0].payload.reply_markup.inline_keyboard[0][0].callback_data, 'status:' + first);
+});
+
+test('/latest omits all order data for an unlinked or unapproved captain', async () => {
+  const calls = [];
+  await handleReadOnlyCommand({
+    message: { chat: { id: 71, type: 'private' }, from: { id: 71 }, text: '/latest' },
+  }, async (method, payload) => calls.push({ method, payload }), async () => ({
+    linked: false, orders: [{ orderId: 'a'.repeat(24), reference: 'aaaaaa', status: 'accepted' }],
+  }));
+  assert.match(calls[0].payload.text, /غير مرتبط/);
+  assert.doesNotMatch(calls[0].payload.text, /aaaaaa/);
+  assert.equal(calls[0].payload.reply_markup, undefined);
+});
+
+test('/latest shows an empty-state refresh menu without leaking customer data', async () => {
+  const calls = [];
+  await handleReadOnlyCommand({
+    message: { chat: { id: 71, type: 'private' }, from: { id: 71 }, text: '/latest' },
+  }, async (method, payload) => calls.push({ method, payload }), async () => ({ linked: true, orders: [] }));
+  assert.match(calls[0].payload.text, /لا توجد/);
+  assert.equal(calls[0].payload.reply_markup.inline_keyboard[0][0].callback_data, 'orders:latest');
+});
+
+test('/latest callback revalidates ownership and replaces stale buttons in place', async () => {
+  const calls = [];
+  await handleReadOnlyCommand({
+    callback_query: { id: 'cb-latest', from: { id: 71 }, data: 'orders:latest',
+      message: { message_id: 77, chat: { id: 71, type: 'private' } } },
+  }, async (method, payload) => calls.push({ method, payload }), async (path) => {
+    assert.equal(path, '/api/telegram-captain/internal/orders');
+    return { linked: false, orders: [{ orderId: 'b'.repeat(24), reference: 'bbbbbb' }] };
+  });
+  assert.deepEqual(calls.map(x => x.method), ['answerCallbackQuery', 'editMessageText']);
+  assert.equal(calls[1].payload.message_id, 77);
+  assert.deepEqual(calls[1].payload.reply_markup, { inline_keyboard: [] });
+  assert.doesNotMatch(calls[1].payload.text, /bbbbbb/);
+});
+
+test('/latest ignores forged private-chat sender and group messages', async () => {
+  for (const chat of [{ id: 71, type: 'private' }, { id: 71, type: 'group' }]) {
+    const calls = [];
+    assert.equal(await handleReadOnlyCommand({
+      message: { chat, from: { id: 72 }, text: '/latest' },
+    }, async (method) => calls.push(method), async () => { throw Error('must not query backend'); }), false);
+    assert.deepEqual(calls, []);
+  }
+});
