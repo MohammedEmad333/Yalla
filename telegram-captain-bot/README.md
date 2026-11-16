@@ -107,3 +107,8 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 - Concurrent retries of an already running update still share the same work; completed IDs are deduplicated as before.
 - If all 64 slots are busy, the bot responds HTTP 503 for *new* update IDs, so Telegram may retry later. Once a handler completes or fails, its slot is released. No update is acknowledged as processed unless its handler succeeds.
 - This is process-local backpressure, not a durable queue. It does not change private-chat authorization, production secrets or the read-only capabilities.
+
+## Readable active order summaries
+
+- The private `/orders` and `/myorders` lists show a clear count of displayed orders (up to five) and a numbered summary per order.
+- Existing sanitized references, statuses, optional store names and ownership-checked buttons remain unchanged. No customer details or order mutations are added.
