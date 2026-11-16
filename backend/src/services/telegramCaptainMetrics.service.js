@@ -22,6 +22,7 @@ async function record(kind, outcome, { model = Metric, now = Date.now } = {}) {
 }
 
 async function recordBestEffort(kind, outcome, options = {}) {
+  if (!options.model && Metric.db.readyState !== 1) return;
   try { await record(kind, outcome, options); }
   catch {
     // Metrics must never prevent a valid order notification from being sent.
