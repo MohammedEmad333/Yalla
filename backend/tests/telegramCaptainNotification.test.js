@@ -5,6 +5,8 @@ const { notifyAssignedOrder, assignmentText } = require('../src/services/telegra
 const captainId = '507f1f77bcf86cd799439011';
 const orderId = '507f1f77bcf86cd799439012';
 const link = { telegramUserId: '123456', telegramChatId: '123456' };
+const stubDelivery = async (_event, deliver) => { await deliver(); return { status: 'sent' }; };
+const stubCurrentOrder = async () => true;
 const env = {
   TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED: 'true',
   TELEGRAM_CAPTAIN_NOTIFICATIONS_CAPTAIN_IDS: captainId,
@@ -32,6 +34,7 @@ test('only order ID and app instructions are sent', async () => {
   let payload;
   assert.equal((await notifyAssignedOrder({ captainId, orderId }, {
     env, findLink: async () => link, isApproved: async () => true,
+    findCurrentOrder: stubCurrentOrder, sendDelivery: stubDelivery,
     fetchImpl: async (url, options) => {
       assert.match(url, /^https:\/\/api\.telegram\.org\/bot/);
       payload = JSON.parse(options.body);
@@ -47,6 +50,8 @@ test('only order ID and app instructions are sent', async () => {
 test('Telegram HTTP failures are reported', async () => {
   await assert.rejects(notifyAssignedOrder({ captainId, orderId }, {
     env, findLink: async () => link, isApproved: async () => true,
+    findCurrentOrder: async () => true,
+    sendDelivery: async (_event, send) => send(),
     fetchImpl: async () => ({ ok: false, status: 429 }),
   }), /HTTP 429/);
 });
@@ -67,7 +72,7 @@ test('unlisted captain cannot receive an assignment', async () => {
 const { notifyOrderStatus, orderStatusText } = require('../src/services/telegramCaptainNotification.service');
 const options = {
   env, findLink: async () => link, isApproved: async () => true,
-  findCurrentOrder: async () => true,
+  findCurrentOrder: async () => true, sendDelivery: stubDelivery,
   fetchImpl: async () => ({ ok: true, json: async () => ({ ok: true }) }),
 };
 test('status notifications are disabled by default and do not query data', async () => {
@@ -125,4 +130,44 @@ test('Telegram status API errors do not pretend to be sent', async () => {
   await assert.rejects(notifyOrderStatus({ captainId, orderId, status: 'accepted' }, {
     ...options, fetchImpl: async () => ({ ok: false, status: 429 }),
   }), /HTTP 429/);
+});
+
+test('muted assignment and status notifications never call Telegram', async () => {
+  const forbidden = async () => { throw Error('must not send or claim delivery'); };
+  assert.deepEqual(await notifyAssignedOrder({ captainId, orderId }, {
+    env, findLink: async () => ({ ...link, notificationPreferences: { assigned: false } }),
+    isApproved: async () => true, findCurrentOrder: stubCurrentOrder,
+    sendDelivery: forbidden, fetchImpl: forbidden,
+  }), { status: 'muted' });
+  assert.deepEqual(await notifyOrderStatus({ captainId, orderId, status: 'accepted' }, {
+    ...options, findLink: async () => ({ ...link,
+      notificationPreferences: { status: false } }),
+    sendDelivery: forbidden, fetchImpl: forbidden,
+  }), { status: 'muted' });
+});
+
+test('assignment notifications are suppressed when captain loses the order', async () => {
+  assert.deepEqual(await notifyAssignedOrder({ captainId, orderId }, {
+    env, findLink: async () => link, isApproved: async () => true,
+    findCurrentOrder: async () => false,
+    sendDelivery: async () => { throw Error('must not claim'); },
+    fetchImpl: async () => { throw Error('must not send'); },
+  }), { status: 'stale-event' });
+});
+
+test('assignment and status notifications use distinct durable event keys', async () => {
+  const keys = [];
+  const capture = async (key, task) => { keys.push(key); await task(); return { status: 'sent' }; };
+  const send = async () => ({ ok: true, json: async () => ({ ok: true }) });
+  await notifyAssignedOrder({ captainId, orderId }, {
+    env, findLink: async () => link, isApproved: async () => true,
+    findCurrentOrder: stubCurrentOrder, sendDelivery: capture, fetchImpl: send,
+  });
+  await notifyOrderStatus({ captainId, orderId, status: 'accepted' }, {
+    ...options, sendDelivery: capture, fetchImpl: send,
+  });
+  assert.deepEqual(keys, [
+    { captainId, orderId, kind: 'assigned', status: 'assigned' },
+    { captainId, orderId, kind: 'status', status: 'accepted' },
+  ]);
 });

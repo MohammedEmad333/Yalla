@@ -2,6 +2,7 @@
 // Read-only, opt-in. Never send personal data or delivery verification codes.
 const Captain = require('../models/Captain');
 const Link = require('../models/TelegramCaptainLink');
+const { sendOnce } = require('./telegramCaptainDelivery.service');
 const enabled = (env = process.env) => env.TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED === 'true';
 // Explicit recipient allowlist for safe production pilot. '*' deliberately opts into all.
 function allowedCaptain(captainId, env = process.env) {
@@ -21,6 +22,8 @@ async function notifyAssignedOrder({ captainId, orderId }, {
   env = process.env,
   findLink = (id) => Link.findOne({ captainId: id }).lean(),
   isApproved = (id) => Captain.exists({ _id: id, isApproved: true }),
+  findCurrentOrder = (id, owner) => Order.exists({ _id: id, captain: owner, status: { $in: ['assigned', 'accepted'] } }),
+  sendDelivery = sendOnce,
   fetchImpl = fetch,
 } = {}) {
   if (!enabled(env)) return { status: 'disabled' };
@@ -31,6 +34,9 @@ async function notifyAssignedOrder({ captainId, orderId }, {
   if (!link || !/^\d{1,20}$/.test(String(link.telegramChatId)) ||
       String(link.telegramChatId) !== String(link.telegramUserId)) return { status: 'unlinked' };
   if (!await isApproved(captainId)) return { status: 'unapproved' };
+  if (link.notificationPreferences?.assigned === false) return { status: 'muted' };
+  if (!await findCurrentOrder(orderId, captainId)) return { status: 'stale-event' };
+  return sendDelivery({ captainId, orderId, kind: 'assigned', status: 'assigned' }, async () => {
   const response = await fetchImpl('https://api.telegram.org/bot' + token + '/sendMessage', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -45,7 +51,7 @@ async function notifyAssignedOrder({ captainId, orderId }, {
   if (!response.ok) throw new Error('Telegram notification HTTP ' + response.status);
   const result = await response.json();
   if (!result.ok) throw new Error('Telegram notification API error');
-  return { status: 'sent' };
+  });
 }
 
 const Order = require('../models/Order');
@@ -72,6 +78,7 @@ async function notifyOrderStatus({ captainId, orderId, status }, {
   findCurrentOrder = (id, capId, currentStatus) => Order.exists({
     _id: id, captain: capId, status: currentStatus,
   }),
+  sendDelivery = sendOnce,
   fetchImpl = fetch,
 } = {}) {
   if (!enabled(env)) return { status: 'disabled' };
@@ -87,6 +94,8 @@ async function notifyOrderStatus({ captainId, orderId, status }, {
       String(link.telegramChatId) !== String(link.telegramUserId)) return { status: 'unlinked' };
   if (!approved) return { status: 'unapproved' };
   if (!current) return { status: 'stale-event' };
+  if (link.notificationPreferences?.status === false) return { status: 'muted' };
+  return sendDelivery({ captainId, orderId, kind: 'status', status }, async () => {
   const response = await fetchImpl('https://api.telegram.org/bot' + env.TELEGRAM_BOT_TOKEN + '/sendMessage', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -101,7 +110,7 @@ async function notifyOrderStatus({ captainId, orderId, status }, {
   if (!response.ok) throw new Error('Telegram status notification HTTP ' + response.status);
   const result = await response.json();
   if (!result.ok) throw new Error('Telegram status notification API error');
-  return { status: 'sent' };
+  });
 }
 
 module.exports = { enabled, allowedCaptain, assignmentText, notifyAssignedOrder, notifyOrderStatus, orderStatusText };
