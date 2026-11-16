@@ -108,7 +108,7 @@ test('English filters use the authenticated backend before rendering and preserv
   assert.match(card.text, /Store: Market Name/);
   assert.doesNotMatch(card.text, /Market\nName/);
   assert.equal(card.reply_markup.inline_keyboard[0][0].callback_data, 'status:' + id);
-  assert.equal(card.reply_markup.inline_keyboard[2][0].callback_data, 'orders:filter:accepted');
+  assert.equal(card.reply_markup.inline_keyboard[1][2].callback_data, 'orders:filter:accepted');
 });
 
 test('empty filtered views are localized and no unlinked data is shown', async () => {
