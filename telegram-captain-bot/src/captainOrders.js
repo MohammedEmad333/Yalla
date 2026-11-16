@@ -117,7 +117,8 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
       ? { text: 'حسابك غير مرتبط أو غير معتمد. اربطه من إعدادات الكابتن في تطبيق Yalla.' }
       : {
         text: !orders.length ? 'لا توجد لديك طلبات نشطة حاليًا.'
-          : '🛵 طلباتك النشطة (آخر 5):\n\n' + orders.map(formatOrder).join('\n\n'),
+          : '🛵 طلباتك النشطة (' + orders.length + ' معروضة، بحد أقصى 5):\n\n' +
+            orders.map((order, index) => (index + 1) + '. ' + formatOrder(order)).join('\n\n'),
         reply_markup: { inline_keyboard: [
           ...buttons,
           [{ text: '🔄 تحديث القائمة', callback_data: 'orders:refresh' }],
