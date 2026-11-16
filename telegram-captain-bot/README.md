@@ -93,3 +93,10 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 - Only a linked/approved boolean is displayed. No linked captain ID, phone, active order, addresses, wallet details, or merchant data appear in account status responses.
 - Unlinked or unapproved accounts get safe instructions to manage their link from the Yalla app, without order buttons. A linked captain can navigate to their existing read-only order list.
 - Every status check contacts the backend again; callback refresh edits the existing private message when possible, with the same sender/chat identity checks used for order access.
+
+## Latest active order shortcut
+
+- `/latest` and the **Latest order** menu button show the newest active order returned by the authenticated captain orders endpoint, with safe status and optional sanitized store name only.
+- Every request rechecks the private chat identity and the captain-to-order ownership on the backend. It does not search by a partial order ID or reveal other captains' orders.
+- The card offers a read-only status refresh and a way back to the complete active order list. If the captain is unlinked, no order details or actionable inline order buttons are shown.
+- This is read-only and disabled from accessing customer addresses, codes, phones, wallets, payments or order mutation APIs.
