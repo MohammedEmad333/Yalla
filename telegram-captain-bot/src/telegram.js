@@ -1,5 +1,8 @@
 'use strict';
 const { handleReadOnlyCommand } = require('./captainOrders');
+const { createLanguageStore } = require('./languageStore');
+const { t } = require('./i18n');
+const languageStore = createLanguageStore();
 
 // Telegram will never deliver to a user who blocked the bot, and an expired
 // callback cannot be answered. Retrying these updates forever is harmful.
@@ -68,73 +71,90 @@ async function redeemPairing(code, userId, chatId, fetchImpl = fetch) {
   throw new Error('Pairing bridge HTTP ' + response.status);
 }
 
-const HELP_TEXT = [
-  '🛵 Yalla | مساعد الكابتن',
-  '',
-  '📋 /orders أو /myorders: آخر 5 طلبات نشطة.',
-  '⚡ /latest: أحدث طلب نشط لديك مع أزرار التحديث والتنقل.',
-  '🔎 /order رقم_الطلب: استعلام عن طلب محدد من حسابك فقط (24 حرفًا).',
-  '📦 /status رقم_الطلب: عرض حالة طلبك الحاليّة بصلاحيات القراءة فقط.',
-  '🏠 /menu: العودة إلى القائمة الرئيسية.',
-  '✅ /account: التأكد من ارتباط حساب الكابتن واعتماده بأمان.',
-  '🔄 استخدم زر تحديث الحالة لمعرفة حالة الطلب الحالية.',
-  '🔗 لربط الحساب: أنشئ رمز الربط من تطبيق Yalla ثم أرسله مع /start.',
-  '❓ /help: قائمة الأوامر.',
-  '🔒 /privacy: سياسة الخصوصية.',
-  '',
-  'قبول الطلب أو تسليمه أو إلغاؤه يتم فقط داخل تطبيق Yalla.',
-].join('\n');
-const PRIVACY_TEXT = [
-  '🔒 الخصوصية في بوت Yalla',
-  '',
-  'نعرض للكابتن المرتبط والمعتمد مرجع الطلب وحالته المختصرة واسم المتجر عند توفره.',
-  'لا نعرض أسماء العملاء أو أرقامهم أو عناوينهم أو رموز التحقق أو بيانات المحفظة.',
-  'لا ترسل كلمة مرور أو رمز تحقق هنا. إلغاء الربط يتم من تطبيق Yalla.',
-].join('\n');
-function helpKeyboard() {
+const HELP_TEXT = t('ar', 'help');
+const PRIVACY_TEXT = t('ar', 'privacy');
+function helpKeyboard(language = 'ar') {
+  const button = (key, data) => ({ text: t(language, 'buttons.' + key), callback_data: data });
   return { inline_keyboard: [
-    [{ text: '📋 طلباتي النشطة', callback_data: 'menu:orders' }],
-    [{ text: '⚡ أحدث طلب', callback_data: 'menu:latest' }],
-    [{ text: '✅ حالة الربط', callback_data: 'menu:account' }],
-    [{ text: '🔒 الخصوصية', callback_data: 'menu:privacy' }],
-    [{ text: '❓ المساعدة', callback_data: 'menu:help' }],
+    [button('orders', 'menu:orders')],
+    [button('latest', 'menu:latest')],
+    [button('account', 'menu:account')],
+    [button('language', 'menu:language')],
+    [button('privacy', 'menu:privacy')],
+    [button('help', 'menu:help')],
   ] };
 }
+function languageKeyboard() {
+  return { inline_keyboard: [[
+    { text: 'العربية', callback_data: 'language:set:ar' },
+    { text: 'English', callback_data: 'language:set:en' },
+  ], [{ text: '🏠 Menu / القائمة', callback_data: 'menu:help' }]] };
+}
+function sendMenuCard(send, chatId, callback, payload) {
+  const messageId = callback?.message?.message_id;
+  if (Number.isSafeInteger(messageId) && messageId > 0) {
+    return send('editMessageText', { chat_id: chatId, message_id: messageId, ...payload });
+  }
+  return send('sendMessage', { chat_id: chatId, ...payload });
+}
 
-async function handleUpdate(update, send) {
+async function handleUpdate(update, send, preferences = languageStore) {
   const message = update?.message;
   const callback = update?.callback_query;
   const chat = message?.chat || callback?.message?.chat;
   if (!chat || chat.type !== 'private') return;
   if (callback && (!callback.from?.id || String(callback.from.id) !== String(chat.id))) return;
+  if (message && (!message.from?.id || String(message.from.id) !== String(chat.id))) return;
+  const language = preferences.get(chat.id);
+  if (callback?.data?.startsWith('language:')) {
+    if (callback.data === 'language:set:ar' || callback.data === 'language:set:en') {
+      const selected = callback.data.slice('language:set:'.length);
+      await preferences.set(chat.id, selected);
+      await send('answerCallbackQuery', { callback_query_id: callback.id });
+      await sendMenuCard(send, chat.id, callback, {
+        text: t(selected, 'messages.languageSaved'), reply_markup: helpKeyboard(selected),
+      });
+    } else {
+      await send('answerCallbackQuery', { callback_query_id: callback.id,
+        text: t(language, 'messages.languageInvalid') });
+    }
+    return;
+  }
   if (callback?.data?.startsWith('menu:')) {
     const action = callback.data.slice(5);
     if (action === 'account') {
       // Preserve callback identity and current message for safe in-place navigation.
       await handleReadOnlyCommand({
         callback_query: { ...callback, data: 'account:status' },
-      }, send);
+      }, send, undefined, language);
       return;
     }
     if (action === 'latest') {
       await handleReadOnlyCommand({
         callback_query: { ...callback, data: 'orders:latest' },
-      }, send);
+      }, send, undefined, language);
       return;
     }
     if (action === 'orders') {
       // Reuse the same callback to retain message ID and acknowledge once.
       await handleReadOnlyCommand({
         callback_query: { ...callback, data: 'orders:refresh' },
-      }, send);
+      }, send, undefined, language);
+      return;
+    }
+    if (action === 'language') {
+      await send('answerCallbackQuery', { callback_query_id: callback.id });
+      await sendMenuCard(send, chat.id, callback, {
+        text: t(language, 'messages.languagePrompt'), reply_markup: languageKeyboard(),
+      });
       return;
     }
     if (action === 'help' || action === 'privacy') {
       await send('answerCallbackQuery', { callback_query_id: callback.id });
       const payload = {
         chat_id: chat.id,
-        text: action === 'privacy' ? PRIVACY_TEXT : HELP_TEXT,
-        reply_markup: helpKeyboard(),
+        text: t(language, action),
+        reply_markup: helpKeyboard(language),
       };
       if (Number.isSafeInteger(callback.message?.message_id) && callback.message.message_id > 0) {
         await send('editMessageText', { ...payload, message_id: callback.message.message_id });
@@ -143,35 +163,40 @@ async function handleUpdate(update, send) {
       }
       return;
     }
-    await send('answerCallbackQuery', { callback_query_id: callback.id, text: 'خيار غير متاح' });
+    await send('answerCallbackQuery', { callback_query_id: callback.id, text: t(language, 'messages.menuUnavailable') });
     return;
   }
-  if (await handleReadOnlyCommand(update, send)) return;
+  if (await handleReadOnlyCommand(update, send, undefined, language)) return;
   if (callback) {
-    await send('answerCallbackQuery', { callback_query_id: callback.id, text: 'استخدم /orders لعرض طلباتك' });
+    await send('answerCallbackQuery', { callback_query_id: callback.id, text: t(language, 'messages.useOrders') });
     return;
   }
   if (!message?.text || message.from?.is_bot || !message.from?.id) return;
   if (String(message.from.id) !== String(chat.id)) return;
   const input = message.text.trim();
-  const command = /^\/(help|commands|privacy|start|menu)(?:@\w+)?$/i.exec(input);
+  const command = /^\/(help|commands|privacy|start|menu|language|settings)(?:@\w+)?$/i.exec(input);
   if (command) {
+    if (['language', 'settings'].includes(command[1].toLowerCase())) {
+      await send('sendMessage', { chat_id: chat.id,
+        text: t(language, 'messages.languagePrompt'), reply_markup: languageKeyboard() });
+      return;
+    }
     await send('sendMessage', {
       chat_id: chat.id,
-      text: command[1].toLowerCase() === 'privacy' ? PRIVACY_TEXT : HELP_TEXT,
-      reply_markup: helpKeyboard(), disable_web_page_preview: true,
+      text: t(language, command[1].toLowerCase() === 'privacy' ? 'privacy' : 'help'),
+      reply_markup: helpKeyboard(language), disable_web_page_preview: true,
     });
     return;
   }
   const match = /^\/start(?:@\w+)?\s+([A-Za-z0-9_-]{32})$/.exec(input);
   if (match) {
     const linked = await redeemPairing(match[1], message.from.id, chat.id);
-    await send('sendMessage', { chat_id: chat.id, text: linked ? 'تم ربط حساب الكابتن بنجاح.' : 'تعذر ربط الحساب. تحقق من الرمز أو اطلب رمزًا جديدًا من التطبيق.' });
+    await send('sendMessage', { chat_id: chat.id, text: t(language, linked ? 'messages.pairingSuccess' : 'messages.pairingFailed') });
     return;
   }
   await send('sendMessage', {
     chat_id: chat.id,
-    text: 'Yalla Delivery — بوت الكباتن\n\nلإكمال ربط الحساب، استخدم تطبيق Yalla، ثم اكتب /orders لعرض طلباتك النشطة وتحديث حالتها. لا ترسل كلمة المرور أو رمز التحقق هنا. إدارة الطلبات تتم من تطبيق Yalla.',
+    text: t(language, 'messages.unknown'),
     disable_web_page_preview: true,
   });
 }

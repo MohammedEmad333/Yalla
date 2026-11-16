@@ -112,3 +112,12 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 
 - The private `/orders` and `/myorders` lists show a clear count of displayed orders (up to five) and a numbered summary per order.
 - Existing sanitized references, statuses, optional store names and ownership-checked buttons remain unchanged. No customer details or order mutations are added.
+
+## Telegram 1.1 captain experience
+
+- `/language` and `/settings` show an Arabic/English switcher. Language is stored by private Telegram chat ID; default is Arabic. The bot never stores customer/order data in its language preference file.
+- Configure `TELEGRAM_PREFERENCES_PATH` as an **absolute path on persistent writable storage** (for example `/var/lib/yalla-telegram/languages.json`), accessible only by the bot systemd user. The default for development is `<working-directory>/data/telegram-languages.json`, ignored by git. Keep this file across service deployments and back it up securely if preferences must survive. One local process owns this file: running multiple webhook replicas against the same file is unsupported.
+- Settings save before Telegram acknowledges the callback. If persistence fails, the webhook returns 503 so Telegram can retry rather than reporting an unsaved preference. A corrupted preferences file fails fast instead of silently resetting users.
+- Order list filtering is available via the **All**, **Assigned**, **Accepted**, and **On the way** buttons, or `/orders assigned`, `/orders accepted`, and `/orders picked_up`. The authenticated backend filters by status **before** returning up to five owned orders.
+- Translation applies to menus, buttons, account views, order summaries, pairing instructions, empty states, and invalid-order guidance. The server still checks private sender ID, approved captain link, and order ownership. Order acceptance/cancellation is never available in Telegram.
+- This change requires deploying the updated backend and bot together. Run backend unit/integration tests with MongoDB and bot tests first; verify both language choices, filter buttons, the account-unlinked state, and changing ownership in a controlled pilot.

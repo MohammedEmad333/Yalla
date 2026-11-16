@@ -1,16 +1,17 @@
 'use strict';
-const STATUS = Object.freeze({ assigned: 'تم إسناده', accepted: 'تم قبوله', picked_up: 'قيد التوصيل', delivered: 'تم التسليم', cancelled: 'أُلغي' });
+const { t, normalizeLanguage } = require('./i18n');
+const ACTIVE_FILTERS = Object.freeze(['assigned', 'accepted', 'picked_up']);
 function clean(value, max = 80) { return String(value || '').replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, max).trim(); }
-function formatOrder(order) {
-  const status = STATUS[order.status] || 'غير معروفة';
+function formatOrder(order, language = 'ar') {
+  const status = t(language, 'status.' + (['assigned', 'accepted', 'picked_up', 'delivered', 'cancelled'].includes(order.status) ? order.status : 'unknown'));
   const store = clean(order.storeName);
-  return '#' + clean(order.reference, 6) + ' — ' + status + (store ? '\nالمتجر: ' + store : '');
+  return '#' + clean(order.reference, 6) + ' — ' + status + (store ? '\n' + t(language, 'messages.store') + store : '');
 }
-function orderButtons(order) {
+function orderButtons(order, language = 'ar') {
   if (!/^[a-f0-9]{24}$/i.test(order.orderId || '')) return undefined;
   return { inline_keyboard: [
-    [{ text: '🔄 تحديث الحالة', callback_data: 'status:' + order.orderId }],
-    [{ text: '📋 جميع طلباتي النشطة', callback_data: 'orders:refresh' }],
+    [{ text: t(language, 'buttons.refreshStatus'), callback_data: 'status:' + order.orderId }],
+    [{ text: t(language, 'buttons.allOrders'), callback_data: 'orders:refresh' }],
   ] };
 }
 // Inline navigation edits the current bot message instead of filling the chat
@@ -43,7 +44,8 @@ async function requestBackend(path, body, fetchImpl = fetch) {
   if (!response.ok) throw new Error('Telegram bridge HTTP ' + response.status);
   return response.json();
 }
-async function handleReadOnlyCommand(update, send, request = requestBackend) {
+async function handleReadOnlyCommand(update, send, request = requestBackend, language = 'ar') {
+  language = normalizeLanguage(language);
   const message = update?.message, callback = update?.callback_query;
   const chat = message?.chat || callback?.message?.chat, sender = callback?.from || message?.from;
   if (chat?.type !== 'private' || !sender?.id || String(sender.id) !== String(chat.id)) return false;
@@ -58,11 +60,11 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
     const linked = result?.linked === true;
     const payload = {
       text: linked
-        ? '✅ حساب الكابتن مرتبط ومعتمد في Yalla.\nيمكنك استخدام /orders لعرض طلباتك النشطة.'
-        : '🔒 حساب الكابتن غير مرتبط أو غير معتمد.\nاربطه من إعدادات الكابتن داخل تطبيق Yalla.',
+        ? t(language, 'messages.accountLinked')
+        : t(language, 'messages.accountUnlinked'),
       reply_markup: { inline_keyboard: [
-        ...(linked ? [[{ text: '📋 طلباتي النشطة', callback_data: 'orders:refresh' }]] : []),
-        [{ text: '🏠 القائمة الرئيسية', callback_data: 'menu:help' }],
+        ...(linked ? [[{ text: t(language, 'buttons.orders'), callback_data: 'orders:refresh' }]] : []),
+        [{ text: t(language, 'buttons.menu'), callback_data: 'menu:help' }],
       ] },
     };
     if (callback) await send('answerCallbackQuery', { callback_query_id: callback.id });
@@ -81,21 +83,21 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
       ? result.orders.find(o => o && /^[a-f0-9]{24}$/i.test(o.orderId || ''))
       : null;
     const payload = !linked
-      ? { text: 'حسابك غير مرتبط أو غير معتمد. اربطه من تطبيق Yalla.' }
+      ? { text: t(language, 'messages.unlinked') }
       : first
         ? {
-          text: '🛵 أحدث طلب نشط لديك:\n' + formatOrder(first),
+          text: t(language, 'messages.latest') + formatOrder(first, language),
           reply_markup: { inline_keyboard: [
-            [{ text: '🔄 تحديث هذا الطلب', callback_data: 'status:' + first.orderId }],
-            [{ text: '📋 كل طلباتي', callback_data: 'orders:refresh' }],
-            [{ text: '🏠 القائمة الرئيسية', callback_data: 'menu:help' }],
+            [{ text: t(language, 'buttons.refreshLatest'), callback_data: 'status:' + first.orderId }],
+            [{ text: t(language, 'buttons.allOrders'), callback_data: 'orders:refresh' }],
+            [{ text: t(language, 'buttons.menu'), callback_data: 'menu:help' }],
           ] },
         }
         : {
-          text: 'لا توجد لديك طلبات نشطة حاليًا.',
+          text: t(language, 'messages.empty'),
           reply_markup: { inline_keyboard: [
-            [{ text: '🔄 تحديث', callback_data: 'orders:latest' }],
-            [{ text: '🏠 القائمة الرئيسية', callback_data: 'menu:help' }],
+            [{ text: t(language, 'buttons.refreshShort'), callback_data: 'orders:latest' }],
+            [{ text: t(language, 'buttons.menu'), callback_data: 'menu:help' }],
           ] },
         };
     if (callback) await send('answerCallbackQuery', { callback_query_id: callback.id });
@@ -103,26 +105,35 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
     return true;
   }
 
-  if (/^\/(?:orders|myorders)(?:@\w+)?$/i.test(input) || callback?.data === 'orders:refresh') {
+  const filterCallback = /^orders:filter:(assigned|accepted|picked_up)$/.exec(callback?.data || '');
+  const filterCommand = /^\/(?:orders|myorders)(?:@\w+)?\s+(assigned|accepted|picked_up)$/i.exec(input);
+  if (/^\/(?:orders|myorders)(?:@\w+)?$/i.test(input) || callback?.data === 'orders:refresh' || filterCallback || filterCommand) {
+    const filter = filterCallback?.[1] || filterCommand?.[1]?.toLowerCase() || null;
     const result = await request('/api/telegram-captain/internal/orders', {
       telegramUserId: String(sender.id), telegramChatId: String(chat.id),
+      ...(filter ? { status: filter } : {}),
     });
     // Each button triggers a fresh ownership-checked backend lookup.
-    const orders = Array.isArray(result?.orders) ? result.orders.slice(0, 5) : [];
+    const orders = result?.linked && Array.isArray(result.orders) ? result.orders.slice(0, 5) : [];
     const buttons = orders
       .filter(o => /^[a-f0-9]{24}$/i.test(o.orderId || ''))
       .map(o => [{ text: '🔎 #' + clean(o.reference, 6) + ' · ' +
-        (STATUS[o.status] || 'غير معروفة'), callback_data: 'status:' + o.orderId }]);
+        t(language, 'status.' + (ACTIVE_FILTERS.includes(o.status) ? o.status : 'unknown')), callback_data: 'status:' + o.orderId }]);
     const payload = !result?.linked
-      ? { text: 'حسابك غير مرتبط أو غير معتمد. اربطه من إعدادات الكابتن في تطبيق Yalla.' }
+      ? { text: t(language, 'messages.unlinked') }
       : {
-        text: !orders.length ? 'لا توجد لديك طلبات نشطة حاليًا.'
-          : '🛵 طلباتك النشطة (' + orders.length + ' معروضة، بحد أقصى 5):\n\n' +
-            orders.map((order, index) => (index + 1) + '. ' + formatOrder(order)).join('\n\n'),
+        text: !orders.length ? (filter
+          ? t(language, 'messages.emptyFilter', { status: t(language, 'buttons.' + filter) })
+          : t(language, 'messages.empty'))
+          : t(language, filter ? 'messages.filteredList' : 'messages.orderList', {
+            count: orders.length, status: filter ? t(language, 'buttons.' + filter) : '',
+          }) + orders.map((order, index) => (index + 1) + '. ' + formatOrder(order, language)).join('\n\n'),
         reply_markup: { inline_keyboard: [
           ...buttons,
-          [{ text: '🔄 تحديث القائمة', callback_data: 'orders:refresh' }],
-          [{ text: '❓ القائمة الرئيسية', callback_data: 'menu:help' }],
+          [{ text: t(language, 'buttons.all'), callback_data: 'orders:refresh' },
+            ...ACTIVE_FILTERS.map(status => ({ text: t(language, 'buttons.' + status), callback_data: 'orders:filter:' + status }))],
+          [{ text: t(language, 'buttons.refresh'), callback_data: filter ? 'orders:filter:' + filter : 'orders:refresh' }],
+          [{ text: t(language, 'buttons.menu'), callback_data: 'menu:help' }],
         ] },
       };
     // Acknowledge after the fresh authorization check; edit the active bot card.
@@ -139,7 +150,7 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
     if (!/^[a-f0-9]{24}$/i.test(id)) {
       await send('sendMessage', {
         chat_id: chat.id,
-        text: 'استخدم /order أو /status مع رقم الطلب الكامل (24 حرفًا)، أو /orders لعرض الطلبات النشطة.',
+        text: t(language, 'messages.invalidOrder'),
       });
       return true;
     }
@@ -147,38 +158,38 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
       telegramUserId: String(sender.id), telegramChatId: String(chat.id), orderId: id,
     });
     const messageText = !result?.linked
-      ? 'حسابك غير مرتبط أو غير معتمد. اربطه من تطبيق Yalla.'
+      ? t(language, 'messages.unlinked')
       : !result.order
-        ? 'الطلب غير متاح لهذا الحساب.'
-        : '🛵 حالة الطلب الآن:\n' + formatOrder(result.order);
+        ? t(language, 'messages.orderMissing')
+        : t(language, 'messages.statusNow') + formatOrder(result.order, language);
     await send('sendMessage', {
       chat_id: chat.id, text: messageText,
-      ...(result?.linked && result.order ? { reply_markup: orderButtons(result.order) } : {}),
+      ...(result?.linked && result.order ? { reply_markup: orderButtons(result.order, language) } : {}),
     });
     return true;
   }
   if (callback?.data?.startsWith('status:')) {
     if (!/^status:[a-f0-9]{24}$/i.test(callback.data)) {
-      await send('answerCallbackQuery', { callback_query_id: callback.id, text: 'طلب غير صالح' });
+      await send('answerCallbackQuery', { callback_query_id: callback.id, text: t(language, 'messages.invalidCallback') });
       return true;
     }
     const result = await request('/api/telegram-captain/internal/order', {
       telegramUserId: String(sender.id), telegramChatId: String(chat.id),
       orderId: callback.data.slice(7),
     });
-    const payload = !result?.linked ? 'حسابك غير مرتبط. اربطه من التطبيق.'
-      : result.order ? '🛵 حالة الطلب الآن:\n' + formatOrder(result.order)
-        : 'الطلب غير متاح لهذا الحساب.';
+    const payload = !result?.linked ? t(language, 'messages.unlinked')
+      : result.order ? t(language, 'messages.statusNow') + formatOrder(result.order, language)
+        : t(language, 'messages.orderMissing');
     await send('answerCallbackQuery', { callback_query_id: callback.id });
     await sendReadOnlyView(send, chat.id, {
       text: payload,
-      ...(result?.linked && result.order ? { reply_markup: orderButtons(result.order) } : {}),
+      ...(result?.linked && result.order ? { reply_markup: orderButtons(result.order, language) } : {}),
     }, callback);
     return true;
   }
   return false;
 }
-async function deliverEvent(event, send, request = requestBackend) {
+async function deliverEvent(event, send, request = requestBackend, language = 'ar') {
   const result = await request('/api/telegram-captain/internal/resolve-event', {
     eventType: event.eventType, orderId: event.orderId, captainId: event.captainId, status: event.status,
   });
@@ -186,9 +197,9 @@ async function deliverEvent(event, send, request = requestBackend) {
   const chatId = String(result.telegramChatId || '');
   if (!/^[0-9]{1,20}$/.test(chatId)) throw new Error('Invalid resolved Telegram chat');
   await send('sendMessage', {
-    chat_id: chatId, text: (event.eventType === 'assigned' ? '🛵 طلب جديد أُسند إليك' : '📦 تحديث حالة طلبك') +
-      '\n' + formatOrder(result.order) + '\n\nاستخدم /orders لمراجعة طلباتك.',
-    reply_markup: orderButtons(result.order),
+    chat_id: chatId, text: (event.eventType === 'assigned' ? t(language, 'messages.assignedEvent') : t(language, 'messages.statusEvent')) +
+      '\n' + formatOrder(result.order, language) + '\n\n' + t(language, 'messages.eventFooter'),
+    reply_markup: orderButtons(result.order, language),
   });
   return { delivered: true };
 }

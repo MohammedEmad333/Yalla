@@ -103,3 +103,30 @@ test('unapproved captain loses Telegram read access', async (t) => {
     telegramUserId: '54321', telegramChatId: '54321',
   })).linked, false);
 });
+
+
+test('status filters run inside the owner-scoped Mongo query before the five-order limit', async (t) => {
+  if (!state.dbReady) return t.skip('MongoDB unavailable');
+  const { mine, others } = await fixture();
+  await Order.updateOne({ _id: mine._id }, { $set: { status: 'accepted' } });
+  const accepted = await orders.listOrdersForTelegram({
+    telegramUserId: '54321', telegramChatId: '54321', status: 'accepted',
+  });
+  assert.equal(accepted.linked, true);
+  assert.equal(accepted.orders.length, 1);
+  assert.equal(accepted.orders[0].orderId, String(mine._id));
+  assert.ok(accepted.orders.every(order => order.status === 'accepted'));
+  assert.ok(accepted.orders.every(order => order.orderId !== String(others._id)));
+  const assigned = await orders.listOrdersForTelegram({
+    telegramUserId: '54321', telegramChatId: '54321', status: 'assigned',
+  });
+  assert.deepEqual(assigned, { linked: true, orders: [] });
+  const invalid = await orders.listOrdersForTelegram({
+    telegramUserId: '54321', telegramChatId: '54321', status: 'delivered',
+  });
+  assert.deepEqual(invalid, { linked: true, orders: [] });
+  const forged = await orders.listOrdersForTelegram({
+    telegramUserId: '54321', telegramChatId: '55555', status: 'accepted',
+  });
+  assert.deepEqual(forged, { linked: false, orders: [] });
+});

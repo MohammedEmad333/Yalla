@@ -10,6 +10,7 @@ const { ORDER_STATUS } = require('../utils/constants');
 const ACTIVE = [
   ORDER_STATUS.ASSIGNED, ORDER_STATUS.ACCEPTED, ORDER_STATUS.PICKED_UP,
 ];
+const ACTIVE_FILTERS = Object.freeze(['assigned', 'accepted', 'picked_up']);
 const ALLOWED_STATUS = [
   ...ACTIVE, ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED,
 ];
@@ -38,10 +39,15 @@ async function linkedCaptain(telegramUserId, telegramChatId) {
   return link.captainId;
 }
 
-async function listOrdersForTelegram({ telegramUserId, telegramChatId } = {}) {
+async function listOrdersForTelegram({ telegramUserId, telegramChatId, status } = {}) {
   const captainId = await linkedCaptain(telegramUserId, telegramChatId);
   if (!captainId) return { linked: false, orders: [] };
-  const orders = await Order.find({ captain: captainId, status: { $in: ACTIVE } })
+  // Apply the allowlisted status before limiting results, never filter a
+  // five-order snapshot. Identity and ownership are verified above.
+  if (status !== undefined && !ACTIVE_FILTERS.includes(status)) {
+    return { linked: true, orders: [] };
+  }
+  const orders = await Order.find({ captain: captainId, status: status ? status : { $in: ACTIVE } })
     .select('_id status store.name')
     .sort({ createdAt: -1 })
     .limit(5)
