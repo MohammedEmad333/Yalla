@@ -51,6 +51,7 @@ test('Telegram HTTP failures are reported', async () => {
   await assert.rejects(notifyAssignedOrder({ captainId, orderId }, {
     env, findLink: async () => link, isApproved: async () => true,
     findCurrentOrder: async () => true,
+    sendDelivery: async (_event, send) => send(),
     fetchImpl: async () => ({ ok: false, status: 429 }),
   }), /HTTP 429/);
 });
