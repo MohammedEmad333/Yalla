@@ -86,3 +86,10 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 - `/menu` opens the private-chat help menu with inline navigation buttons.
 - `/status FULL_ORDER_ID` is a safe alias for `/order FULL_ORDER_ID`. A complete 24-character hexadecimal order ID is required; the backend independently rechecks the linked approved captain and order ownership on every lookup.
 - These shortcuts never update an order, expose customer data, or bypass the private-chat identity check. Inline navigation continues to refresh backend authorization on every request.
+
+## Private account linkage status
+
+- `/account` and the **Account status** main-menu button verify the active private Telegram identity through the existing authenticated backend orders endpoint.
+- Only a linked/approved boolean is displayed. No linked captain ID, phone, active order, addresses, wallet details, or merchant data appear in account status responses.
+- Unlinked or unapproved accounts get safe instructions to manage their link from the Yalla app, without order buttons. A linked captain can navigate to their existing read-only order list.
+- Every status check contacts the backend again; callback refresh edits the existing private message when possible, with the same sender/chat identity checks used for order access.
