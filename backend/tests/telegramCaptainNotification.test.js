@@ -5,6 +5,8 @@ const { notifyAssignedOrder, assignmentText } = require('../src/services/telegra
 const captainId = '507f1f77bcf86cd799439011';
 const orderId = '507f1f77bcf86cd799439012';
 const link = { telegramUserId: '123456', telegramChatId: '123456' };
+const stubDelivery = async (_event, deliver) => { await deliver(); return { status: 'sent' }; };
+const stubCurrentOrder = async () => true;
 const env = {
   TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED: 'true',
   TELEGRAM_CAPTAIN_NOTIFICATIONS_CAPTAIN_IDS: captainId,
@@ -32,6 +34,7 @@ test('only order ID and app instructions are sent', async () => {
   let payload;
   assert.equal((await notifyAssignedOrder({ captainId, orderId }, {
     env, findLink: async () => link, isApproved: async () => true,
+    findCurrentOrder: stubCurrentOrder, sendDelivery: stubDelivery,
     fetchImpl: async (url, options) => {
       assert.match(url, /^https:\/\/api\.telegram\.org\/bot/);
       payload = JSON.parse(options.body);
@@ -67,7 +70,7 @@ test('unlisted captain cannot receive an assignment', async () => {
 const { notifyOrderStatus, orderStatusText } = require('../src/services/telegramCaptainNotification.service');
 const options = {
   env, findLink: async () => link, isApproved: async () => true,
-  findCurrentOrder: async () => true,
+  findCurrentOrder: async () => true, sendDelivery: stubDelivery,
   fetchImpl: async () => ({ ok: true, json: async () => ({ ok: true }) }),
 };
 test('status notifications are disabled by default and do not query data', async () => {
