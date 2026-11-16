@@ -129,3 +129,43 @@ test('Telegram status API errors do not pretend to be sent', async () => {
     ...options, fetchImpl: async () => ({ ok: false, status: 429 }),
   }), /HTTP 429/);
 });
+
+test('muted assignment and status notifications never call Telegram', async () => {
+  const forbidden = async () => { throw Error('must not send or claim delivery'); };
+  assert.deepEqual(await notifyAssignedOrder({ captainId, orderId }, {
+    env, findLink: async () => ({ ...link, notificationPreferences: { assigned: false } }),
+    isApproved: async () => true, findCurrentOrder: stubCurrentOrder,
+    sendDelivery: forbidden, fetchImpl: forbidden,
+  }), { status: 'muted' });
+  assert.deepEqual(await notifyOrderStatus({ captainId, orderId, status: 'accepted' }, {
+    ...options, findLink: async () => ({ ...link,
+      notificationPreferences: { status: false } }),
+    sendDelivery: forbidden, fetchImpl: forbidden,
+  }), { status: 'muted' });
+});
+
+test('assignment notifications are suppressed when captain loses the order', async () => {
+  assert.deepEqual(await notifyAssignedOrder({ captainId, orderId }, {
+    env, findLink: async () => link, isApproved: async () => true,
+    findCurrentOrder: async () => false,
+    sendDelivery: async () => { throw Error('must not claim'); },
+    fetchImpl: async () => { throw Error('must not send'); },
+  }), { status: 'stale-event' });
+});
+
+test('assignment and status notifications use distinct durable event keys', async () => {
+  const keys = [];
+  const capture = async (key, task) => { keys.push(key); await task(); return { status: 'sent' }; };
+  const send = async () => ({ ok: true, json: async () => ({ ok: true }) });
+  await notifyAssignedOrder({ captainId, orderId }, {
+    env, findLink: async () => link, isApproved: async () => true,
+    findCurrentOrder: stubCurrentOrder, sendDelivery: capture, fetchImpl: send,
+  });
+  await notifyOrderStatus({ captainId, orderId, status: 'accepted' }, {
+    ...options, sendDelivery: capture, fetchImpl: send,
+  });
+  assert.deepEqual(keys, [
+    { captainId, orderId, kind: 'assigned', status: 'assigned' },
+    { captainId, orderId, kind: 'status', status: 'accepted' },
+  ]);
+});
