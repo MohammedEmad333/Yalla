@@ -16,7 +16,7 @@ const COPY = Object.freeze({
       '🔎 /order رقم_الطلب: استعلام عن طلب محدد من حسابك فقط (24 حرفًا).',
       '📦 /status رقم_الطلب: عرض حالة طلبك الحاليّة بصلاحيات القراءة فقط.',
       '🔔 /notifications: تخصيص إشعارات الطلبات المسندة وتغيّر الحالة.',
-      '🌐 /language أو /settings: اختر العربية أو English.'
+      '🌐 /language أو /settings: اختر العربية أو English.',
       '🏠 /menu: العودة إلى القائمة الرئيسية.',
       '✅ /account: التأكد من ارتباط حساب الكابتن واعتماده بأمان.',
       '🔄 استخدم زر تحديث الحالة لمعرفة حالة الطلب الحالية.',
@@ -98,7 +98,7 @@ const COPY = Object.freeze({
       '🔎 /order FULL_ORDER_ID: look up your own order (24 hex characters).',
       '📦 /status FULL_ORDER_ID: read-only order status.',
       '🔔 /notifications: choose assignment and status notifications.',
-      '🌐 /language or /settings: switch between English and Arabic.'
+      '🌐 /language or /settings: switch between English and Arabic.',
       '🏠 /menu: open the main menu.',
       '✅ /account: securely check whether your captain account is linked and approved.',
       '🔄 Use Refresh to check the latest order status.',
