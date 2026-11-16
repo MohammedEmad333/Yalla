@@ -17,6 +17,3 @@
 Thumbs.db
 *.log
 .wrangler/
-
-# Telegram captain local language preferences (private runtime state)
-telegram-captain-bot/data/
