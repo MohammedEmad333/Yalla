@@ -72,6 +72,7 @@ const HELP_TEXT = [
   '🛵 Yalla | مساعد الكابتن',
   '',
   '📋 /orders أو /myorders: آخر 5 طلبات نشطة.',
+  '⚡ /latest: أحدث طلب نشط لديك مع أزرار التحديث والتنقل.',
   '🔎 /order رقم_الطلب: استعلام عن طلب محدد من حسابك فقط (24 حرفًا).',
   '📦 /status رقم_الطلب: عرض حالة طلبك الحاليّة بصلاحيات القراءة فقط.',
   '🏠 /menu: العودة إلى القائمة الرئيسية.',
@@ -93,6 +94,7 @@ const PRIVACY_TEXT = [
 function helpKeyboard() {
   return { inline_keyboard: [
     [{ text: '📋 طلباتي النشطة', callback_data: 'menu:orders' }],
+    [{ text: '⚡ أحدث طلب', callback_data: 'menu:latest' }],
     [{ text: '✅ حالة الربط', callback_data: 'menu:account' }],
     [{ text: '🔒 الخصوصية', callback_data: 'menu:privacy' }],
     [{ text: '❓ المساعدة', callback_data: 'menu:help' }],
@@ -111,6 +113,12 @@ async function handleUpdate(update, send) {
       // Preserve callback identity and current message for safe in-place navigation.
       await handleReadOnlyCommand({
         callback_query: { ...callback, data: 'account:status' },
+      }, send);
+      return;
+    }
+    if (action === 'latest') {
+      await handleReadOnlyCommand({
+        callback_query: { ...callback, data: 'orders:latest' },
       }, send);
       return;
     }
