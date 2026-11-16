@@ -5,6 +5,7 @@ const { ROLES } = require('../utils/constants');
 const pairing = require('../services/telegramCaptainPairing.service');
 const { rateLimit } = require('../middlewares/rateLimit.middleware');
 const orders = require('../services/telegramCaptainOrders.service');
+const notificationSettings = require('../services/telegramCaptainNotificationSettings.service');
 const { timingSafeEqual } = require('node:crypto');
 
 // Every internal route is bot-to-backend, authenticated independently of
@@ -45,6 +46,20 @@ router.post('/internal/resolve-event',
   rateLimit({ windowMs: 60_000, max: 120, namespace: 'telegram-event-resolve-v1' }),
   async (req, res, next) => {
     try { res.json(await orders.resolveOrderEvent(req.body || {})); }
+    catch (err) { next(err); }
+  }
+);
+router.post('/internal/notification-settings',
+  rateLimit({ windowMs: 60_000, max: 60, namespace: 'telegram-notification-settings-read-v1' }),
+  async (req, res, next) => {
+    try { res.json(await notificationSettings.getSettings(req.body || {})); }
+    catch (err) { next(err); }
+  }
+);
+router.post('/internal/notification-settings/update',
+  rateLimit({ windowMs: 60_000, max: 20, namespace: 'telegram-notification-settings-update-v1' }),
+  async (req, res, next) => {
+    try { res.json(await notificationSettings.setSettings(req.body || {})); }
     catch (err) { next(err); }
   }
 );
