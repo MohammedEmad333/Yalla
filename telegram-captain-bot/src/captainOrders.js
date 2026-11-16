@@ -70,6 +70,39 @@ async function handleReadOnlyCommand(update, send, request = requestBackend) {
     return true;
   }
 
+  // A one-tap view of the newest active order. Every request uses the
+  // authenticated backend identity and current ownership, never cached data.
+  if (/^\/latest(?:@\w+)?$/i.test(input) || callback?.data === 'orders:latest') {
+    const result = await request('/api/telegram-captain/internal/orders', {
+      telegramUserId: String(sender.id), telegramChatId: String(chat.id),
+    });
+    const linked = result?.linked === true;
+    const first = linked && Array.isArray(result.orders)
+      ? result.orders.find(o => o && /^[a-f0-9]{24}$/i.test(o.orderId || ''))
+      : null;
+    const payload = !linked
+      ? { text: 'حسابك غير مرتبط أو غير معتمد. اربطه من تطبيق Yalla.' }
+      : first
+        ? {
+          text: '🛵 أحدث طلب نشط لديك:\n' + formatOrder(first),
+          reply_markup: { inline_keyboard: [
+            [{ text: '🔄 تحديث هذا الطلب', callback_data: 'status:' + first.orderId }],
+            [{ text: '📋 كل طلباتي', callback_data: 'orders:refresh' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'menu:help' }],
+          ] },
+        }
+        : {
+          text: 'لا توجد لديك طلبات نشطة حاليًا.',
+          reply_markup: { inline_keyboard: [
+            [{ text: '🔄 تحديث', callback_data: 'orders:latest' }],
+            [{ text: '🏠 القائمة الرئيسية', callback_data: 'menu:help' }],
+          ] },
+        };
+    if (callback) await send('answerCallbackQuery', { callback_query_id: callback.id });
+    await sendReadOnlyView(send, chat.id, payload, callback);
+    return true;
+  }
+
   if (/^\/(?:orders|myorders)(?:@\w+)?$/i.test(input) || callback?.data === 'orders:refresh') {
     const result = await request('/api/telegram-captain/internal/orders', {
       telegramUserId: String(sender.id), telegramChatId: String(chat.id),
