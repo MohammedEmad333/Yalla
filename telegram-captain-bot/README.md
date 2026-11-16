@@ -100,3 +100,10 @@ Run `node --test test/*.test.js` and `node index.js` from this directory. Config
 - Every request rechecks the private chat identity and the captain-to-order ownership on the backend. It does not search by a partial order ID or reveal other captains' orders.
 - The card offers a read-only status refresh and a way back to the complete active order list. If the captain is unlinked, no order details or actionable inline order buttons are shown.
 - This is read-only and disabled from accessing customer addresses, codes, phones, wallets, payments or order mutation APIs.
+
+## Webhook concurrency protection
+
+- Concurrent processing is capped at 64 distinct Telegram update IDs per bot process to bound memory and outbound requests during bursts.
+- Concurrent retries of an already running update still share the same work; completed IDs are deduplicated as before.
+- If all 64 slots are busy, the bot responds HTTP 503 for *new* update IDs, so Telegram may retry later. Once a handler completes or fails, its slot is released. No update is acknowledged as processed unless its handler succeeds.
+- This is process-local backpressure, not a durable queue. It does not change private-chat authorization, production secrets or the read-only capabilities.

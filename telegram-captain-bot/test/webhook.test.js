@@ -4,8 +4,8 @@ const assert = require('node:assert/strict');
 const { createWebhookServer } = require('../src/webhook');
 
 const secret = 'A'.repeat(48);
-async function withServer(processUpdate, task) {
-  const server = createWebhookServer({ secret, processUpdate, logger: { error() {} } });
+async function withServer(processUpdate, task, options = {}) {
+  const server = createWebhookServer({ secret, processUpdate, logger: { error() {} }, ...options });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   try {
     const base = 'http://127.0.0.1:' + server.address().port;
@@ -72,4 +72,29 @@ test('rejects malformed updates, still exposes local health', async () => {
     assert.equal((await post({ message: { text: 'hello' } })).status, 400);
     assert.equal((await fetch(base + '/health')).status, 200);
   });
+});
+
+test('saturated webhook returns 503 for distinct updates and retries when free', async () => {
+  let release;
+  let started;
+  const gate = new Promise(resolve => { release = resolve; });
+  const entered = new Promise(resolve => { started = resolve; });
+  let handled = 0;
+  await withServer(async (update) => {
+    handled++;
+    if (update.update_id === 81) { started(); await gate; }
+  }, async ({ post }) => {
+    const first = post({ update_id: 81 });
+    try {
+      await entered;
+      const overload = await post({ update_id: 82 });
+      assert.equal(overload.status, 503);
+      assert.equal(handled, 1);
+    } finally {
+      release();
+    }
+    assert.equal((await first).status, 200);
+    assert.equal((await post({ update_id: 82 })).status, 200);
+    assert.equal(handled, 2);
+  }, { maxInFlight: 1 });
 });
