@@ -1,5 +1,6 @@
 'use strict';
 const { handleReadOnlyCommand } = require('./captainOrders');
+const { handleNotificationSettings } = require('./notificationSettings');
 const { createLanguageStore } = require('./languageStore');
 const { t } = require('./i18n');
 const languageStore = createLanguageStore();
@@ -79,6 +80,7 @@ function helpKeyboard(language = 'ar') {
     [button('orders', 'menu:orders')],
     [button('latest', 'menu:latest')],
     [button('account', 'menu:account')],
+    [button('notifications', 'menu:notifications')],
     [button('language', 'menu:language')],
     [button('privacy', 'menu:privacy')],
     [button('help', 'menu:help')],
@@ -120,6 +122,7 @@ async function handleUpdate(update, send, preferences = languageStore) {
     }
     return;
   }
+  if (await handleNotificationSettings(update, send, undefined, language)) return;
   if (callback?.data?.startsWith('menu:')) {
     const action = callback.data.slice(5);
     if (action === 'account') {
