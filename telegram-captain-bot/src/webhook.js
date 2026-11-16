@@ -3,11 +3,11 @@ const { createServer } = require('node:http');
 const { secretMatches } = require('./security');
 const { createUpdateProcessor } = require('./updateProcessor');
 
-function createWebhookServer({ secret, processUpdate, logger = console }) {
+function createWebhookServer({ secret, processUpdate, logger = console, maxInFlight = 64 }) {
   if (typeof secret !== 'string' || !/^[A-Za-z0-9_-]{32,256}$/.test(secret)) {
     throw new Error('TELEGRAM_WEBHOOK_SECRET must be 32-256 allowed ASCII characters');
   }
-  const processOnce = createUpdateProcessor(processUpdate);
+  const processOnce = createUpdateProcessor(processUpdate, { maxInFlight });
 
   return createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/health') {
