@@ -42,3 +42,44 @@ test('completed IDs expire and the cache is bounded', async () => {
   await process({ update_id: 1 }); // expired
   assert.deepEqual(processed, [1, 2, 3, 1, 1]);
 });
+
+test('caps unique concurrent updates but coalesces duplicates at capacity', async () => {
+  let release;
+  let started = 0;
+  const gate = new Promise(resolve => { release = resolve; });
+  const process = createUpdateProcessor(async () => { started++; await gate; }, { maxInFlight: 1 });
+  const original = process({ update_id: 40 });
+  const duplicate = process({ update_id: 40 });
+  assert.equal(duplicate, original);
+  await assert.rejects(process({ update_id: 41 }), /webhook busy/);
+  assert.equal(started, 1);
+  release();
+  await Promise.all([original, duplicate]);
+  await process({ update_id: 41 });
+  assert.equal(started, 2);
+});
+
+test('failed in-flight updates free capacity and are retryable', async () => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let attempts = 0;
+  const process = createUpdateProcessor(async () => {
+    attempts++;
+    if (attempts === 1) { await gate; throw new Error('backend unavailable'); }
+  }, { maxInFlight: 1 });
+  const first = process({ update_id: 70 });
+  await assert.rejects(process({ update_id: 71 }), /webhook busy/);
+  release();
+  await assert.rejects(first, /backend unavailable/);
+  // Cleanup runs in the finally reaction. The next different update is accepted.
+  await process({ update_id: 71 });
+  await process({ update_id: 70 });
+  assert.equal(attempts, 3);
+});
+
+test('invalid concurrency limits fail at startup', () => {
+  for (const value of [0, -1, 1.5, Infinity, NaN]) {
+    assert.throws(() => createUpdateProcessor(async () => {}, { maxInFlight: value }),
+      /maxInFlight must be a positive integer/);
+  }
+});
