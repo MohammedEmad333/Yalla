@@ -50,6 +50,7 @@ test('only order ID and app instructions are sent', async () => {
 test('Telegram HTTP failures are reported', async () => {
   await assert.rejects(notifyAssignedOrder({ captainId, orderId }, {
     env, findLink: async () => link, isApproved: async () => true,
+    findCurrentOrder: async () => true,
     fetchImpl: async () => ({ ok: false, status: 429 }),
   }), /HTTP 429/);
 });
