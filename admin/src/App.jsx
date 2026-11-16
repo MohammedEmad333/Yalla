@@ -30,6 +30,7 @@ import RewardsSettings from './pages/RewardsSettings';
 import AdminRoles from './pages/AdminRoles';
 import SmartDispatch from './pages/SmartDispatch';
 import SystemSettings from './pages/SystemSettings';
+import TelegramOperations from './pages/TelegramOperations';
 
 const NAV = [
   { group: 'العمليات', items: [
@@ -38,6 +39,7 @@ const NAV = [
     { key: 'system', label: 'إعدادات النظام', icon: IconSupport, Page: SystemSettings },
     { key: 'opsFinance', label: 'مركز العمليات والمال', icon: IconChart, Page: OperationsFinance },
     { key: 'quality', label: 'الجودة وصحة النظام', icon: IconSupport, Page: QualitySystem },
+    { key: 'telegramOps', label: 'مراقبة Telegram', icon: IconSupport, Page: TelegramOperations },
     { key: 'orders', label: 'بحث الطلبات', icon: IconOrders, Page: OrdersPage },
     { key: 'restaurants', label: 'المتاجر والمطاعم', icon: IconStore, Page: Restaurants },
     { key: 'merchantApps', label: 'طلبات انضمام المتاجر', icon: IconStore, Page: MerchantApplications },
@@ -64,7 +66,7 @@ const NAV = [
 
 const ROLE_PAGES = {
   super_admin: '*',
-  operations: ['dashboard','dispatch','system','orders','restaurants','merchantApps','users','captainDocs','stats','quality'],
+  operations: ['dashboard','dispatch','system','orders','restaurants','merchantApps','users','captainDocs','stats','quality','telegramOps'],
   support: ['dashboard','orders','users','chats','support','quality'],
   finance: ['dashboard','opsFinance','adminWallet','withdrawals','stats'],
   marketing: ['dashboard','restaurants','broadcast','marketing','rewards','stats'],

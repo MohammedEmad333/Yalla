@@ -3,6 +3,20 @@
 const Captain = require('../models/Captain');
 const Link = require('../models/TelegramCaptainLink');
 const { sendOnce } = require('./telegramCaptainDelivery.service');
+const { recordBestEffort } = require('./telegramCaptainMetrics.service');
+const { sendTelegramMessage } = require('./telegramCaptainTelegramClient.service');
+
+async function trackedDelivery(kind, event, deliver, sendDelivery, metrics = recordBestEffort) {
+  try {
+    const result = await sendDelivery(event, deliver);
+    const outcome = result?.status === 'in-flight' ? 'in_flight' : result?.status;
+    if (['sent', 'duplicate', 'in_flight'].includes(outcome)) await metrics(kind, outcome);
+    return result;
+  } catch (error) {
+    await metrics(kind, error?.code === 'TELEGRAM_RATE_LIMITED' ? 'rate_limited' : 'failed');
+    throw error;
+  }
+}
 const enabled = (env = process.env) => env.TELEGRAM_CAPTAIN_NOTIFICATIONS_ENABLED === 'true';
 // Explicit recipient allowlist for safe production pilot. '*' deliberately opts into all.
 function allowedCaptain(captainId, env = process.env) {
@@ -25,6 +39,8 @@ async function notifyAssignedOrder({ captainId, orderId }, {
   findCurrentOrder = (id, owner) => Order.exists({ _id: id, captain: owner, status: { $in: ['assigned', 'accepted'] } }),
   sendDelivery = sendOnce,
   fetchImpl = fetch,
+  metrics = recordBestEffort,
+  sleep,
 } = {}) {
   if (!enabled(env)) return { status: 'disabled' };
   if (!allowedCaptain(captainId, env)) return { status: 'not-allowlisted' };
@@ -36,22 +52,11 @@ async function notifyAssignedOrder({ captainId, orderId }, {
   if (!await isApproved(captainId)) return { status: 'unapproved' };
   if (link.notificationPreferences?.assigned === false) return { status: 'muted' };
   if (!await findCurrentOrder(orderId, captainId)) return { status: 'stale-event' };
-  return sendDelivery({ captainId, orderId, kind: 'assigned', status: 'assigned' }, async () => {
-  const response = await fetchImpl('https://api.telegram.org/bot' + token + '/sendMessage', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: link.telegramChatId,
-      text: assignmentText(orderId),
-      disable_web_page_preview: true,
-      protect_content: true,
-    }),
-    signal: AbortSignal.timeout(4500),
-  });
-  if (!response.ok) throw new Error('Telegram notification HTTP ' + response.status);
-  const result = await response.json();
-  if (!result.ok) throw new Error('Telegram notification API error');
-  });
+  return trackedDelivery('assigned', { captainId, orderId, kind: 'assigned', status: 'assigned' }, async () => {
+    await sendTelegramMessage(token, {
+      chat_id: link.telegramChatId, text: assignmentText(orderId),
+    }, { fetchImpl, sleep, onRetry: () => metrics('assigned', 'retried') });
+  }, sendDelivery, metrics);
 }
 
 const Order = require('../models/Order');
@@ -80,6 +85,8 @@ async function notifyOrderStatus({ captainId, orderId, status }, {
   }),
   sendDelivery = sendOnce,
   fetchImpl = fetch,
+  metrics = recordBestEffort,
+  sleep,
 } = {}) {
   if (!enabled(env)) return { status: 'disabled' };
   if (!allowedCaptain(captainId, env)) return { status: 'not-allowlisted' };
@@ -95,22 +102,11 @@ async function notifyOrderStatus({ captainId, orderId, status }, {
   if (!approved) return { status: 'unapproved' };
   if (!current) return { status: 'stale-event' };
   if (link.notificationPreferences?.status === false) return { status: 'muted' };
-  return sendDelivery({ captainId, orderId, kind: 'status', status }, async () => {
-  const response = await fetchImpl('https://api.telegram.org/bot' + env.TELEGRAM_BOT_TOKEN + '/sendMessage', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: String(link.telegramChatId),
-      text: orderStatusText(orderId, status),
-      disable_web_page_preview: true,
-      protect_content: true,
-    }),
-    signal: AbortSignal.timeout(4500),
-  });
-  if (!response.ok) throw new Error('Telegram status notification HTTP ' + response.status);
-  const result = await response.json();
-  if (!result.ok) throw new Error('Telegram status notification API error');
-  });
+  return trackedDelivery('status', { captainId, orderId, kind: 'status', status }, async () => {
+    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, {
+      chat_id: String(link.telegramChatId), text: orderStatusText(orderId, status),
+    }, { fetchImpl, sleep, onRetry: () => metrics('status', 'retried') });
+  }, sendDelivery, metrics);
 }
 
 module.exports = { enabled, allowedCaptain, assignmentText, notifyAssignedOrder, notifyOrderStatus, orderStatusText };

@@ -11,6 +11,7 @@ function classify(req) {
   if (path.startsWith('/banners')) return 'marketing';
   if (path.startsWith('/support')) return 'support';
   if (path.startsWith('/chats')) return 'chats';
+  if (path.startsWith('/telegram/')) return 'operations';
   if (path.startsWith('/notifications')) return 'broadcast';
   if (path.startsWith('/wallet') || path.startsWith('/withdrawals') || path.startsWith('/customer-withdrawals')) return 'finance';
   if (/^\/users\/[^/]+\/wallet/.test(path)) return 'finance';
