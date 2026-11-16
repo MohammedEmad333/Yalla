@@ -58,7 +58,7 @@ const COPY = Object.freeze({
     },
     messages: {
       notificationSettings: '🔔 إعدادات الإشعارات\nاختر ما تريد استلامه من تنبيهات. تسري إعدادات الإشعارات بعد التحقق من ربط الحساب وموافقته، وقد تكون الإشعارات معطلة عمومًا من إدارة Yalla.',
-      languagePrompt: '🌐 اختر لغة رسائل بوت Yalla. يمكنك تغييرها في أي وقت من /language.'
+      languagePrompt: '🌐 اختر لغة رسائل بوت Yalla. يمكنك تغييرها في أي وقت من /language.',
       languageSaved: '✅ تم حفظ اللغة العربية. يمكنك تعديلها من /settings.',
       languageInvalid: 'خيار لغة غير صالح. استخدم /language لاختيار العربية أو English.',
       accountLinked: '✅ حساب الكابتن مرتبط ومعتمد في Yalla.\nيمكنك استخدام /orders لعرض طلباتك النشطة.',
@@ -140,7 +140,7 @@ const COPY = Object.freeze({
     },
     messages: {
       notificationSettings: '🔔 Notification settings\nChoose which alerts to receive. Notifications still require an approved linked account and may be disabled centrally by Yalla administration.',
-      languagePrompt: '🌐 Choose the language for Yalla bot messages. You can change it later using /language.'
+      languagePrompt: '🌐 Choose the language for Yalla bot messages. You can change it later using /language.',
       languageSaved: '✅ English saved. Change your language anytime with /settings.',
       languageInvalid: 'Unsupported language. Use /language to choose English or العربية.',
       accountLinked: '✅ Your captain account is linked and approved.\nUse /orders to view active orders.',
