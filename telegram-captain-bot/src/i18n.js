@@ -15,7 +15,8 @@ const COPY = Object.freeze({
       '⚡ /latest: أحدث طلب نشط لديك مع أزرار التحديث والتنقل.',
       '🔎 /order رقم_الطلب: استعلام عن طلب محدد من حسابك فقط (24 حرفًا).',
       '📦 /status رقم_الطلب: عرض حالة طلبك الحاليّة بصلاحيات القراءة فقط.',
-      '🌐 /language أو /settings: اختر العربية أو English.',
+      '🔔 /notifications: تخصيص إشعارات الطلبات المسندة وتغيّر الحالة.',
+      '🌐 /language أو /settings: اختر العربية أو English.'
       '🏠 /menu: العودة إلى القائمة الرئيسية.',
       '✅ /account: التأكد من ارتباط حساب الكابتن واعتماده بأمان.',
       '🔄 استخدم زر تحديث الحالة لمعرفة حالة الطلب الحالية.',
@@ -39,6 +40,11 @@ const COPY = Object.freeze({
       privacy: '🔒 الخصوصية',
       help: '❓ المساعدة',
       language: '🌐 اللغة / Language',
+      notifications: '🔔 الإشعارات',
+      notification: {
+        assigned: 'الطلبات الجديدة', status: 'تغيّر حالة الطلب',
+        on: 'مفعّلة', off: 'متوقفة', refresh: '🔄 تحديث الإعدادات',
+      },
       menu: '🏠 القائمة الرئيسية',
       refresh: '🔄 تحديث القائمة',
       refreshStatus: '🔄 تحديث الحالة',
@@ -51,7 +57,8 @@ const COPY = Object.freeze({
       picked_up: 'قيد التوصيل',
     },
     messages: {
-      languagePrompt: '🌐 اختر لغة رسائل بوت Yalla. يمكنك تغييرها في أي وقت من /language.',
+      notificationSettings: '🔔 إعدادات الإشعارات\nاختر ما تريد استلامه من تنبيهات. تسري إعدادات الإشعارات بعد التحقق من ربط الحساب وموافقته، وقد تكون الإشعارات معطلة عمومًا من إدارة Yalla.',
+      languagePrompt: '🌐 اختر لغة رسائل بوت Yalla. يمكنك تغييرها في أي وقت من /language.'
       languageSaved: '✅ تم حفظ اللغة العربية. يمكنك تعديلها من /settings.',
       languageInvalid: 'خيار لغة غير صالح. استخدم /language لاختيار العربية أو English.',
       accountLinked: '✅ حساب الكابتن مرتبط ومعتمد في Yalla.\nيمكنك استخدام /orders لعرض طلباتك النشطة.',
@@ -90,7 +97,8 @@ const COPY = Object.freeze({
       '⚡ /latest: your latest active order, with refresh and navigation.',
       '🔎 /order FULL_ORDER_ID: look up your own order (24 hex characters).',
       '📦 /status FULL_ORDER_ID: read-only order status.',
-      '🌐 /language or /settings: switch between English and Arabic.',
+      '🔔 /notifications: choose assignment and status notifications.',
+      '🌐 /language or /settings: switch between English and Arabic.'
       '🏠 /menu: open the main menu.',
       '✅ /account: securely check whether your captain account is linked and approved.',
       '🔄 Use Refresh to check the latest order status.',
@@ -114,6 +122,11 @@ const COPY = Object.freeze({
       privacy: '🔒 Privacy',
       help: '❓ Help',
       language: '🌐 Language / اللغة',
+      notifications: '🔔 Notifications',
+      notification: {
+        assigned: 'New assignments', status: 'Order status updates',
+        on: 'On', off: 'Off', refresh: '🔄 Refresh settings',
+      },
       menu: '🏠 Main menu',
       refresh: '🔄 Refresh list',
       refreshStatus: '🔄 Refresh status',
@@ -126,7 +139,8 @@ const COPY = Object.freeze({
       picked_up: 'On the way',
     },
     messages: {
-      languagePrompt: '🌐 Choose the language for Yalla bot messages. You can change it later using /language.',
+      notificationSettings: '🔔 Notification settings\nChoose which alerts to receive. Notifications still require an approved linked account and may be disabled centrally by Yalla administration.',
+      languagePrompt: '🌐 Choose the language for Yalla bot messages. You can change it later using /language.'
       languageSaved: '✅ English saved. Change your language anytime with /settings.',
       languageInvalid: 'Unsupported language. Use /language to choose English or العربية.',
       accountLinked: '✅ Your captain account is linked and approved.\nUse /orders to view active orders.',
