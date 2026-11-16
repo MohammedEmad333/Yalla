@@ -47,7 +47,7 @@ async function sendTelegramMessage(token, payload, {
       const delay = retryDelay(response, body);
       const specified = Number(body?.parameters?.retry_after);
       if (Number.isFinite(specified) && specified > MAX_DELAY_MS / 1000) {
-        const e = new Error('Telegram notification rate limited');
+        const e = new Error('Telegram notification HTTP 429 (rate limited)');
         e.code = 'TELEGRAM_RATE_LIMITED';
         throw e;
       }
@@ -56,7 +56,7 @@ async function sendTelegramMessage(token, payload, {
       continue;
     }
     if (code === 429) {
-      const e = new Error('Telegram notification rate limited');
+      const e = new Error('Telegram notification HTTP 429 (rate limited)');
       e.code = 'TELEGRAM_RATE_LIMITED';
       throw e;
     }
